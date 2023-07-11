@@ -1,0 +1,23 @@
+{
+  "name": "tlsn-extension",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build-rs": "wasm-pack build --target web",
+    "build": "webpack --config webpack.config.js",
+    "start": "webpack-dev-server",
+    "ws-server": "cd ws-server && yarn start"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "tlsn-extension-rs": "file:./pkg"
+  },
+  "devDependencies": {
+    "copy-webpack-plugin": "^11.0.0",
+    "webpack": "^5.88.1",
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^4.15.1"
+  }
+}
