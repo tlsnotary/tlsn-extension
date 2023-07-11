@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>SessionManager Browser Test</title>
+  <meta charset="UTF-8">
+</head>
+<body>
+  <h1>SessionManager Browser Test</h1>
+  <div id="status">Loading...</div>
+  <div id="result"></div>
+
+  <script>
+    // Simulate Chrome extension runtime API for testing
+    if (!window.chrome || !window.chrome.runtime) {
+      window.chrome = {
+        runtime: {
+          onMessage: {
+            addListener: function(callback) {
+              console.log('Mock chrome.runtime.onMessage.addListener registered');
+              window._mockMessageListener = callback;
+            }
+          }
+        }
+      };
+    }
+
+    // Function to send test message
+    window.testSessionManager = function() {
+      const requestId = Date.now();
+      const testCode = 'export default env.add(5, 3)';
+
+      console.log('Sending test message:', testCode);
+
+      const mockSender = {};
+      const mockSendResponse = function(response) {
+        console.log('Received response:', response);
+
+        const resultDiv = document.getElementById('result');
+        if (response.success) {
+          resultDiv.innerHTML = `<div style="color: green;">
+            <h2>✓ Success!</h2>
+            <p>Request ID: ${response.requestId}</p>
+            <p>Result: ${response.result}</p>
+            <p>Expected: 8</p>
+            <p>Match: ${response.result === 8 ? 'YES' : 'NO'}</p>
+          </div>`;
+        } else {
+          resultDiv.innerHTML = `<div style="color: red;">
+            <h2>✗ Error</h2>
+            <p>Request ID: ${response.requestId}</p>
+            <p>Error: ${response.error}</p>
+          </div>`;
+        }
+      };
+
+      if (window._mockMessageListener) {
+        window._mockMessageListener(
+          {
+            type: 'EXEC_CODE_OFFSCREEN',
+            code: testCode,
+            requestId: requestId
+          },
+          mockSender,
+          mockSendResponse
+        );
+      }
+    };
+
+    // Load the offscreen bundle
+    const script = document.createElement('script');
+    script.src = './build/offscreen.bundle.js';
+    script.onload = function() {
+      document.getElementById('status').innerHTML = '<span style="color: green;">✓ Offscreen bundle loaded</span><br><button onclick="testSessionManager()">Run Test</button>';
+      console.log('Offscreen bundle loaded, SessionManager should be initialized');
+    };
+    script.onerror = function() {
+      document.getElementById('status').innerHTML = '<span style="color: red;">✗ Failed to load offscreen bundle</span>';
+    };
+    document.body.appendChild(script);
+  </script>
+</body>
+</html>

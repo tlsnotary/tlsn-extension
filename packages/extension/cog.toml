@@ -1,0 +1,33 @@
+branch_whitelist = []
+disable_changelog = false
+from_latest_tag = false
+generate_mono_repository_global_tag = true
+ignore_merge_commits = false
+post_bump_hooks = []
+post_package_bump_hooks = []
+pre_bump_hooks = [
+  "echo {{version}}",
+]
+pre_package_bump_hooks = []
+skip_ci = "[skip ci]"
+skip_untracked = false
+
+[git_hooks]
+
+[commit_types]
+
+[changelog]
+authors = [
+  {username = "0xtsukino", signature = "tsukino"},
+  {username = "heeckhau", signature = "Hendrik Eeckhaut"},
+  {username = "mhchia", signature = "Kevin Mai-Husan Chia"},
+]
+owner = "TLSNotary"
+path = "CHANGELOG.md"
+remote = "github.com"
+repository = "tlsn-extension"
+template = "remote"
+
+[bump_profiles]
+
+[packages]

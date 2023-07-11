@@ -1,0 +1,9 @@
+dist
+node_modules
+coverage
+*.min.js
+*.umd.js
+.nyc_output
+package-lock.json
+pnpm-lock.yaml
+yarn.lock

@@ -1,0 +1,124 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+$fa-font-path: "~@fortawesome/fontawesome-free/webfonts";
+
+@import "~@fortawesome/fontawesome-free/scss/fontawesome";
+@import "~@fortawesome/fontawesome-free/scss/brands";
+@import "~@fortawesome/fontawesome-free/scss/solid";
+@import "~@fortawesome/fontawesome-free/scss/regular";
+
+body {
+  width: 480px;
+  height: 600px;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  position: relative;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
+    monospace;
+}
+
+#app-container {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+
+  @media (min-width: 1024px) {
+    @apply bg-slate-400;
+  }
+}
+
+.button {
+  @apply bg-slate-200;
+  @apply text-slate-400;
+  @apply font-bold;
+  @apply px-2 py-0.5;
+  user-select: none;
+
+  &:hover {
+    @apply text-slate-600;
+  }
+
+  &:active {
+    @apply text-slate-700;
+  }
+
+  &--primary {
+    @apply bg-primary/[0.8];
+    @apply text-white;
+
+    &:hover {
+      @apply bg-primary/[0.9];
+      @apply text-white;
+    }
+
+    &:active {
+      @apply bg-primary;
+      @apply text-white;
+    }
+  }
+
+  &:disabled {
+    @apply opacity-50;
+    @apply select-none;
+
+    &:hover {
+      @apply text-slate-400;
+    }
+
+    &:active {
+      @apply text-slate-400;
+    }
+  }
+}
+
+.input {
+  @apply outline-none;
+  @apply text-xs;
+  @apply px-2 py-1;
+
+  &:focus {
+    @apply border-slate-300;
+  }
+}
+
+a {
+  @apply text-blue-600 underline;
+
+  &:hover {
+    @apply text-blue-500;
+  }
+
+  &:visited {
+    @apply text-purple-600;
+  }
+}
+
+.select {
+  @apply bg-slate-200;
+  @apply text-slate-800;
+  @apply font-bold;
+  @apply cursor-pointer;
+  @apply px-2 py-0.5;
+  outline: none;
+  border-right: .5rem solid transparent
+}
+
+.textarea {
+  @apply outline-none;
+  @apply text-xs;
+  @apply px-2 py-1;
+  @apply border;
+
+  &:focus {
+    @apply border-slate-300;
+  }
+}
