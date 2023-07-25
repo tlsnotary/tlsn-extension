@@ -16,5 +16,11 @@ module.exports = {
       ],
     }),
   ],
-
+  // FIXME: this is required to show which library causes
+  // "Module not found: Error: Can't resolve 'env'"
+  resolve: {
+    fallback: {
+      "env": false
+    },
+  },
 };

@@ -7,7 +7,8 @@
     "build-rs": "wasm-pack build --target web",
     "build": "webpack --config webpack.config.js",
     "start": "webpack-dev-server",
-    "ws-server": "cd ws-server && yarn start"
+    "build-and-start": "yarn build-rs && yarn install && yarn start",
+    "clean": "rm -rf pkg/ node_modules/ dist/ yarn.lock"
   },
   "author": "",
   "license": "ISC",
