@@ -15,14 +15,6 @@ tlsn-prover = { path = "../tlsn/tlsn/tlsn-prover" }
 getrandom = { version = "0.2", features = ["js"] }
 ws_stream_wasm = "0.7.4"
 wasm-bindgen-futures = "0.4.37"
-# instant = { version = "0.1", features = ["wasm-bindgen"] }
-# parking_lot = { version = "=0.11.1", features = ["wasm-bindgen"]}
-ring = { version = "0.16" }
-# NOTE: with flag `wasm32_c`, the code can compile but still encounter the original runtime issue
-# ring = { version = "0.16", features = ["wasm32_c"] }
-# NOTE: with the unreleased branch (0.17), the code cannot compile. It seems there are some breaking changes
-# between 0.16 and 0.17
-# ring = { git = "https://github.com/briansmith/ring", branch = "main", features = ["wasm32_unknown_unknown_js"] }
 
 [dependencies.web-sys]
 version = "0.3.22"
@@ -35,6 +27,15 @@ features = [
   "ProgressEvent",
   "WebSocket",
 ]
+
+# Replace ring with the forked version `ring-xous` implemented in pure rust
+# to make it compiled to wasm.
+# Refs:
+# - Rationale for `ring-xous`: https://www.bunniestudios.com/blog/?p=6521
+# - Issue for wasm comptability: https://github.com/briansmith/ring/issues/918
+[patch.crates-io.ring]
+git="https://github.com/betrusted-io/ring-xous"
+branch="0.16.20-cleanup"
 
 
 # The `console_error_panic_hook` crate provides better debugging of panics by
