@@ -15,6 +15,22 @@ tlsn-prover = { path = "../tlsn/tlsn/tlsn-prover" }
 getrandom = { version = "0.2", features = ["js"] }
 ws_stream_wasm = "0.7.4"
 wasm-bindgen-futures = "0.4.37"
+# tokio-util = "0.7"
+# tokio = { version = "1.23", features = [
+#   "rt",
+#   "sync",
+#   "macros",
+#   "io-util",
+# ] }
+futures = "0.3"
+serde_json = "1.0"
+futures-util = "0.3.28"
+
+hyper = { version = "0.14", features = ["client", "http1"] }
+console_error_panic_hook = "0.1.7"
+tracing-web = "0.1.2"
+tracing-subscriber = { version = "0.3", features = ["time"] }
+time = { version = "0.3", features = ["wasm-bindgen"] }
 
 [dependencies.web-sys]
 version = "0.3.22"
@@ -26,6 +42,7 @@ features = [
   "MessageEvent",
   "ProgressEvent",
   "WebSocket",
+  "console",
 ]
 
 # Replace ring with the forked version `ring-xous` implemented in pure rust
