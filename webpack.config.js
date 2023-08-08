@@ -37,6 +37,9 @@ const isDevelopment = process.env.NODE_ENV !== 'production';
 
 var options = {
   mode: process.env.NODE_ENV || 'development',
+  ignoreWarnings: [
+    /Circular dependency between chunks with runtime/
+  ],
   entry: {
     options: path.join(__dirname, 'src', 'pages', 'Options', 'index.tsx'),
     popup: path.join(__dirname, 'src', 'pages', 'Popup', 'index.tsx'),
@@ -65,6 +68,10 @@ var options = {
           },
           {
             loader: 'css-loader',
+            options: { importLoaders: 1 }
+          },
+          {
+            loader: "postcss-loader"
           },
           {
             loader: 'sass-loader',

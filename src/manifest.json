@@ -27,7 +27,13 @@
       "matches": []
     }
   ],
+  "host_permissions": ["<all_urls>"],
   "permissions": [
-    "offscreen"
+    "offscreen",
+    "http://*/",
+    "https://*/",
+    "webRequest",
+    "activeTab",
+    "<all_urls>"
   ]
 }
