@@ -27,9 +27,9 @@ const Popup = () => {
   const url = activeTab?.url ? new URL(activeTab.url) : null;
   return (
     <div className="flex flex-col w-full h-full">
-      <header className="flex flex-row items-center justify-center border-b border-slate-200">
-        <img src={logo} className="w-8 m-4" alt="logo" />
-      </header>
+      {/*<header className="flex flex-row items-center justify-center border-b border-slate-200">*/}
+      {/*  <img src={logo} className="w-8 m-4" alt="logo" />*/}
+      {/*</header>*/}
       <div className="flex flex-nowrap flex-row gap-2 p-2 justify-center bg-slate-100">
         <img src={activeTab?.favIconUrl} className="h-5 rounded-full" alt="logo" />
         <div className="text-sm">{url?.origin}</div>
@@ -37,18 +37,18 @@ const Popup = () => {
       {selectedRequest && (
         <table className="border border-slate-300 border-collapse table-fixed">
           <tbody className="">
-            <tr>
+            <tr className="border-b border-slate-200">
               <td className="font-bold align-top py-1 px-2">
                 {selectedRequest.method}
               </td>
-              <td className="break-all py-1 px-2">{selectedRequest.url}</td>
+              <td className="break-all align-top py-1 px-2">{selectedRequest.url}</td>
             </tr>
           {selectedRequest.requestHeaders.map(h => (
-            <tr>
+            <tr className="border-b border-slate-200">
               <td className="font-bold align-top py-1 px-2">
                 {h.name}
               </td>
-              <td className="break-all py-1 px-2">{h.value}</td>
+              <td className="break-all align-top py-1 px-2">{h.value}</td>
             </tr>
           ))}
           </tbody>
