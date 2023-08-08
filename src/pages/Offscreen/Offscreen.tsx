@@ -5,11 +5,9 @@ const Offscreen = () => {
 
   useEffect(() => {
     (async function offscreenloaded() {
-      console.log('offscreen loaded')
+      console.log('offscreen loaded - spawning worker from worker.ts');
       const Wasm: any = Comlink.wrap(new Worker(new URL("./worker.ts", import.meta.url)));
-      console.log('hihihih')
-      const instance = await new Wasm();
-      console.log(instance);
+      await new Wasm();
     })();
   }, []);
 

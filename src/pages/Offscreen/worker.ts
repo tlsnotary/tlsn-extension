@@ -6,18 +6,20 @@ const DATA = Array(10000000).fill(1);
 
 class Test {
   constructor() {
-    console.log('worker loaded');
+    console.log('worker test module initiated.');
     this.test();
   }
 
   async test() {
-    console.log('start');
-    console.log('sync', DATA.reduce((sum, n) => sum + n, 0));
-    console.log(navigator.hardwareConcurrency)
+    console.log('running worker test script');
+    console.log('summing an Int32Array in javascript', DATA.reduce((sum, n) => sum + n, 0));
+
+    console.log(`initializing thread pool with ${navigator.hardwareConcurrency} core.`);
     await init();
     await initThreadPool(navigator.hardwareConcurrency);
-    console.log(sum(new Int32Array(DATA)));
-    console.log('hihihihi')
+
+    console.log(`initialize thread pool with ${navigator.hardwareConcurrency} core.`);
+    console.log('summing an Int32Array in wasm with rayon iterator', sum(new Int32Array(DATA)));
   }
 }
 
