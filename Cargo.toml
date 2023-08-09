@@ -11,7 +11,8 @@ crate-type = ["cdylib"]
 [dependencies]
 wasm-bindgen = "0.2.87"
 js-sys = "0.3"
-tlsn-prover = { path = "../tlsn/tlsn/tlsn-prover" }
+tracing = "0.1"
+tlsn-prover = { path = "../tlsn/tlsn/tlsn-prover", features = ["tracing"] }
 getrandom = { version = "0.2", features = ["js"] }
 ws_stream_wasm = "0.7.4"
 wasm-bindgen-futures = "0.4.37"
