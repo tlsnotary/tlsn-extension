@@ -6,8 +6,6 @@ use hyper::{body::to_bytes, Body, Request, StatusCode};
 use futures_util::io::AsyncWriteExt;
 // use tokio::io::AsyncWriteExt as _;
 // use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
-// use tokio::io::AsyncWriteExt as _;
-// use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
 
 use wasm_bindgen::prelude::*;
 // use wasm_bindgen_futures::spawn_local;
@@ -34,6 +32,8 @@ macro_rules! log {
 extern crate console_error_panic_hook;
 
 
+const SERVER_DOMAIN: &str = "twitter.com";
+
 #[wasm_bindgen(start)]
 pub async fn ss() -> Result<(), JsValue> {
     let fmt_layer = tracing_subscriber::fmt::layer()
@@ -44,6 +44,7 @@ pub async fn ss() -> Result<(), JsValue> {
         .with_details_from_fields(Pretty::default());
 
     tracing_subscriber::registry()
+        .with(tracing_subscriber::filter::LevelFilter::DEBUG)
         .with(fmt_layer)
         .with(perf_layer)
         .init(); // Install these as subscribers to tracing events
