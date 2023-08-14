@@ -64,11 +64,6 @@ const mutex = new Mutex();
             ...RequestsLogs[details.tabId][details.requestId],
             requestBody: bodyString,
           };
-          // console.log(RequestsLogs[details.tabId], details.requestId);
-          // if (RequestsLogs[details.tabId][details.requestId]) {
-          //   console.log(RequestsLogs[details.tabId][details.requestId]);
-          //
-          // }
         }
       });
     },
@@ -76,6 +71,24 @@ const mutex = new Mutex();
       urls: ["<all_urls>"],
     },
     ['requestBody']
+  );
+
+  chrome.webRequest.onResponseStarted.addListener(
+    details => {
+      mutex.runExclusive(async () => {
+        const { method, type, responseHeaders } = details;
+          RequestsLogs[details.tabId] = RequestsLogs[details.tabId] || {};
+
+          RequestsLogs[details.tabId][details.requestId] = {
+            ...RequestsLogs[details.tabId][details.requestId],
+            responseHeaders,
+          };
+      });
+    },
+    {
+      urls: ["<all_urls>"],
+    },
+    ['responseHeaders']
   );
 
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
