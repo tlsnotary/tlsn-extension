@@ -1,0 +1,72 @@
+.modal {
+  display: flex;
+  flex-flow: column nowrap;
+
+  &__overlay {
+    position: fixed;
+    width: 100vw;
+    height: 100vh;
+    top: 0;
+    left: 0;
+    z-index: 9999;
+    overflow: auto;
+  }
+
+  &__wrapper {
+    margin: 3rem auto;
+    border-radius: 0.5rem;
+    z-index: 200;
+    overflow: hidden;
+
+    @media only screen and (max-width: 768px) {
+      width: 100vw !important;
+    }
+  }
+
+  &__header {
+    display: flex;
+    flex-flow: row nowrap;
+    flex: 0 0 auto;
+    align-items: center;
+    padding: 0.5rem 1rem;
+
+    &__title {
+      font-weight: 500;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow: hidden;
+    }
+
+    &__content {
+      display: flex;
+      flex-flow: row nowrap;
+      flex: 1 1 auto;
+      justify-content: flex-end;
+    }
+  }
+
+  &__content {
+    flex: 1 1 auto;
+    max-height: calc(100vh - 20rem);
+    overflow-y: auto;
+
+    p:nth-of-type(1) {
+      margin-top: 0;
+    }
+
+    .error-message {
+      font-size: 0.8125rem;
+      text-align: center;
+      margin-top: 1rem;
+    }
+  }
+
+  &__footer {
+    display: flex;
+    flex-flow: row nowrap;
+    align-content: center;
+    justify-content: flex-end;
+    flex: 0 0 auto;
+    padding: 1rem 1.25rem;
+  }
+}
