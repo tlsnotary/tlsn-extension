@@ -10,10 +10,12 @@ export type BackgroundAction = {
 }
 
 export type RequestLog = {
+  requestId: string;
   tabId: number;
   method: 'GET' | 'POST',
   type: string;
   url: string;
   initiator: string | null;
   requestHeaders: chrome.webRequest.HttpHeader[];
+  requestBody?: string;
 }
