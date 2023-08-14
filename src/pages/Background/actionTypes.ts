@@ -18,4 +18,5 @@ export type RequestLog = {
   initiator: string | null;
   requestHeaders: chrome.webRequest.HttpHeader[];
   requestBody?: string;
+  responseHeaders?: chrome.webRequest.HttpHeader[];
 }

@@ -18,7 +18,7 @@ const Popup = () => {
 
       const logs = await chrome.runtime.sendMessage({
         type: BackgroundActiontype.get_requests,
-        data: tab.id,
+        data: tab?.id,
       });
 
       dispatch(setRequests(logs));
