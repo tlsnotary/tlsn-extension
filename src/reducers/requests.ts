@@ -1,12 +1,12 @@
-import {RequestLog} from "../pages/Background/actionTypes";
-import {useSelector} from "react-redux";
-import {AppRootState} from "./index";
+import { RequestLog } from "../pages/Background/actionTypes";
+import { useSelector } from "react-redux";
+import { AppRootState } from "./index";
 import deepEqual from "fast-deep-equal";
 
 enum ActionType {
-  '/requests/setRequests'= '/requests/setRequests',
-  '/requests/addRequest'= '/requests/addRequest',
-  '/requests/setActiveTab'= '/requests/setActiveTab',
+  "/requests/setRequests" = "/requests/setRequests",
+  "/requests/addRequest" = "/requests/addRequest",
+  "/requests/setActiveTab" = "/requests/setActiveTab",
 }
 
 type Action<payload> = {
@@ -14,14 +14,14 @@ type Action<payload> = {
   payload?: payload;
   error?: boolean;
   meta?: any;
-}
+};
 
 type State = {
   map: {
     [requestId: string]: RequestLog;
   };
   activeTab: chrome.tabs.Tab | null;
-}
+};
 
 const initialState: State = {
   map: {},
@@ -33,7 +33,9 @@ export const setRequests = (requests: RequestLog[]): Action<RequestLog[]> => ({
   payload: requests,
 });
 
-export const setActiveTab = (activeTab: chrome.tabs.Tab | null): Action<chrome.tabs.Tab | null> => ({
+export const setActiveTab = (
+  activeTab: chrome.tabs.Tab | null
+): Action<chrome.tabs.Tab | null> => ({
   type: ActionType["/requests/setActiveTab"],
   payload: activeTab,
 });
@@ -43,17 +45,23 @@ export const addRequest = (request: RequestLog): Action<RequestLog> => ({
   payload: request,
 });
 
-export default function requests(state = initialState, action: Action<any>): State {
+export default function requests(
+  state = initialState,
+  action: Action<any>
+): State {
   switch (action.type) {
     case ActionType["/requests/setRequests"]:
       return {
         ...state,
         map: {
-          ...action.payload.reduce((acc: {[requestId: string]: RequestLog}, req: RequestLog) => {
-            acc[req.requestId] = req;
-            return acc;
-          }, {}),
-        }
+          ...action.payload.reduce(
+            (acc: { [requestId: string]: RequestLog }, req: RequestLog) => {
+              acc[req.requestId] = req;
+              return acc;
+            },
+            {}
+          ),
+        },
       };
     case ActionType["/requests/setActiveTab"]:
       return {
@@ -76,24 +84,24 @@ export default function requests(state = initialState, action: Action<any>): Sta
 export const useRequests = (): RequestLog[] => {
   return useSelector((state: AppRootState) => {
     return Object.values(state.requests.map);
-  }, deepEqual)
-}
+  }, deepEqual);
+};
 
 export const useRequest = (requestId?: string): RequestLog | null => {
   return useSelector((state: AppRootState) => {
     return requestId ? state.requests.map[requestId] : null;
-  }, deepEqual)
-}
+  }, deepEqual);
+};
 
 export const useActiveTab = (): chrome.tabs.Tab | null => {
   return useSelector((state: AppRootState) => {
     return state.requests.activeTab;
-  }, deepEqual)
-}
+  }, deepEqual);
+};
 
 export const useActiveTabUrl = (): URL | null => {
   return useSelector((state: AppRootState) => {
     const activeTab = state.requests.activeTab;
     return activeTab?.url ? new URL(activeTab.url) : null;
-  }, deepEqual)
-}
+  }, deepEqual);
+};

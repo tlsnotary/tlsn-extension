@@ -1,10 +1,10 @@
-import React, {MouseEventHandler, ReactElement, ReactNode} from "react";
+import React, { MouseEventHandler, ReactElement, ReactNode } from "react";
 import Icon from "../../components/Icon";
 import classNames from "classnames";
-import {useNavigate} from "react-router";
-import {useActiveTabUrl, useRequests} from "../../reducers/requests";
-import {Link} from "react-router-dom";
-import {filterByBookmarks, findBookmarksByURL} from "../../../utils/bookmark";
+import { useNavigate } from "react-router";
+import { useActiveTabUrl, useRequests } from "../../reducers/requests";
+import { Link } from "react-router-dom";
+import { filterByBookmarks } from "../../../utils/bookmark";
 
 export default function Home(): ReactElement {
   const requests = useRequests();
@@ -19,21 +19,31 @@ export default function Home(): ReactElement {
           <div>Requests</div>
           <div>{`(${requests.length})`}</div>
         </NavButton>
-        <NavButton fa="fa-solid fa-magnifying-glass" onClick={() => navigate("/verify")} disabled>Verify</NavButton>
-        <NavButton fa="fa-solid fa-list" onClick={() => navigate("/history")}>History</NavButton>
+        <NavButton
+          fa="fa-solid fa-magnifying-glass"
+          onClick={() => navigate("/verify")}
+          disabled
+        >
+          Verify
+        </NavButton>
+        <NavButton fa="fa-solid fa-list" onClick={() => navigate("/history")}>
+          History
+        </NavButton>
       </div>
-      { !suggestions.length && (
+      {!suggestions.length && (
         <div className="flex flex-col flex-nowrap">
           <div className="flex flex-col items-center justify-center text-slate-300 cursor-default select-none">
             <div>No available notarization for {url?.hostname}</div>
-            <div>Browse <Link to="/requests">Requests</Link></div>
+            <div>
+              Browse <Link to="/requests">Requests</Link>
+            </div>
           </div>
         </div>
       )}
       <div className="flex flex-col px-4 gap-4">
-        { suggestions.map((bm, i) => {
+        {suggestions.map((bm, i) => {
           try {
-            const reqs = requests.filter(req => {
+            const reqs = requests.filter((req) => {
               return req?.url?.includes(bm.url);
             });
 
@@ -52,8 +62,10 @@ export default function Home(): ReactElement {
                 </div>
                 <div className="font-bold">{bm.title}</div>
                 <div className="italic">{bm.description}</div>
-                <div className="text-slate-300">Found {reqs.length} request</div>
-                {reqs.map(r => (
+                <div className="text-slate-300">
+                  Found {reqs.length} request
+                </div>
+                {reqs.map((r) => (
                   <Link
                     to={`/requests/${r.requestId}`}
                     className="break-all text-slate-500 truncate"
@@ -62,14 +74,14 @@ export default function Home(): ReactElement {
                   </Link>
                 ))}
               </div>
-            )
+            );
           } catch (e) {
             return null;
           }
         })}
       </div>
     </>
-  )
+  );
 }
 
 function NavButton(props: {
@@ -85,24 +97,19 @@ function NavButton(props: {
         "flex flex-col flex-nowrap items-center justify-center",
         "text-white rounded-full p-4 h-24 w-24 gap-1",
         {
-          "bg-primary/[.8] hover:bg-primary/[.7] active:bg-primary": !props.disabled,
+          "bg-primary/[.8] hover:bg-primary/[.7] active:bg-primary":
+            !props.disabled,
           "bg-primary/[.5]": props.disabled,
         },
-        props.className,
+        props.className
       )}
       onClick={props.onClick}
       disabled={props.disabled}
     >
-      <Icon
-        className="flex-grow flex-shrink h-0"
-        fa={props.fa}
-        size={1.5}
-      />
-      <span
-        className="flex-grow flex-shrink h-0 flex-grow text-[11px] font-bold"
-      >
+      <Icon className="flex-grow flex-shrink h-0" fa={props.fa} size={1.5} />
+      <span className="flex-grow flex-shrink h-0 flex-grow text-[11px] font-bold">
         {props.children}
       </span>
     </button>
-  )
+  );
 }
