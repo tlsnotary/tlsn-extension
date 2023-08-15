@@ -3,7 +3,7 @@ use std::ops::Range;
 
 use hyper::{body::to_bytes, Body, Request, StatusCode};
 // use futures::{AsyncWriteExt, TryFutureExt};
-use futures_util::io::AsyncWriteExt;
+use futures_util::{AsyncReadExt, AsyncWriteExt};
 // use tokio::io::AsyncWriteExt as _;
 // use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
 
@@ -20,9 +20,9 @@ use ws_stream_wasm::{*};
 
 use tlsn_prover::{bind_prover, ProverConfig};
 
-pub use wasm_bindgen_rayon::init_thread_pool;
+// pub use wasm_bindgen_rayon::init_thread_pool;
 // use rayon::iter::IntoParallelRefIterator;
-use rayon::prelude::*;
+// use rayon::prelude::*;
 // ...
 
 extern crate web_sys;
@@ -39,10 +39,10 @@ extern crate console_error_panic_hook;
 
 const SERVER_DOMAIN: &str = "twitter.com";
 
-#[wasm_bindgen]
-pub fn sum(numbers: &[i32]) -> i32 {
-    numbers.par_iter().sum()
-}
+// #[wasm_bindgen]
+// pub fn sum(numbers: &[i32]) -> i32 {
+//     numbers.par_iter().sum()
+// }
 
 #[wasm_bindgen]
 pub async fn prover() -> Result<(), JsValue> {
@@ -76,6 +76,10 @@ pub async fn prover() -> Result<(), JsValue> {
 	// notary_ws_stream_into.write(&message).await
 	// 	.expect_throw( "Failed to write to websocket" );
 
+    // let mut output = [0u8; 20];
+    // let bytes = notary_ws_stream_into.read(&mut output[..]).await.unwrap();
+    // assert_eq!(bytes, 18);
+    // log!("Received: {:?}", &output[..bytes]);
 
     // Basic default prover config
     let config = ProverConfig::builder()
