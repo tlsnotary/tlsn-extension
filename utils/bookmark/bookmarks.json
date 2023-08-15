@@ -4,6 +4,20 @@
     "method": "GET",
     "type": "xmlhttprequest",
     "title": "Twitter Conversation History",
-    "description": "Notarize history of one conversation. To start, open any conversation from twitter.com/messages."
+    "description": "Notarize history of a twitter conversation. To start, open any conversation from twitter.com/messages."
+  },
+  {
+    "url": "https://api.twitter.com/1.1/account/settings.json",
+    "method": "GET",
+    "type": "xmlhttprequest",
+    "title": "Twitter Profile",
+    "description": "Notarize ownership of a twitter profile. To start, go to your own profile"
+  },
+  {
+    "url": "https://gateway.reddit.com/desktopapi/v1/prefs",
+    "method": "GET",
+    "type": "xmlhttprequest",
+    "title": "Reddit Profile",
+    "description": "Notarize ownership of a reddit profile. To start, go to reddit.com/settings"
   }
 ]

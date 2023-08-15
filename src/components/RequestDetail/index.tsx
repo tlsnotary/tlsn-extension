@@ -78,6 +78,18 @@ function RequestPayload(props: Props): ReactElement {
   const { data } = props;
   const [url, setUrl] = useState<URL | null>();
   const [json, setJson] = useState<any | null>();
+  const [formData, setFormData] = useState<URLSearchParams | null>(null);
+
+  useEffect(() => {
+    if (data?.formData) {
+      const params = new URLSearchParams();
+      Object.entries(data.formData)
+        .forEach(([key, values]) => {
+          values.forEach(v => params.append(key, v));
+        });
+      setFormData(params);
+    }
+  }, [data?.formData]);
 
   useEffect(() => {
     try {
@@ -110,11 +122,11 @@ function RequestPayload(props: Props): ReactElement {
             <tbody>
             {Array.from(url.searchParams).map(param => {
               return (
-                <tr className="border-b border-slate-200">
-                  <td className="border border-slate-300 font-bold align-top py-1 px-2 whitespace-nowrap">
+                <tr key={param[0]} className="border-b border-slate-200">
+                  <td className="border border-slate-300 font-bold align-top py-1 px-2 break-all">
                     {param[0]}
                   </td>
-                  <td className="border border-slate-300 break-all align-top py-1 px-2">
+                  <td className="border border-slate-300 break-all align-top py-1 px-2 break-all">
                     {param[1]}
                   </td>
                 </tr>
@@ -136,6 +148,25 @@ function RequestPayload(props: Props): ReactElement {
                   rows={10}
                   className="w-full bg-slate-100 text-slate-600 p-2 text-xs break-all h-full outline-none font-mono"
                   value={JSON.stringify(json, null, 2)}
+                >
+                </textarea>
+              </td>
+            </tr>
+          </>
+        )}
+        {!!formData && (
+          <>
+            <thead className="bg-slate-200">
+            <tr>
+              <td colSpan={2} className="border border-slate-300 py-1 px-2">Form Data</td>
+            </tr>
+            </thead>
+            <tr>
+              <td colSpan={2}>
+                <textarea
+                  rows={10}
+                  className="w-full bg-slate-100 text-slate-600 p-2 text-xs break-all h-full outline-none font-mono"
+                  value={formData.toString()}
                 >
                 </textarea>
               </td>
@@ -172,10 +203,23 @@ function WebResponse(props: Props): ReactElement {
   const [json, setJSON] = useState<any | null>(null);
   const [text, setText] = useState<string | null>(null);
   const [img, setImg] = useState<string | null>(null);
+  const [formData, setFormData] = useState<URLSearchParams | null>(null);
+
+  useEffect(() => {
+    if (data?.formData) {
+      const params = new URLSearchParams();
+      Object.entries(data.formData)
+        .forEach(([key, values]) => {
+          values.forEach(v => params.append(key, v));
+        });
+      setFormData(params);
+    }
+  }, [data?.formData]);
 
   const replay = useCallback(async () => {
     if (!data) return null;
-    const resp = await fetch(data.url, {
+
+    const options = {
       method: data.method,
       headers: data.requestHeaders.reduce((acc: {[key: string]: string}, h: chrome.webRequest.HttpHeader) => {
         if (typeof h.name !== 'undefined' && typeof h.value !== 'undefined') {
@@ -184,8 +228,13 @@ function WebResponse(props: Props): ReactElement {
         return acc;
       }, {}),
       body: data?.requestBody,
-    });
+    }
 
+    if (formData) {
+      options.body = formData.toString();
+    }
+
+    const resp = await fetch(data.url, options);
     setResponse(resp);
 
     const contentType = resp?.headers.get('content-type') || resp?.headers.get('Content-Type');
@@ -215,7 +264,7 @@ function WebResponse(props: Props): ReactElement {
         }
       });
     }
-  }, [data])
+  }, [data, formData])
 
   return (
     <div className="flex flex-col flex-nowrap overflow-y-auto">
