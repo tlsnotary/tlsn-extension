@@ -1,6 +1,6 @@
-import {BackgroundActiontype, RequestLog} from "./actionTypes";
-import {Mutex} from "async-mutex";
-import {addRequest} from "../../reducers/requests";
+import { BackgroundActiontype, RequestLog } from "./actionTypes";
+import { Mutex } from "async-mutex";
+import { addRequest } from "../../reducers/requests";
 
 let RequestsLogs: {
   [tabId: string]: {
@@ -16,38 +16,38 @@ let offscreen;
   if (offscreen) {
     await offscreen;
     offscreen = null;
-  } else  {
+  } else {
     // @ts-ignore
     offscreen = chrome.offscreen.createDocument({
-      url: 'offscreen.html',
-      reasons: ['WORKERS'],
-      justification: 'workers for multithreading',
+      url: "offscreen.html",
+      reasons: ["WORKERS"],
+      justification: "workers for multithreading",
     });
     await offscreen;
     offscreen = null;
   }
 
-  chrome.tabs.onActivated.addListener(tabs => {
-    const newLog = {
-      [tabs.tabId]: RequestsLogs[tabs.tabId],
+  chrome.tabs.onActivated.addListener((tabs) => {
+    const tab = RequestsLogs[tabs.tabId];
+    RequestsLogs = {
+      [tabs.tabId]: tab,
     };
-    RequestsLogs = newLog;
-  })
+  });
 
   chrome.webRequest.onSendHeaders.addListener(
-    details => {
+    (details) => {
       mutex.runExclusive(async () => {
-        const { method, type } = details;
+        const { method } = details;
 
-        if (method === 'POST') {
+        if (method === "POST") {
           // console.log('post', details);
         }
 
-        if (method !== 'OPTIONS') {
+        if (method !== "OPTIONS") {
           RequestsLogs[details.tabId] = RequestsLogs[details.tabId] || {};
           RequestsLogs[details.tabId][details.requestId] = {
             ...RequestsLogs[details.tabId][details.requestId],
-            method: details.method as 'GET' | 'POST',
+            method: details.method as "GET" | "POST",
             type: details.type,
             url: details.url,
             initiator: details.initiator || null,
@@ -61,19 +61,19 @@ let offscreen;
     {
       urls: ["<all_urls>"],
     },
-    ['requestHeaders']
+    ["requestHeaders"]
   );
 
   chrome.webRequest.onBeforeRequest.addListener(
-    details => {
+    (details) => {
       mutex.runExclusive(async () => {
-        const { method, type, requestBody } = details;
-        if (method === 'OPTIONS') return ;
+        const { method, requestBody } = details;
+        if (method === "OPTIONS") return;
         if (requestBody) {
           if (requestBody.raw && requestBody.raw[0]?.bytes) {
             const bodyString = String.fromCharCode.apply(
               null,
-              new Uint8Array(requestBody.raw[0].bytes) as any,
+              new Uint8Array(requestBody.raw[0].bytes) as any
             );
 
             RequestsLogs[details.tabId] = RequestsLogs[details.tabId] || {};
@@ -95,14 +95,14 @@ let offscreen;
     {
       urls: ["<all_urls>"],
     },
-    ['requestBody']
+    ["requestBody"]
   );
 
   chrome.webRequest.onResponseStarted.addListener(
-    details => {
+    (details) => {
       mutex.runExclusive(async () => {
-        const { method, type, responseHeaders } = details;
-        if (method === 'OPTIONS') return ;
+        const { method, responseHeaders } = details;
+        if (method === "OPTIONS") return;
 
         RequestsLogs[details.tabId] = RequestsLogs[details.tabId] || {};
 
@@ -117,7 +117,7 @@ let offscreen;
           responseHeaders,
         };
 
-        chrome.runtime.sendMessage({
+        await chrome.runtime.sendMessage({
           type: BackgroundActiontype.push_action,
           data: {
             tabId: details.tabId,
@@ -130,7 +130,7 @@ let offscreen;
     {
       urls: ["<all_urls>"],
     },
-    ['responseHeaders']
+    ["responseHeaders"]
   );
 
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -143,7 +143,8 @@ let offscreen;
         RequestsLogs = {};
         return sendResponse();
       }
-      break;
+      default:
+        break;
     }
   });
 })();

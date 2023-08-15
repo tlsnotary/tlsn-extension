@@ -19,16 +19,16 @@
 // like just `0` or whatever, but the code would be less resilient.
 
 function waitForMsgType(target, type) {
-  return new Promise(resolve => {
-    target.addEventListener('message', function onMsg({ data }) {
+  return new Promise((resolve) => {
+    target.addEventListener("message", function onMsg({ data }) {
       if (data == null || data.type !== type) return;
-      target.removeEventListener('message', onMsg);
+      target.removeEventListener("message", onMsg);
       resolve(data);
     });
   });
 }
 
-waitForMsgType(self, 'wasm_bindgen_worker_init').then(async data => {
+waitForMsgType(self, "wasm_bindgen_worker_init").then(async (data) => {
   // # Note 1
   // Our JS should have been generated in
   // `[out-dir]/snippets/wasm-bindgen-rayon-[hash]/workerHelpers.js`,
@@ -51,9 +51,9 @@ waitForMsgType(self, 'wasm_bindgen_worker_init').then(async data => {
   // OTOH, even though it can't be inlined, it should be still reasonably
   // cheap since the requested file is already in cache (it was loaded by
   // the main thread).
-  const pkg = await import('../../..');
+  const pkg = await import("../../..");
   await pkg.default(data.module, data.memory);
-  postMessage({ type: 'wasm_bindgen_worker_ready' });
+  postMessage({ type: "wasm_bindgen_worker_ready" });
   pkg.wbg_rayon_start_worker(data.receiver);
 });
 
@@ -68,10 +68,10 @@ let _workers;
 
 export async function startWorkers(module, memory, builder) {
   const workerInit = {
-    type: 'wasm_bindgen_worker_init',
+    type: "wasm_bindgen_worker_init",
     module,
     memory,
-    receiver: builder.receiver()
+    receiver: builder.receiver(),
   };
 
   _workers = await Promise.all(
@@ -92,11 +92,14 @@ export async function startWorkers(module, memory, builder) {
       //
       // The only way to work around that is to have side effect code
       // in an entry point such as Worker file itself.
-      const worker = new Worker(new URL('./workerHelpers.js', import.meta.url), {
-        type: 'module'
-      });
+      const worker = new Worker(
+        new URL("./workerHelpers.js", import.meta.url),
+        {
+          type: "module",
+        }
+      );
       worker.postMessage(workerInit);
-      await waitForMsgType(worker, 'wasm_bindgen_worker_ready');
+      await waitForMsgType(worker, "wasm_bindgen_worker_ready");
       return worker;
     })
   );
