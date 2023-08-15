@@ -1,6 +1,5 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import {MemoryRouter} from "react-router";
 import {HashRouter} from "react-router-dom";
 
 import Popup from './Popup';

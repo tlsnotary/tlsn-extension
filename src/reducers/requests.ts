@@ -61,7 +61,6 @@ export default function requests(state = initialState, action: Action<any>): Sta
         activeTab: action.payload,
       };
     case ActionType["/requests/addRequest"]:
-      console.log(action);
       return {
         ...state,
         map: {
