@@ -13,6 +13,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "comlink": "^4.4.1",
     "tlsn-extension-rs": "file:./pkg"
   },
   "devDependencies": {

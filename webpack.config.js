@@ -2,11 +2,6 @@ const path = require('path');
 const CopyPlugin = require("copy-webpack-plugin");
 
 module.exports = {
-  entry: './bootstrap.js',
-  output: {
-    path: path.resolve(__dirname, 'dist'),
-    filename: 'bootstrap.js',
-  },
   mode: 'development',
   plugins: [
     new CopyPlugin({
@@ -23,4 +18,14 @@ module.exports = {
       "env": false
     },
   },
+  entry: {
+    bootstrap: path.join(__dirname, 'bootstrap'),
+    worker: path.join(__dirname, 'worker.js'),
+  },
+  devServer: {
+    headers: {
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+      'Cross-Origin-Opener-Policy': 'same-origin',
+    }
+  }
 };
