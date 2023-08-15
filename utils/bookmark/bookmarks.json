@@ -1,0 +1,9 @@
+[
+  {
+    "url": "https://twitter.com/i/api/1.1/dm/conversation",
+    "method": "GET",
+    "type": "xmlhttprequest",
+    "title": "Twitter Conversation History",
+    "description": "Notarize history of one conversation. To start, open any conversation from twitter.com/messages."
+  }
+]
