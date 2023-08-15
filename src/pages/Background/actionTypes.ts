@@ -1,5 +1,7 @@
 export enum BackgroundActiontype {
   get_requests = 'get_requests',
+  clear_requests = 'clear_requests',
+  push_action = 'push_action',
 }
 
 export type BackgroundAction = {

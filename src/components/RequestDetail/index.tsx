@@ -16,15 +16,20 @@ export default function RequestDetail(props: Props): ReactElement {
 
   return (
     <>
-      <div className="flex flex-row flex-nowrap bg-slate-300 py-1 px-2 gap-2">
+      <div className="flex flex-row flex-nowrap relative items-center bg-slate-300 py-1 px-2 gap-2">
         <Icon
           className="cursor-point text-slate-400 hover:text-slate-700"
           fa="fa-solid fa-xmark"
-          onClick={() => navigate('/requests')}
+          onClick={() => navigate("/requests")}
         />
         <RequestDetailsHeaderTab path="/headers">Headers</RequestDetailsHeaderTab>
         <RequestDetailsHeaderTab path="/payloads">Payload</RequestDetailsHeaderTab>
         <RequestDetailsHeaderTab path="/response">Response</RequestDetailsHeaderTab>
+        <button
+          className="absolute right-2 bg-primary/[0.9] text-white font-bold px-2 py-0.5 hover:bg-primary/[0.8] active:bg-primary"
+        >
+          Notarize
+        </button>
       </div>
       <Routes>
         <Route
@@ -217,7 +222,7 @@ function WebResponse(props: Props): ReactElement {
       {!response && (
         <div className="p-2">
           <button
-            className="bg-slate-200 text-slate-400 font-bold p-2 hover:text-slate-600 active:text-slate-700"
+            className="button"
             onClick={replay}
           >
             Fetch Response
@@ -355,10 +360,7 @@ function RequestHeaders(props: Props): ReactElement {
 function NavigateWithParams(props: {
   to: string;
 }): ReactElement {
-  let path = '';
-  const params = useParams();
   const location = useLocation();
-  console.log(location.pathname + props.to);
   return (
     <Navigate to={location.pathname + props.to} />
   )
