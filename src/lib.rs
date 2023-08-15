@@ -20,6 +20,11 @@ use ws_stream_wasm::{*};
 
 use tlsn_prover::{bind_prover, ProverConfig};
 
+pub use wasm_bindgen_rayon::init_thread_pool;
+// use rayon::iter::IntoParallelRefIterator;
+use rayon::prelude::*;
+// ...
+
 extern crate web_sys;
 
 // A macro to provide `println!(..)`-style syntax for `console.log` logging.
@@ -34,8 +39,13 @@ extern crate console_error_panic_hook;
 
 const SERVER_DOMAIN: &str = "twitter.com";
 
-#[wasm_bindgen(start)]
-pub async fn ss() -> Result<(), JsValue> {
+#[wasm_bindgen]
+pub fn sum(numbers: &[i32]) -> i32 {
+    numbers.par_iter().sum()
+}
+
+#[wasm_bindgen]
+pub async fn prover() -> Result<(), JsValue> {
     let fmt_layer = tracing_subscriber::fmt::layer()
     .with_ansi(false) // Only partially supported across browsers
     .with_timer(UtcTime::rfc_3339()) // std::time is not available in browsers
@@ -59,12 +69,11 @@ pub async fn ss() -> Result<(), JsValue> {
 
     let mut client_ws_stream_into = client_ws_stream.into_io();
     let mut notary_ws_stream_into = notary_ws_stream.into_io();
+
     log!("!@# 0");
 
     // let message         = b"Hello from browser".to_vec();
-
 	// notary_ws_stream_into.write(&message).await
-
 	// 	.expect_throw( "Failed to write to websocket" );
 
 
@@ -77,13 +86,14 @@ pub async fn ss() -> Result<(), JsValue> {
 
     log!("!@# 1");
 
-    // Bind the Prover to the sockets
-    let (tls_connection, prover_fut, mux_fut) =
-        bind_prover(config, client_ws_stream_into, notary_ws_stream_into)
-            .await
-            .unwrap();
 
     log!("!@# 2");
+    let (tls_connection, prover_fut, mux_fut) =
+    bind_prover(config, client_ws_stream_into, notary_ws_stream_into)
+        .await
+        .unwrap();
+    log!("!@# 3");
+    log!("!@# 4");
 
     // // Spawn the Prover and Mux tasks to be run concurrently
     // tokio::spawn(mux_fut);
