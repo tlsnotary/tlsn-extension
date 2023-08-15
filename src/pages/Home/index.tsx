@@ -4,14 +4,13 @@ import classNames from "classnames";
 import {useNavigate} from "react-router";
 import {useActiveTabUrl, useRequests} from "../../reducers/requests";
 import {Link} from "react-router-dom";
-import {findBookmarksByURL} from "../../../utils/bookmark";
+import {filterByBookmarks, findBookmarksByURL} from "../../../utils/bookmark";
 
 export default function Home(): ReactElement {
   const requests = useRequests();
   const url = useActiveTabUrl();
   const navigate = useNavigate();
-  const suggestions = findBookmarksByURL(url);
-
+  const suggestions = filterByBookmarks(requests);
 
   return (
     <>
@@ -32,7 +31,7 @@ export default function Home(): ReactElement {
         </div>
       )}
       <div className="flex flex-col px-4 gap-4">
-        { suggestions.map(bm => {
+        { suggestions.map((bm, i) => {
           try {
             const reqs = requests.filter(req => {
               return req?.url?.includes(bm.url);
@@ -40,6 +39,7 @@ export default function Home(): ReactElement {
 
             return (
               <div
+                key={i}
                 className="flex flex-col flex-nowrap border rounded-md p-2 gap-1 hover:bg-slate-50 cursor-pointer"
               >
                 <div className="flex flex-row items-center text-xs">

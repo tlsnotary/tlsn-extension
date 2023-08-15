@@ -10,13 +10,22 @@ let RequestsLogs: {
 
 const mutex = new Mutex();
 
+let offscreen;
+
 (async () => {
-  // @ts-ignore
-  chrome.offscreen.createDocument({
-    url: 'offscreen.html',
-    reasons: ['WORKERS'],
-    justification: 'workers for multithreading',
-  });
+  if (offscreen) {
+    await offscreen;
+    offscreen = null;
+  } else  {
+    // @ts-ignore
+    offscreen = chrome.offscreen.createDocument({
+      url: 'offscreen.html',
+      reasons: ['WORKERS'],
+      justification: 'workers for multithreading',
+    });
+    await offscreen;
+    offscreen = null;
+  }
 
   chrome.tabs.onActivated.addListener(tabs => {
     const newLog = {
@@ -59,19 +68,27 @@ const mutex = new Mutex();
     details => {
       mutex.runExclusive(async () => {
         const { method, type, requestBody } = details;
-        if (method === 'POST' && requestBody && requestBody?.raw && requestBody.raw[0]?.bytes) {
-          const bodyString = String.fromCharCode.apply(
-            null,
-            new Uint8Array(requestBody.raw[0].bytes) as any,
-          );
+        if (method === 'OPTIONS') return ;
+        if (requestBody) {
+          if (requestBody.raw && requestBody.raw[0]?.bytes) {
+            const bodyString = String.fromCharCode.apply(
+              null,
+              new Uint8Array(requestBody.raw[0].bytes) as any,
+            );
 
+            RequestsLogs[details.tabId] = RequestsLogs[details.tabId] || {};
 
-          RequestsLogs[details.tabId] = RequestsLogs[details.tabId] || {};
-
-          RequestsLogs[details.tabId][details.requestId] = {
-            ...RequestsLogs[details.tabId][details.requestId],
-            requestBody: bodyString,
-          };
+            RequestsLogs[details.tabId][details.requestId] = {
+              ...RequestsLogs[details.tabId][details.requestId],
+              requestBody: bodyString,
+            };
+          } else if (requestBody.formData) {
+            RequestsLogs[details.tabId] = RequestsLogs[details.tabId] || {};
+            RequestsLogs[details.tabId][details.requestId] = {
+              ...RequestsLogs[details.tabId][details.requestId],
+              formData: requestBody.formData,
+            };
+          }
         }
       });
     },
@@ -85,12 +102,20 @@ const mutex = new Mutex();
     details => {
       mutex.runExclusive(async () => {
         const { method, type, responseHeaders } = details;
-          RequestsLogs[details.tabId] = RequestsLogs[details.tabId] || {};
+        if (method === 'OPTIONS') return ;
 
-          RequestsLogs[details.tabId][details.requestId] = {
-            ...RequestsLogs[details.tabId][details.requestId],
-            responseHeaders,
-          };
+        RequestsLogs[details.tabId] = RequestsLogs[details.tabId] || {};
+
+        RequestsLogs[details.tabId][details.requestId] = {
+          ...RequestsLogs[details.tabId][details.requestId],
+          method: details.method,
+          type: details.type,
+          url: details.url,
+          initiator: details.initiator || null,
+          tabId: details.tabId,
+          requestId: details.requestId,
+          responseHeaders,
+        };
 
         chrome.runtime.sendMessage({
           type: BackgroundActiontype.push_action,
