@@ -1,5 +1,4 @@
-import thunk from 'redux-thunk';
-import { combineReducers } from 'redux';
+import { combineReducers } from "redux";
 import requests from "./requests";
 
 const rootReducer = combineReducers({

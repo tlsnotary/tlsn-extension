@@ -1,8 +1,13 @@
-import React, {useEffect} from 'react';
-import {Navigate, Route, Routes, useNavigate} from "react-router";
-import {useDispatch} from "react-redux";
-import {setActiveTab, setRequests, useActiveTab, useActiveTabUrl} from "../../reducers/requests";
-import {BackgroundActiontype} from "../Background/actionTypes";
+import React, { useEffect } from "react";
+import { Navigate, Route, Routes, useNavigate } from "react-router";
+import { useDispatch } from "react-redux";
+import {
+  setActiveTab,
+  setRequests,
+  useActiveTab,
+  useActiveTabUrl,
+} from "../../reducers/requests";
+import { BackgroundActiontype } from "../Background/actionTypes";
 import Requests from "../Requests";
 import Request from "../Requests/Request";
 import Home from "../Home";
@@ -16,7 +21,10 @@ const Popup = () => {
 
   useEffect(() => {
     (async () => {
-      const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+      const [tab] = await chrome.tabs.query({
+        active: true,
+        lastFocusedWindow: true,
+      });
 
       dispatch(setActiveTab(tab || null));
 
@@ -27,7 +35,6 @@ const Popup = () => {
 
       dispatch(setRequests(logs));
     })();
-
   }, []);
 
   return (
@@ -40,27 +47,19 @@ const Popup = () => {
           onClick={() => navigate("/")}
         />
         <div className="absolute right-2 flex flex-nowrap flex-row items-center gap-1 justify-center w-fit">
-          <img src={activeTab?.favIconUrl} className="h-5 rounded-full" alt="logo" />
+          <img
+            src={activeTab?.favIconUrl}
+            className="h-5 rounded-full"
+            alt="logo"
+          />
           <div className="text-xs">{url?.hostname}</div>
         </div>
       </div>
       <Routes>
-        <Route
-          path="/requests/:requestId/*"
-          element={<Request />}
-        />
-        <Route
-          path="/requests"
-          element={<Requests />}
-        />
-        <Route
-          path="/home"
-          element={<Home />}
-        />
-        <Route
-          path="*"
-          element={<Navigate to="/home" />}
-        />
+        <Route path="/requests/:requestId/*" element={<Request />} />
+        <Route path="/requests" element={<Requests />} />
+        <Route path="/home" element={<Home />} />
+        <Route path="*" element={<Navigate to="/home" />} />
       </Routes>
     </div>
   );

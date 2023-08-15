@@ -1,20 +1,20 @@
 export enum BackgroundActiontype {
-  get_requests = 'get_requests',
-  clear_requests = 'clear_requests',
-  push_action = 'push_action',
+  get_requests = "get_requests",
+  clear_requests = "clear_requests",
+  push_action = "push_action",
 }
 
 export type BackgroundAction = {
-  type: BackgroundActiontype,
+  type: BackgroundActiontype;
   data?: any;
   meta?: any;
   error?: boolean;
-}
+};
 
 export type RequestLog = {
   requestId: string;
   tabId: number;
-  method: string,
+  method: string;
   type: string;
   url: string;
   initiator: string | null;
@@ -24,4 +24,4 @@ export type RequestLog = {
     [k: string]: string[];
   };
   responseHeaders?: chrome.webRequest.HttpHeader[];
-}
+};
