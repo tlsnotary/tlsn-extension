@@ -31,3 +31,37 @@ code {
   height: 100vh;
   overflow: hidden;
 }
+
+.button {
+  @apply bg-slate-200;
+  @apply text-slate-400;
+  @apply font-bold;
+  @apply px-2 py-0.5;
+  user-select: none;
+
+  &:hover {
+    @apply text-slate-600;
+  }
+
+  &:active {
+    @apply text-slate-700;
+  }
+}
+
+.input {
+  @apply outline-none;
+  @apply text-xs;
+  @apply px-2 py-1;
+}
+
+a {
+  @apply text-blue-600 underline;
+
+  &:hover {
+    @apply text-blue-500;
+  }
+
+  &:visited {
+    @apply text-purple-600;
+  }
+}

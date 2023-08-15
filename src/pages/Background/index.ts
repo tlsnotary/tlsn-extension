@@ -1,7 +1,8 @@
 import {BackgroundActiontype, RequestLog} from "./actionTypes";
 import {Mutex} from "async-mutex";
+import {addRequest} from "../../reducers/requests";
 
-const RequestsLogs: {
+let RequestsLogs: {
   [tabId: string]: {
     [requestId: string]: RequestLog;
   };
@@ -16,6 +17,13 @@ const mutex = new Mutex();
     reasons: ['WORKERS'],
     justification: 'workers for multithreading',
   });
+
+  chrome.tabs.onActivated.addListener(tabs => {
+    const newLog = {
+      [tabs.tabId]: RequestsLogs[tabs.tabId],
+    };
+    RequestsLogs = newLog;
+  })
 
   chrome.webRequest.onSendHeaders.addListener(
     details => {
@@ -83,6 +91,15 @@ const mutex = new Mutex();
             ...RequestsLogs[details.tabId][details.requestId],
             responseHeaders,
           };
+
+        chrome.runtime.sendMessage({
+          type: BackgroundActiontype.push_action,
+          data: {
+            tabId: details.tabId,
+            request: RequestsLogs[details.tabId][details.requestId],
+          },
+          action: addRequest(RequestsLogs[details.tabId][details.requestId]),
+        });
       });
     },
     {
@@ -96,7 +113,11 @@ const mutex = new Mutex();
       case BackgroundActiontype.get_requests: {
         RequestsLogs[request.data] = RequestsLogs[request.data] || {};
         return sendResponse(Object.values(RequestsLogs[request.data]));
-      };
+      }
+      case BackgroundActiontype.clear_requests: {
+        RequestsLogs = {};
+        return sendResponse();
+      }
       break;
     }
   });
