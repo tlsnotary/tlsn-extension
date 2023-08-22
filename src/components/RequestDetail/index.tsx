@@ -5,7 +5,7 @@ import React, {
   useEffect,
   useState,
 } from "react";
-import { RequestLog } from "../../pages/Background/actionTypes";
+import { BackgroundActiontype, RequestLog } from "../../pages/Background/actionTypes";
 import classNames from "classnames";
 import {
   Navigate,
@@ -44,7 +44,15 @@ export default function RequestDetail(props: Props): ReactElement {
         <RequestDetailsHeaderTab path="/response">
           Response
         </RequestDetailsHeaderTab>
-        <button className="absolute right-2 bg-primary/[0.9] text-white font-bold px-2 py-0.5 hover:bg-primary/[0.8] active:bg-primary">
+        <button 
+          className="absolute right-2 bg-primary/[0.9] text-white font-bold px-2 py-0.5 hover:bg-primary/[0.8] active:bg-primary"
+          onClick={async () => {
+            await chrome.runtime.sendMessage({
+              type: BackgroundActiontype.test_wasm,
+              target: 'offscreen',
+            });
+          }}
+        >
           Notarize
         </button>
       </div>
@@ -421,7 +429,7 @@ function RequestHeaders(props: Props): ReactElement {
           </tr>
         </thead>
         <tbody className="">
-          {data?.requestHeaders.map((h) => (
+          {data?.requestHeaders?.map((h) => (
             <tr key={h.name} className="border-b border-slate-200">
               <td className="border border-slate-300 font-bold align-top py-1 px-2 whitespace-nowrap">
                 {h.name}
