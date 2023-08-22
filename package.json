@@ -7,6 +7,8 @@
     "url": "https://github.com/tlsnotary/tlsn-extension.git"
   },
   "scripts": {
+    "clone:tlsn": "git clone https://github.com/tlsnotary/tlsn",
+    "build:wasm": "wasm-pack build --target web wasm/prover",
     "build": "node utils/build.js",
     "dev": "node utils/webserver.js",
     "prettier": "prettier --write '**/*.{js,jsx,ts,tsx,json,css,scss,md}'"

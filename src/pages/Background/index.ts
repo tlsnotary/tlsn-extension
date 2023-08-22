@@ -14,18 +14,18 @@ let offscreen;
 
 (async () => {
   await new Promise(r => setTimeout(r, 1000));
-  // if (offscreen) {
-  //   offscreen = null;
-  // } else {
-  //   // @ts-ignore
-  //   offscreen = chrome.offscreen.createDocument({
-  //     url: "offscreen.html",
-  //     reasons: ["WORKERS"],
-  //     justification: "workers for multithreading",
-  //   });
-  //   await offscreen;
-  //   offscreen = null;
-  // }
+  if (offscreen) {
+    offscreen = null;
+  } else {
+    // @ts-ignore
+    offscreen = chrome.offscreen.createDocument({
+      url: "offscreen.html",
+      reasons: ["WORKERS"],
+      justification: "workers for multithreading",
+    });
+    await offscreen;
+    offscreen = null;
+  }
 
   chrome.tabs.onActivated.addListener((tabs) => {
     const tab = RequestsLogs[tabs.tabId];

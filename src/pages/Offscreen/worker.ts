@@ -1,7 +1,5 @@
 import * as Comlink from "comlink";
-import init, { initThreadPool, sum } from "../../../wasm/hello_wasm/hello_wasm";
-
-const DATA = Array(10000000).fill(1);
+import init, { prover } from "../../../wasm/prover/pkg/tlsn_extension_rs";
 
 class Test {
   constructor() {
@@ -10,25 +8,14 @@ class Test {
   }
 
   async test() {
-    console.log("running worker test script");
-    console.log(
-      "summing an Int32Array in javascript",
-      DATA.reduce((sum, n) => sum + n, 0)
-    );
-
-    console.log(
-      `initializing thread pool with ${navigator.hardwareConcurrency} core.`
-    );
+    console.log('start');
+    console.log("!@# navigator.hardwareConcurrency=", navigator.hardwareConcurrency)
     await init();
-    await initThreadPool(navigator.hardwareConcurrency);
-
-    console.log(
-      `initialize thread pool with ${navigator.hardwareConcurrency} core.`
-    );
-    console.log(
-      "summing an Int32Array in wasm with rayon iterator",
-      sum(new Int32Array(DATA))
-    );
+    // await initThreadPool(2);
+    // console.log("!@# result js=", DATA.reduce((sum, n) => sum + n, 0));
+    // console.log("!@# result rs=", sum(new Int32Array(DATA)));
+    const resProver = await prover();
+    console.log("!@# resProver=", resProver)
   }
 }
 
