@@ -13,19 +13,19 @@ const mutex = new Mutex();
 let offscreen;
 
 (async () => {
-  if (offscreen) {
-    await offscreen;
-    offscreen = null;
-  } else {
-    // @ts-ignore
-    offscreen = chrome.offscreen.createDocument({
-      url: "offscreen.html",
-      reasons: ["WORKERS"],
-      justification: "workers for multithreading",
-    });
-    await offscreen;
-    offscreen = null;
-  }
+  await new Promise(r => setTimeout(r, 1000));
+  // if (offscreen) {
+  //   offscreen = null;
+  // } else {
+  //   // @ts-ignore
+  //   offscreen = chrome.offscreen.createDocument({
+  //     url: "offscreen.html",
+  //     reasons: ["WORKERS"],
+  //     justification: "workers for multithreading",
+  //   });
+  //   await offscreen;
+  //   offscreen = null;
+  // }
 
   chrome.tabs.onActivated.addListener((tabs) => {
     const tab = RequestsLogs[tabs.tabId];
@@ -38,10 +38,6 @@ let offscreen;
     (details) => {
       mutex.runExclusive(async () => {
         const { method } = details;
-
-        if (method === "POST") {
-          // console.log('post', details);
-        }
 
         if (method !== "OPTIONS") {
           RequestsLogs[details.tabId] = RequestsLogs[details.tabId] || {};
