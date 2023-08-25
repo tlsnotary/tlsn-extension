@@ -1,4 +1,10 @@
-import React, { MouseEventHandler, ReactElement, ReactNode, useCallback, useState } from 'react';
+import React, {
+  MouseEventHandler,
+  ReactElement,
+  ReactNode,
+  useCallback,
+  useState,
+} from 'react';
 import Icon from '../../components/Icon';
 import classNames from 'classnames';
 import { useNavigate } from 'react-router';
@@ -32,9 +38,11 @@ export default function Home(): ReactElement {
           History
         </NavButton>
       </div>
-      <div className='flex flex-col flex-nowrap justify-center items-center gap-2 bg-slate-100 border border-slate-200 p-2 mb-4'>
-        <div className='text-sm text-slate-300'><b>Dev</b></div>
-        <div className='flex flex-row flex-nowrap justify-center'>
+      <div className="flex flex-col flex-nowrap justify-center items-center gap-2 bg-slate-100 border border-slate-200 p-2 mb-4">
+        <div className="text-sm text-slate-300">
+          <b>Dev</b>
+        </div>
+        <div className="flex flex-row flex-nowrap justify-center">
           <button
             className="right-2 bg-primary/[0.9] text-white font-bold px-2 py-0.5 hover:bg-primary/[0.8] active:bg-primary"
             onClick={async () => {
@@ -49,11 +57,7 @@ export default function Home(): ReactElement {
             Notarize
           </button>
         </div>
-        {wasmRes && (
-          <div>
-            {wasmRes}
-          </div>
-        )}
+        {wasmRes && <div>{wasmRes}</div>}
       </div>
       {!suggestions.length && (
         <div className="flex flex-col flex-nowrap">

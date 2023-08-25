@@ -26,7 +26,6 @@ class TLSN {
       console.log(e);
       return e;
     }
-
   }
 }
 

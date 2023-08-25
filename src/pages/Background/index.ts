@@ -20,10 +20,12 @@ const cache = new NodeCache({
 });
 
 chrome.tabs.onActivated.addListener((tabs) => {
-  RequestsLogs[tabs.tabId] = RequestsLogs[tabs.tabId] || new NodeCache({
-    stdTTL: 60 * 5, // default 5m TTL
-    maxKeys: 1000000,
-  });
+  RequestsLogs[tabs.tabId] =
+    RequestsLogs[tabs.tabId] ||
+    new NodeCache({
+      stdTTL: 60 * 5, // default 5m TTL
+      maxKeys: 1000000,
+    });
 });
 
 chrome.tabs.onRemoved.addListener((tab) => {
@@ -37,10 +39,12 @@ chrome.tabs.onRemoved.addListener((tab) => {
         const { method, tabId, requestId } = details;
 
         if (method !== 'OPTIONS') {
-          RequestsLogs[tabId] = RequestsLogs[tabId] || new NodeCache({
-            stdTTL: 60 * 5, // default 5m TTL
-            maxKeys: 1000000,
-          });
+          RequestsLogs[tabId] =
+            RequestsLogs[tabId] ||
+            new NodeCache({
+              stdTTL: 60 * 5, // default 5m TTL
+              maxKeys: 1000000,
+            });
           const existing = RequestsLogs[tabId].get<RequestLog>(requestId);
           RequestsLogs[tabId].set(requestId, {
             ...existing,
@@ -65,14 +69,16 @@ chrome.tabs.onRemoved.addListener((tab) => {
     (details) => {
       mutex.runExclusive(async () => {
         const { method, requestBody, tabId, requestId } = details;
-        
+
         if (method === 'OPTIONS') return;
 
         if (requestBody) {
-          RequestsLogs[tabId] = RequestsLogs[tabId] || new NodeCache({
-            stdTTL: 60 * 5, // default 5m TTL
-            maxKeys: 1000000,
-          });
+          RequestsLogs[tabId] =
+            RequestsLogs[tabId] ||
+            new NodeCache({
+              stdTTL: 60 * 5, // default 5m TTL
+              maxKeys: 1000000,
+            });
 
           const existing = RequestsLogs[tabId].get<RequestLog>(requestId);
 
@@ -80,12 +86,13 @@ chrome.tabs.onRemoved.addListener((tab) => {
             try {
               RequestsLogs[details.tabId].set(requestId, {
                 ...existing,
-                requestBody: Buffer.from(requestBody.raw[0].bytes).toString('utf-8'),
+                requestBody: Buffer.from(requestBody.raw[0].bytes).toString(
+                  'utf-8',
+                ),
               });
             } catch (e) {
               console.error(e);
             }
-
           } else if (requestBody.formData) {
             RequestsLogs[details.tabId].set(requestId, {
               ...existing,
@@ -104,14 +111,16 @@ chrome.tabs.onRemoved.addListener((tab) => {
   chrome.webRequest.onResponseStarted.addListener(
     (details) => {
       mutex.runExclusive(async () => {
-        const { method, responseHeaders, tabId, requestId, } = details;
-        
+        const { method, responseHeaders, tabId, requestId } = details;
+
         if (method === 'OPTIONS') return;
 
-        RequestsLogs[tabId] = RequestsLogs[tabId] || new NodeCache({
-          stdTTL: 60 * 5, // default 5m TTL
-          maxKeys: 1000000,
-        });
+        RequestsLogs[tabId] =
+          RequestsLogs[tabId] ||
+          new NodeCache({
+            stdTTL: 60 * 5, // default 5m TTL
+            maxKeys: 1000000,
+          });
 
         const existing = RequestsLogs[tabId].get<RequestLog>(requestId);
         const newLog: RequestLog = {
@@ -150,7 +159,7 @@ chrome.tabs.onRemoved.addListener((tab) => {
         const keys = RequestsLogs[request.data]?.keys() || [];
         const data = keys.map((key) => RequestsLogs[request.data]?.get(key));
 
-        return sendResponse((data));
+        return sendResponse(data);
       }
       case BackgroundActiontype.clear_requests: {
         RequestsLogs = {};
