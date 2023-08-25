@@ -1,13 +1,13 @@
-import React, { ReactElement, useCallback, useState } from "react";
+import React, { ReactElement, useCallback, useState } from 'react';
 import {
   BackgroundActiontype,
   RequestLog,
-} from "../../pages/Background/actionTypes";
-import { useNavigate } from "react-router";
-import Fuse from "fuse.js";
-import Icon from "../Icon";
-import { useDispatch } from "react-redux";
-import { setRequests } from "../../reducers/requests";
+} from '../../pages/Background/actionTypes';
+import { useNavigate } from 'react-router';
+import Fuse from 'fuse.js';
+import Icon from '../Icon';
+import { useDispatch } from 'react-redux';
+import { setRequests } from '../../reducers/requests';
 
 type Props = {
   requests: RequestLog[];
@@ -17,7 +17,7 @@ export default function RequestTable(props: Props): ReactElement {
   const { requests } = props;
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState('');
 
   const fuse = new Fuse(requests, {
     isCaseSensitive: true,
@@ -28,13 +28,13 @@ export default function RequestTable(props: Props): ReactElement {
     includeMatches: true,
     ignoreLocation: true,
     keys: [
-      { name: "method", weight: 2 },
-      { name: "type", weight: 2 },
-      { name: "requestHeaders.name", weight: 1 },
-      { name: "requestHeaders.value", weight: 1 },
-      { name: "responseHeaders.name", weight: 1 },
-      { name: "responseHeaders.value", weight: 1 },
-      { name: "url", weight: 1 },
+      { name: 'method', weight: 2 },
+      { name: 'type', weight: 2 },
+      { name: 'requestHeaders.name', weight: 1 },
+      { name: 'requestHeaders.value', weight: 1 },
+      { name: 'responseHeaders.name', weight: 1 },
+      { name: 'responseHeaders.value', weight: 1 },
+      { name: 'url', weight: 1 },
     ],
   });
 
@@ -79,7 +79,7 @@ export default function RequestTable(props: Props): ReactElement {
             {list.map((r) => (
               <tr
                 key={r.requestId}
-                onClick={() => navigate("/requests/" + r.requestId)}
+                onClick={() => navigate('/requests/' + r.requestId)}
                 className="cursor-pointer hover:bg-slate-100"
               >
                 <td className="border border-slate-200 align-top py-1 px-2 whitespace-nowrap w-2/12">

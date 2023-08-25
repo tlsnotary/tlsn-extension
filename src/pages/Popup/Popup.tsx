@@ -1,17 +1,17 @@
-import React, { useEffect } from "react";
-import { Navigate, Route, Routes, useNavigate } from "react-router";
-import { useDispatch } from "react-redux";
+import React, { useEffect } from 'react';
+import { Navigate, Route, Routes, useNavigate } from 'react-router';
+import { useDispatch } from 'react-redux';
 import {
   setActiveTab,
   setRequests,
   useActiveTab,
   useActiveTabUrl,
-} from "../../reducers/requests";
-import { BackgroundActiontype } from "../Background/actionTypes";
-import Requests from "../Requests";
-import Request from "../Requests/Request";
-import Home from "../Home";
-import logo from "../../assets/img/icon-128.png";
+} from '../../reducers/requests';
+import { BackgroundActiontype } from '../Background/actionTypes';
+import Requests from '../Requests';
+import Request from '../Requests/Request';
+import Home from '../Home';
+import logo from '../../assets/img/icon-128.png';
 
 const Popup = () => {
   const dispatch = useDispatch();
@@ -44,7 +44,7 @@ const Popup = () => {
           className="absolute left-2 h-5 cursor-pointer"
           src={logo}
           alt="logo"
-          onClick={() => navigate("/")}
+          onClick={() => navigate('/')}
         />
         <div className="absolute right-2 flex flex-nowrap flex-row items-center gap-1 justify-center w-fit">
           <img

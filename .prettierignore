@@ -1,5 +1,6 @@
 build
 node_modules
 wasm
+tlsn
 postcss.config.js
 webpack.config.js
