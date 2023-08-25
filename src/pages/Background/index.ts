@@ -38,6 +38,7 @@ chrome.tabs.onRemoved.addListener((tab) => {
       mutex.runExclusive(async () => {
         const { method, tabId, requestId } = details;
 
+        console.log('details', details);
         if (method !== 'OPTIONS') {
           RequestsLogs[tabId] =
             RequestsLogs[tabId] ||
@@ -137,7 +138,7 @@ chrome.tabs.onRemoved.addListener((tab) => {
 
         RequestsLogs[tabId].set(requestId, newLog);
 
-        await chrome.runtime.sendMessage({
+        chrome.runtime.sendMessage({
           type: BackgroundActiontype.push_action,
           data: {
             tabId: details.tabId,
