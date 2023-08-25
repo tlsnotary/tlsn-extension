@@ -21,7 +21,7 @@ class TLSN {
       const resProver = await prover();
       console.log('!@# resProver=', resProver);
 
-      return 'resProver';
+      return resProver;
     } catch (e: any) {
       console.log(e);
       return e;
