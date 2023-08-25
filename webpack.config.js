@@ -209,6 +209,9 @@ var options = {
       chunks: ["offscreen"],
       cache: false,
     }),
+    new webpack.ProvidePlugin({
+      Buffer: ['buffer', 'Buffer'],
+    }),
   ].filter(Boolean),
   infrastructureLogging: {
     level: "info",

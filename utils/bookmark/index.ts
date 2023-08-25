@@ -1,5 +1,5 @@
-import bookmarks from "./bookmarks.json";
-import { RequestLog } from "../../src/pages/Background/actionTypes";
+import bookmarks from './bookmarks.json';
+import { RequestLog } from '../../src/pages/Background/actionTypes';
 
 type Bookmark = {
   url: string;

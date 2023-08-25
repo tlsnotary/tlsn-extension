@@ -1,12 +1,12 @@
-import { RequestLog } from "../pages/Background/actionTypes";
-import { useSelector } from "react-redux";
-import { AppRootState } from "./index";
-import deepEqual from "fast-deep-equal";
+import { RequestLog } from '../pages/Background/actionTypes';
+import { useSelector } from 'react-redux';
+import { AppRootState } from './index';
+import deepEqual from 'fast-deep-equal';
 
 enum ActionType {
-  "/requests/setRequests" = "/requests/setRequests",
-  "/requests/addRequest" = "/requests/addRequest",
-  "/requests/setActiveTab" = "/requests/setActiveTab",
+  '/requests/setRequests' = '/requests/setRequests',
+  '/requests/addRequest' = '/requests/addRequest',
+  '/requests/setActiveTab' = '/requests/setActiveTab',
 }
 
 type Action<payload> = {
@@ -29,28 +29,28 @@ const initialState: State = {
 };
 
 export const setRequests = (requests: RequestLog[]): Action<RequestLog[]> => ({
-  type: ActionType["/requests/setRequests"],
+  type: ActionType['/requests/setRequests'],
   payload: requests,
 });
 
 export const setActiveTab = (
-  activeTab: chrome.tabs.Tab | null
+  activeTab: chrome.tabs.Tab | null,
 ): Action<chrome.tabs.Tab | null> => ({
-  type: ActionType["/requests/setActiveTab"],
+  type: ActionType['/requests/setActiveTab'],
   payload: activeTab,
 });
 
 export const addRequest = (request: RequestLog): Action<RequestLog> => ({
-  type: ActionType["/requests/addRequest"],
+  type: ActionType['/requests/addRequest'],
   payload: request,
 });
 
 export default function requests(
   state = initialState,
-  action: Action<any>
+  action: Action<any>,
 ): State {
   switch (action.type) {
-    case ActionType["/requests/setRequests"]:
+    case ActionType['/requests/setRequests']:
       return {
         ...state,
         map: {
@@ -59,16 +59,16 @@ export default function requests(
               acc[req.requestId] = req;
               return acc;
             },
-            {}
+            {},
           ),
         },
       };
-    case ActionType["/requests/setActiveTab"]:
+    case ActionType['/requests/setActiveTab']:
       return {
         ...state,
         activeTab: action.payload,
       };
-    case ActionType["/requests/addRequest"]:
+    case ActionType['/requests/addRequest']:
       return {
         ...state,
         map: {
