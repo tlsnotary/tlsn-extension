@@ -14,7 +14,7 @@ crate-type = ["cdylib"]
 wasm-bindgen = "0.2.74"
 js-sys = "0.3"
 tracing = "0.1"
-tlsn-prover = { path = "../../tlsn/tlsn/tlsn-prover", features = ["tracing"] }
+
 getrandom = { version = "0.2", features = ["js"] }
 ws_stream_wasm = "0.7.4"
 wasm-bindgen-futures = "0.4.37"
@@ -34,6 +34,14 @@ tracing-subscriber = { version = "0.3", features = ["time"] }
 time = { version = "0.3", features = ["wasm-bindgen"] }
 # Used to calculate elapsed time.
 web-time = "0.2"
+
+# tlsn-prover = { path = "../../tlsn/tlsn/tlsn-prover", features = ["tracing"] }
+# FIXME: use the single-cpu-backend for now, until we solve the problem with rayon
+[dependencies.tlsn-prover]
+git = "https://github.com/mhchia/tlsn.git"
+branch = "tlsn-examples-ws-single-cpu-backend"
+package = "tlsn-prover"
+features = ["tracing"]
 
 [dependencies.web-sys]
 version = "0.3.22"

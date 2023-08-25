@@ -17,7 +17,6 @@ class TLSN {
       // await initThreadPool(2);
       // console.log("!@# result js=", DATA.reduce((sum, n) => sum + n, 0));
       // console.log("!@# result rs=", sum(new Int32Array(DATA)));
-      console.log('!@# reqProver=');
       const resProver = await prover();
       console.log('!@# resProver=', resProver);
 
