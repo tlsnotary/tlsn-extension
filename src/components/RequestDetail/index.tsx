@@ -4,9 +4,12 @@ import React, {
   useCallback,
   useEffect,
   useState,
-} from "react";
-import { BackgroundActiontype, RequestLog } from "../../pages/Background/actionTypes";
-import classNames from "classnames";
+} from 'react';
+import {
+  BackgroundActiontype,
+  RequestLog,
+} from '../../pages/Background/actionTypes';
+import classNames from 'classnames';
 import {
   Navigate,
   Route,
@@ -14,8 +17,8 @@ import {
   useLocation,
   useNavigate,
   useParams,
-} from "react-router";
-import Icon from "../Icon";
+} from 'react-router';
+import Icon from '../Icon';
 
 type Props = {
   data: RequestLog | null;
@@ -33,7 +36,7 @@ export default function RequestDetail(props: Props): ReactElement {
         <Icon
           className="cursor-point text-slate-400 hover:text-slate-700"
           fa="fa-solid fa-xmark"
-          onClick={() => navigate("/requests")}
+          onClick={() => navigate('/requests')}
         />
         <RequestDetailsHeaderTab path="/headers">
           Headers
@@ -44,7 +47,7 @@ export default function RequestDetail(props: Props): ReactElement {
         <RequestDetailsHeaderTab path="/response">
           Response
         </RequestDetailsHeaderTab>
-        <button 
+        <button
           className="absolute right-2 bg-primary/[0.9] text-white font-bold px-2 py-0.5 hover:bg-primary/[0.8] active:bg-primary"
           onClick={async () => {
             await chrome.runtime.sendMessage({
@@ -76,11 +79,11 @@ function RequestDetailsHeaderTab(props: {
   const selected = loc.pathname.includes(props.path);
   return (
     <div
-      className={classNames("font-bold", {
-        "text-slate-700 cursor-default": selected,
-        "text-slate-400 hover:text-slate-500 cursor-pointer": !selected,
+      className={classNames('font-bold', {
+        'text-slate-700 cursor-default': selected,
+        'text-slate-400 hover:text-slate-500 cursor-pointer': !selected,
       })}
-      onClick={() => navigate("/requests/" + params.requestId + props.path)}
+      onClick={() => navigate('/requests/' + params.requestId + props.path)}
     >
       {props.children}
     </div>
@@ -236,12 +239,12 @@ function WebResponse(props: Props): ReactElement {
       method: data.method,
       headers: data.requestHeaders.reduce(
         (acc: { [key: string]: string }, h: chrome.webRequest.HttpHeader) => {
-          if (typeof h.name !== "undefined" && typeof h.value !== "undefined") {
+          if (typeof h.name !== 'undefined' && typeof h.value !== 'undefined') {
             acc[h.name] = h.value;
           }
           return acc;
         },
-        {}
+        {},
       ),
       body: data?.requestBody,
     };
@@ -254,21 +257,21 @@ function WebResponse(props: Props): ReactElement {
     setResponse(resp);
 
     const contentType =
-      resp?.headers.get("content-type") || resp?.headers.get("Content-Type");
+      resp?.headers.get('content-type') || resp?.headers.get('Content-Type');
 
-    if (contentType?.includes("application/json")) {
+    if (contentType?.includes('application/json')) {
       resp.json().then((json) => {
         if (json) {
           setJSON(json);
         }
       });
-    } else if (contentType?.includes("text")) {
+    } else if (contentType?.includes('text')) {
       resp.text().then((_text) => {
         if (_text) {
           setText(_text);
         }
       });
-    } else if (contentType?.includes("image")) {
+    } else if (contentType?.includes('image')) {
       resp.blob().then((blob) => {
         if (blob) {
           setImg(URL.createObjectURL(blob));

@@ -1,10 +1,10 @@
-import React, { MouseEventHandler, ReactElement, ReactNode } from "react";
-import Icon from "../../components/Icon";
-import classNames from "classnames";
-import { useNavigate } from "react-router";
-import { useActiveTabUrl, useRequests } from "../../reducers/requests";
-import { Link } from "react-router-dom";
-import { filterByBookmarks } from "../../../utils/bookmark";
+import React, { MouseEventHandler, ReactElement, ReactNode } from 'react';
+import Icon from '../../components/Icon';
+import classNames from 'classnames';
+import { useNavigate } from 'react-router';
+import { useActiveTabUrl, useRequests } from '../../reducers/requests';
+import { Link } from 'react-router-dom';
+import { filterByBookmarks } from '../../../utils/bookmark';
 
 export default function Home(): ReactElement {
   const requests = useRequests();
@@ -15,18 +15,18 @@ export default function Home(): ReactElement {
   return (
     <>
       <div className="flex flex-row flex-nowrap justify-center gap-8 my-8">
-        <NavButton fa="fa-solid fa-table" onClick={() => navigate("/requests")}>
+        <NavButton fa="fa-solid fa-table" onClick={() => navigate('/requests')}>
           <div>Requests</div>
           <div>{`(${requests.length})`}</div>
         </NavButton>
         <NavButton
           fa="fa-solid fa-magnifying-glass"
-          onClick={() => navigate("/verify")}
+          onClick={() => navigate('/verify')}
           disabled
         >
           Verify
         </NavButton>
-        <NavButton fa="fa-solid fa-list" onClick={() => navigate("/history")}>
+        <NavButton fa="fa-solid fa-list" onClick={() => navigate('/history')}>
           History
         </NavButton>
       </div>
@@ -94,14 +94,14 @@ function NavButton(props: {
   return (
     <button
       className={classNames(
-        "flex flex-col flex-nowrap items-center justify-center",
-        "text-white rounded-full p-4 h-24 w-24 gap-1",
+        'flex flex-col flex-nowrap items-center justify-center',
+        'text-white rounded-full p-4 h-24 w-24 gap-1',
         {
-          "bg-primary/[.8] hover:bg-primary/[.7] active:bg-primary":
+          'bg-primary/[.8] hover:bg-primary/[.7] active:bg-primary':
             !props.disabled,
-          "bg-primary/[.5]": props.disabled,
+          'bg-primary/[.5]': props.disabled,
         },
-        props.className
+        props.className,
       )}
       onClick={props.onClick}
       disabled={props.disabled}

@@ -1,5 +1,5 @@
-import { combineReducers } from "redux";
-import requests from "./requests";
+import { combineReducers } from 'redux';
+import requests from './requests';
 
 const rootReducer = combineReducers({
   requests,

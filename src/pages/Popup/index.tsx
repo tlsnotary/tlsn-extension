@@ -1,14 +1,14 @@
-import React from "react";
-import { createRoot } from "react-dom/client";
-import { HashRouter } from "react-router-dom";
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { HashRouter } from 'react-router-dom';
 
-import Popup from "./Popup";
-import "./index.scss";
-import { Provider } from "react-redux";
-import store from "../../utils/store";
-import { BackgroundActiontype } from "../Background/actionTypes";
+import Popup from './Popup';
+import './index.scss';
+import { Provider } from 'react-redux';
+import store from '../../utils/store';
+import { BackgroundActiontype } from '../Background/actionTypes';
 
-const container = document.getElementById("app-container");
+const container = document.getElementById('app-container');
 const root = createRoot(container!); // createRoot(container!) if you use TypeScript
 
 chrome.runtime.onMessage.addListener((request) => {
@@ -27,5 +27,5 @@ root.render(
     <HashRouter>
       <Popup />
     </HashRouter>
-  </Provider>
+  </Provider>,
 );
