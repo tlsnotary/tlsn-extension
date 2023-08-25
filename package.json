@@ -7,12 +7,12 @@
     "url": "https://github.com/tlsnotary/tlsn-extension.git"
   },
   "scripts": {
-    "clone:tlsn": "git clone https://github.com/tlsnotary/tlsn",
+    "clone:tlsn": "bash ./utils/download-tlsn.sh",
     "build:wasm": "wasm-pack build --target web wasm/prover",
     "build": "NODE_ENV=production node utils/build.js",
     "dev": "NODE_ENV=development node utils/webserver.js",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
+    "lint:fix": "eslint . --fix"
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^6.4.2",
