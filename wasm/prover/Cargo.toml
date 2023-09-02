@@ -37,7 +37,7 @@ web-time = "0.2"
 # tlsn-prover = { path = "../tlsn/tlsn/tlsn-prover", features = ["tracing"] }
 [dependencies.tlsn-prover]
 git = "https://github.com/mhchia/tlsn.git"
-branch = "tlsn-examples-wasm"
+branch = "dev-20230921-webtime"
 package = "tlsn-prover"
 features = ["tracing"]
 
@@ -74,15 +74,10 @@ branch="0.16.20-cleanup"
 git="https://github.com/mhchia/ws_stream_wasm"
 branch="dev"
 
-[patch.'https://github.com/tlsnotary/tlsn-utils']
+# [patch.'https://github.com/tlsnotary/tlsn-utils']
 # # Use single cpu backend
 # tlsn-utils = { git = 'https://www.github.com/mhchia/tlsn-utils.git', rev = "46327f0" }
 # tlsn-utils-aio = { git = 'https://www.github.com/mhchia/tlsn-utils.git', rev = "46327f0" }
-
-# Use older version of multi-threaded backend
-tlsn-utils = { git = 'https://www.github.com/tlsnotary/tlsn-utils.git', rev = "f3e3f07" }
-tlsn-utils-aio = { git = 'https://www.github.com/tlsnotary/tlsn-utils.git', rev = "f3e3f07" }
-
 
 # The `console_error_panic_hook` crate provides better debugging of panics by
 # logging them with `console.error`. This is great for development, but requires
