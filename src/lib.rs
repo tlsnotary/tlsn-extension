@@ -42,6 +42,16 @@ extern crate console_error_panic_hook;
 
 const SERVER_DOMAIN: &str = "twitter.com";
 
+const ROUTE: &str = "i/api/1.1/dm/conversation";
+const CONVERSATION_ID: &str = "";
+
+const CLIENT_UUID: &str = "";
+const USER_AGENT: &str = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36";
+
+const AUTH_TOKEN: &str = "";
+const ACCESS_TOKEN: &str = "";
+const CSRF_TOKEN: &str = "";
+
 #[wasm_bindgen]
 pub async fn prover() -> Result<(), JsValue> {
     let fmt_layer = tracing_subscriber::fmt::layer()
