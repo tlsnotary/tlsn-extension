@@ -23,9 +23,9 @@ use tracing_subscriber::prelude::*;
 use ws_stream_wasm::{*};
 
 
-// pub use wasm_bindgen_rayon::init_thread_pool;
+pub use wasm_bindgen_rayon::init_thread_pool;
 // use rayon::iter::IntoParallelRefIterator;
-// use rayon::prelude::*;
+use rayon::prelude::*;
 // ...
 
 extern crate web_sys;

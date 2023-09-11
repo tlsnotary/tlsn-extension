@@ -9,8 +9,8 @@ rust-version = "1.56"
 crate-type = ["cdylib"]
 
 [dependencies]
-# rayon = "1.5"
-# wasm-bindgen-rayon = "1.0"
+rayon = "1.5"
+wasm-bindgen-rayon = "1.0"
 wasm-bindgen = "0.2.87"
 js-sys = "0.3"
 tracing = "0.1"
@@ -69,17 +69,18 @@ git="https://github.com/betrusted-io/ring-xous"
 branch="0.16.20-cleanup"
 
 [patch.crates-io.ws_stream_wasm]
-git="https://github.com/mhchia/ws_stream_wasm"
 # path = "../../../others/ws_stream_wasm"
+git="https://github.com/mhchia/ws_stream_wasm"
+branch="dev"
 
 [patch.'https://github.com/tlsnotary/tlsn-utils']
-# Use single cpu backend
-tlsn-utils = { git = 'https://www.github.com/mhchia/tlsn-utils.git', rev = "46327f0" }
-tlsn-utils-aio = { git = 'https://www.github.com/mhchia/tlsn-utils.git', rev = "46327f0" }
+# # Use single cpu backend
+# tlsn-utils = { git = 'https://www.github.com/mhchia/tlsn-utils.git', rev = "46327f0" }
+# tlsn-utils-aio = { git = 'https://www.github.com/mhchia/tlsn-utils.git', rev = "46327f0" }
 
-# # Use older version of multi-threaded backend
-# tlsn-utils = { git = 'https://www.github.com/tlsnotary/tlsn-utils.git', rev = "f3e3f07" }
-# tlsn-utils-aio = { git = 'https://www.github.com/tlsnotary/tlsn-utils.git', rev = "f3e3f07" }
+# Use older version of multi-threaded backend
+tlsn-utils = { git = 'https://www.github.com/tlsnotary/tlsn-utils.git', rev = "f3e3f07" }
+tlsn-utils-aio = { git = 'https://www.github.com/tlsnotary/tlsn-utils.git', rev = "f3e3f07" }
 
 
 # The `console_error_panic_hook` crate provides better debugging of panics by
