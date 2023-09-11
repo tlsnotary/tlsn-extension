@@ -70,6 +70,7 @@ branch="0.16.20-cleanup"
 
 [patch.crates-io.ws_stream_wasm]
 # path = "../../../others/ws_stream_wasm"
+# Use the patched ws_stream_wasm to fix the issue https://github.com/najamelan/ws_stream_wasm/issues/12#issuecomment-1711902958
 git="https://github.com/mhchia/ws_stream_wasm"
 branch="dev"
 
