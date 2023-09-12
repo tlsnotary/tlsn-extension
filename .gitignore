@@ -9,3 +9,4 @@ wasm-pack.log
 build
 tlsn/
 zip
+wasm/prover/target/
