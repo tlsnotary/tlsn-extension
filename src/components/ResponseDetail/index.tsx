@@ -19,23 +19,32 @@ export default function ResponseDetail(props: {
       resp.headers.get('content-type') || resp.headers.get('Content-Type');
 
     if (contentType?.includes('application/json')) {
-      resp.json().then((json) => {
-        if (json) {
-          setJSON(json);
-        }
-      }).catch();
+      resp
+        .json()
+        .then((json) => {
+          if (json) {
+            setJSON(json);
+          }
+        })
+        .catch();
     } else if (contentType?.includes('text')) {
-      resp.text().then((_text) => {
-        if (_text) {
-          setText(_text);
-        }
-      }).catch();
+      resp
+        .text()
+        .then((_text) => {
+          if (_text) {
+            setText(_text);
+          }
+        })
+        .catch();
     } else if (contentType?.includes('image')) {
-      resp.blob().then((blob) => {
-        if (blob) {
-          setImg(URL.createObjectURL(blob));
-        }
-      }).catch();
+      resp
+        .blob()
+        .then((blob) => {
+          if (blob) {
+            setImg(URL.createObjectURL(blob));
+          }
+        })
+        .catch();
     } else {
       resp
         .blob()
@@ -50,7 +59,12 @@ export default function ResponseDetail(props: {
   }, [props.response]);
 
   return (
-    <div className={classNames("flex flex-col flex-nowrap overflow-y-auto", props.className)}>
+    <div
+      className={classNames(
+        'flex flex-col flex-nowrap overflow-y-auto',
+        props.className,
+      )}
+    >
       <table className="border border-slate-300 border-collapse table-fixed w-full">
         {!!props.response?.headers && (
           <>
@@ -62,18 +76,20 @@ export default function ResponseDetail(props: {
               </tr>
             </thead>
             <tbody>
-              {Array.from(props.response.headers.entries()).map(([name, value]) => {
-                return (
-                  <tr className="border-b border-slate-200">
-                    <td className="border border-slate-300 font-bold align-top py-1 px-2 whitespace-nowrap">
-                      {name}
-                    </td>
-                    <td className="border border-slate-300 break-all align-top py-1 px-2">
-                      {value}
-                    </td>
-                  </tr>
-                );
-              })}
+              {Array.from(props.response.headers.entries()).map(
+                ([name, value]) => {
+                  return (
+                    <tr className="border-b border-slate-200">
+                      <td className="border border-slate-300 font-bold align-top py-1 px-2 whitespace-nowrap">
+                        {name}
+                      </td>
+                      <td className="border border-slate-300 break-all align-top py-1 px-2">
+                        {value}
+                      </td>
+                    </tr>
+                  );
+                },
+              )}
             </tbody>
           </>
         )}
