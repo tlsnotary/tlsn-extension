@@ -12,6 +12,7 @@ import Requests from '../Requests';
 import Request from '../Requests/Request';
 import Home from '../Home';
 import logo from '../../assets/img/icon-128.png';
+import RequestBuilder from '../RequestBuilder';
 
 const Popup = () => {
   const dispatch = useDispatch();
@@ -58,6 +59,7 @@ const Popup = () => {
       <Routes>
         <Route path="/requests/:requestId/*" element={<Request />} />
         <Route path="/requests" element={<Requests />} />
+        <Route path="/custom/*" element={<RequestBuilder />} />
         <Route path="/home" element={<Home />} />
         <Route path="*" element={<Navigate to="/home" />} />
       </Routes>

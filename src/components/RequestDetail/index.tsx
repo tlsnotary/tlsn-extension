@@ -19,6 +19,7 @@ import {
   useParams,
 } from 'react-router';
 import Icon from '../Icon';
+import NavigateWithParams from '../NavigateWithParams';
 
 type Props = {
   data: RequestLog | null;
@@ -446,9 +447,4 @@ function RequestHeaders(props: Props): ReactElement {
       </table>
     </div>
   );
-}
-
-function NavigateWithParams(props: { to: string }): ReactElement {
-  const location = useLocation();
-  return <Navigate to={location.pathname + props.to} />;
 }

@@ -29,6 +29,12 @@ export default function Home(): ReactElement {
         </NavButton>
         <NavButton
           fa="fa-solid fa-magnifying-glass"
+          onClick={() => navigate('/custom')}
+        >
+          Custom
+        </NavButton>
+        <NavButton
+          fa="fa-solid fa-magnifying-glass"
           onClick={() => navigate('/verify')}
           disabled
         >
@@ -124,7 +130,7 @@ function NavButton(props: {
     <button
       className={classNames(
         'flex flex-col flex-nowrap items-center justify-center',
-        'text-white rounded-full p-4 h-24 w-24 gap-1',
+        'text-white rounded-full p-4 h-20 w-20 gap-1',
         {
           'bg-primary/[.8] hover:bg-primary/[.7] active:bg-primary':
             !props.disabled,
