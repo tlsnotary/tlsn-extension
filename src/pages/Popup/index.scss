@@ -46,6 +46,19 @@ code {
   &:active {
     @apply text-slate-700;
   }
+
+  &:disabled {
+    @apply opacity-50;
+    @apply select-none;
+
+    &:hover {
+      @apply text-slate-400;
+    }
+
+    &:active {
+      @apply text-slate-400;
+    }
+  }
 }
 
 .input {
@@ -78,4 +91,15 @@ a {
   @apply px-2 py-0.5;
   outline: none;
   border-right: .5rem solid transparent
+}
+
+.textarea {
+  @apply outline-none;
+  @apply text-xs;
+  @apply px-2 py-1;
+  @apply border;
+
+  &:focus {
+    @apply border-slate-300;
+  }
 }
