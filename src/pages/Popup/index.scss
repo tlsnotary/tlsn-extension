@@ -52,6 +52,10 @@ code {
   @apply outline-none;
   @apply text-xs;
   @apply px-2 py-1;
+
+  &:focus {
+    @apply border-slate-300;
+  }
 }
 
 a {
@@ -64,4 +68,14 @@ a {
   &:visited {
     @apply text-purple-600;
   }
+}
+
+.select {
+  @apply bg-slate-200;
+  @apply text-slate-800;
+  @apply font-bold;
+  @apply cursor-pointer;
+  @apply px-2 py-0.5;
+  outline: none;
+  border-right: .5rem solid transparent
 }

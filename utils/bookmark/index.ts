@@ -20,12 +20,11 @@ export function findBookmarksByURL(url: URL | null): Bookmark[] {
 
 export function filterByBookmarks(requests: RequestLog[]): Bookmark[] {
   const hosts = requests
-    .map((r) => new URL(r.url).host)
+    .map((r) => r.url && new URL(r.url).host)
     .reduce((acc: { [host: string]: string }, host) => {
       acc[host] = host;
       return acc;
     }, {});
-  // const str = bookmarks.map(d => d.url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
 
   return bookmarks.filter((bm) => {
     if (hosts[new URL(bm.url).host]) {

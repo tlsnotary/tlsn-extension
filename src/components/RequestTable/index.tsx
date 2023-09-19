@@ -76,23 +76,31 @@ export default function RequestTable(props: Props): ReactElement {
             </tr>
           </thead>
           <tbody>
-            {list.map((r) => (
-              <tr
-                key={r.requestId}
-                onClick={() => navigate('/requests/' + r.requestId)}
-                className="cursor-pointer hover:bg-slate-100"
-              >
-                <td className="border border-slate-200 align-top py-1 px-2 whitespace-nowrap w-2/12">
-                  {r.method}
-                </td>
-                <td className="border border-slate-200 align-top py-1 px-2 whitespace-nowrap w-3/12">
-                  {r.type}
-                </td>
-                <td className="border border-slate-200 py-1 px-2 break-all truncate">
-                  {r.url && new URL(r.url).pathname}
-                </td>
-              </tr>
-            ))}
+            {list.map((r) => {
+              let url;
+
+              try {
+                url = new URL(r.url);
+              } catch (e) {}
+
+              return (
+                <tr
+                  key={r.requestId}
+                  onClick={() => navigate('/requests/' + r.requestId)}
+                  className="cursor-pointer hover:bg-slate-100"
+                >
+                  <td className="border border-slate-200 align-top py-1 px-2 whitespace-nowrap w-2/12">
+                    {r.method}
+                  </td>
+                  <td className="border border-slate-200 align-top py-1 px-2 whitespace-nowrap w-3/12">
+                    {r.type}
+                  </td>
+                  <td className="border border-slate-200 py-1 px-2 break-all truncate">
+                    {url?.pathname}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
