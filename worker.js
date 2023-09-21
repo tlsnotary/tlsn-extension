@@ -1,5 +1,5 @@
 import * as Comlink from "comlink";
-// import init, { initThreadPool, greet, sum, prover } from "./pkg/tlsn_extension_rs";
+// import init, { prover } from "./pkg/tlsn_extension_rs";
 import init, { initThreadPool, prover } from "./pkg/tlsn_extension_rs";
 
 function hasSharedMemory() {
