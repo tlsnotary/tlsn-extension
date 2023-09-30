@@ -1,3 +1,5 @@
+mod requests;
+
 use std::panic;
 use std::ops::Range;
 use web_time::Instant;
@@ -19,16 +21,17 @@ use tracing_subscriber::fmt::format::Pretty;
 use tracing_subscriber::fmt::time::UtcTime;
 use tracing_subscriber::prelude::*;
 
-
 use ws_stream_wasm::{*};
 
+use crate::requests::{NotarizationSessionRequest, NotarizationSessionResponse, ClientType};
 
 pub use wasm_bindgen_rayon::init_thread_pool;
 // use rayon::iter::IntoParallelRefIterator;
 use rayon::prelude::*;
-// ...
 
-extern crate web_sys;
+use wasm_bindgen_futures::JsFuture;
+use web_sys::{Request as WebsysRequest, RequestInit, Headers, RequestMode, Response};
+use js_sys::JSON;
 
 // A macro to provide `println!(..)`-style syntax for `console.log` logging.
 macro_rules! log {
@@ -39,6 +42,10 @@ macro_rules! log {
 
 extern crate console_error_panic_hook;
 
+const MAX_TRANSCRIPT_SIZE : usize = 1 << 14;
+const NOTARY_HOST : &str = "localhost";
+// const NOTARY_HOST : &str = "notary.efprivacyscaling.org";
+const NOTARY_PORT : u16 = 7047;
 
 const SERVER_DOMAIN: &str = "twitter.com";
 const ROUTE: &str = "i/api/1.1/dm/conversation";
@@ -50,6 +57,23 @@ const USER_AGENT: &str = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KH
 const AUTH_TOKEN: &str = "";
 const ACCESS_TOKEN: &str = "";
 const CSRF_TOKEN: &str = "";
+
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(js_namespace = self)]
+    fn fetch(request: &web_sys::Request) -> js_sys::Promise;
+}
+
+async fn fetch_as_json_string(url: &str, opts: &RequestInit) -> Result<String, JsValue> {
+    let request = WebsysRequest::new_with_str_and_init(url, opts)?;
+    let promise = fetch(&request);
+    let future = JsFuture::from(promise);
+    let resp_value = future.await?;
+    let resp: Response = resp_value.dyn_into().unwrap();
+    let json = JsFuture::from(resp.json()?).await?;
+    let stringified = JSON::stringify(&json).unwrap();
+    Ok(stringified.as_string().unwrap())
+}
 
 #[wasm_bindgen]
 pub async fn prover() -> Result<(), JsValue> {
@@ -71,30 +95,59 @@ pub async fn prover() -> Result<(), JsValue> {
 
     let start_time = Instant::now();
 
-    let (mut client_ws_meta, mut client_ws_stream) = WsMeta::connect( "ws://localhost:55688", None ).await
-        .expect_throw( "assume the client ws connection succeeds" );
-    let (mut notary_ws_meta, mut notary_ws_stream) = WsMeta::connect( "ws://localhost:7788", None ).await
-        .expect_throw( "assume the notary ws connection succeeds" );
+    /*
+     * Connect Notary with websocket
+     */
 
-    let mut client_ws_stream_into = client_ws_stream.into_io();
+    let mut opts = RequestInit::new();
+    opts.method("POST");
+    // opts.method("GET");
+    opts.mode(RequestMode::Cors);
+
+    // set headers
+    let headers = Headers::new().unwrap();
+    headers.append("Host", NOTARY_HOST).unwrap();
+    headers.append("Content-Type", "application/json").unwrap();
+    opts.headers(&headers);
+
+    // set body
+    let payload = serde_json::to_string(&NotarizationSessionRequest {
+        client_type: ClientType::Websocket,
+        max_transcript_size: Some(MAX_TRANSCRIPT_SIZE),
+    })
+    .unwrap();
+    opts.body(Some(&JsValue::from_str(&payload)));
+
+    // url
+    let url = format!("https://{}:{}/session", NOTARY_HOST, NOTARY_PORT);
+    let rust_string = fetch_as_json_string(&url, &opts).await.unwrap();
+    let notarization_response = serde_json::from_str::<NotarizationSessionResponse>(&rust_string).unwrap();
+    log!("Response: {}", rust_string);
+
+    log!("Notarization response: {:?}", notarization_response,);
+    let notary_wss_url = format!("wss://{}:{}/notarize?sessionId={}", NOTARY_HOST, NOTARY_PORT, notarization_response.session_id);
+    let (mut notary_ws_meta, mut notary_ws_stream) = WsMeta::connect(
+        notary_wss_url,
+         None
+        ).await
+        .expect_throw( "assume the notary ws connection succeeds" );
     let mut notary_ws_stream_into = notary_ws_stream.into_io();
+
+    /*
+        Connect Application Server with websocket proxy
+     */
+
+    let (mut client_ws_meta, mut client_ws_stream) = WsMeta::connect(
+        "ws://localhost:55688",
+        None ).await
+        .expect_throw( "assume the client ws connection succeeds" );
+    let mut client_ws_stream_into = client_ws_stream.into_io();
 
     log!("!@# 0");
 
-    // let message         = b"Hello from browser".to_vec();
-	// notary_ws_stream_into.write(&message).await
-	// 	.expect_throw( "Failed to write to websocket" );
-    // log!("!@# 0.1");
-
-    // let mut output = [0u8; 20];
-    // let bytes = notary_ws_stream_into.read(&mut output[..]).await.unwrap();
-    // assert_eq!(bytes, 18);
-    // log!("Received: {:?}", &output[..bytes]);
-
-
     // Basic default prover config
     let config = ProverConfig::builder()
-        .id("example")
+        .id(notarization_response.session_id)
         .server_dns(SERVER_DOMAIN)
         .build()
         .unwrap();
