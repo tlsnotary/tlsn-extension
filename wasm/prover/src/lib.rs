@@ -7,6 +7,7 @@ use web_time::Instant;
 use hyper::{body::to_bytes, Body, Request, StatusCode};
 use futures::{AsyncWriteExt, TryFutureExt};
 use futures::channel::oneshot;
+use tlsn_core::proof::TlsProof;
 use tlsn_prover::{Prover, ProverConfig};
 
 // use tokio::io::AsyncWriteExt as _;
@@ -43,20 +44,18 @@ macro_rules! log {
 extern crate console_error_panic_hook;
 
 const MAX_TRANSCRIPT_SIZE : usize = 1 << 14;
-const NOTARY_HOST : &str = "localhost";
+const NOTARY_HOST : &str = "127.0.0.1";
 // const NOTARY_HOST : &str = "notary.efprivacyscaling.org";
 const NOTARY_PORT : u16 = 7047;
 
 const SERVER_DOMAIN: &str = "twitter.com";
-const ROUTE: &str = "i/api/1.1/dm/conversation";
-const CONVERSATION_ID: &str = "";
+const ROUTE: &str = "1.1/account/settings.json";
 
-const CLIENT_UUID: &str = "";
 const USER_AGENT: &str = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36";
 
-const AUTH_TOKEN: &str = "";
-const ACCESS_TOKEN: &str = "";
-const CSRF_TOKEN: &str = "";
+const AUTH_TOKEN: &str = "a28cae3969369c26c1410f5bded83c3f4f914fbc";
+const ACCESS_TOKEN: &str = "AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA";
+const CSRF_TOKEN: &str = "d3db4412338fb56baad82ec933008129f5ca0faa6115e9fb4a647f1de521a30bc21b8d0848541cd326f3baef9bd6d6ffc4051f16ffa1ad6c0b7576be34c585382cf6eb88a55c4505441cf9601b98db0d";
 
 #[wasm_bindgen]
 extern "C" {
@@ -213,7 +212,7 @@ pub async fn prover() -> Result<(), JsValue> {
     // Build the HTTP request to fetch the DMs
     let request = Request::builder()
         .uri(format!(
-            "https://{SERVER_DOMAIN}/{ROUTE}/{CONVERSATION_ID}.json"
+            "https://{SERVER_DOMAIN}/{ROUTE}"
         ))
         .header("Host", SERVER_DOMAIN)
         .header("Accept", "*/*")
@@ -225,10 +224,6 @@ pub async fn prover() -> Result<(), JsValue> {
             "Cookie",
             format!("auth_token={AUTH_TOKEN}; ct0={CSRF_TOKEN}"),
         )
-        .header("Authority", SERVER_DOMAIN)
-        .header("X-Twitter-Auth-Type", "OAuth2Session")
-        .header("x-twitter-active-user", "yes")
-        .header("X-Client-Uuid", CLIENT_UUID)
         .header("X-Csrf-Token", CSRF_TOKEN)
         .body(Body::empty())
         .unwrap();
@@ -267,7 +262,7 @@ pub async fn prover() -> Result<(), JsValue> {
     log!("!@# 14");
 
     // Identify the ranges in the transcript that contain secrets
-    let (public_ranges, private_ranges) = find_ranges(
+    let (sent_public_ranges, sent_private_ranges) = find_ranges(
         prover.sent_transcript().data(),
         &[
             ACCESS_TOKEN.as_bytes(),
@@ -275,38 +270,63 @@ pub async fn prover() -> Result<(), JsValue> {
             CSRF_TOKEN.as_bytes(),
         ],
     );
+
+    // Identify the ranges in the transcript that contain the only data we want to reveal later
+    let (recv_private_ranges, recv_public_ranges) = find_ranges(
+        prover.recv_transcript().data(),
+        &["\"screen_name\":\"0xTsukino\"".as_bytes()],
+    );
     log!("!@# 15");
 
     let recv_len = prover.recv_transcript().data().len();
 
     let builder = prover.commitment_builder();
 
-    // Commit to each range of the public outbound data which we want to disclose
-    let sent_commitments: Vec<_> = public_ranges
+    // Commit to the outbound and inbound transcript, isolating the data that contain secrets
+    let sent_pub_commitment_ids = sent_public_ranges
         .iter()
-        .map(|r| builder.commit_sent(r.clone()).unwrap())
-        .collect();
+        .map(|range| builder.commit_sent(range.clone()).unwrap())
+        .collect::<Vec<_>>();
 
-    // Commit to all inbound data in one shot, as we don't need to redact anything in it
-    let recv_commitment = builder.commit_recv(0..recv_len).unwrap();
+    sent_private_ranges.iter().for_each(|range| {
+        builder.commit_sent(range.clone()).unwrap();
+    });
+
+    let recv_pub_commitment_ids = recv_public_ranges
+        .iter()
+        .map(|range| builder.commit_recv(range.clone()).unwrap())
+        .collect::<Vec<_>>();
+
+    recv_private_ranges.iter().for_each(|range| {
+        builder.commit_recv(range.clone()).unwrap();
+    });
 
     // Finalize, returning the notarized session
     let notarized_session = prover.finalize().await.unwrap();
+
+    log!("Notarization complete!");
 
     // Create a proof for all committed data in this session
     let session_proof = notarized_session.session_proof();
 
     let mut proof_builder = notarized_session.data().build_substrings_proof();
 
-    // Reveal all the public ranges
-    for commitment_id in sent_commitments {
-        proof_builder.reveal(commitment_id).unwrap();
-    }
-    proof_builder.reveal(recv_commitment).unwrap();
+    // Reveal everything except the redacted stuff (which for the response it's everything except the screen_name)
+    sent_pub_commitment_ids
+        .iter()
+        .chain(recv_pub_commitment_ids.iter())
+        .for_each(|id| {
+            proof_builder.reveal(*id).unwrap();
+        });
 
     let substrings_proof = proof_builder.build().unwrap();
-    let res = serde_json::to_string_pretty(&(&session_proof, &substrings_proof, &SERVER_DOMAIN))
-        .unwrap();
+
+    let proof = TlsProof {
+        session: session_proof,
+        substrings: substrings_proof,
+    };
+
+    let res = serde_json::to_string_pretty(&proof).unwrap().as_str();
     log!("res = {}", res);
 
     let duration = start_time.elapsed();
