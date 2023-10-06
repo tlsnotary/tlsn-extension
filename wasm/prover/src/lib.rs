@@ -48,14 +48,15 @@ const NOTARY_HOST : &str = "127.0.0.1";
 // const NOTARY_HOST : &str = "notary.efprivacyscaling.org";
 const NOTARY_PORT : u16 = 7047;
 
-const SERVER_DOMAIN: &str = "twitter.com";
+const SERVER_DOMAIN: &str = "api.twitter.com";
 const ROUTE: &str = "1.1/account/settings.json";
 
 const USER_AGENT: &str = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36";
 
-const AUTH_TOKEN: &str = "a28cae3969369c26c1410f5bded83c3f4f914fbc";
-const ACCESS_TOKEN: &str = "AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA";
-const CSRF_TOKEN: &str = "d3db4412338fb56baad82ec933008129f5ca0faa6115e9fb4a647f1de521a30bc21b8d0848541cd326f3baef9bd6d6ffc4051f16ffa1ad6c0b7576be34c585382cf6eb88a55c4505441cf9601b98db0d";
+const AUTH_TOKEN: &str = "a28cae....f914fbc";
+const ACCESS_TOKEN: &str = "AAAAAAA.....AGWWjCpTnA";
+const CSRF_TOKEN: &str = "d3db44123....6ffa1ad6c0b7576be34c585382cf6eb88a55c4505441cf9601b98db0d";
+const TWITTER_ID: &str = "yourTwitterId";
 
 #[wasm_bindgen]
 extern "C" {
@@ -211,9 +212,7 @@ pub async fn prover() -> Result<(), JsValue> {
 
     // Build the HTTP request to fetch the DMs
     let request = Request::builder()
-        .uri(format!(
-            "https://{SERVER_DOMAIN}/{ROUTE}"
-        ))
+        .uri(format!("https://{SERVER_DOMAIN}/{ROUTE}"))
         .header("Host", SERVER_DOMAIN)
         .header("Accept", "*/*")
         .header("Accept-Encoding", "identity")
@@ -224,7 +223,7 @@ pub async fn prover() -> Result<(), JsValue> {
             "Cookie",
             format!("auth_token={AUTH_TOKEN}; ct0={CSRF_TOKEN}"),
         )
-        .header("X-Csrf-Token", CSRF_TOKEN)
+        .header("X-Csrf-Token", CSRF_TOKEN.clone())
         .body(Body::empty())
         .unwrap();
 
@@ -274,7 +273,7 @@ pub async fn prover() -> Result<(), JsValue> {
     // Identify the ranges in the transcript that contain the only data we want to reveal later
     let (recv_private_ranges, recv_public_ranges) = find_ranges(
         prover.recv_transcript().data(),
-        &["\"screen_name\":\"0xTsukino\"".as_bytes()],
+        &[format!("\"screen_name\":\"{TWITTER_ID}\"").as_bytes()],
     );
     log!("!@# 15");
 
@@ -326,7 +325,7 @@ pub async fn prover() -> Result<(), JsValue> {
         substrings: substrings_proof,
     };
 
-    let res = serde_json::to_string_pretty(&proof).unwrap().as_str();
+    let res = serde_json::to_string_pretty(&proof).unwrap();
     log!("res = {}", res);
 
     let duration = start_time.elapsed();
