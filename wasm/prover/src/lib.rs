@@ -1,3 +1,5 @@
+mod requests;
+
 use std::panic;
 use std::ops::Range;
 use web_time::Instant;
@@ -5,6 +7,7 @@ use web_time::Instant;
 use hyper::{body::to_bytes, Body, Request, StatusCode};
 use futures::{AsyncWriteExt, TryFutureExt};
 use futures::channel::oneshot;
+use tlsn_core::proof::TlsProof;
 use tlsn_prover::{Prover, ProverConfig};
 
 // use tokio::io::AsyncWriteExt as _;
@@ -19,16 +22,17 @@ use tracing_subscriber::fmt::format::Pretty;
 use tracing_subscriber::fmt::time::UtcTime;
 use tracing_subscriber::prelude::*;
 
-
 use ws_stream_wasm::{*};
 
+use crate::requests::{NotarizationSessionRequest, NotarizationSessionResponse, ClientType};
 
 pub use wasm_bindgen_rayon::init_thread_pool;
 // use rayon::iter::IntoParallelRefIterator;
 use rayon::prelude::*;
-// ...
 
-extern crate web_sys;
+use wasm_bindgen_futures::JsFuture;
+use web_sys::{Request as WebsysRequest, RequestInit, Headers, RequestMode, Response};
+use js_sys::JSON;
 
 // A macro to provide `println!(..)`-style syntax for `console.log` logging.
 macro_rules! log {
@@ -39,20 +43,37 @@ macro_rules! log {
 
 extern crate console_error_panic_hook;
 
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(js_namespace = self)]
+    fn fetch(request: &web_sys::Request) -> js_sys::Promise;
+}
 
-const SERVER_DOMAIN: &str = "twitter.com";
-const ROUTE: &str = "i/api/1.1/dm/conversation";
-const CONVERSATION_ID: &str = "";
-
-const CLIENT_UUID: &str = "";
-const USER_AGENT: &str = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36";
-
-const AUTH_TOKEN: &str = "";
-const ACCESS_TOKEN: &str = "";
-const CSRF_TOKEN: &str = "";
+async fn fetch_as_json_string(url: &str, opts: &RequestInit) -> Result<String, JsValue> {
+    let request = WebsysRequest::new_with_str_and_init(url, opts)?;
+    let promise = fetch(&request);
+    let future = JsFuture::from(promise);
+    let resp_value = future.await?;
+    let resp: Response = resp_value.dyn_into().unwrap();
+    let json = JsFuture::from(resp.json()?).await?;
+    let stringified = JSON::stringify(&json).unwrap();
+    Ok(stringified.as_string().unwrap())
+}
 
 #[wasm_bindgen]
-pub async fn prover() -> Result<(), JsValue> {
+pub async fn prover(
+    max_transcript_size: usize,
+    notary_host: &str,
+    notary_port: u16,
+    server_domain: &str,
+    route: &str,
+    user_agent: &str,
+    auth_token: &str,
+    access_token: &str,
+    csrf_token: &str,
+    twitter_id: &str,
+    websocket_proxy_url: &str,
+) -> Result<String, JsValue> {
     let fmt_layer = tracing_subscriber::fmt::layer()
     .with_ansi(false) // Only partially supported across browsers
     .with_timer(UtcTime::rfc_3339()) // std::time is not available in browsers
@@ -71,31 +92,60 @@ pub async fn prover() -> Result<(), JsValue> {
 
     let start_time = Instant::now();
 
-    let (mut client_ws_meta, mut client_ws_stream) = WsMeta::connect( "ws://localhost:55688", None ).await
-        .expect_throw( "assume the client ws connection succeeds" );
-    let (mut notary_ws_meta, mut notary_ws_stream) = WsMeta::connect( "ws://localhost:7788", None ).await
-        .expect_throw( "assume the notary ws connection succeeds" );
+    /*
+     * Connect Notary with websocket
+     */
 
-    let mut client_ws_stream_into = client_ws_stream.into_io();
+    let mut opts = RequestInit::new();
+    opts.method("POST");
+    // opts.method("GET");
+    opts.mode(RequestMode::Cors);
+
+    // set headers
+    let headers = Headers::new().unwrap();
+    headers.append("Host", notary_host).unwrap();
+    headers.append("Content-Type", "application/json").unwrap();
+    opts.headers(&headers);
+
+    // set body
+    let payload = serde_json::to_string(&NotarizationSessionRequest {
+        client_type: ClientType::Websocket,
+        max_transcript_size: Some(max_transcript_size),
+    })
+    .unwrap();
+    opts.body(Some(&JsValue::from_str(&payload)));
+
+    // url
+    let url = format!("https://{}:{}/session", notary_host, notary_port);
+    let rust_string = fetch_as_json_string(&url, &opts).await.unwrap();
+    let notarization_response = serde_json::from_str::<NotarizationSessionResponse>(&rust_string).unwrap();
+    log!("Response: {}", rust_string);
+
+    log!("Notarization response: {:?}", notarization_response,);
+    let notary_wss_url = format!("wss://{}:{}/notarize?sessionId={}", notary_host, notary_port, notarization_response.session_id);
+    let (mut notary_ws_meta, mut notary_ws_stream) = WsMeta::connect(
+        notary_wss_url,
+         None
+        ).await
+        .expect_throw( "assume the notary ws connection succeeds" );
     let mut notary_ws_stream_into = notary_ws_stream.into_io();
+
+    /*
+        Connect Application Server with websocket proxy
+     */
+
+    let (mut client_ws_meta, mut client_ws_stream) = WsMeta::connect(
+        websocket_proxy_url,
+        None ).await
+        .expect_throw( "assume the client ws connection succeeds" );
+    let mut client_ws_stream_into = client_ws_stream.into_io();
 
     log!("!@# 0");
 
-    // let message         = b"Hello from browser".to_vec();
-	// notary_ws_stream_into.write(&message).await
-	// 	.expect_throw( "Failed to write to websocket" );
-    // log!("!@# 0.1");
-
-    // let mut output = [0u8; 20];
-    // let bytes = notary_ws_stream_into.read(&mut output[..]).await.unwrap();
-    // assert_eq!(bytes, 18);
-    // log!("Received: {:?}", &output[..bytes]);
-
-
     // Basic default prover config
     let config = ProverConfig::builder()
-        .id("example")
-        .server_dns(SERVER_DOMAIN)
+        .id(notarization_response.session_id)
+        .server_dns(server_domain)
         .build()
         .unwrap();
 
@@ -157,26 +207,19 @@ pub async fn prover() -> Result<(), JsValue> {
     spawn_local(handled_connection_fut);
     log!("!@# 9");
 
-    // Build the HTTP request to fetch the DMs
     let request = Request::builder()
-        .uri(format!(
-            "https://{SERVER_DOMAIN}/{ROUTE}/{CONVERSATION_ID}.json"
-        ))
-        .header("Host", SERVER_DOMAIN)
+        .uri(format!("https://{server_domain}/{route}"))
+        .header("Host", server_domain)
         .header("Accept", "*/*")
         .header("Accept-Encoding", "identity")
         .header("Connection", "close")
-        .header("User-Agent", USER_AGENT)
-        .header("Authorization", format!("Bearer {ACCESS_TOKEN}"))
+        .header("User-Agent", user_agent)
+        .header("Authorization", format!("Bearer {access_token}"))
         .header(
             "Cookie",
-            format!("auth_token={AUTH_TOKEN}; ct0={CSRF_TOKEN}"),
+            format!("auth_token={auth_token}; ct0={csrf_token}"),
         )
-        .header("Authority", SERVER_DOMAIN)
-        .header("X-Twitter-Auth-Type", "OAuth2Session")
-        .header("x-twitter-active-user", "yes")
-        .header("X-Client-Uuid", CLIENT_UUID)
-        .header("X-Csrf-Token", CSRF_TOKEN)
+        .header("X-Csrf-Token", csrf_token)
         .body(Body::empty())
         .unwrap();
 
@@ -214,13 +257,19 @@ pub async fn prover() -> Result<(), JsValue> {
     log!("!@# 14");
 
     // Identify the ranges in the transcript that contain secrets
-    let (public_ranges, private_ranges) = find_ranges(
+    let (sent_public_ranges, sent_private_ranges) = find_ranges(
         prover.sent_transcript().data(),
         &[
-            ACCESS_TOKEN.as_bytes(),
-            AUTH_TOKEN.as_bytes(),
-            CSRF_TOKEN.as_bytes(),
+            access_token.as_bytes(),
+            auth_token.as_bytes(),
+            csrf_token.as_bytes(),
         ],
+    );
+
+    // Identify the ranges in the transcript that contain the only data we want to reveal later
+    let (recv_private_ranges, recv_public_ranges) = find_ranges(
+        prover.recv_transcript().data(),
+        &[format!("\"screen_name\":\"{twitter_id}\"").as_bytes()],
     );
     log!("!@# 15");
 
@@ -228,38 +277,56 @@ pub async fn prover() -> Result<(), JsValue> {
 
     let builder = prover.commitment_builder();
 
-    // Commit to each range of the public outbound data which we want to disclose
-    let sent_commitments: Vec<_> = public_ranges
+    // Commit to the outbound and inbound transcript, isolating the data that contain secrets
+    let sent_pub_commitment_ids = sent_public_ranges
         .iter()
-        .map(|r| builder.commit_sent(r.clone()).unwrap())
-        .collect();
+        .map(|range| builder.commit_sent(range.clone()).unwrap())
+        .collect::<Vec<_>>();
 
-    // Commit to all inbound data in one shot, as we don't need to redact anything in it
-    let recv_commitment = builder.commit_recv(0..recv_len).unwrap();
+    sent_private_ranges.iter().for_each(|range| {
+        builder.commit_sent(range.clone()).unwrap();
+    });
+
+    let recv_pub_commitment_ids = recv_public_ranges
+        .iter()
+        .map(|range| builder.commit_recv(range.clone()).unwrap())
+        .collect::<Vec<_>>();
+
+    recv_private_ranges.iter().for_each(|range| {
+        builder.commit_recv(range.clone()).unwrap();
+    });
 
     // Finalize, returning the notarized session
     let notarized_session = prover.finalize().await.unwrap();
+
+    log!("Notarization complete!");
 
     // Create a proof for all committed data in this session
     let session_proof = notarized_session.session_proof();
 
     let mut proof_builder = notarized_session.data().build_substrings_proof();
 
-    // Reveal all the public ranges
-    for commitment_id in sent_commitments {
-        proof_builder.reveal(commitment_id).unwrap();
-    }
-    proof_builder.reveal(recv_commitment).unwrap();
+    // Reveal everything except the redacted stuff (which for the response it's everything except the screen_name)
+    sent_pub_commitment_ids
+        .iter()
+        .chain(recv_pub_commitment_ids.iter())
+        .for_each(|id| {
+            proof_builder.reveal(*id).unwrap();
+        });
 
     let substrings_proof = proof_builder.build().unwrap();
-    let res = serde_json::to_string_pretty(&(&session_proof, &substrings_proof, &SERVER_DOMAIN))
-        .unwrap();
-    log!("res = {}", res);
+
+    let proof = TlsProof {
+        session: session_proof,
+        substrings: substrings_proof,
+    };
+
+    let res = serde_json::to_string_pretty(&proof).unwrap();
 
     let duration = start_time.elapsed();
     log!("!@# request takes: {} seconds", duration.as_secs());
 
-    Ok(())
+    Ok(res)
 
 }
 

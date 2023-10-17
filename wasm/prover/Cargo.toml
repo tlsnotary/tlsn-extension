@@ -12,7 +12,7 @@ crate-type = ["cdylib"]
 rayon = "1.5"
 wasm-bindgen-rayon = "1.0"
 wasm-bindgen = "0.2.87"
-js-sys = "0.3"
+js-sys = "0.3.64"
 tracing = "0.1"
 getrandom = { version = "0.2", features = ["js"] }
 ws_stream_wasm = "0.7.4"
@@ -20,6 +20,7 @@ wasm-bindgen-futures = "0.4.37"
 tokio-util = "0.7"
 futures = "0.3"
 serde_json = "1.0"
+serde = { version = "1.0.147", features = ["derive"] }
 futures-util = "0.3.28"
 
 hyper = { version = "0.14", features = ["client", "http1"] }
@@ -37,12 +38,17 @@ web-time = "0.2"
 # tlsn-prover = { path = "../tlsn/tlsn/tlsn-prover", features = ["tracing"] }
 [dependencies.tlsn-prover]
 git = "https://github.com/mhchia/tlsn.git"
-branch = "dev-20230921-webtime"
+branch = "dev-20231006-webtime-2"
 package = "tlsn-prover"
 features = ["tracing"]
 
+[dependencies.tlsn-core]
+git = "https://github.com/mhchia/tlsn.git"
+branch = "dev-20231006-webtime-2"
+package = "tlsn-core"
+
 [dependencies.web-sys]
-version = "0.3.22"
+version = "0.3.4"
 features = [
   "BinaryType",
   "Blob",
@@ -57,6 +63,11 @@ features = [
   'HtmlInputElement',
   'Window',
   'Worker',
+  'Headers',
+  'Request',
+  'RequestInit',
+  'RequestMode',
+  'Response',
 ]
 
 # Replace ring with the forked version `ring-xous` implemented in pure rust
