@@ -43,21 +43,6 @@ macro_rules! log {
 
 extern crate console_error_panic_hook;
 
-const MAX_TRANSCRIPT_SIZE : usize = 1 << 14;
-const NOTARY_HOST : &str = "127.0.0.1";
-// const NOTARY_HOST : &str = "notary.efprivacyscaling.org";
-const NOTARY_PORT : u16 = 7047;
-
-const SERVER_DOMAIN: &str = "api.twitter.com";
-const ROUTE: &str = "1.1/account/settings.json";
-
-const USER_AGENT: &str = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36";
-
-const AUTH_TOKEN: &str = "a28cae....f914fbc";
-const ACCESS_TOKEN: &str = "AAAAAAA.....AGWWjCpTnA";
-const CSRF_TOKEN: &str = "d3db44123....6ffa1ad6c0b7576be34c585382cf6eb88a55c4505441cf9601b98db0d";
-const TWITTER_ID: &str = "yourTwitterId";
-
 #[wasm_bindgen]
 extern "C" {
     #[wasm_bindgen(js_namespace = self)]
@@ -76,7 +61,19 @@ async fn fetch_as_json_string(url: &str, opts: &RequestInit) -> Result<String, J
 }
 
 #[wasm_bindgen]
-pub async fn prover() -> Result<(), JsValue> {
+pub async fn prover(
+    max_transcript_size: usize,
+    notary_host: &str,
+    notary_port: u16,
+    server_domain: &str,
+    route: &str,
+    user_agent: &str,
+    auth_token: &str,
+    access_token: &str,
+    csrf_token: &str,
+    twitter_id: &str,
+    websocket_proxy_url: &str,
+) -> Result<String, JsValue> {
     let fmt_layer = tracing_subscriber::fmt::layer()
     .with_ansi(false) // Only partially supported across browsers
     .with_timer(UtcTime::rfc_3339()) // std::time is not available in browsers
@@ -106,26 +103,26 @@ pub async fn prover() -> Result<(), JsValue> {
 
     // set headers
     let headers = Headers::new().unwrap();
-    headers.append("Host", NOTARY_HOST).unwrap();
+    headers.append("Host", notary_host).unwrap();
     headers.append("Content-Type", "application/json").unwrap();
     opts.headers(&headers);
 
     // set body
     let payload = serde_json::to_string(&NotarizationSessionRequest {
         client_type: ClientType::Websocket,
-        max_transcript_size: Some(MAX_TRANSCRIPT_SIZE),
+        max_transcript_size: Some(max_transcript_size),
     })
     .unwrap();
     opts.body(Some(&JsValue::from_str(&payload)));
 
     // url
-    let url = format!("https://{}:{}/session", NOTARY_HOST, NOTARY_PORT);
+    let url = format!("https://{}:{}/session", notary_host, notary_port);
     let rust_string = fetch_as_json_string(&url, &opts).await.unwrap();
     let notarization_response = serde_json::from_str::<NotarizationSessionResponse>(&rust_string).unwrap();
     log!("Response: {}", rust_string);
 
     log!("Notarization response: {:?}", notarization_response,);
-    let notary_wss_url = format!("wss://{}:{}/notarize?sessionId={}", NOTARY_HOST, NOTARY_PORT, notarization_response.session_id);
+    let notary_wss_url = format!("wss://{}:{}/notarize?sessionId={}", notary_host, notary_port, notarization_response.session_id);
     let (mut notary_ws_meta, mut notary_ws_stream) = WsMeta::connect(
         notary_wss_url,
          None
@@ -138,7 +135,7 @@ pub async fn prover() -> Result<(), JsValue> {
      */
 
     let (mut client_ws_meta, mut client_ws_stream) = WsMeta::connect(
-        "ws://localhost:55688",
+        websocket_proxy_url,
         None ).await
         .expect_throw( "assume the client ws connection succeeds" );
     let mut client_ws_stream_into = client_ws_stream.into_io();
@@ -148,7 +145,7 @@ pub async fn prover() -> Result<(), JsValue> {
     // Basic default prover config
     let config = ProverConfig::builder()
         .id(notarization_response.session_id)
-        .server_dns(SERVER_DOMAIN)
+        .server_dns(server_domain)
         .build()
         .unwrap();
 
@@ -210,20 +207,19 @@ pub async fn prover() -> Result<(), JsValue> {
     spawn_local(handled_connection_fut);
     log!("!@# 9");
 
-    // Build the HTTP request to fetch the DMs
     let request = Request::builder()
-        .uri(format!("https://{SERVER_DOMAIN}/{ROUTE}"))
-        .header("Host", SERVER_DOMAIN)
+        .uri(format!("https://{server_domain}/{route}"))
+        .header("Host", server_domain)
         .header("Accept", "*/*")
         .header("Accept-Encoding", "identity")
         .header("Connection", "close")
-        .header("User-Agent", USER_AGENT)
-        .header("Authorization", format!("Bearer {ACCESS_TOKEN}"))
+        .header("User-Agent", user_agent)
+        .header("Authorization", format!("Bearer {access_token}"))
         .header(
             "Cookie",
-            format!("auth_token={AUTH_TOKEN}; ct0={CSRF_TOKEN}"),
+            format!("auth_token={auth_token}; ct0={csrf_token}"),
         )
-        .header("X-Csrf-Token", CSRF_TOKEN.clone())
+        .header("X-Csrf-Token", csrf_token)
         .body(Body::empty())
         .unwrap();
 
@@ -264,16 +260,16 @@ pub async fn prover() -> Result<(), JsValue> {
     let (sent_public_ranges, sent_private_ranges) = find_ranges(
         prover.sent_transcript().data(),
         &[
-            ACCESS_TOKEN.as_bytes(),
-            AUTH_TOKEN.as_bytes(),
-            CSRF_TOKEN.as_bytes(),
+            access_token.as_bytes(),
+            auth_token.as_bytes(),
+            csrf_token.as_bytes(),
         ],
     );
 
     // Identify the ranges in the transcript that contain the only data we want to reveal later
     let (recv_private_ranges, recv_public_ranges) = find_ranges(
         prover.recv_transcript().data(),
-        &[format!("\"screen_name\":\"{TWITTER_ID}\"").as_bytes()],
+        &[format!("\"screen_name\":\"{twitter_id}\"").as_bytes()],
     );
     log!("!@# 15");
 
@@ -326,12 +322,11 @@ pub async fn prover() -> Result<(), JsValue> {
     };
 
     let res = serde_json::to_string_pretty(&proof).unwrap();
-    log!("res = {}", res);
 
     let duration = start_time.elapsed();
     log!("!@# request takes: {} seconds", duration.as_secs());
 
-    Ok(())
+    Ok(res)
 
 }
 
