@@ -9,6 +9,7 @@ import {
 } from '../../reducers/requests';
 import { BackgroundActiontype } from '../Background/actionTypes';
 import Requests from '../Requests';
+import Options from '../../components/Options';
 import Request from '../Requests/Request';
 import Home from '../Home';
 import logo from '../../assets/img/icon-128.png';
@@ -60,6 +61,7 @@ const Popup = () => {
         <Route path="/requests/:requestId/*" element={<Request />} />
         <Route path="/requests" element={<Requests />} />
         <Route path="/custom/*" element={<RequestBuilder />} />
+        <Route path="/options" element={<Options />} />
         <Route path="/home" element={<Home />} />
         <Route path="*" element={<Navigate to="/home" />} />
       </Routes>

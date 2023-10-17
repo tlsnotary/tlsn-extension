@@ -22,10 +22,10 @@ export default function Home(): ReactElement {
 
   return (
     <>
-      <div className="flex flex-row flex-nowrap justify-center gap-8 my-8">
+      <div className="flex flex-col flex-nowrap justify-center gap-2 my-8 mx-4">
         <NavButton fa="fa-solid fa-table" onClick={() => navigate('/requests')}>
-          <div>Requests</div>
-          <div>{`(${requests.length})`}</div>
+          <span>Requests</span>
+          <span>{`(${requests.length})`}</span>
         </NavButton>
         <NavButton
           fa="fa-solid fa-magnifying-glass"
@@ -40,8 +40,18 @@ export default function Home(): ReactElement {
         >
           Verify
         </NavButton>
-        <NavButton fa="fa-solid fa-list" onClick={() => navigate('/history')}>
+        <NavButton 
+          fa="fa-solid fa-list" 
+          onClick={() => navigate('/history')}
+          disabled
+        >
           History
+        </NavButton>
+        <NavButton
+          fa="fa-solid fa-gear"
+          onClick={() => navigate('/options')}
+        >
+          Options
         </NavButton>
       </div>
       <div className="flex flex-col flex-nowrap justify-center items-center gap-2 bg-slate-100 border border-slate-200 p-2 mb-4">
@@ -129,8 +139,8 @@ function NavButton(props: {
   return (
     <button
       className={classNames(
-        'flex flex-col flex-nowrap items-center justify-center',
-        'text-white rounded-full p-4 h-20 w-20 gap-1',
+        'flex flex-row flex-nowrap items-center justify-center',
+        'text-white rounded px-2 py-1 gap-1',
         {
           'bg-primary/[.8] hover:bg-primary/[.7] active:bg-primary':
             !props.disabled,
@@ -141,8 +151,8 @@ function NavButton(props: {
       onClick={props.onClick}
       disabled={props.disabled}
     >
-      <Icon className="flex-grow flex-shrink h-0" fa={props.fa} size={1.5} />
-      <span className="flex-grow flex-shrink h-0 flex-grow text-[11px] font-bold">
+      <Icon className="flex-grow-0 flex-shrink-0" fa={props.fa} size={1} />
+      <span className="flex-grow flex-shrink w-0 flex-grow font-bold">
         {props.children}
       </span>
     </button>
