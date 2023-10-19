@@ -26,6 +26,7 @@ type Props = {
 };
 
 export default function RequestDetail(props: Props): ReactElement {
+  const params = useParams<{ requestId: string }>();
   const navigate = useNavigate();
   const { data } = props;
 
@@ -50,12 +51,7 @@ export default function RequestDetail(props: Props): ReactElement {
         </RequestDetailsHeaderTab>
         <button
           className="absolute right-2 bg-primary/[0.9] text-white font-bold px-2 py-0.5 hover:bg-primary/[0.8] active:bg-primary"
-          onClick={async () => {
-            await chrome.runtime.sendMessage({
-              type: BackgroundActiontype.test_wasm,
-              target: 'offscreen',
-            });
-          }}
+          onClick={() => navigate('/notary/' + params.requestId)}
         >
           Notarize
         </button>

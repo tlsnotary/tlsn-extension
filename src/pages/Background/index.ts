@@ -1,7 +1,10 @@
-import { BackgroundActiontype, RequestLog } from './actionTypes';
+import { BackgroundActiontype, RequestLog, RequestHistory } from './actionTypes';
 import { Mutex } from 'async-mutex';
 import NodeCache from 'node-cache';
 import { addRequest } from '../../reducers/requests';
+import { addRequestHistory } from '../../reducers/history';
+import { Level } from 'level';
+import charwise from 'charwise';
 
 let RequestsLogs: {
   [tabId: string]: NodeCache;
@@ -13,11 +16,7 @@ const cache = new NodeCache({
   maxKeys: 1000000,
 });
 
-(chrome as any).offscreen.createDocument({
-  url: 'offscreen.html',
-  reasons: ['WORKERS'],
-  justification: 'workers for multithreading',
-});
+let creatingOffscreen;
 
 chrome.tabs.onActivated.addListener((tabs) => {
   RequestsLogs[tabs.tabId] =
@@ -33,6 +32,29 @@ chrome.tabs.onRemoved.addListener((tab) => {
 });
 
 (async () => {
+  const offscreenUrl = chrome.runtime.getURL('offscreen.html');
+  const existingContexts = await chrome.runtime.getContexts({
+    contextTypes: ['OFFSCREEN_DOCUMENT'],
+    documentUrls: [offscreenUrl]
+  });
+
+  if (existingContexts.length > 0) {
+    return;
+  }
+
+  if (creatingOffscreen) {
+    await creatingOffscreen;
+  } else {
+    creatingOffscreen = (chrome as any).offscreen.createDocument({
+      url: 'offscreen.html',
+      reasons: ['WORKERS'],
+      justification: 'workers for multithreading',
+    });
+    await creatingOffscreen;
+    creatingOffscreen = null;
+  }
+
+
   chrome.webRequest.onSendHeaders.addListener(
     (details) => {
       mutex.runExclusive(async () => {
@@ -63,7 +85,7 @@ chrome.tabs.onRemoved.addListener((tab) => {
     {
       urls: ['<all_urls>'],
     },
-    ['requestHeaders'],
+    ['requestHeaders', 'extraHeaders'],
   );
 
   chrome.webRequest.onBeforeRequest.addListener(
@@ -151,23 +173,146 @@ chrome.tabs.onRemoved.addListener((tab) => {
     {
       urls: ['<all_urls>'],
     },
-    ['responseHeaders'],
+    ['responseHeaders', 'extraHeaders'],
   );
 
-  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
     switch (request.type) {
       case BackgroundActiontype.get_requests: {
         const keys = RequestsLogs[request.data]?.keys() || [];
         const data = keys.map((key) => RequestsLogs[request.data]?.get(key));
-
         return sendResponse(data);
       }
       case BackgroundActiontype.clear_requests: {
         RequestsLogs = {};
         return sendResponse();
       }
+      case BackgroundActiontype.get_prove_requests: {
+        getNotaryRequests()
+          .then(reqs => {
+            for (const req of reqs) {
+              chrome.runtime.sendMessage({
+                type: BackgroundActiontype.push_action,
+                data: {
+                  tabId: 'background',
+                },
+                action: addRequestHistory(req),
+              });
+            }
+          });
+        return sendResponse();
+      }
+    case BackgroundActiontype.finish_prove_request: {
+      const {
+        id,
+        proof,
+      } = request.data;
+
+      console.log('request.data', request.data);
+      const newReq = await addNotaryRequestProofs(id, proof);
+
+      if (newReq) {
+        chrome.runtime.sendMessage({
+          type: BackgroundActiontype.push_action,
+          data: {
+            tabId: 'background',
+          },
+          action: addRequestHistory(newReq),
+        });
+      }
+
+      return sendResponse();
+    }
+      case BackgroundActiontype.prove_request_start: {
+        const {
+          url,
+          method,
+          headers,
+          body,
+          maxTranscriptSize,
+          notaryUrl,
+          websocketProxyUrl,
+        } = request.data;
+
+        const newRequest = await addNotaryRequest(Date.now(), {
+          url,
+          method,
+          headers,
+          body,
+          maxTranscriptSize,
+          notaryUrl,
+          websocketProxyUrl,
+        });
+
+        console.log(request, sender)
+        chrome.runtime.sendMessage({
+          type: BackgroundActiontype.push_action,
+          data: {
+            tabId: request.data,
+          },
+          action: addRequestHistory(newRequest),
+        });
+
+        chrome.runtime.sendMessage<any, string>({
+          type: BackgroundActiontype.process_prove_request,
+          data: {
+            id: newRequest.id,
+            url,
+            method,
+            headers,
+            body,
+            maxTranscriptSize,
+            notaryUrl,
+            websocketProxyUrl,
+          },
+        });
+
+        return sendResponse(newRequest);
+      }
       default:
-        break;
+          break;
     }
   });
 })();
+
+const db = new Level('./ext-db', {
+  valueEncoding: 'json'
+});
+const historyDb = db.sublevel('history', { valueEncoding: 'json' });
+
+async function addNotaryRequest(now = Date.now(), request: RequestHistory): RequestHistory {
+  const id = charwise.encode(now).toString('hex');
+  const newReq = {
+    ...request,
+    id,
+  };
+  await historyDb.put(id, newReq);
+  return newReq;
+}
+
+async function addNotaryRequestProofs(id: string, proof: { session: any, substrings: any }): RequestHistory {
+  const existing = await historyDb.get(id);
+
+  if (!existing) return null;
+
+  const newReq = {
+    ...existing,
+    proof,
+  };
+
+  console.log({ newReq })
+  await historyDb.put(id, newReq);
+
+  return newReq;
+}
+
+async function getNotaryRequests(): RequestHistory[] {
+  const retVal = [];
+  for await (const [key, value] of historyDb.iterator()) {
+    retVal.push(value);
+  }
+  return retVal;
+}
+
+
+

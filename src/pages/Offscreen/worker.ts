@@ -1,69 +1,62 @@
 import * as Comlink from 'comlink';
+import { urlify, devlog } from '../../utils/misc';
 import init, {
   initThreadPool,
   prover,
 } from '../../../wasm/prover/pkg/tlsn_extension_rs';
 
 class TLSN {
-  constructor() {
-    console.log('worker test module initiated.');
+  notaryUrl: string;
+  websocketProxyUrl: string;
+
+  constructor(options: {
+    notaryUrl: string;
+    websocketProxyUrl: string;
+  }) {
+    this.notaryUrl = options.notaryUrl;
+    this.websocketProxyUrl = options.websocketProxyUrl;
+    console.log('worker module initiated.');
   }
 
-  async prover() {
+  async prover(url: string, options?: {
+    method?: string;
+    headers?: { [key: string]: string };
+    body?: string;
+    maxTranscriptSize?: number;
+  }) {
     try {
-      console.log('start');
+      devlog('start');
       const numConcurrency = navigator.hardwareConcurrency;
-      console.log('!@# navigator.hardwareConcurrency=', numConcurrency);
+      devlog('!@# navigator.hardwareConcurrency=', numConcurrency);
       const res = await init();
-      console.log('!@# res.memory=', res.memory);
+      devlog('!@# res.memory=', res.memory);
       // 6422528 ~= 6.12 mb
-      console.log(
+      devlog(
         '!@# res.memory.buffer.length=',
         res.memory.buffer.byteLength,
       );
       await initThreadPool(numConcurrency);
 
-      const maxTranscriptSize = 16384;
-      const notaryHost = "127.0.0.1";
-      // const notaryHost : &str = "notary.efprivacyscaling.org";
-      const notaryPort = 7047;
-
-      const serverDomain = "api.twitter.com";
-      const route = "1.1/account/settings.json";
-
-      const userAgent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36";
-
-      const authToken = "";
-      const accessToken = "";
-      const csrfToken = "";
-      const twitterId = "";
-      const websocketProxyURL = "ws://127.0.0.1:55688";
-
       const resProver = await prover(
-        maxTranscriptSize,
-        notaryHost,
-        notaryPort,
-        serverDomain,
-        route,
-        userAgent,
-        authToken,
-        accessToken,
-        csrfToken,
-        twitterId,
-        websocketProxyURL,
+        url,
+        {
+          ...options,
+          notaryUrl: this.notaryUrl,
+          websocketProxyUrl: this.websocketProxyUrl,
+        },
       );
       const resJSON = JSON.parse(resProver);
-      console.log('!@# resProver=', resProver);
-      console.log('!@# resAfter.memory=', res.memory);
+      devlog('!@# resProver=', resProver);
+      devlog('!@# resAfter.memory=', res.memory);
       // 1105920000 ~= 1.03 gb
-      console.log(
+      devlog(
         '!@# resAfter.memory.buffer.length=',
         res.memory.buffer.byteLength,
       );
 
       return resJSON;
     } catch (e: any) {
-      console.log(e);
+      devlog(e);
       return e;
     }
   }

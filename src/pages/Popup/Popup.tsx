@@ -14,6 +14,8 @@ import Request from '../Requests/Request';
 import Home from '../Home';
 import logo from '../../assets/img/icon-128.png';
 import RequestBuilder from '../RequestBuilder';
+import Notarize from '../../components/Notarize';
+import History from '../../components/History';
 
 const Popup = () => {
   const dispatch = useDispatch();
@@ -36,6 +38,13 @@ const Popup = () => {
       });
 
       dispatch(setRequests(logs));
+
+      const history = await chrome.runtime.sendMessage({
+        type: BackgroundActiontype.get_prove_requests,
+        data: tab?.id,
+      });
+
+      console.log({history});
     })();
   }, []);
 
@@ -59,6 +68,8 @@ const Popup = () => {
       </div>
       <Routes>
         <Route path="/requests/:requestId/*" element={<Request />} />
+        <Route path="/notary/:requestId/*" element={<Notarize />} />
+        <Route path="/history" element={<History />} />
         <Route path="/requests" element={<Requests />} />
         <Route path="/custom/*" element={<RequestBuilder />} />
         <Route path="/options" element={<Options />} />

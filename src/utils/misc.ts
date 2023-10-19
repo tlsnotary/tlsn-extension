@@ -16,3 +16,9 @@ export function urlify(
     return null;
   }
 }
+
+export function devlog(text: string) {
+  if (process.env.NODE_ENV === 'development') {
+    console.log(text);
+  }
+}
