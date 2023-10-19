@@ -6,6 +6,7 @@ export enum BackgroundActiontype {
   prove_request_start = 'prove_request_start',
   process_prove_request = 'process_prove_request',
   finish_prove_request = 'finish_prove_request',
+  verify_prove_request = 'verify_prove_request',
 }
 
 export type BackgroundAction = {

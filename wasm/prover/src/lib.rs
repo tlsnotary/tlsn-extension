@@ -8,7 +8,6 @@ use web_time::Instant;
 use hyper::{body::to_bytes, Body, Request, StatusCode};
 use futures::{AsyncWriteExt, TryFutureExt};
 use futures::channel::oneshot;
-use tlsn_core::proof::TlsProof;
 use tlsn_prover::{Prover, ProverConfig};
 
 // use tokio::io::AsyncWriteExt as _;
@@ -36,6 +35,11 @@ use wasm_bindgen_futures::JsFuture;
 use web_sys::{Request as WebsysRequest, RequestInit, Headers, RequestMode, Response};
 use js_sys::JSON;
 use url::Url;
+
+use tlsn_core::proof::{SessionProof, TlsProof};
+use std::time::Duration;
+use elliptic_curve::pkcs8::DecodePublicKey;
+use p256::PublicKey;
 
 // A macro to provide `println!(..)`-style syntax for `console.log` logging.
 macro_rules! log {
@@ -75,18 +79,18 @@ pub async fn prover(
     let options: RequestOptions = serde_wasm_bindgen::from_value(val).unwrap();
     log!("done!");
     log!("options.notary_url: {}", options.notary_url.as_str());
-    let fmt_layer = tracing_subscriber::fmt::layer()
-    .with_ansi(false) // Only partially supported across browsers
-    .with_timer(UtcTime::rfc_3339()) // std::time is not available in browsers
-    .with_writer(MakeConsoleWriter); // write events to the console
-    let perf_layer = performance_layer()
-        .with_details_from_fields(Pretty::default());
+    // let fmt_layer = tracing_subscriber::fmt::layer()
+    // .with_ansi(false) // Only partially supported across browsers
+    // .with_timer(UtcTime::rfc_3339()) // std::time is not available in browsers
+    // .with_writer(MakeConsoleWriter); // write events to the console
+    // let perf_layer = performance_layer()
+    //     .with_details_from_fields(Pretty::default());
 
-    tracing_subscriber::registry()
-        .with(tracing_subscriber::filter::LevelFilter::DEBUG)
-        .with(fmt_layer)
-        .with(perf_layer)
-        .init(); // Install these as subscribers to tracing events
+    // tracing_subscriber::registry()
+    //     .with(tracing_subscriber::filter::LevelFilter::DEBUG)
+    //     .with(fmt_layer)
+    //     .with(perf_layer)
+    //     .init(); // Install these as subscribers to tracing events
 
     // https://github.com/rustwasm/console_error_panic_hook
     panic::set_hook(Box::new(console_error_panic_hook::hook));
@@ -353,6 +357,69 @@ pub async fn prover(
 
     Ok(res)
 
+}
+
+#[wasm_bindgen]
+pub async fn verify(
+    proof: &str,
+    notary_pubkey: &str,
+) {
+    log!("!@# proof {}", proof);
+    let proof: TlsProof = serde_json::from_str(proof).unwrap();
+
+    log!("!@# notary_pubkey {}", notary_pubkey);
+    let notary_pub = PublicKey::from_public_key_pem(notary_pubkey).unwrap();
+
+    log!("!@# session.verify_with_default_cert_verifier");
+
+    let TlsProof {
+        // The session proof establishes the identity of the server and the commitments
+        // to the TLS transcript.
+        session,
+        // The substrings proof proves select portions of the transcript, while redacting
+        // anything the Prover chose not to disclose.
+        substrings,
+    } = proof;
+
+    session
+        .verify_with_default_cert_verifier(notary_pub)
+        .unwrap();
+
+    let SessionProof {
+        // The session header that was signed by the Notary is a succinct commitment to the TLS transcript.
+        header,
+        // This is the server name, checked against the certificate chain shared in the TLS handshake.
+        server_name,
+        ..
+    } = session;
+
+    // The time at which the session was recorded
+    let time = chrono::DateTime::UNIX_EPOCH + Duration::from_secs(header.time());
+
+    // Verify the substrings proof against the session header.
+    //
+    // This returns the redacted transcripts
+    let (mut sent, mut recv) = substrings.verify(&header).unwrap();
+
+    // Replace the bytes which the Prover chose not to disclose with 'X'
+    sent.set_redacted(b'X');
+    recv.set_redacted(b'X');
+
+    println!("-------------------------------------------------------------------");
+    println!(
+        "Successfully verified that the bytes below came from a session with {:?} at {}.",
+        server_name, time
+    );
+    println!("Note that the bytes which the Prover chose not to disclose are shown as X.");
+    println!();
+    println!("Bytes sent:");
+    println!();
+    print!("{}", String::from_utf8(sent.data().to_vec()).unwrap());
+    println!();
+    println!("Bytes received:");
+    println!();
+    println!("{}", String::from_utf8(recv.data().to_vec()).unwrap());
+    println!("-------------------------------------------------------------------");
 }
 
 

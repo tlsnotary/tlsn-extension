@@ -24,6 +24,9 @@ serde = { version = "1.0.147", features = ["derive"] }
 serde-wasm-bindgen = "0.4"
 url = { version = "2.0", features = ["serde"] }
 futures-util = "0.3.28"
+chrono = "0.4"
+elliptic-curve = { version = "0.13.5", features = ["pkcs8"] }
+p256 = "0.13"
 
 hyper = { version = "0.14", features = ["client", "http1"] }
 console_error_panic_hook = "0.1.7"
