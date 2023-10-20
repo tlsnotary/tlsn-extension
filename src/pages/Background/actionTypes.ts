@@ -7,6 +7,8 @@ export enum BackgroundActiontype {
   process_prove_request = 'process_prove_request',
   finish_prove_request = 'finish_prove_request',
   verify_prove_request = 'verify_prove_request',
+  delete_prove_request = 'delete_prove_request',
+  retry_prove_request = 'retry_prove_request',
 }
 
 export type BackgroundAction = {
@@ -40,9 +42,8 @@ export type RequestHistory = {
   maxTranscriptSize: string;
   notaryUrl: string;
   websocketProxyUrl: string;
-  status: 'pending' | 'success' | 'error';
-  responseJson?: any;
-  responseText?: string; 
-  responseBlob?: any;
+  status: '' | 'pending' | 'success' | 'error';
   error?: any;
-}
+  proof?: { session: any; substrings: any };
+  payload?: any;
+};

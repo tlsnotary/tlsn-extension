@@ -3,7 +3,7 @@ import { urlify, devlog } from '../../utils/misc';
 import init, {
   initThreadPool,
   prover,
-  verify
+  verify,
 } from '../../../wasm/prover/pkg/tlsn_extension_rs';
 
 class TLSN {
@@ -25,10 +25,7 @@ class TLSN {
     const res = await init();
     devlog('!@# res.memory=', res.memory);
     // 6422528 ~= 6.12 mb
-    devlog(
-      '!@# res.memory.buffer.length=',
-      res.memory.buffer.byteLength,
-    );
+    devlog('!@# res.memory.buffer.length=', res.memory.buffer.byteLength);
     await initThreadPool(numConcurrency);
     this.resolveStart();
   }
@@ -37,32 +34,31 @@ class TLSN {
     return this.startPromise;
   }
 
-  async prover(url: string, options?: {
-    method?: string;
-    headers?: { [key: string]: string };
-    body?: string;
-    maxTranscriptSize?: number;
-    notaryUrl?: string;
-    websocketProxyUrl?: string;
-  }) {
+  async prover(
+    url: string,
+    options?: {
+      method?: string;
+      headers?: { [key: string]: string };
+      body?: string;
+      maxTranscriptSize?: number;
+      notaryUrl?: string;
+      websocketProxyUrl?: string;
+    },
+  ) {
     try {
       await this.waitForStart();
-      console.log('worker', url,
-        {
-          ...options,
-          notaryUrl: options.notaryUrl,
-          websocketProxyUrl: options.websocketProxyUrl,
-        })
-      const resProver = await prover(
-        url,
-        {
-          ...options,
-          notaryUrl: options.notaryUrl,
-          websocketProxyUrl: options.websocketProxyUrl,
-        },
-      );
+      console.log('worker', url, {
+        ...options,
+        notaryUrl: options.notaryUrl,
+        websocketProxyUrl: options.websocketProxyUrl,
+      });
+      const resProver = await prover(url, {
+        ...options,
+        notaryUrl: options.notaryUrl,
+        websocketProxyUrl: options.websocketProxyUrl,
+      });
       const resJSON = JSON.parse(resProver);
-      devlog('!@# resProver,resJSON=', {resProver, resJSON});
+      devlog('!@# resProver,resJSON=', { resProver, resJSON });
       devlog('!@# resAfter.memory=', resJSON.memory);
       // 1105920000 ~= 1.03 gb
       devlog(

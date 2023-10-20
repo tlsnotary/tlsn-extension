@@ -41,16 +41,10 @@ export default function Home(): ReactElement {
         >
           Verify
         </NavButton>
-        <NavButton 
-          fa="fa-solid fa-list" 
-          onClick={() => navigate('/history')}
-        >
+        <NavButton fa="fa-solid fa-list" onClick={() => navigate('/history')}>
           History
         </NavButton>
-        <NavButton
-          fa="fa-solid fa-gear"
-          onClick={() => navigate('/options')}
-        >
+        <NavButton fa="fa-solid fa-gear" onClick={() => navigate('/options')}>
           Options
         </NavButton>
       </div>
@@ -64,11 +58,14 @@ export default function Home(): ReactElement {
             onClick={async () => {
               const notaryUrl = await get(NOTARY_API_LS_KEY);
               const websocketProxyUrl = await get(PROXY_API_LS_KEY);
-              const userAgent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36";
-              const authToken = "a28cae3969369c26c1410f5bded83c3f4f914fbc";
-              const accessToken = "AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA";
-              const csrfToken = "b73b3488687683372af2ea77486a444ccaa5327bbabad709df1b5161a6b83c8d7ec19106a82cb8dd5f8569632ee95ab4c6dc2abf5ad2ed7fa11b8340fcbe86a8fc00df28db6c4109a807f7cb12dd19da";
-              const twitterId = "0xTsukino";
+              const userAgent =
+                'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36';
+              const authToken = 'a28cae3969369c26c1410f5bded83c3f4f914fbc';
+              const accessToken =
+                'AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA';
+              const csrfToken =
+                'b73b3488687683372af2ea77486a444ccaa5327bbabad709df1b5161a6b83c8d7ec19106a82cb8dd5f8569632ee95ab4c6dc2abf5ad2ed7fa11b8340fcbe86a8fc00df28db6c4109a807f7cb12dd19da';
+              const twitterId = '0xTsukino';
               const maxTranscriptSize = 16384;
 
               const res: any = await chrome.runtime.sendMessage<any, string>({
@@ -77,16 +74,16 @@ export default function Home(): ReactElement {
                   url: 'https://api.twitter.com/1.1/account/settings.json',
                   method: 'GET',
                   headers: {
-                    'Host': 'api.twitter.com',
-                    'Accept': '*/*',
+                    Host: 'api.twitter.com',
+                    Accept: '*/*',
                     'Accept-Encoding': 'identity',
-                    'Connection': 'close',
+                    Connection: 'close',
                     'User-Agent': userAgent,
-                    'Authorization': `Bearer ${accessToken}`,
-                    'Cookie': `auth_token=${authToken}; ct0=${csrfToken}`,
+                    Authorization: `Bearer ${accessToken}`,
+                    Cookie: `auth_token=${authToken}; ct0=${csrfToken}`,
                     'X-Csrf-Token': csrfToken,
                   },
-                  body: "",
+                  body: '',
                   maxTranscriptSize,
                   notaryUrl,
                   websocketProxyUrl,

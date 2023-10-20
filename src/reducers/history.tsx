@@ -1,10 +1,15 @@
-import { RequestHistory } from '../pages/Background/actionTypes';
+import {
+  BackgroundActiontype,
+  RequestHistory,
+} from '../pages/Background/actionTypes';
 import { useSelector } from 'react-redux';
 import { AppRootState } from './index';
+import { BackgroundActiontype } from '../Background/actionTypes';
 import deepEqual from 'fast-deep-equal';
 
 enum ActionType {
   '/history/addRequest' = '/history/addRequest',
+  '/history/deleteRequest' = '/history/deleteRequest',
 }
 
 type Action<payload> = {
@@ -31,7 +36,19 @@ export const addRequestHistory = (request: RequestHistory) => {
     type: ActionType['/history/addRequest'],
     payload: request,
   };
-}
+};
+
+export const deleteRequestHistory = (id: string) => {
+  chrome.runtime.sendMessage<any, string>({
+    type: BackgroundActiontype.delete_prove_request,
+    data: id,
+  });
+
+  return {
+    type: ActionType['/history/deleteRequest'],
+    payload: id,
+  };
+};
 
 export default function history(
   state = initialState,
@@ -53,13 +70,30 @@ export default function history(
         order: newOrder,
       };
     }
+    case ActionType['/history/deleteRequest']: {
+      const reqId: string = action.payload;
+      const newMap = { ...state.map };
+      delete newMap[reqId];
+      const newOrder = state.order.filter((id) => id !== reqId);
+      return {
+        ...state,
+        map: newMap,
+        order: newOrder,
+      };
+    }
     default:
       return state;
   }
 }
 
-export const useHistory = (): RequestHistory[] => {
+export const useHistoryOrder = (): RequestHistory[] => {
   return useSelector((state: AppRootState) => {
-    return state.history.order.map(id => state.history.map[id]);
+    return state.history.order;
+  }, deepEqual);
+};
+
+export const useRequestHistory = (id: string): RequestHistory | undefined => {
+  return useSelector((state: AppRootState) => {
+    return state.history.map[id];
   }, deepEqual);
 };

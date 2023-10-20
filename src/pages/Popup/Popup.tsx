@@ -43,8 +43,6 @@ const Popup = () => {
         type: BackgroundActiontype.get_prove_requests,
         data: tab?.id,
       });
-
-      console.log({history});
     })();
   }, []);
 

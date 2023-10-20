@@ -39,7 +39,6 @@ use url::Url;
 use tlsn_core::proof::{SessionProof, TlsProof};
 use std::time::Duration;
 use elliptic_curve::pkcs8::DecodePublicKey;
-use p256::PublicKey;
 
 // A macro to provide `println!(..)`-style syntax for `console.log` logging.
 macro_rules! log {
@@ -294,7 +293,7 @@ pub async fn prover(
     );
 
     // Identify the ranges in the transcript that contain the only data we want to reveal later
-    let (recv_private_ranges, recv_public_ranges) = find_ranges(
+    let (recv_public_ranges, recv_private_ranges) = find_ranges(
         prover.recv_transcript().data(),
         &[
             // format!("\"screen_name\":\"{twitter_id}\"").as_bytes()
@@ -362,15 +361,10 @@ pub async fn prover(
 #[wasm_bindgen]
 pub async fn verify(
     proof: &str,
-    notary_pubkey: &str,
+    notary_pubkey_str: &str,
 ) {
     log!("!@# proof {}", proof);
     let proof: TlsProof = serde_json::from_str(proof).unwrap();
-
-    log!("!@# notary_pubkey {}", notary_pubkey);
-    let notary_pub = PublicKey::from_public_key_pem(notary_pubkey).unwrap();
-
-    log!("!@# session.verify_with_default_cert_verifier");
 
     let TlsProof {
         // The session proof establishes the identity of the server and the commitments
@@ -381,9 +375,12 @@ pub async fn verify(
         substrings,
     } = proof;
 
+
+    log!("!@# notary_pubkey {}, {}", notary_pubkey_str, notary_pubkey_str.len());
     session
-        .verify_with_default_cert_verifier(notary_pub)
+        .verify_with_default_cert_verifier(get_notary_pubkey(notary_pubkey_str))
         .unwrap();
+
 
     let SessionProof {
         // The session header that was signed by the Notary is a succinct commitment to the TLS transcript.
@@ -405,23 +402,29 @@ pub async fn verify(
     sent.set_redacted(b'X');
     recv.set_redacted(b'X');
 
-    println!("-------------------------------------------------------------------");
-    println!(
+    log!("-------------------------------------------------------------------");
+    log!(
         "Successfully verified that the bytes below came from a session with {:?} at {}.",
         server_name, time
     );
-    println!("Note that the bytes which the Prover chose not to disclose are shown as X.");
-    println!();
-    println!("Bytes sent:");
-    println!();
-    print!("{}", String::from_utf8(sent.data().to_vec()).unwrap());
-    println!();
-    println!("Bytes received:");
-    println!();
-    println!("{}", String::from_utf8(recv.data().to_vec()).unwrap());
-    println!("-------------------------------------------------------------------");
+    log!("Note that the bytes which the Prover chose not to disclose are shown as X.");
+    log!("Bytes sent:");
+    log!("{}", String::from_utf8(sent.data().to_vec()).unwrap());
+    log!("Bytes received:");
+    log!("{}", String::from_utf8(recv.data().to_vec()).unwrap());
+    log!("-------------------------------------------------------------------");
 }
 
+fn print_type_of<T: ?Sized>(_: &T) {
+    log!("{}", std::any::type_name::<T>())
+}
+
+/// Returns a Notary pubkey trusted by this Verifier
+fn get_notary_pubkey(pubkey: &str) -> p256::PublicKey {
+    // from https://github.com/tlsnotary/notary-server/tree/main/src/fixture/notary/notary.key
+    // converted with `openssl ec -in notary.key -pubout -outform PEM`
+    p256::PublicKey::from_public_key_pem(pubkey).unwrap()
+}
 
 /// Find the ranges of the public and private parts of a sequence.
 ///

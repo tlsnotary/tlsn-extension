@@ -32,11 +32,17 @@ export default function RequestBuilder(props?: {
 
   const subpath = props.subpath || '/custom';
   const [_url, setUrl] = useState(props.url || '');
-  const [params, setParams] = useState<[string, string, boolean?][]>(props.params || []);
-  const [headers, setHeaders] = useState<[string, string, boolean?][]>(props.headers || []);
+  const [params, setParams] = useState<[string, string, boolean?][]>(
+    props.params || [],
+  );
+  const [headers, setHeaders] = useState<[string, string, boolean?][]>(
+    props.headers || [],
+  );
   const [body, setBody] = useState<string | undefined>(props.body);
   const [method, setMethod] = useState<string>(props.method || 'GET');
-  const [response, setResponse] = useState<Response | null>(props.response || null);
+  const [response, setResponse] = useState<Response | null>(
+    props.response || null,
+  );
 
   const url = urlify(_url);
 

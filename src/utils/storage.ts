@@ -3,8 +3,7 @@ export const PROXY_API_LS_KEY = 'proxy-api';
 export const HISTORY_LS_KEY = 'history';
 
 export async function set(key: string, value: string) {
-  return chrome.storage.sync
-    .set({ [key]: value });
+  return chrome.storage.sync.set({ [key]: value });
 }
 
 export async function get(key: string) {
