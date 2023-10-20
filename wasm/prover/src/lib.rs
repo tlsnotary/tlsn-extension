@@ -11,6 +11,9 @@ use tlsn_core::proof::TlsProof;
 use tlsn_prover::{Prover, ProverConfig};
 
 // use tokio::io::AsyncWriteExt as _;
+use serde_json;
+use wasm_bindgen::JsValue;
+
 use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
 
 use tokio_util::compat::FuturesAsyncWriteCompatExt;
@@ -27,12 +30,10 @@ use ws_stream_wasm::{*};
 use crate::requests::{NotarizationSessionRequest, NotarizationSessionResponse, ClientType};
 
 pub use wasm_bindgen_rayon::init_thread_pool;
-// use rayon::iter::IntoParallelRefIterator;
-use rayon::prelude::*;
 
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{Request as WebsysRequest, RequestInit, Headers, RequestMode, Response};
-use js_sys::JSON;
+use js_sys::{JSON, Array};
 
 // A macro to provide `println!(..)`-style syntax for `console.log` logging.
 macro_rules! log {
@@ -60,19 +61,68 @@ async fn fetch_as_json_string(url: &str, opts: &RequestInit) -> Result<String, J
     Ok(stringified.as_string().unwrap())
 }
 
+fn make_app_request(
+    method: &str,
+    url: &str,
+    headers: &JsValue,
+    body: Vec<u8>,
+) -> Result<Request<Body>, JsValue> {
+    // Build the HTTP request to fetch the DMs
+    let mut request_builder = Request::builder()
+        .method(method)
+        .uri(url);
+
+    let array: Array = Array::from(headers);
+    let length = array.length();
+
+    for i in 0..length {
+        let pair_js: JsValue = array.get(i);
+        let header_pair: Array = Array::from(&pair_js);
+
+        let key: JsValue = header_pair.get(0);
+        let value: JsValue = header_pair.get(1);
+
+        if let Some(key_str) = key.as_string() {
+            if let Some(value_str) = value.as_string() {
+                request_builder = request_builder.header(key_str, value_str);
+            }
+        }
+    }
+
+    let request = request_builder
+        .body(Body::from(body))
+        .unwrap();
+    Ok(request)
+}
+
+
+fn string_list_to_bytes_vec(secrets: &JsValue) -> Vec<Vec<u8>> {
+    let array: Array = Array::from(secrets);
+    let length = array.length();
+    let mut byte_slices: Vec<Vec<u8>> = Vec::new();
+
+    for i in 0..length {
+        let secret_js: JsValue = array.get(i);
+        let secret_str: String = secret_js.as_string().unwrap();
+        let secret_bytes = secret_str.into_bytes();
+        byte_slices.push(secret_bytes);
+    }
+    byte_slices
+}
+
 #[wasm_bindgen]
-pub async fn prover(
+pub async fn notarize(
     max_transcript_size: usize,
     notary_host: &str,
     notary_port: u16,
     server_domain: &str,
-    route: &str,
-    user_agent: &str,
-    auth_token: &str,
-    access_token: &str,
-    csrf_token: &str,
-    twitter_id: &str,
     websocket_proxy_url: &str,
+    method: &str,
+    url: &str,
+    headers: JsValue,
+    body: Vec<u8>,
+    secrets: JsValue,
+    reveals: JsValue,
 ) -> Result<String, JsValue> {
     let fmt_layer = tracing_subscriber::fmt::layer()
     .with_ansi(false) // Only partially supported across browsers
@@ -102,10 +152,10 @@ pub async fn prover(
     opts.mode(RequestMode::Cors);
 
     // set headers
-    let headers = Headers::new().unwrap();
-    headers.append("Host", notary_host).unwrap();
-    headers.append("Content-Type", "application/json").unwrap();
-    opts.headers(&headers);
+    let notary_headers = Headers::new().unwrap();
+    notary_headers.append("Host", notary_host).unwrap();
+    notary_headers.append("Content-Type", "application/json").unwrap();
+    opts.headers(&notary_headers);
 
     // set body
     let payload = serde_json::to_string(&NotarizationSessionRequest {
@@ -115,9 +165,9 @@ pub async fn prover(
     .unwrap();
     opts.body(Some(&JsValue::from_str(&payload)));
 
-    // url
-    let url = format!("https://{}:{}/session", notary_host, notary_port);
-    let rust_string = fetch_as_json_string(&url, &opts).await.unwrap();
+    // session url
+    let session_url = format!("https://{}:{}/session", notary_host, notary_port);
+    let rust_string = fetch_as_json_string(&session_url, &opts).await.unwrap();
     let notarization_response = serde_json::from_str::<NotarizationSessionResponse>(&rust_string).unwrap();
     log!("Response: {}", rust_string);
 
@@ -207,27 +257,13 @@ pub async fn prover(
     spawn_local(handled_connection_fut);
     log!("!@# 9");
 
-    let request = Request::builder()
-        .uri(format!("https://{server_domain}/{route}"))
-        .header("Host", server_domain)
-        .header("Accept", "*/*")
-        .header("Accept-Encoding", "identity")
-        .header("Connection", "close")
-        .header("User-Agent", user_agent)
-        .header("Authorization", format!("Bearer {access_token}"))
-        .header(
-            "Cookie",
-            format!("auth_token={auth_token}; ct0={csrf_token}"),
-        )
-        .header("X-Csrf-Token", csrf_token)
-        .body(Body::empty())
-        .unwrap();
-
+    // Build the HTTP request to fetch the DMs
+    let request_app = make_app_request(method, url, &headers, body).unwrap();
 
     log!("Starting an MPC TLS connection with the server");
 
     // Send the request to the Server and get a response via the MPC TLS connection
-    let response = request_sender.send_request(request).await.unwrap();
+    let response = request_sender.send_request(request_app).await.unwrap();
 
     log!("Got a response from the server");
 
@@ -252,28 +288,28 @@ pub async fn prover(
 
     // The Prover task should be done now, so we can grab it.
     // let mut prover = prover_task.await.unwrap().unwrap();
-    let mut prover = prover_receiver.await.unwrap();
+    let prover = prover_receiver.await.unwrap();
     let mut prover = prover.start_notarize();
     log!("!@# 14");
+
+    let secrets_vecs = string_list_to_bytes_vec(&secrets);
+    let secrets_slices: Vec<&[u8]> = secrets_vecs.iter().map(|vec| vec.as_slice()).collect();
 
     // Identify the ranges in the transcript that contain secrets
     let (sent_public_ranges, sent_private_ranges) = find_ranges(
         prover.sent_transcript().data(),
-        &[
-            access_token.as_bytes(),
-            auth_token.as_bytes(),
-            csrf_token.as_bytes(),
-        ],
-    );
-
-    // Identify the ranges in the transcript that contain the only data we want to reveal later
-    let (recv_private_ranges, recv_public_ranges) = find_ranges(
-        prover.recv_transcript().data(),
-        &[format!("\"screen_name\":\"{twitter_id}\"").as_bytes()],
+        secrets_slices.as_slice(),
     );
     log!("!@# 15");
 
-    let recv_len = prover.recv_transcript().data().len();
+    let reveal_vecs = string_list_to_bytes_vec(&reveals);
+    let reveal_slices: Vec<&[u8]> = reveal_vecs.iter().map(|vec| vec.as_slice()).collect();
+    // Identify the ranges in the transcript that contain the only data we want to reveal later
+    let (recv_private_ranges, recv_public_ranges) = find_ranges(
+        prover.recv_transcript().data(),
+        reveal_slices.as_slice(),
+    );
+    log!("!@# 15");
 
     let builder = prover.commitment_builder();
 
@@ -324,7 +360,7 @@ pub async fn prover(
     let res = serde_json::to_string_pretty(&proof).unwrap();
 
     let duration = start_time.elapsed();
-    log!("!@# request takes: {} seconds", duration.as_secs());
+    log!("!@# request took: {} seconds", duration.as_secs());
 
     Ok(res)
 

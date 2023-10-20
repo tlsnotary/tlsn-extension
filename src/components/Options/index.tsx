@@ -32,7 +32,7 @@ export default function Options(): ReactElement {
           type="text"
           className="input border"
           placeholder="http://localhost:7047"
-          onChange={e => {
+          onChange={(e) => {
             setNotary(e.target.value);
             setDirty(true);
           }}
@@ -45,7 +45,7 @@ export default function Options(): ReactElement {
           type="text"
           className="input border"
           placeholder="ws://127.0.0.1:55688"
-          onChange={e => {
+          onChange={(e) => {
             setProxy(e.target.value);
             setDirty(true);
           }}
@@ -53,7 +53,7 @@ export default function Options(): ReactElement {
         />
       </div>
       <div className="flex flex-row flex-nowrap justify-end gap-2 p-2">
-        <button 
+        <button
           className="button !bg-primary/[0.9] hover:bg-primary/[0.8] active:bg-primary !text-white"
           disabled={!dirty}
           onClick={onSave}
@@ -63,11 +63,10 @@ export default function Options(): ReactElement {
       </div>
     </div>
   );
-};
+}
 
 async function set(key: string, value: string) {
-  return chrome.storage.sync
-    .set({ [key]: value });
+  return chrome.storage.sync.set({ [key]: value });
 }
 
 async function get(key: string) {

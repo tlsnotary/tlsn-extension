@@ -40,17 +40,14 @@ export default function Home(): ReactElement {
         >
           Verify
         </NavButton>
-        <NavButton 
-          fa="fa-solid fa-list" 
+        <NavButton
+          fa="fa-solid fa-list"
           onClick={() => navigate('/history')}
           disabled
         >
           History
         </NavButton>
-        <NavButton
-          fa="fa-solid fa-gear"
-          onClick={() => navigate('/options')}
-        >
+        <NavButton fa="fa-solid fa-gear" onClick={() => navigate('/options')}>
           Options
         </NavButton>
       </div>
