@@ -45,5 +45,9 @@ export type RequestHistory = {
   status: '' | 'pending' | 'success' | 'error';
   error?: any;
   proof?: { session: any; substrings: any };
-  payload?: any;
+  requestBody?: any;
+  verification?: {
+    sent: string;
+    recv: string;
+  };
 };

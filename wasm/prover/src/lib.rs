@@ -25,7 +25,7 @@ use tracing_subscriber::prelude::*;
 use ws_stream_wasm::{*};
 
 use crate::requests::{NotarizationSessionRequest, NotarizationSessionResponse, ClientType};
-use crate::requestOpt::RequestOptions;
+use crate::requestOpt::{RequestOptions, VerifyResult};
 
 pub use wasm_bindgen_rayon::init_thread_pool;
 // use rayon::iter::IntoParallelRefIterator;
@@ -362,7 +362,7 @@ pub async fn prover(
 pub async fn verify(
     proof: &str,
     notary_pubkey_str: &str,
-) {
+) -> Result<String, JsValue> {
     log!("!@# proof {}", proof);
     let proof: TlsProof = serde_json::from_str(proof).unwrap();
 
@@ -413,6 +413,16 @@ pub async fn verify(
     log!("Bytes received:");
     log!("{}", String::from_utf8(recv.data().to_vec()).unwrap());
     log!("-------------------------------------------------------------------");
+
+    let result = VerifyResult {
+        server_name: String::from(server_name.as_str()),
+        time: header.time(),
+        sent: String::from_utf8(sent.data().to_vec()).unwrap(),
+        recv: String::from_utf8(recv.data().to_vec()).unwrap(),
+    };
+    let res = serde_json::to_string_pretty(&result).unwrap();
+    
+    Ok(res)
 }
 
 fn print_type_of<T: ?Sized>(_: &T) {

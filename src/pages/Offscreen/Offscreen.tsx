@@ -31,7 +31,9 @@ const Offscreen = () => {
               id,
             } = request.data;
 
-            getTLSN().then(async (tlsn) => {
+            const tlsn = await getTLSN();
+
+            try {
               const proof = await tlsn.prover(url, {
                 method,
                 headers,
@@ -48,24 +50,38 @@ const Offscreen = () => {
                   proof,
                 },
               });
-              console.log(
-                'offscreen process_prove_request',
-                id,
-                proof,
-                request.data,
-              );
-            });
+            } catch (error) {
+              chrome.runtime.sendMessage<any, string>({
+                type: BackgroundActiontype.finish_prove_request,
+                data: {
+                  id,
+                  error,
+                },
+              });
+            }
 
             break;
           }
           case BackgroundActiontype.verify_prove_request: {
-            getTLSN().then(async (tlsn) => {
-              await tlsn.verify(
-                request.data.proof,
-                `-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEBv36FI4ZFszJa0DQFJ3wWCXvVLFr\ncRzMG5kaTeHGoSzDu6cFqx3uEWYpFGo6C0EOUgf+mEgbktLrXocv5yHzKg==\n-----END PUBLIC KEY-----`,
-              );
-            });
+            const tlsn = await getTLSN();
 
+            const result = await tlsn.verify(
+              request.data.proof,
+              `-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEBv36FI4ZFszJa0DQFJ3wWCXvVLFr\ncRzMG5kaTeHGoSzDu6cFqx3uEWYpFGo6C0EOUgf+mEgbktLrXocv5yHzKg==\n-----END PUBLIC KEY-----`,
+            );
+
+            if (result) {
+              chrome.runtime.sendMessage<any, string>({
+                type: BackgroundActiontype.finish_prove_request,
+                data: {
+                  id: request.data.id,
+                  verification: {
+                    sent: result.sent,
+                    recv: result.recv,
+                  },
+                },
+              });
+            }
             break;
           }
           default:

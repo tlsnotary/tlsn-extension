@@ -64,7 +64,6 @@ chrome.tabs.onRemoved.addListener((tab) => {
       mutex.runExclusive(async () => {
         const { method, tabId, requestId } = details;
 
-        // console.log('details', details);
         if (method !== 'OPTIONS') {
           RequestsLogs[tabId] =
             RequestsLogs[tabId] ||
@@ -207,11 +206,38 @@ chrome.tabs.onRemoved.addListener((tab) => {
           return sendResponse();
         }
         case BackgroundActiontype.finish_prove_request: {
-          const { id, proof } = request.data;
+          const { id, proof, error, verification } = request.data;
 
-          const newReq = await addNotaryRequestProofs(id, proof);
+          if (proof) {
+            const newReq = await addNotaryRequestProofs(id, proof);
+            if (!newReq) return;
 
-          if (newReq) {
+            chrome.runtime.sendMessage({
+              type: BackgroundActiontype.push_action,
+              data: {
+                tabId: 'background',
+              },
+              action: addRequestHistory(await getNotaryRequest(id)),
+            });
+          }
+
+          if (error) {
+            const newReq = await setNotaryRequestError(id, error);
+            if (!newReq) return;
+            
+            chrome.runtime.sendMessage({
+              type: BackgroundActiontype.push_action,
+              data: {
+                tabId: 'background',
+              },
+              action: addRequestHistory(await getNotaryRequest(id)),
+            });
+          }
+
+          if (verification) {
+            const newReq = await setNotaryRequestVerification(id, verification);
+            if (!newReq) return;
+            
             chrome.runtime.sendMessage({
               type: BackgroundActiontype.push_action,
               data: {
@@ -348,6 +374,43 @@ async function setNotaryRequestStatus(
   const newReq = {
     ...existing,
     status,
+  };
+
+  await historyDb.put(id, newReq);
+
+  return newReq;
+}
+
+async function setNotaryRequestError(
+  id: string,
+  error: any,
+): Promise<RequestHistory | null> {
+  const existing = await historyDb.get(id);
+
+  if (!existing) return null;
+
+  const newReq = {
+    ...existing,
+    error,
+    status: 'error',
+  };
+
+  await historyDb.put(id, newReq);
+
+  return newReq;
+}
+
+async function setNotaryRequestVerification(
+  id: string,
+  verification: { sent: string; recv: string },
+): Promise<RequestHistory | null> {
+  const existing = await historyDb.get(id);
+
+  if (!existing) return null;
+
+  const newReq = {
+    ...existing,
+    verification,
   };
 
   await historyDb.put(id, newReq);

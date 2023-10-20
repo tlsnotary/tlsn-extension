@@ -15,6 +15,7 @@ import Home from '../Home';
 import logo from '../../assets/img/icon-128.png';
 import RequestBuilder from '../RequestBuilder';
 import Notarize from '../../components/Notarize';
+import ProofViewer from '../../components/ProofViewer';
 import History from '../../components/History';
 
 const Popup = () => {
@@ -67,6 +68,7 @@ const Popup = () => {
       <Routes>
         <Route path="/requests/:requestId/*" element={<Request />} />
         <Route path="/notary/:requestId/*" element={<Notarize />} />
+        <Route path="/verify/:requestId/*" element={<ProofViewer />} />
         <Route path="/history" element={<History />} />
         <Route path="/requests" element={<Requests />} />
         <Route path="/custom/*" element={<RequestBuilder />} />

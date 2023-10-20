@@ -1,4 +1,4 @@
-import { RequestLog } from '../pages/Background/actionTypes';
+import { type RequestLog } from '../pages/Background/actionTypes';
 import { useSelector } from 'react-redux';
 import { AppRootState } from './index';
 import deepEqual from 'fast-deep-equal';
@@ -56,7 +56,9 @@ export default function requests(
         map: {
           ...action.payload.reduce(
             (acc: { [requestId: string]: RequestLog }, req: RequestLog) => {
-              acc[req.requestId] = req;
+              if (req) {
+                acc[req.requestId] = req;
+              }
               return acc;
             },
             {},

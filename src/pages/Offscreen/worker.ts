@@ -75,7 +75,8 @@ class TLSN {
 
   async verify(proof: any, pubkey: string) {
     await this.waitForStart();
-    await verify(JSON.stringify(proof), pubkey);
+    const raw = await verify(JSON.stringify(proof), pubkey);
+    return JSON.parse(raw);
   }
 }
 
