@@ -48,56 +48,6 @@ export default function Home(): ReactElement {
           Options
         </NavButton>
       </div>
-      <div className="flex flex-col flex-nowrap justify-center items-center gap-2 bg-slate-100 border border-slate-200 p-2">
-        <div className="text-sm text-slate-300">
-          <b>Development Only</b>
-        </div>
-        <div className="flex flex-row flex-nowrap justify-center">
-          <button
-            className="right-2 bg-primary/[0.9] text-white font-bold px-2 py-0.5 hover:bg-primary/[0.8] active:bg-primary"
-            onClick={async () => {
-              const notaryUrl = await get(NOTARY_API_LS_KEY);
-              const websocketProxyUrl = await get(PROXY_API_LS_KEY);
-              const userAgent =
-                'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36';
-              const authToken = 'a28cae3969369c26c1410f5bded83c3f4f914fbc';
-              const accessToken =
-                'AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA';
-              const csrfToken =
-                'b73b3488687683372af2ea77486a444ccaa5327bbabad709df1b5161a6b83c8d7ec19106a82cb8dd5f8569632ee95ab4c6dc2abf5ad2ed7fa11b8340fcbe86a8fc00df28db6c4109a807f7cb12dd19da';
-              const twitterId = '0xTsukino';
-              const maxTranscriptSize = 16384;
-
-              const res: any = await chrome.runtime.sendMessage<any, string>({
-                type: BackgroundActiontype.prove_request_start,
-                data: {
-                  url: 'https://api.twitter.com/1.1/account/settings.json',
-                  method: 'GET',
-                  headers: {
-                    Host: 'api.twitter.com',
-                    Accept: '*/*',
-                    'Accept-Encoding': 'identity',
-                    Connection: 'close',
-                    'User-Agent': userAgent,
-                    Authorization: `Bearer ${accessToken}`,
-                    Cookie: `auth_token=${authToken}; ct0=${csrfToken}`,
-                    'X-Csrf-Token': csrfToken,
-                  },
-                  body: '',
-                  maxTranscriptSize,
-                  notaryUrl,
-                  websocketProxyUrl,
-                },
-              });
-
-              console.log(res);
-            }}
-          >
-            Notarize
-          </button>
-        </div>
-        {wasmRes && <div>{wasmRes}</div>}
-      </div>
       {!suggestions.length && (
         <div className="flex flex-col flex-nowrap">
           <div className="flex flex-col items-center justify-center text-slate-300 cursor-default select-none">
