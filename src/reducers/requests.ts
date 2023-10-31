@@ -1,7 +1,9 @@
-import { RequestLog } from '../pages/Background/actionTypes';
+import { type RequestLog, type RequestHistory } from '../pages/Background/actionTypes';
 import { useSelector } from 'react-redux';
 import { AppRootState } from './index';
 import deepEqual from 'fast-deep-equal';
+import { get, NOTARY_API_LS_KEY, PROXY_API_LS_KEY } from '../utils/storage';
+import { BackgroundActiontype } from '../pages/Background/actionTypes';
 
 enum ActionType {
   '/requests/setRequests' = '/requests/setRequests',
@@ -33,6 +35,37 @@ export const setRequests = (requests: RequestLog[]): Action<RequestLog[]> => ({
   payload: requests,
 });
 
+export const notarizeRequest = (options: RequestHistory) => async () => {
+  const notaryUrl = await get(NOTARY_API_LS_KEY);
+  const websocketProxyUrl = await get(PROXY_API_LS_KEY);
+
+  console.log({
+    type: BackgroundActiontype.prove_request_start,
+    data: {
+      url: options.url,
+      method: options.method,
+      headers: options.headers,
+      body: options.body,
+      maxTranscriptSize: options.maxTranscriptSize,
+      notaryUrl,
+      websocketProxyUrl,
+    },
+  })
+
+  chrome.runtime.sendMessage<any, string>({
+    type: BackgroundActiontype.prove_request_start,
+    data: {
+      url: options.url,
+      method: options.method,
+      headers: options.headers,
+      body: options.body,
+      maxTranscriptSize: options.maxTranscriptSize,
+      notaryUrl,
+      websocketProxyUrl,
+    },
+  });
+}
+
 export const setActiveTab = (
   activeTab: chrome.tabs.Tab | null,
 ): Action<chrome.tabs.Tab | null> => ({
@@ -54,9 +87,11 @@ export default function requests(
       return {
         ...state,
         map: {
-          ...action.payload.reduce(
+          ...(action.payload || []).reduce(
             (acc: { [requestId: string]: RequestLog }, req: RequestLog) => {
-              acc[req.requestId] = req;
+              if (req) {
+                acc[req.requestId] = req;
+              }
               return acc;
             },
             {},

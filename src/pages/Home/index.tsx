@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router';
 import { useActiveTabUrl, useRequests } from '../../reducers/requests';
 import { Link } from 'react-router-dom';
 import { filterByBookmarks } from '../../../utils/bookmark';
+import { get, NOTARY_API_LS_KEY, PROXY_API_LS_KEY } from '../../utils/storage';
 import { BackgroundActiontype } from '../Background/actionTypes';
 
 export default function Home(): ReactElement {
@@ -21,8 +22,8 @@ export default function Home(): ReactElement {
   const [wasmRes, setWasmRes] = useState('');
 
   return (
-    <>
-      <div className="flex flex-col flex-nowrap justify-center gap-2 my-8 mx-4">
+    <div className="flex flex-col gap-4 py-4 overflow-y-auto">
+      <div className="flex flex-col flex-nowrap justify-center gap-2 mx-4">
         <NavButton fa="fa-solid fa-table" onClick={() => navigate('/requests')}>
           <span>Requests</span>
           <span>{`(${requests.length})`}</span>
@@ -40,40 +41,12 @@ export default function Home(): ReactElement {
         >
           Verify
         </NavButton>
-        <NavButton 
-          fa="fa-solid fa-list" 
-          onClick={() => navigate('/history')}
-          disabled
-        >
+        <NavButton fa="fa-solid fa-list" onClick={() => navigate('/history')}>
           History
         </NavButton>
-        <NavButton
-          fa="fa-solid fa-gear"
-          onClick={() => navigate('/options')}
-        >
+        <NavButton fa="fa-solid fa-gear" onClick={() => navigate('/options')}>
           Options
         </NavButton>
-      </div>
-      <div className="flex flex-col flex-nowrap justify-center items-center gap-2 bg-slate-100 border border-slate-200 p-2 mb-4">
-        <div className="text-sm text-slate-300">
-          <b>Dev</b>
-        </div>
-        <div className="flex flex-row flex-nowrap justify-center">
-          <button
-            className="right-2 bg-primary/[0.9] text-white font-bold px-2 py-0.5 hover:bg-primary/[0.8] active:bg-primary"
-            onClick={async () => {
-              const res: any = await chrome.runtime.sendMessage<any, string>({
-                type: BackgroundActiontype.test_wasm,
-                target: 'offscreen',
-              });
-              console.log(res);
-              setWasmRes(res.data);
-            }}
-          >
-            Notarize
-          </button>
-        </div>
-        {wasmRes && <div>{wasmRes}</div>}
       </div>
       {!suggestions.length && (
         <div className="flex flex-col flex-nowrap">
@@ -125,7 +98,7 @@ export default function Home(): ReactElement {
           }
         })}
       </div>
-    </>
+    </div>
   );
 }
 

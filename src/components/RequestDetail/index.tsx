@@ -9,7 +9,12 @@ import {
   BackgroundActiontype,
   RequestLog,
 } from '../../pages/Background/actionTypes';
+import {
+  notarizeRequest,
+  useRequest,
+} from '../../reducers/requests';
 import classNames from 'classnames';
+import { useDispatch } from 'react-redux';
 import {
   Navigate,
   Route,
@@ -20,16 +25,57 @@ import {
 } from 'react-router';
 import Icon from '../Icon';
 import NavigateWithParams from '../NavigateWithParams';
+import { get, NOTARY_API_LS_KEY, PROXY_API_LS_KEY } from '../../utils/storage';
+import { urlify } from '../../utils/misc';
 
 type Props = {
-  data: RequestLog | null;
+  requestId: string;
 };
 
-export default function RequestDetail(props: Props): ReactElement {
-  const navigate = useNavigate();
-  const { data } = props;
+const maxTranscriptSize = 16384;
 
-  if (!data) return <></>;
+const authToken = 'a28cae3969369c26c1410f5bded83c3f4f914fbc';
+const accessToken =
+  'AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA';
+const csrfToken =
+  'b73b3488687683372af2ea77486a444ccaa5327bbabad709df1b5161a6b83c8d7ec19106a82cb8dd5f8569632ee95ab4c6dc2abf5ad2ed7fa11b8340fcbe86a8fc00df28db6c4109a807f7cb12dd19da';
+const userAgent =
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36';
+  
+
+export default function RequestDetail(props: Props): ReactElement {
+  const request = useRequest(props.requestId);
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+
+  const notarize = useCallback(async () => {
+    const notaryUrl = await get(NOTARY_API_LS_KEY);
+    const websocketProxyUrl = await get(PROXY_API_LS_KEY);
+    const headers = request
+        .requestHeaders.reduce((acc, h) => {
+          if (!(/^(origin|referer|Accept-Language|Accept-EncodingAccept)$|^(sec-|x-twitter-)/i.test(h.name))) {
+            acc[h.name] = h.value;
+          }
+          return acc;
+        }, { Host: urlify(request.url)?.hostname });
+
+    //TODO: for some reason, these needs to be override for twitter to work
+    headers['Accept-Encoding'] = 'identity';
+    headers['Connection'] = 'close';
+
+    dispatch(notarizeRequest({
+      url: request.url,
+      method: request.method,
+      headers,
+      body: request.body,
+      maxTranscriptSize,
+      notaryUrl,
+      websocketProxyUrl,
+    }))
+    navigate(`/history`);
+  }, [request]);
+
+  if (!request) return <></>;
 
   return (
     <>
@@ -50,20 +96,15 @@ export default function RequestDetail(props: Props): ReactElement {
         </RequestDetailsHeaderTab>
         <button
           className="absolute right-2 bg-primary/[0.9] text-white font-bold px-2 py-0.5 hover:bg-primary/[0.8] active:bg-primary"
-          onClick={async () => {
-            await chrome.runtime.sendMessage({
-              type: BackgroundActiontype.test_wasm,
-              target: 'offscreen',
-            });
-          }}
+          onClick={notarize}
         >
           Notarize
         </button>
       </div>
       <Routes>
-        <Route path="headers" element={<RequestHeaders data={props.data} />} />
-        <Route path="payloads" element={<RequestPayload data={props.data} />} />
-        <Route path="response" element={<WebResponse data={props.data} />} />
+        <Route path="headers" element={<RequestHeaders requestId={props.requestId} />} />
+        <Route path="payloads" element={<RequestPayload requestId={props.requestId} />} />
+        <Route path="response" element={<WebResponse requestId={props.requestId} />} />
         <Route path="/" element={<NavigateWithParams to="/headers" />} />
       </Routes>
     </>
@@ -92,7 +133,7 @@ function RequestDetailsHeaderTab(props: {
 }
 
 function RequestPayload(props: Props): ReactElement {
-  const { data } = props;
+  const data = useRequest(props.requestId);
   const [url, setUrl] = useState<URL | null>();
   const [json, setJson] = useState<any | null>();
   const [formData, setFormData] = useState<URLSearchParams | null>(null);
@@ -216,7 +257,7 @@ function RequestPayload(props: Props): ReactElement {
 }
 
 function WebResponse(props: Props): ReactElement {
-  const { data } = props;
+  const data = useRequest(props.requestId);
   const [response, setResponse] = useState<Response | null>(null);
   const [json, setJSON] = useState<any | null>(null);
   const [text, setText] = useState<string | null>(null);
@@ -387,7 +428,7 @@ function WebResponse(props: Props): ReactElement {
 }
 
 function RequestHeaders(props: Props): ReactElement {
-  const { data } = props;
+  const data = useRequest(props.requestId);
 
   return (
     <div className="flex flex-col flex-nowrap overflow-y-auto">

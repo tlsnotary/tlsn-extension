@@ -2,31 +2,93 @@ import React, { useEffect } from 'react';
 import * as Comlink from 'comlink';
 import { BackgroundActiontype } from '../Background/actionTypes';
 
+const TLSN: any = Comlink.wrap(
+  new Worker(new URL('./worker.ts', import.meta.url)),
+);
+
+let tlsn: any | null = null;
+
+async function getTLSN(): Promise<any | null> {
+  if (tlsn) return tlsn;
+  tlsn = await new TLSN();
+  return tlsn;
+}
+
 const Offscreen = () => {
   useEffect(() => {
-    (async function offscreenloaded() {
-      console.log('offscreen loaded - spawning worker from worker.ts');
-
-      chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    chrome.runtime.onMessage.addListener(
+      async (request, sender, sendResponse) => {
         switch (request.type) {
-          case BackgroundActiontype.test_wasm: {
-            const TLSN: any = Comlink.wrap(
-              new Worker(new URL('./worker.ts', import.meta.url)),
+          case BackgroundActiontype.process_prove_request: {
+            const {
+              url,
+              method,
+              headers,
+              body = '',
+              maxTranscriptSize,
+              notaryUrl,
+              websocketProxyUrl,
+              id,
+            } = request.data;
+
+            const tlsn = await getTLSN();
+
+            try {
+              const proof = await tlsn.prover(url, {
+                method,
+                headers,
+                body,
+                maxTranscriptSize,
+                notaryUrl,
+                websocketProxyUrl,
+              });
+
+              chrome.runtime.sendMessage<any, string>({
+                type: BackgroundActiontype.finish_prove_request,
+                data: {
+                  id,
+                  proof,
+                },
+              });
+            } catch (error) {
+              chrome.runtime.sendMessage<any, string>({
+                type: BackgroundActiontype.finish_prove_request,
+                data: {
+                  id,
+                  error,
+                },
+              });
+            }
+
+            break;
+          }
+          case BackgroundActiontype.verify_prove_request: {
+            const tlsn = await getTLSN();
+
+            const result = await tlsn.verify(
+              request.data.proof,
+              `-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEBv36FI4ZFszJa0DQFJ3wWCXvVLFr\ncRzMG5kaTeHGoSzDu6cFqx3uEWYpFGo6C0EOUgf+mEgbktLrXocv5yHzKg==\n-----END PUBLIC KEY-----`,
             );
 
-            new TLSN().then(async (tlsn: any) => {
-              const data = await tlsn.prover();
-              sendResponse({ data });
-            });
-
+            if (result) {
+              chrome.runtime.sendMessage<any, string>({
+                type: BackgroundActiontype.finish_prove_request,
+                data: {
+                  id: request.data.id,
+                  verification: {
+                    sent: result.sent,
+                    recv: result.recv,
+                  },
+                },
+              });
+            }
             break;
           }
           default:
             break;
         }
-        return true;
-      });
-    })();
+      },
+    );
   }, []);
 
   return <div className="App" />;

@@ -1,12 +1,5 @@
 [
   {
-    "url": "https://twitter.com/i/api/1.1/dm/conversation",
-    "method": "GET",
-    "type": "xmlhttprequest",
-    "title": "Twitter Conversation History",
-    "description": "Notarize history of a twitter conversation. To start, open any conversation from twitter.com/messages."
-  },
-  {
     "url": "https://api.twitter.com/1.1/account/settings.json",
     "method": "GET",
     "type": "xmlhttprequest",

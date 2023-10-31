@@ -1,7 +1,10 @@
 import React, { ReactElement, useState, useEffect, useCallback } from 'react';
-
-const NOTARY_API_LS_KEY = 'notary-api';
-const PROXY_API_LS_KEY = 'proxy-api';
+import {
+  set,
+  get,
+  NOTARY_API_LS_KEY,
+  PROXY_API_LS_KEY,
+} from '../../utils/storage';
 
 export default function Options(): ReactElement {
   const [notary, setNotary] = useState('http://localhost:7047');
@@ -24,7 +27,7 @@ export default function Options(): ReactElement {
   return (
     <div className="flex flex-col flex-nowrap flex-grow">
       <div className="flex flex-row flex-nowrap py-1 px-2 gap-2 font-bold text-base">
-        API Settings
+        Settings
       </div>
       <div className="flex flex-col flex-nowrap py-1 px-2 gap-2">
         <div className="font-semibold">Notary API</div>
@@ -32,7 +35,7 @@ export default function Options(): ReactElement {
           type="text"
           className="input border"
           placeholder="http://localhost:7047"
-          onChange={e => {
+          onChange={(e) => {
             setNotary(e.target.value);
             setDirty(true);
           }}
@@ -45,7 +48,7 @@ export default function Options(): ReactElement {
           type="text"
           className="input border"
           placeholder="ws://127.0.0.1:55688"
-          onChange={e => {
+          onChange={(e) => {
             setProxy(e.target.value);
             setDirty(true);
           }}
@@ -53,7 +56,7 @@ export default function Options(): ReactElement {
         />
       </div>
       <div className="flex flex-row flex-nowrap justify-end gap-2 p-2">
-        <button 
+        <button
           className="button !bg-primary/[0.9] hover:bg-primary/[0.8] active:bg-primary !text-white"
           disabled={!dirty}
           onClick={onSave}
@@ -63,16 +66,4 @@ export default function Options(): ReactElement {
       </div>
     </div>
   );
-};
-
-async function set(key: string, value: string) {
-  return chrome.storage.sync
-    .set({ [key]: value });
-}
-
-async function get(key: string) {
-  return chrome.storage.sync
-    .get(key)
-    .then((json: any) => json[key])
-    .catch(() => '');
 }

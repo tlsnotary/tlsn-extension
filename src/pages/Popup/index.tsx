@@ -14,7 +14,10 @@ const root = createRoot(container!); // createRoot(container!) if you use TypeSc
 chrome.runtime.onMessage.addListener((request) => {
   switch (request.type) {
     case BackgroundActiontype.push_action: {
-      if (request.data.tabId === store.getState().requests.activeTab?.id) {
+      if (
+        request.data.tabId === store.getState().requests.activeTab?.id ||
+        request.data.tabId === 'background'
+      ) {
         store.dispatch(request.action);
       }
       break;

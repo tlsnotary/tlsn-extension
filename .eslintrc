@@ -24,6 +24,8 @@
     "import/resolver": "typescript"
   },
   "ignorePatterns": [
+    "node_modules",
+    "zip",
     "build",
     "wasm",
     "tlsn",

@@ -18,16 +18,31 @@ enum TabType {
   Body = 'Body',
 }
 
-export default function RequestBuilder(): ReactElement {
+export default function RequestBuilder(props?: {
+  subpath?: string;
+  url?: string;
+  params?: [string, string, boolean?][];
+  headers?: [string, string, boolean?][];
+  body?: string;
+  method?: string;
+  response?: Response;
+}): ReactElement {
   const loc = useLocation();
   const navigate = useNavigate();
 
-  const [_url, setUrl] = useState('');
-  const [params, setParams] = useState<[string, string, boolean?][]>([]);
-  const [headers, setHeaders] = useState<[string, string, boolean?][]>([]);
-  const [body, setBody] = useState<string | undefined>(undefined);
-  const [method, setMethod] = useState<string>('GET');
-  const [response, setResponse] = useState<Response | null>(null);
+  const subpath = props.subpath || '/custom';
+  const [_url, setUrl] = useState(props.url || '');
+  const [params, setParams] = useState<[string, string, boolean?][]>(
+    props.params || [],
+  );
+  const [headers, setHeaders] = useState<[string, string, boolean?][]>(
+    props.headers || [],
+  );
+  const [body, setBody] = useState<string | undefined>(props.body);
+  const [method, setMethod] = useState<string>(props.method || 'GET');
+  const [response, setResponse] = useState<Response | null>(
+    props.response || null,
+  );
 
   const url = urlify(_url);
 
@@ -101,7 +116,7 @@ export default function RequestBuilder(): ReactElement {
 
     setResponse(res);
 
-    navigate('/custom/response');
+    navigate(subpath + '/response');
   }, [href, method, headers, body]);
 
   return (
@@ -129,26 +144,26 @@ export default function RequestBuilder(): ReactElement {
       <div className="flex flex-col px-2">
         <div className="flex flex-row gap-2">
           <TabLabel
-            onClick={() => navigate('/custom/params')}
+            onClick={() => navigate(subpath + '/params')}
             active={loc.pathname.includes('params')}
           >
             Params
           </TabLabel>
           <TabLabel
-            onClick={() => navigate('/custom/headers')}
+            onClick={() => navigate(subpath + '/headers')}
             active={loc.pathname.includes('headers')}
           >
             Headers
           </TabLabel>
           <TabLabel
-            onClick={() => navigate('/custom/body')}
+            onClick={() => navigate(subpath + '/body')}
             active={loc.pathname.includes('body')}
           >
             Body
           </TabLabel>
           {response && (
             <TabLabel
-              onClick={() => navigate('/custom/response')}
+              onClick={() => navigate(subpath + '/response')}
               active={loc.pathname.includes('response')}
             >
               Response

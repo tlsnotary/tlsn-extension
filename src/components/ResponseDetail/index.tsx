@@ -66,33 +66,6 @@ export default function ResponseDetail(props: {
       )}
     >
       <table className="border border-slate-300 border-collapse table-fixed w-full">
-        {!!props.response?.headers && (
-          <>
-            <thead className="bg-slate-200">
-              <tr>
-                <td colSpan={2} className="border border-slate-300 py-1 px-2">
-                  Headers
-                </td>
-              </tr>
-            </thead>
-            <tbody>
-              {Array.from(props.response.headers.entries()).map(
-                ([name, value]) => {
-                  return (
-                    <tr className="border-b border-slate-200">
-                      <td className="border border-slate-300 font-bold align-top py-1 px-2 whitespace-nowrap">
-                        {name}
-                      </td>
-                      <td className="border border-slate-300 break-all align-top py-1 px-2">
-                        {value}
-                      </td>
-                    </tr>
-                  );
-                },
-              )}
-            </tbody>
-          </>
-        )}
         {!!json && (
           <>
             <thead className="bg-slate-200">
@@ -147,6 +120,33 @@ export default function ResponseDetail(props: {
                 <img src={img} />
               </td>
             </tr>
+          </>
+        )}
+        {!!props.response?.headers && (
+          <>
+            <thead className="bg-slate-200">
+              <tr>
+                <td colSpan={2} className="border border-slate-300 py-1 px-2">
+                  Headers
+                </td>
+              </tr>
+            </thead>
+            <tbody>
+              {Array.from(props.response.headers.entries()).map(
+                ([name, value]) => {
+                  return (
+                    <tr className="border-b border-slate-200">
+                      <td className="border border-slate-300 font-bold align-top py-1 px-2 whitespace-nowrap">
+                        {name}
+                      </td>
+                      <td className="border border-slate-300 break-all align-top py-1 px-2">
+                        {value}
+                      </td>
+                    </tr>
+                  );
+                },
+              )}
+            </tbody>
           </>
         )}
       </table>

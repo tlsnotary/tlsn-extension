@@ -1,7 +1,15 @@
-import { BackgroundActiontype, RequestLog } from './actionTypes';
+import {
+  BackgroundActiontype,
+  RequestLog,
+  type RequestHistory,
+} from './actionTypes';
+
 import { Mutex } from 'async-mutex';
 import NodeCache from 'node-cache';
 import { addRequest } from '../../reducers/requests';
+import { addRequestHistory } from '../../reducers/history';
+import { Level } from 'level';
+import charwise from 'charwise';
 
 let RequestsLogs: {
   [tabId: string]: NodeCache;
@@ -13,11 +21,7 @@ const cache = new NodeCache({
   maxKeys: 1000000,
 });
 
-(chrome as any).offscreen.createDocument({
-  url: 'offscreen.html',
-  reasons: ['WORKERS'],
-  justification: 'workers for multithreading',
-});
+let creatingOffscreen;
 
 chrome.tabs.onActivated.addListener((tabs) => {
   RequestsLogs[tabs.tabId] =
@@ -33,12 +37,33 @@ chrome.tabs.onRemoved.addListener((tab) => {
 });
 
 (async () => {
+  const offscreenUrl = chrome.runtime.getURL('offscreen.html');
+  const existingContexts = await chrome.runtime.getContexts({
+    contextTypes: ['OFFSCREEN_DOCUMENT'],
+    documentUrls: [offscreenUrl],
+  });
+
+  if (existingContexts.length > 0) {
+    return;
+  }
+
+  if (creatingOffscreen) {
+    await creatingOffscreen;
+  } else {
+    creatingOffscreen = (chrome as any).offscreen.createDocument({
+      url: 'offscreen.html',
+      reasons: ['WORKERS'],
+      justification: 'workers for multithreading',
+    });
+    await creatingOffscreen;
+    creatingOffscreen = null;
+  }
+
   chrome.webRequest.onSendHeaders.addListener(
     (details) => {
       mutex.runExclusive(async () => {
         const { method, tabId, requestId } = details;
 
-        // console.log('details', details);
         if (method !== 'OPTIONS') {
           RequestsLogs[tabId] =
             RequestsLogs[tabId] ||
@@ -63,7 +88,7 @@ chrome.tabs.onRemoved.addListener((tab) => {
     {
       urls: ['<all_urls>'],
     },
-    ['requestHeaders'],
+    ['requestHeaders', 'extraHeaders'],
   );
 
   chrome.webRequest.onBeforeRequest.addListener(
@@ -151,23 +176,266 @@ chrome.tabs.onRemoved.addListener((tab) => {
     {
       urls: ['<all_urls>'],
     },
-    ['responseHeaders'],
+    ['responseHeaders', 'extraHeaders'],
   );
 
-  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    switch (request.type) {
-      case BackgroundActiontype.get_requests: {
-        const keys = RequestsLogs[request.data]?.keys() || [];
-        const data = keys.map((key) => RequestsLogs[request.data]?.get(key));
+  chrome.runtime.onMessage.addListener(
+    async (request, sender, sendResponse) => {
+      switch (request.type) {
+        case BackgroundActiontype.get_requests: {
+          const keys = RequestsLogs[request.data]?.keys() || [];
+          const data = keys.map((key) => RequestsLogs[request.data]?.get(key));
+          return sendResponse(data);
+        }
+        case BackgroundActiontype.clear_requests: {
+          RequestsLogs = {};
+          return sendResponse();
+        }
+        case BackgroundActiontype.get_prove_requests: {
+          getNotaryRequests().then((reqs) => {
+            for (const req of reqs) {
+              chrome.runtime.sendMessage({
+                type: BackgroundActiontype.push_action,
+                data: {
+                  tabId: 'background',
+                },
+                action: addRequestHistory(req),
+              });
+            }
+          });
+          return sendResponse();
+        }
+        case BackgroundActiontype.finish_prove_request: {
+          const { id, proof, error, verification } = request.data;
 
-        return sendResponse(data);
+          if (proof) {
+            const newReq = await addNotaryRequestProofs(id, proof);
+            if (!newReq) return;
+
+            chrome.runtime.sendMessage({
+              type: BackgroundActiontype.push_action,
+              data: {
+                tabId: 'background',
+              },
+              action: addRequestHistory(await getNotaryRequest(id)),
+            });
+          }
+
+          if (error) {
+            const newReq = await setNotaryRequestError(id, error);
+            if (!newReq) return;
+            
+            chrome.runtime.sendMessage({
+              type: BackgroundActiontype.push_action,
+              data: {
+                tabId: 'background',
+              },
+              action: addRequestHistory(await getNotaryRequest(id)),
+            });
+          }
+
+          if (verification) {
+            const newReq = await setNotaryRequestVerification(id, verification);
+            if (!newReq) return;
+            
+            chrome.runtime.sendMessage({
+              type: BackgroundActiontype.push_action,
+              data: {
+                tabId: 'background',
+              },
+              action: addRequestHistory(await getNotaryRequest(id)),
+            });
+          }
+
+          return sendResponse();
+        }
+        case BackgroundActiontype.delete_prove_request: {
+          const id = request.data;
+          await removeNotaryRequest(id);
+          return sendResponse();
+        }
+        case BackgroundActiontype.retry_prove_request: {
+          const { id, notaryUrl, websocketProxyUrl } = request.data;
+
+          await setNotaryRequestStatus(id, 'pending');
+
+          const req = await getNotaryRequest(id);
+
+          chrome.runtime.sendMessage<any, string>({
+            type: BackgroundActiontype.process_prove_request,
+            data: {
+              ...req,
+              notaryUrl,
+              websocketProxyUrl,
+            },
+          });
+
+          return sendResponse();
+        }
+        case BackgroundActiontype.prove_request_start: {
+          const {
+            url,
+            method,
+            headers,
+            body,
+            maxTranscriptSize,
+            notaryUrl,
+            websocketProxyUrl,
+          } = request.data;
+
+          const { id } = await addNotaryRequest(Date.now(), {
+            url,
+            method,
+            headers,
+            body,
+            maxTranscriptSize,
+            notaryUrl,
+            websocketProxyUrl,
+          });
+
+          await setNotaryRequestStatus(id, 'pending');
+
+          chrome.runtime.sendMessage({
+            type: BackgroundActiontype.push_action,
+            data: {
+              tabId: 'background',
+            },
+            action: addRequestHistory(await getNotaryRequest(id)),
+          });
+
+          chrome.runtime.sendMessage<any, string>({
+            type: BackgroundActiontype.process_prove_request,
+            data: {
+              id,
+              url,
+              method,
+              headers,
+              body,
+              maxTranscriptSize,
+              notaryUrl,
+              websocketProxyUrl,
+            },
+          });
+
+          return sendResponse();
+        }
+        default:
+          break;
       }
-      case BackgroundActiontype.clear_requests: {
-        RequestsLogs = {};
-        return sendResponse();
-      }
-      default:
-        break;
-    }
-  });
+    },
+  );
 })();
+
+const db = new Level('./ext-db', {
+  valueEncoding: 'json',
+});
+const historyDb = db.sublevel('history', { valueEncoding: 'json' });
+
+async function addNotaryRequest(
+  now = Date.now(),
+  request: RequestHistory,
+): Promise<RequestHistory> {
+  const id = charwise.encode(now).toString('hex');
+  const newReq = {
+    ...request,
+    id,
+  };
+  await historyDb.put(id, newReq);
+  return newReq;
+}
+
+async function addNotaryRequestProofs(
+  id: string,
+  proof: { session: any; substrings: any },
+): Promise<RequestHistory | null> {
+  const existing = await historyDb.get(id);
+
+  if (!existing) return null;
+
+  const newReq = {
+    ...existing,
+    proof,
+    status: 'success',
+  };
+
+  await historyDb.put(id, newReq);
+
+  return newReq;
+}
+
+async function setNotaryRequestStatus(
+  id: string,
+  status: '' | 'pending' | 'success' | 'error',
+): Promise<RequestHistory | null> {
+  const existing = await historyDb.get(id);
+
+  if (!existing) return null;
+
+  const newReq = {
+    ...existing,
+    status,
+  };
+
+  await historyDb.put(id, newReq);
+
+  return newReq;
+}
+
+async function setNotaryRequestError(
+  id: string,
+  error: any,
+): Promise<RequestHistory | null> {
+  const existing = await historyDb.get(id);
+
+  if (!existing) return null;
+
+  const newReq = {
+    ...existing,
+    error,
+    status: 'error',
+  };
+
+  await historyDb.put(id, newReq);
+
+  return newReq;
+}
+
+async function setNotaryRequestVerification(
+  id: string,
+  verification: { sent: string; recv: string },
+): Promise<RequestHistory | null> {
+  const existing = await historyDb.get(id);
+
+  if (!existing) return null;
+
+  const newReq = {
+    ...existing,
+    verification,
+  };
+
+  await historyDb.put(id, newReq);
+
+  return newReq;
+}
+
+async function removeNotaryRequest(id: string): Promise<RequestHistory | null> {
+  const existing = await historyDb.get(id);
+
+  if (!existing) return null;
+
+  await historyDb.del(id);
+
+  return existing;
+}
+
+async function getNotaryRequests(): Promise<RequestHistory[]> {
+  const retVal = [];
+  for await (const [key, value] of historyDb.iterator()) {
+    retVal.push(value);
+  }
+  return retVal;
+}
+
+async function getNotaryRequest(id: string): Promise<RequestHistory | null> {
+  return historyDb.get(id);
+}
