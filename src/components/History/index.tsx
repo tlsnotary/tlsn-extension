@@ -14,7 +14,6 @@ import { BackgroundActiontype } from '../../pages/Background/actionTypes';
 export default function History(): ReactElement {
   const history = useHistoryOrder();
 
-
   return (
     <div className="flex flex-col flex-nowrap overflow-y-auto">
       {history.map((id) => {
@@ -28,8 +27,8 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
   const dispatch = useDispatch();
   const request = useRequestHistory(props.requestId);
   const navigate = useNavigate();
-  const { proof, status } = request || {};
-  const requestUrl = urlify(request.url);
+  const { status } = request || {};
+  const requestUrl = urlify(request?.url || '');
 
   const onRetry = useCallback(async () => {
     const notaryUrl = await get(NOTARY_API_LS_KEY);
@@ -49,7 +48,7 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
       type: BackgroundActiontype.verify_prove_request,
       data: request,
     });
-    navigate('/verify/' + request.id);
+    navigate('/verify/' + request?.id);
   }, [request]);
 
   const onDelete = useCallback(async () => {
@@ -96,7 +95,7 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
             </div>
             <div
               className="flex flex-row flex-grow-0 gap-2 self-end items-center justify-end px-2 py-1 bg-slate-100 text-slate-300 hover:bg-slate-200 hover:text-slate-500 hover:font-bold"
-              onClick={() => download(`${request?.id}.json`, JSON.stringify(request.proof))}
+              onClick={() => download(`${request?.id}.json`, JSON.stringify(request?.proof))}
             >
               <Icon className="" fa="fa-solid fa-download" size={1} />
               <span className="text-xs font-bold">Download</span>

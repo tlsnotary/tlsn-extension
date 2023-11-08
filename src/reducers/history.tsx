@@ -4,7 +4,6 @@ import {
 } from '../pages/Background/actionTypes';
 import { useSelector } from 'react-redux';
 import { AppRootState } from './index';
-import { BackgroundActiontype } from '../Background/actionTypes';
 import deepEqual from 'fast-deep-equal';
 
 enum ActionType {
@@ -86,7 +85,7 @@ export default function history(
   }
 }
 
-export const useHistoryOrder = (): RequestHistory[] => {
+export const useHistoryOrder = (): string[] => {
   return useSelector((state: AppRootState) => {
     return state.history.order;
   }, deepEqual);
