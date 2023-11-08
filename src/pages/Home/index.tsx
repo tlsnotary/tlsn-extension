@@ -11,15 +11,12 @@ import { useNavigate } from 'react-router';
 import { useActiveTabUrl, useRequests } from '../../reducers/requests';
 import { Link } from 'react-router-dom';
 import { filterByBookmarks } from '../../../utils/bookmark';
-import { get, NOTARY_API_LS_KEY, PROXY_API_LS_KEY } from '../../utils/storage';
-import { BackgroundActiontype } from '../Background/actionTypes';
 
 export default function Home(): ReactElement {
   const requests = useRequests();
   const url = useActiveTabUrl();
   const navigate = useNavigate();
   const suggestions = filterByBookmarks(requests);
-  const [wasmRes, setWasmRes] = useState('');
 
   return (
     <div className="flex flex-col gap-4 py-4 overflow-y-auto">
