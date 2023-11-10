@@ -9,7 +9,7 @@ import NodeCache from 'node-cache';
 import { addRequest } from '../../reducers/requests';
 import { addRequestHistory } from '../../reducers/history';
 import { Level } from 'level';
-import charwise from 'charwise';
+const charwise = require('charwise');
 
 let RequestsLogs: {
   [tabId: string]: NodeCache;
@@ -38,6 +38,7 @@ chrome.tabs.onRemoved.addListener((tab) => {
 
 (async () => {
   const offscreenUrl = chrome.runtime.getURL('offscreen.html');
+  // @ts-ignore
   const existingContexts = await chrome.runtime.getContexts({
     contextTypes: ['OFFSCREEN_DOCUMENT'],
     documentUrls: [offscreenUrl],
@@ -224,7 +225,7 @@ chrome.tabs.onRemoved.addListener((tab) => {
           if (error) {
             const newReq = await setNotaryRequestError(id, error);
             if (!newReq) return;
-            
+
             chrome.runtime.sendMessage({
               type: BackgroundActiontype.push_action,
               data: {
@@ -237,7 +238,7 @@ chrome.tabs.onRemoved.addListener((tab) => {
           if (verification) {
             const newReq = await setNotaryRequestVerification(id, verification);
             if (!newReq) return;
-            
+
             chrome.runtime.sendMessage({
               type: BackgroundActiontype.push_action,
               data: {
@@ -329,16 +330,19 @@ chrome.tabs.onRemoved.addListener((tab) => {
 const db = new Level('./ext-db', {
   valueEncoding: 'json',
 });
-const historyDb = db.sublevel('history', { valueEncoding: 'json' });
+const historyDb = db.sublevel<string, RequestHistory>('history', {
+  valueEncoding: 'json',
+});
 
 async function addNotaryRequest(
   now = Date.now(),
-  request: RequestHistory,
+  request: Omit<RequestHistory, 'status' | 'id'>,
 ): Promise<RequestHistory> {
   const id = charwise.encode(now).toString('hex');
-  const newReq = {
+  const newReq: RequestHistory = {
     ...request,
     id,
+    status: '',
   };
   await historyDb.put(id, newReq);
   return newReq;
@@ -352,7 +356,7 @@ async function addNotaryRequestProofs(
 
   if (!existing) return null;
 
-  const newReq = {
+  const newReq: RequestHistory = {
     ...existing,
     proof,
     status: 'success',
@@ -389,7 +393,7 @@ async function setNotaryRequestError(
 
   if (!existing) return null;
 
-  const newReq = {
+  const newReq: RequestHistory = {
     ...existing,
     error,
     status: 'error',

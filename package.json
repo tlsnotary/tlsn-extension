@@ -10,6 +10,7 @@
     "clone:tlsn": "bash ./utils/download-tlsn.sh",
     "build:wasm": "wasm-pack build --target web wasm/prover",
     "build": "NODE_ENV=production node utils/build.js",
+    "build:webpack": "NODE_ENV=production webpack --config webpack.config.js",
     "dev": "NODE_ENV=development node utils/webserver.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"

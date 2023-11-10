@@ -1,5 +1,5 @@
 {
-  root: true,
+  "root": true,
   "extends": ["prettier", "plugin:@typescript-eslint/recommended"],
   "plugins": ["prettier", "@typescript-eslint"],
   "parser": "@typescript-eslint/parser",
@@ -7,6 +7,7 @@
     "prettier/prettier": "error",
     "@typescript-eslint/no-explicit-any": 1,
     "@typescript-eslint/no-var-requires": 0,
+    "@typescript-eslint/ban-ts-comment": 0,
     "no-undef": "error",
     "padding-line-between-statements": "error"
   },

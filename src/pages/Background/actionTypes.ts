@@ -38,8 +38,8 @@ export type RequestHistory = {
   url: string;
   method: string;
   headers: { [key: string]: string };
-  body: string;
-  maxTranscriptSize: string;
+  body?: string;
+  maxTranscriptSize: number;
   notaryUrl: string;
   websocketProxyUrl: string;
   status: '' | 'pending' | 'success' | 'error';

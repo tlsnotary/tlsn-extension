@@ -30,7 +30,7 @@ const initialState: State = {
   order: [],
 };
 
-export const addRequestHistory = (request: RequestHistory) => {
+export const addRequestHistory = (request?: RequestHistory | null) => {
   return {
     type: ActionType['/history/addRequest'],
     payload: request,
@@ -56,6 +56,9 @@ export default function history(
   switch (action.type) {
     case ActionType['/history/addRequest']: {
       const payload: RequestHistory = action.payload;
+
+      if (!payload) return state;
+
       const existing = state.map[payload.id];
       const newMap = {
         ...state.map,
@@ -91,8 +94,9 @@ export const useHistoryOrder = (): string[] => {
   }, deepEqual);
 };
 
-export const useRequestHistory = (id: string): RequestHistory | undefined => {
+export const useRequestHistory = (id?: string): RequestHistory | undefined => {
   return useSelector((state: AppRootState) => {
+    if (!id) return undefined;
     return state.history.map[id];
   }, deepEqual);
 };

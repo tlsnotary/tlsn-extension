@@ -68,9 +68,7 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
         </div>
         <div className="flex flex-row">
           <div className="font-bold text-slate-400">Host:</div>
-          <div className="ml-2 text-slate-800">
-            {requestUrl?.host}
-          </div>
+          <div className="ml-2 text-slate-800">{requestUrl?.host}</div>
         </div>
         <div className="flex flex-row">
           <div className="font-bold text-slate-400">Notary API:</div>
@@ -95,7 +93,9 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
             </div>
             <div
               className="flex flex-row flex-grow-0 gap-2 self-end items-center justify-end px-2 py-1 bg-slate-100 text-slate-300 hover:bg-slate-200 hover:text-slate-500 hover:font-bold"
-              onClick={() => download(`${request?.id}.json`, JSON.stringify(request?.proof))}
+              onClick={() =>
+                download(`${request?.id}.json`, JSON.stringify(request?.proof))
+              }
             >
               <Icon className="" fa="fa-solid fa-download" size={1} />
               <span className="text-xs font-bold">Download</span>
