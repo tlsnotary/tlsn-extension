@@ -49,13 +49,13 @@ class TLSN {
       await this.waitForStart();
       console.log('worker', url, {
         ...options,
-        notaryUrl: options.notaryUrl,
-        websocketProxyUrl: options.websocketProxyUrl,
+        notaryUrl: options?.notaryUrl,
+        websocketProxyUrl: options?.websocketProxyUrl,
       });
       const resProver = await prover(url, {
         ...options,
-        notaryUrl: options.notaryUrl,
-        websocketProxyUrl: options.websocketProxyUrl,
+        notaryUrl: options?.notaryUrl,
+        websocketProxyUrl: options?.websocketProxyUrl,
       });
       const resJSON = JSON.parse(resProver);
       devlog('!@# resProver,resJSON=', { resProver, resJSON });

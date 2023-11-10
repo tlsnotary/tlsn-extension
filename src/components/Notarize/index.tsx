@@ -8,8 +8,6 @@ export default function Notarize(): ReactElement {
   const request = useRequestHistory(params.requestId);
 
   return (
-    <div className="flex flex-col flex-nowrap flex-grow">
-      {request?.id}
-    </div>
+    <div className="flex flex-col flex-nowrap flex-grow">{request?.id}</div>
   );
 }

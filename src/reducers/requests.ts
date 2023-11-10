@@ -1,4 +1,7 @@
-import { type RequestLog, type RequestHistory } from '../pages/Background/actionTypes';
+import {
+  type RequestLog,
+  type RequestHistory,
+} from '../pages/Background/actionTypes';
 import { useSelector } from 'react-redux';
 import { AppRootState } from './index';
 import deepEqual from 'fast-deep-equal';
@@ -36,22 +39,10 @@ export const setRequests = (requests: RequestLog[]): Action<RequestLog[]> => ({
 });
 
 export const notarizeRequest = (options: RequestHistory) => async () => {
-  const notaryUrl = await get(NOTARY_API_LS_KEY);
-  const websocketProxyUrl = await get(PROXY_API_LS_KEY);
+  const notaryUrl = await get(NOTARY_API_LS_KEY, 'https://127.0.0.1:7047');
+  const websocketProxyUrl = await get(PROXY_API_LS_KEY, 'ws://127.0.0.1:55688');
 
-  console.log({
-    type: BackgroundActiontype.prove_request_start,
-    data: {
-      url: options.url,
-      method: options.method,
-      headers: options.headers,
-      body: options.body,
-      maxTranscriptSize: options.maxTranscriptSize,
-      notaryUrl,
-      websocketProxyUrl,
-    },
-  })
-
+  console.log({ notaryUrl, websocketProxyUrl });
   chrome.runtime.sendMessage<any, string>({
     type: BackgroundActiontype.prove_request_start,
     data: {
@@ -64,7 +55,7 @@ export const notarizeRequest = (options: RequestHistory) => async () => {
       websocketProxyUrl,
     },
   });
-}
+};
 
 export const setActiveTab = (
   activeTab: chrome.tabs.Tab | null,

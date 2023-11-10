@@ -6,9 +6,9 @@ export async function set(key: string, value: string) {
   return chrome.storage.sync.set({ [key]: value });
 }
 
-export async function get(key: string) {
+export async function get(key: string, defaultValue?: string) {
   return chrome.storage.sync
     .get(key)
-    .then((json: any) => json[key])
+    .then((json: any) => json[key] || defaultValue)
     .catch(() => '');
 }

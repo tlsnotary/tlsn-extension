@@ -17,15 +17,18 @@ export function urlify(
   }
 }
 
-export function devlog(text: string) {
+export function devlog(...args: any[]) {
   if (process.env.NODE_ENV === 'development') {
-    console.log(text);
+    console.log(...args);
   }
 }
 
 export function download(filename: string, content: string) {
-  var element = document.createElement('a');
-  element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(content));
+  const element = document.createElement('a');
+  element.setAttribute(
+    'href',
+    'data:text/plain;charset=utf-8,' + encodeURIComponent(content),
+  );
   element.setAttribute('download', filename);
 
   element.style.display = 'none';
