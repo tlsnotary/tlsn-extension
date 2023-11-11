@@ -40,11 +40,9 @@ export default function Notarize(): ReactElement {
       { Host: hostname },
     );
 
-    //TODO: for some reason, these needs to be override for twitter api to work
-    if (hostname === 'api.twitter.com') {
-      headers['Accept-Encoding'] = 'identity';
-      headers['Connection'] = 'close';
-    }
+    //TODO: for some reason, these needs to be override to work
+    headers['Accept-Encoding'] = 'identity';
+    headers['Connection'] = 'close';
 
     dispatch(
       // @ts-ignore
