@@ -33,7 +33,7 @@ use rayon::prelude::*;
 
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{Request as WebsysRequest, RequestInit, Headers, RequestMode, Response};
-use js_sys::JSON;
+use js_sys::{JSON, Array};
 use url::Url;
 
 use tlsn_core::proof::{SessionProof, TlsProof};
@@ -70,6 +70,8 @@ async fn fetch_as_json_string(url: &str, opts: &RequestInit) -> Result<String, J
 pub async fn prover(
     targetUrl: &str,
     val: JsValue,
+    secrets: JsValue,
+    reveals: JsValue,
 ) -> Result<String, JsValue> {
     log!("target_url: {}", targetUrl);
     let target_url = Url::parse(targetUrl).expect("url must be valid");
@@ -282,22 +284,22 @@ pub async fn prover(
     let mut prover = prover.start_notarize();
     log!("!@# 14");
 
+    let secrets_vecs = string_list_to_bytes_vec(&secrets);
+    let secrets_slices: Vec<&[u8]> = secrets_vecs.iter().map(|vec| vec.as_slice()).collect();
+
     // Identify the ranges in the transcript that contain secrets
     let (sent_public_ranges, sent_private_ranges) = find_ranges(
         prover.sent_transcript().data(),
-        &[
-        //     access_token.as_bytes(),
-        //     auth_token.as_bytes(),
-        //     csrf_token.as_bytes(),
-        ],
+        secrets_slices.as_slice(),
     );
+
+    let reveal_vecs = string_list_to_bytes_vec(&reveals);
+    let reveal_slices: Vec<&[u8]> = reveal_vecs.iter().map(|vec| vec.as_slice()).collect();
 
     // Identify the ranges in the transcript that contain the only data we want to reveal later
     let (recv_public_ranges, recv_private_ranges) = find_ranges(
         prover.recv_transcript().data(),
-        &[
-            // format!("\"screen_name\":\"{twitter_id}\"").as_bytes()
-        ],
+        reveal_slices.as_slice(),
     );
     log!("!@# 15");
 
@@ -466,4 +468,18 @@ fn find_ranges(seq: &[u8], private_seq: &[&[u8]]) -> (Vec<Range<usize>>, Vec<Ran
     }
 
     (public_ranges, private_ranges)
+}
+
+fn string_list_to_bytes_vec(secrets: &JsValue) -> Vec<Vec<u8>> {
+    let array: Array = Array::from(secrets);
+    let length = array.length();
+    let mut byte_slices: Vec<Vec<u8>> = Vec::new();
+
+    for i in 0..length {
+        let secret_js: JsValue = array.get(i);
+        let secret_str: String = secret_js.as_string().unwrap();
+        let secret_bytes = secret_str.into_bytes();
+        byte_slices.push(secret_bytes);
+    }
+    byte_slices
 }

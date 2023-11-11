@@ -43,6 +43,8 @@ class TLSN {
       maxTranscriptSize?: number;
       notaryUrl?: string;
       websocketProxyUrl?: string;
+      secrets?: string[];
+      reveals?: string[];
     },
   ) {
     try {
@@ -56,7 +58,7 @@ class TLSN {
         ...options,
         notaryUrl: options?.notaryUrl,
         websocketProxyUrl: options?.websocketProxyUrl,
-      });
+      }, options?.secrets || [], options?.reveals || []);
       const resJSON = JSON.parse(resProver);
       devlog('!@# resProver,resJSON=', { resProver, resJSON });
       devlog('!@# resAfter.memory=', resJSON.memory);

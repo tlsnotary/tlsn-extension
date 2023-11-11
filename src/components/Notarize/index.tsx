@@ -23,6 +23,8 @@ export default function Notarize(): ReactElement {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const [step, setStep] = useState(0);
+  const [secrets, setSecrets] = useState<string[]>([]);
+  const [reveals, setReveals] = useState('');
 
   const notarize = useCallback(async () => {
     if (!req) return;
@@ -54,10 +56,12 @@ export default function Notarize(): ReactElement {
         maxTranscriptSize,
         notaryUrl,
         websocketProxyUrl,
+        secrets,
+        reveals: [reveals],
       }),
     );
     navigate(`/history`);
-  }, [req]);
+  }, [req, secrets, reveals]);
 
   if (!req) return <></>;
 
@@ -65,10 +69,10 @@ export default function Notarize(): ReactElement {
 
   switch (step) {
     case 0:
-      body = <RevealHeaderStep onNext={() => setStep(1)} onCancel={() => navigate(-1)} />;
+      body = <RevealHeaderStep onNext={() => setStep(1)} onCancel={() => navigate(-1)} setSecrets={setSecrets} />;
       break;
     case 1:
-      body = <HideResponseStep onNext={notarize} onCancel={() => setStep(0)} />
+      body = <HideResponseStep onNext={notarize} onCancel={() => setStep(0)} setReveals={setReveals} />
       break;
     default:
       body = null;
@@ -103,17 +107,26 @@ export default function Notarize(): ReactElement {
 function RevealHeaderStep(props: {
   onNext: () => void;
   onCancel: () => void;
+  setSecrets: (secrets: string[]) => void;
 }): ReactElement {
   const params = useParams<{ requestId: string }>();
   const req = useRequest(params.requestId);
   const [revealed, setRevealed] = useState<{ [key: string]: boolean }>({});
 
   const changeHeaderKey = useCallback((key: string, shouldReveal: boolean) => {
+    if (!req) return;
+
     setRevealed({
       ...revealed,
       [key]: shouldReveal,
     });
-  }, [revealed]);
+    props.setSecrets(req.requestHeaders.map(h => {
+      if (!revealed[h.name]) {
+        return h.value || '';
+      }
+      return '';
+    }).filter(d => !!d));
+  }, [revealed, req]);
 
   if (!req) return <></>;
 
@@ -164,6 +177,7 @@ function RevealHeaderStep(props: {
 function HideResponseStep(props: {
   onNext: () => void;
   onCancel: () => void;
+  setReveals: (reveal: string) => void;
 }): ReactElement {
   const params = useParams<{ requestId: string }>();
   const req = useRequest(params.requestId);
@@ -176,7 +190,8 @@ function HideResponseStep(props: {
     const ta = e.currentTarget;
     setStart(ta.selectionStart);
     setEnd(ta.selectionEnd);
-  }, []);
+    props.setReveals(responseText.substring(ta.selectionStart, ta.selectionEnd));
+  }, [responseText]);
 
   useEffect(() => {
     if (!req) return;
