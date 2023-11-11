@@ -24,54 +24,23 @@ type Props = {
   requestId: string;
 };
 
-const maxTranscriptSize = 16384;
 
 export default function RequestDetail(props: Props): ReactElement {
   const request = useRequest(props.requestId);
   const navigate = useNavigate();
-  const dispatch = useDispatch();
 
   const notarize = useCallback(async () => {
     if (!request) return;
 
-    const hostname = urlify(request.url)?.hostname;
-    const notaryUrl = await get(NOTARY_API_LS_KEY);
-    const websocketProxyUrl = await get(PROXY_API_LS_KEY);
-
-    const headers: { [k: string]: string } = request.requestHeaders.reduce(
-      (acc: any, h) => {
-        acc[h.name] = h.value;
-        return acc;
-      },
-      { Host: hostname },
-    );
-
-    //TODO: for some reason, these needs to be override for twitter api to work
-    if (hostname === 'api.twitter.com') {
-      headers['Accept-Encoding'] = 'identity';
-      headers['Connection'] = 'close';
-    }
-
-    dispatch(
-      // @ts-ignore
-      notarizeRequest({
-        url: request.url,
-        method: request.method,
-        headers,
-        body: request.requestBody,
-        maxTranscriptSize,
-        notaryUrl,
-        websocketProxyUrl,
-      }),
-    );
-    navigate(`/history`);
-  }, [request]);
+    console.log('/notary/' + props.requestId);
+    navigate('/notary/' + request.requestId);
+  }, [request, props.requestId]);
 
   if (!request) return <></>;
 
   return (
     <>
-      <div className="flex flex-row flex-nowrap relative items-center bg-slate-300 py-1 px-2 gap-2">
+      <div className="flex flex-row flex-nowrap relative items-center bg-slate-300 py-2 px-2 gap-2">
         <Icon
           className="cursor-point text-slate-400 hover:text-slate-700"
           fa="fa-solid fa-xmark"
