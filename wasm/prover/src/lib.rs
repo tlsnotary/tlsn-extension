@@ -70,8 +70,8 @@ async fn fetch_as_json_string(url: &str, opts: &RequestInit) -> Result<String, J
 pub async fn prover(
     targetUrl: &str,
     val: JsValue,
-    secrets: JsValue,
-    reveals: JsValue,
+    secret_headers: JsValue,
+    secret_body: JsValue,
 ) -> Result<String, JsValue> {
     log!("target_url: {}", targetUrl);
     let target_url = Url::parse(targetUrl).expect("url must be valid");
@@ -284,22 +284,22 @@ pub async fn prover(
     let mut prover = prover.start_notarize();
     log!("!@# 14");
 
-    let secrets_vecs = string_list_to_bytes_vec(&secrets);
-    let secrets_slices: Vec<&[u8]> = secrets_vecs.iter().map(|vec| vec.as_slice()).collect();
+    let secret_headers_vecs = string_list_to_bytes_vec(&secret_headers);
+    let secret_headers_slices: Vec<&[u8]> = secret_headers_vecs.iter().map(|vec| vec.as_slice()).collect();
 
-    // Identify the ranges in the transcript that contain secrets
+    // Identify the ranges in the transcript that contain revealed_headers
     let (sent_public_ranges, sent_private_ranges) = find_ranges(
         prover.sent_transcript().data(),
-        secrets_slices.as_slice(),
+        secret_headers_slices.as_slice(),
     );
 
-    let reveal_vecs = string_list_to_bytes_vec(&reveals);
-    let reveal_slices: Vec<&[u8]> = reveal_vecs.iter().map(|vec| vec.as_slice()).collect();
+    let secret_body_vecs = string_list_to_bytes_vec(&secret_body);
+    let secret_body_slices: Vec<&[u8]> = secret_body_vecs.iter().map(|vec| vec.as_slice()).collect();
 
     // Identify the ranges in the transcript that contain the only data we want to reveal later
     let (recv_public_ranges, recv_private_ranges) = find_ranges(
         prover.recv_transcript().data(),
-        reveal_slices.as_slice(),
+        secret_body_slices.as_slice(),
     );
     log!("!@# 15");
 

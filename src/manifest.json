@@ -30,11 +30,8 @@
   "host_permissions": ["<all_urls>"],
   "permissions": [
     "offscreen",
-    "http://*/",
-    "https://*/",
     "storage",
     "webRequest",
-    "activeTab",
-    "<all_urls>"
+    "activeTab"
   ]
 }

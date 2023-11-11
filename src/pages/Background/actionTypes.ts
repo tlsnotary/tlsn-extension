@@ -50,6 +50,6 @@ export type RequestHistory = {
     sent: string;
     recv: string;
   };
-  secrets?: string[];
-  reveals?: string[];
+  secretHeaders?: string[];
+  secretResps?: string[];
 };

@@ -29,8 +29,8 @@ const Offscreen = () => {
               notaryUrl,
               websocketProxyUrl,
               id,
-              secrets,
-              reveals,
+              secretHeaders,
+              secretResps,
             } = request.data;
 
             const tlsn = await getTLSN();
@@ -43,8 +43,8 @@ const Offscreen = () => {
                 maxTranscriptSize,
                 notaryUrl,
                 websocketProxyUrl,
-                secrets,
-                reveals,
+                secretHeaders,
+                secretResps,
               });
 
               chrome.runtime.sendMessage<any, string>({

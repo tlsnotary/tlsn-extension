@@ -24,7 +24,6 @@ type Props = {
   requestId: string;
 };
 
-
 export default function RequestDetail(props: Props): ReactElement {
   const request = useRequest(props.requestId);
   const navigate = useNavigate();
