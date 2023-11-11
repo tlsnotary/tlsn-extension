@@ -57,17 +57,19 @@ const Popup = () => {
           onClick={() => navigate('/')}
         />
         <div className="absolute right-2 flex flex-nowrap flex-row items-center gap-1 justify-center w-fit">
-          <img
-            src={activeTab?.favIconUrl}
-            className="h-5 rounded-full"
-            alt="logo"
-          />
+          {!!activeTab?.favIconUrl && (
+            <img
+              src={activeTab?.favIconUrl}
+              className="h-5 rounded-full"
+              alt="logo"
+            />
+          )}
           <div className="text-xs">{url?.hostname}</div>
         </div>
       </div>
       <Routes>
         <Route path="/requests/:requestId/*" element={<Request />} />
-        <Route path="/notary/:requestId/*" element={<Notarize />} />
+        <Route path="/notary/:requestId" element={<Notarize />} />
         <Route path="/verify/:requestId/*" element={<ProofViewer />} />
         <Route path="/history" element={<History />} />
         <Route path="/requests" element={<Requests />} />

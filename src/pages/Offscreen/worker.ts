@@ -43,6 +43,8 @@ class TLSN {
       maxTranscriptSize?: number;
       notaryUrl?: string;
       websocketProxyUrl?: string;
+      secretHeaders?: string[];
+      secretResps?: string[];
     },
   ) {
     try {
@@ -52,11 +54,16 @@ class TLSN {
         notaryUrl: options?.notaryUrl,
         websocketProxyUrl: options?.websocketProxyUrl,
       });
-      const resProver = await prover(url, {
-        ...options,
-        notaryUrl: options?.notaryUrl,
-        websocketProxyUrl: options?.websocketProxyUrl,
-      });
+      const resProver = await prover(
+        url,
+        {
+          ...options,
+          notaryUrl: options?.notaryUrl,
+          websocketProxyUrl: options?.websocketProxyUrl,
+        },
+        options?.secretHeaders || [],
+        options?.secretResps || [],
+      );
       const resJSON = JSON.parse(resProver);
       devlog('!@# resProver,resJSON=', { resProver, resJSON });
       devlog('!@# resAfter.memory=', resJSON.memory);

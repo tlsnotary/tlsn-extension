@@ -282,6 +282,8 @@ chrome.tabs.onRemoved.addListener((tab) => {
             maxTranscriptSize,
             notaryUrl,
             websocketProxyUrl,
+            secretHeaders,
+            secretResps,
           } = request.data;
 
           const { id } = await addNotaryRequest(Date.now(), {
@@ -292,6 +294,8 @@ chrome.tabs.onRemoved.addListener((tab) => {
             maxTranscriptSize,
             notaryUrl,
             websocketProxyUrl,
+            secretHeaders,
+            secretResps,
           });
 
           await setNotaryRequestStatus(id, 'pending');
@@ -315,6 +319,8 @@ chrome.tabs.onRemoved.addListener((tab) => {
               maxTranscriptSize,
               notaryUrl,
               websocketProxyUrl,
+              secretHeaders,
+              secretResps,
             },
           });
 
