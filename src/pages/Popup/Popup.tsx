@@ -17,6 +17,7 @@ import RequestBuilder from '../RequestBuilder';
 import Notarize from '../../components/Notarize';
 import ProofViewer from '../../components/ProofViewer';
 import History from '../../components/History';
+import ProofUploader from "../../components/ProofUploader";
 
 const Popup = () => {
   const dispatch = useDispatch();
@@ -71,6 +72,7 @@ const Popup = () => {
         <Route path="/requests/:requestId/*" element={<Request />} />
         <Route path="/notary/:requestId" element={<Notarize />} />
         <Route path="/verify/:requestId/*" element={<ProofViewer />} />
+        <Route path="/verify" element={<ProofUploader />} />
         <Route path="/history" element={<History />} />
         <Route path="/requests" element={<Requests />} />
         <Route path="/custom/*" element={<RequestBuilder />} />
