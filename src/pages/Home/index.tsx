@@ -8,12 +8,16 @@ import React, {
 import Icon from '../../components/Icon';
 import classNames from 'classnames';
 import { useNavigate } from 'react-router';
-import {notarizeRequest, useActiveTabUrl, useRequests} from '../../reducers/requests';
+import {
+  notarizeRequest,
+  useActiveTabUrl,
+  useRequests,
+} from '../../reducers/requests';
 import { Link } from 'react-router-dom';
 import bookmarks from '../../../utils/bookmark/bookmarks.json';
-import {replayRequest, urlify} from "../../utils/misc";
+import { replayRequest, urlify } from '../../utils/misc';
 import { useDispatch } from 'react-redux';
-import {get, NOTARY_API_LS_KEY, PROXY_API_LS_KEY} from "../../utils/storage";
+import { get, NOTARY_API_LS_KEY, PROXY_API_LS_KEY } from '../../utils/storage';
 
 export default function Home(): ReactElement {
   const requests = useRequests();
@@ -64,7 +68,6 @@ export default function Home(): ReactElement {
               return req?.url?.includes(bm.url);
             });
 
-
             const bmHost = urlify(bm.targetUrl)?.host;
             const isReady = !!reqs.length;
 
@@ -83,7 +86,7 @@ export default function Home(): ReactElement {
                 </div>
                 <div className="font-bold">{bm.title}</div>
                 <div className="italic">{bm.description}</div>
-                {isReady &&  (
+                {isReady && (
                   <button
                     className="button button--primary w-fit self-end mt-2"
                     onClick={async () => {
@@ -92,16 +95,24 @@ export default function Home(): ReactElement {
                       const req = reqs[0];
                       const res = await replayRequest(req);
                       const secretHeaders = req.requestHeaders
-                          .map((h) => {
-                            return `${h.name.toLowerCase()}: ${h.value || ''}` || '';
-                          })
-                          .filter((d) => !!d);
-                      const selectedValue = res.match(new RegExp(bm.responseSelector, 'g'));
+                        .map((h) => {
+                          return (
+                            `${h.name.toLowerCase()}: ${h.value || ''}` || ''
+                          );
+                        })
+                        .filter((d) => !!d);
+                      const selectedValue = res.match(
+                        new RegExp(bm.responseSelector, 'g'),
+                      );
 
                       if (selectedValue) {
-                        const revealed = bm.valueTransform.replace('%s', selectedValue[0]);
+                        const revealed = bm.valueTransform.replace(
+                          '%s',
+                          selectedValue[0],
+                        );
                         const selectionStart = res.indexOf(revealed);
-                        const selectionEnd = selectionStart + revealed.length - 1;
+                        const selectionEnd =
+                          selectionStart + revealed.length - 1;
                         const secretResps = [
                           res.substring(0, selectionStart),
                           res.substring(selectionEnd, res.length),
@@ -111,13 +122,14 @@ export default function Home(): ReactElement {
                         const notaryUrl = await get(NOTARY_API_LS_KEY);
                         const websocketProxyUrl = await get(PROXY_API_LS_KEY);
 
-                        const headers: { [k: string]: string } = req.requestHeaders.reduce(
-                          (acc: any, h) => {
-                            acc[h.name] = h.value;
-                            return acc;
-                          },
-                          { Host: hostname },
-                        );
+                        const headers: { [k: string]: string } =
+                          req.requestHeaders.reduce(
+                            (acc: any, h) => {
+                              acc[h.name] = h.value;
+                              return acc;
+                            },
+                            { Host: hostname },
+                          );
 
                         //TODO: for some reason, these needs to be override to work
                         headers['Accept-Encoding'] = 'identity';
@@ -135,7 +147,7 @@ export default function Home(): ReactElement {
                             websocketProxyUrl,
                             secretHeaders,
                             secretResps,
-                          })
+                          }),
                         );
 
                         navigate(`/history`);
@@ -145,10 +157,10 @@ export default function Home(): ReactElement {
                     Notarize
                   </button>
                 )}
-                {!isReady &&  (
+                {!isReady && (
                   <button
                     className="button w-fit self-end mt-2"
-                    onClick={() => chrome.tabs.update({url: bm.targetUrl})}
+                    onClick={() => chrome.tabs.update({ url: bm.targetUrl })}
                   >
                     {`Go to ${bmHost}`}
                   </button>

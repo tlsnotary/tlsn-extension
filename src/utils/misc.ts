@@ -1,4 +1,4 @@
-import {RequestLog} from "../pages/Background/actionTypes";
+import { RequestLog } from '../pages/Background/actionTypes';
 
 export function urlify(
   text: string,
