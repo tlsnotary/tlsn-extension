@@ -34,7 +34,6 @@ export default function Home(): ReactElement {
         <NavButton
           fa="fa-solid fa-magnifying-glass"
           onClick={() => navigate('/verify')}
-          disabled
         >
           Verify
         </NavButton>

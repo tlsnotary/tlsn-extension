@@ -16,23 +16,24 @@ async function getTLSN(): Promise<any | null> {
 
 const Offscreen = () => {
   useEffect(() => {
-    chrome.runtime.onMessage.addListener(
-      async (request, sender, sendResponse) => {
-        switch (request.type) {
-          case BackgroundActiontype.process_prove_request: {
-            const {
-              url,
-              method,
-              headers,
-              body = '',
-              maxTranscriptSize,
-              notaryUrl,
-              websocketProxyUrl,
-              id,
-              secretHeaders,
-              secretResps,
-            } = request.data;
+    // @ts-ignore
+    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+      switch (request.type) {
+        case BackgroundActiontype.process_prove_request: {
+          const {
+            url,
+            method,
+            headers,
+            body = '',
+            maxTranscriptSize,
+            notaryUrl,
+            websocketProxyUrl,
+            id,
+            secretHeaders,
+            secretResps,
+          } = request.data;
 
+          (async () => {
             const tlsn = await getTLSN();
 
             try {
@@ -63,10 +64,26 @@ const Offscreen = () => {
                 },
               });
             }
+          })();
 
-            break;
-          }
-          case BackgroundActiontype.verify_prove_request: {
+          break;
+        }
+        case BackgroundActiontype.verify_proof: {
+          (async () => {
+            const tlsn = await getTLSN();
+
+            const result = await tlsn.verify(
+              request.data,
+              `-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEBv36FI4ZFszJa0DQFJ3wWCXvVLFr\ncRzMG5kaTeHGoSzDu6cFqx3uEWYpFGo6C0EOUgf+mEgbktLrXocv5yHzKg==\n-----END PUBLIC KEY-----`,
+            );
+
+            sendResponse(result);
+          })();
+
+          return true;
+        }
+        case BackgroundActiontype.verify_prove_request: {
+          (async () => {
             const tlsn = await getTLSN();
 
             const result = await tlsn.verify(
@@ -86,13 +103,13 @@ const Offscreen = () => {
                 },
               });
             }
-            break;
-          }
-          default:
-            break;
+          })();
+          break;
         }
-      },
-    );
+        default:
+          break;
+      }
+    });
   }, []);
 
   return <div className="App" />;

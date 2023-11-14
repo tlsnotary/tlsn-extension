@@ -10,7 +10,10 @@ import { useRequestHistory } from '../../reducers/history';
 import Icon from '../../components/Icon';
 import { download } from '../../utils/misc';
 
-export default function ProofViewer(): ReactElement {
+export default function ProofViewer(props?: {
+  recv: string;
+  sent: string;
+}): ReactElement {
   const { requestId } = useParams<{ requestId: string }>();
   const request = useRequestHistory(requestId);
   const navigate = useNavigate();
@@ -35,15 +38,17 @@ export default function ProofViewer(): ReactElement {
             Recv
           </TabLabel>
           <div className="flex flex-row flex-grow items-center justify-end">
-            <button
-              className="button"
-              onClick={() => {
-                if (!request) return;
-                download(request.id, JSON.stringify(request.proof));
-              }}
-            >
-              Download
-            </button>
+            {!props?.recv && (
+              <button
+                className="button"
+                onClick={() => {
+                  if (!request) return;
+                  download(request.id, JSON.stringify(request.proof));
+                }}
+              >
+                Download
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -51,13 +56,13 @@ export default function ProofViewer(): ReactElement {
         {tab === 'sent' && (
           <textarea
             className="w-full resize-none bg-slate-100 text-slate-800 border p-2 text-[10px] break-all h-full outline-none font-mono"
-            value={request?.verification?.sent}
+            value={props?.sent || request?.verification?.sent}
           ></textarea>
         )}
         {tab === 'recv' && (
           <textarea
             className="w-full resize-none bg-slate-100 text-slate-800 border p-2 text-[10px] break-all h-full outline-none font-mono"
-            value={request?.verification?.recv}
+            value={props?.recv || request?.verification?.recv}
           ></textarea>
         )}
       </div>

@@ -7,6 +7,7 @@ export enum BackgroundActiontype {
   process_prove_request = 'process_prove_request',
   finish_prove_request = 'finish_prove_request',
   verify_prove_request = 'verify_prove_request',
+  verify_proof = 'verify_proof',
   delete_prove_request = 'delete_prove_request',
   retry_prove_request = 'retry_prove_request',
 }
