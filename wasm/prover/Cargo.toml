@@ -42,14 +42,14 @@ web-time = "0.2"
 
 # tlsn-prover = { path = "../tlsn/tlsn/tlsn-prover", features = ["tracing"] }
 [dependencies.tlsn-prover]
-git = "https://github.com/mhchia/tlsn.git"
-branch = "dev-20231006-webtime-2"
+git = "https://github.com/tlsnotary/tlsn.git"
+branch = "dev"
 package = "tlsn-prover"
 features = ["tracing"]
 
 [dependencies.tlsn-core]
-git = "https://github.com/mhchia/tlsn.git"
-branch = "dev-20231006-webtime-2"
+git = "https://github.com/tlsnotary/tlsn.git"
+branch = "dev"
 package = "tlsn-core"
 
 [dependencies.web-sys]

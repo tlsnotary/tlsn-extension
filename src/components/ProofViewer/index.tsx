@@ -11,8 +11,8 @@ import Icon from '../../components/Icon';
 import { download } from '../../utils/misc';
 
 export default function ProofViewer(props?: {
-  recv: string;
-  sent: string;
+  recv?: string;
+  sent?: string;
 }): ReactElement {
   const { requestId } = useParams<{ requestId: string }>();
   const request = useRequestHistory(requestId);
