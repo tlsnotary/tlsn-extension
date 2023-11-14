@@ -17,7 +17,7 @@ import RequestBuilder from '../RequestBuilder';
 import Notarize from '../../components/Notarize';
 import ProofViewer from '../../components/ProofViewer';
 import History from '../../components/History';
-import ProofUploader from "../../components/ProofUploader";
+import ProofUploader from '../../components/ProofUploader';
 
 const Popup = () => {
   const dispatch = useDispatch();
