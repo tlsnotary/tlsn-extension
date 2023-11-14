@@ -49,9 +49,9 @@ var options = {
     contentScript: path.join(__dirname, "src", "pages", "Content", "index.ts"),
     offscreen: path.join(__dirname, "src", "pages", "Offscreen", "index.tsx"),
   },
-  chromeExtensionBoilerplate: {
-    notHotReload: ["background", "contentScript", "devtools"],
-  },
+  // chromeExtensionBoilerplate: {
+  //   notHotReload: ["background", "contentScript", "devtools"],
+  // },
   output: {
     filename: "[name].bundle.js",
     path: path.resolve(__dirname, "build"),
