@@ -8,15 +8,22 @@ import React, {
 import Icon from '../../components/Icon';
 import classNames from 'classnames';
 import { useNavigate } from 'react-router';
-import { useActiveTabUrl, useRequests } from '../../reducers/requests';
+import {
+  notarizeRequest,
+  useActiveTabUrl,
+  useRequests,
+} from '../../reducers/requests';
 import { Link } from 'react-router-dom';
-import { filterByBookmarks } from '../../../utils/bookmark';
+import bookmarks from '../../../utils/bookmark/bookmarks.json';
+import { replayRequest, urlify } from '../../utils/misc';
+import { useDispatch } from 'react-redux';
+import { get, NOTARY_API_LS_KEY, PROXY_API_LS_KEY } from '../../utils/storage';
 
 export default function Home(): ReactElement {
   const requests = useRequests();
   const url = useActiveTabUrl();
   const navigate = useNavigate();
-  const suggestions = filterByBookmarks(requests);
+  const dispatch = useDispatch();
 
   return (
     <div className="flex flex-col gap-4 py-4 overflow-y-auto">
@@ -44,7 +51,7 @@ export default function Home(): ReactElement {
           Options
         </NavButton>
       </div>
-      {!suggestions.length && (
+      {!bookmarks.length && (
         <div className="flex flex-col flex-nowrap">
           <div className="flex flex-col items-center justify-center text-slate-300 cursor-default select-none">
             <div>No available notarization for {url?.hostname}</div>
@@ -55,11 +62,14 @@ export default function Home(): ReactElement {
         </div>
       )}
       <div className="flex flex-col px-4 gap-4">
-        {suggestions.map((bm, i) => {
+        {bookmarks.map((bm, i) => {
           try {
             const reqs = requests.filter((req) => {
               return req?.url?.includes(bm.url);
             });
+
+            const bmHost = urlify(bm.targetUrl)?.host;
+            const isReady = !!reqs.length;
 
             return (
               <div
@@ -76,17 +86,85 @@ export default function Home(): ReactElement {
                 </div>
                 <div className="font-bold">{bm.title}</div>
                 <div className="italic">{bm.description}</div>
-                <div className="text-slate-300">
-                  Found {reqs.length} request
-                </div>
-                {reqs.map((r) => (
-                  <Link
-                    to={`/requests/${r.requestId}`}
-                    className="break-all text-slate-500 truncate"
+                {isReady && (
+                  <button
+                    className="button button--primary w-fit self-end mt-2"
+                    onClick={async () => {
+                      if (!isReady) return;
+
+                      const req = reqs[0];
+                      const res = await replayRequest(req);
+                      const secretHeaders = req.requestHeaders
+                        .map((h) => {
+                          return (
+                            `${h.name.toLowerCase()}: ${h.value || ''}` || ''
+                          );
+                        })
+                        .filter((d) => !!d);
+                      const selectedValue = res.match(
+                        new RegExp(bm.responseSelector, 'g'),
+                      );
+
+                      if (selectedValue) {
+                        const revealed = bm.valueTransform.replace(
+                          '%s',
+                          selectedValue[0],
+                        );
+                        const selectionStart = res.indexOf(revealed);
+                        const selectionEnd =
+                          selectionStart + revealed.length - 1;
+                        const secretResps = [
+                          res.substring(0, selectionStart),
+                          res.substring(selectionEnd, res.length),
+                        ].filter((d) => !!d);
+
+                        const hostname = urlify(req.url)?.hostname;
+                        const notaryUrl = await get(NOTARY_API_LS_KEY);
+                        const websocketProxyUrl = await get(PROXY_API_LS_KEY);
+
+                        const headers: { [k: string]: string } =
+                          req.requestHeaders.reduce(
+                            (acc: any, h) => {
+                              acc[h.name] = h.value;
+                              return acc;
+                            },
+                            { Host: hostname },
+                          );
+
+                        //TODO: for some reason, these needs to be override to work
+                        headers['Accept-Encoding'] = 'identity';
+                        headers['Connection'] = 'close';
+
+                        dispatch(
+                          // @ts-ignore
+                          notarizeRequest({
+                            url: req.url,
+                            method: req.method,
+                            headers: headers,
+                            body: req.requestBody,
+                            maxTranscriptSize: 16384,
+                            notaryUrl,
+                            websocketProxyUrl,
+                            secretHeaders,
+                            secretResps,
+                          }),
+                        );
+
+                        navigate(`/history`);
+                      }
+                    }}
                   >
-                    {r.url}
-                  </Link>
-                ))}
+                    Notarize
+                  </button>
+                )}
+                {!isReady && (
+                  <button
+                    className="button w-fit self-end mt-2"
+                    onClick={() => chrome.tabs.update({ url: bm.targetUrl })}
+                  >
+                    {`Go to ${bmHost}`}
+                  </button>
+                )}
               </div>
             );
           } catch (e) {

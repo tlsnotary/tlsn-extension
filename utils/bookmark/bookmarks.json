@@ -1,16 +1,22 @@
 [
   {
     "url": "https://api.twitter.com/1.1/account/settings.json",
+    "targetUrl": "https://www.twitter.com",
     "method": "GET",
     "type": "xmlhttprequest",
     "title": "Twitter Profile",
-    "description": "Notarize ownership of a twitter profile. To start, go to your own profile"
+    "description": "Notarize ownership of a twitter profile. To start, go to your own profile",
+    "responseSelector": "(?<=\"screen_name\":)\"(.*?)\"",
+    "valueTransform": "\"screen_name\":%s"
   },
   {
     "url": "https://gateway.reddit.com/desktopapi/v1/prefs",
+    "targetUrl": "https://www.reddit.com/settings",
     "method": "GET",
     "type": "xmlhttprequest",
     "title": "Reddit Profile",
-    "description": "Notarize ownership of a reddit profile. To start, go to reddit.com/settings"
+    "description": "Notarize ownership of a reddit profile. To start, go to reddit.com/settings",
+    "responseSelector": "(?<=\"displayText\": )\"(.*?)\"",
+    "valueTransform": "\"displayText\": %s"
   }
 ]
