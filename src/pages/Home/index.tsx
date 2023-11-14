@@ -98,8 +98,6 @@ export default function Home(): ReactElement {
                           .filter((d) => !!d);
                       const selectedValue = res.match(new RegExp(bm.responseSelector, 'g'));
 
-                      await new Promise(r => setTimeout(r, 3000));
-
                       if (selectedValue) {
                         const revealed = bm.valueTransform.replace('%s', selectedValue[0]);
                         const selectionStart = res.indexOf(revealed);
@@ -124,8 +122,6 @@ export default function Home(): ReactElement {
                         //TODO: for some reason, these needs to be override to work
                         headers['Accept-Encoding'] = 'identity';
                         headers['Connection'] = 'close';
-
-                        await new Promise(r => setTimeout(r, 3000));
 
                         dispatch(
                           // @ts-ignore
