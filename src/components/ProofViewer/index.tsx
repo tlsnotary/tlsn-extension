@@ -38,7 +38,7 @@ export default function ProofViewer(props?: {
             Recv
           </TabLabel>
           <div className="flex flex-row flex-grow items-center justify-end">
-            {!props && (
+            {!props?.recv && (
               <button
                 className="button"
                 onClick={() => {
