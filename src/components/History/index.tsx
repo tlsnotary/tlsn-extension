@@ -57,12 +57,12 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
 
   return (
     <div className="flex flex-row flex-nowrap border rounded-md p-2 gap-1 hover:bg-slate-50 cursor-pointer">
-      <div className="flex flex-col flex-nowrap flex-grow">
+      <div className="flex flex-col flex-nowrap flex-grow flex-shrink w-0">
         <div className="flex flex-row items-center text-xs">
           <div className="bg-slate-200 text-slate-400 px-1 py-0.5 rounded-sm">
             {request?.method}
           </div>
-          <div className="text-black font-bold px-2 py-1 rounded-md">
+          <div className="text-black font-bold px-2 py-1 rounded-md overflow-hidden text-ellipsis">
             {requestUrl?.pathname}
           </div>
         </div>
