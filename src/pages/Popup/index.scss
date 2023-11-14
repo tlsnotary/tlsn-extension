@@ -47,6 +47,21 @@ code {
     @apply text-slate-700;
   }
 
+  &--primary {
+    @apply bg-primary/[0.8];
+    @apply text-white;
+
+    &:hover {
+      @apply bg-primary/[0.9];
+      @apply text-white;
+    }
+
+    &:active {
+      @apply bg-primary;
+      @apply text-white;
+    }
+  }
+
   &:disabled {
     @apply opacity-50;
     @apply select-none;
