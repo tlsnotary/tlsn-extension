@@ -18,14 +18,10 @@
    4. Select the `build` folder.
 7. Happy hacking.
 
-## Webpack auto-reload and HRM
-
-To make your workflow much more efficient this boilerplate uses the [webpack server](https://webpack.github.io/docs/webpack-dev-server.html) to development (started with `npm start`) with auto reload feature that reloads the browser automatically every time that you save some file in your editor.
-
-You can run the dev mode on other port if you want. Just specify the env var `port` like this:
-
+## Running a Websockify Proxy
 ```
-$ PORT=6002 npm run start
+$ npm i -g websockify
+$ websockify 55688:80 api.twitter.com:443
 ```
 
 ## Packing
