@@ -18,10 +18,17 @@
    4. Select the `build` folder.
 7. Happy hacking.
 
-## Running a Websockify Proxy
+## Building Websockify Docker Image
 ```
-$ npm i -g websockify
-$ websockify 55688:80 api.twitter.com:443
+$ git clone https://github.com/novnc/websockify && cd websockify
+$ ./docker/build.sh
+$ docker run -it --rm -p 55688:80 novnc/websockify 80 api.twitter.com:443
+```
+
+## Running Websockify Docker Image
+```
+$ cd tlsn-extension
+$ docker run -it --rm -p 55688:80 novnc/websockify 80 api.twitter.com:443
 ```
 
 ## Packing
