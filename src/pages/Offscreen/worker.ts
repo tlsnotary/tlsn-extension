@@ -36,33 +36,57 @@ class TLSN {
 
   async prover(
     url: string,
-    options?: {
+    options: {
       method?: string;
       headers?: { [key: string]: string };
       body?: string;
       maxTranscriptSize?: number;
-      notaryUrl?: string;
-      websocketProxyUrl?: string;
+      notaryUrl: string;
+      websocketProxyUrl: string;
       secretHeaders?: string[];
       secretResps?: string[];
     },
   ) {
+    const {
+      method = 'GET',
+      headers = {},
+      body= '',
+      maxTranscriptSize = 16384,
+      notaryUrl,
+      websocketProxyUrl,
+      secretHeaders = [],
+      secretResps = [],
+    } = options;
+    const token = urlify(url)?.hostname || '';
+
     try {
       await this.waitForStart();
-      console.log('worker', url, {
-        ...options,
-        notaryUrl: options?.notaryUrl,
-        websocketProxyUrl: options?.websocketProxyUrl,
-      });
+      console.log(
+        'worker',
+        url,
+        {
+          method,
+          headers,
+          body,
+          maxTranscriptSize,
+          notaryUrl,
+          websocketProxyUrl: websocketProxyUrl + `?token=${token}`,
+        },
+        secretHeaders,
+        secretResps,
+      );
       const resProver = await prover(
         url,
         {
-          ...options,
-          notaryUrl: options?.notaryUrl,
-          websocketProxyUrl: options?.websocketProxyUrl,
+          method,
+          headers,
+          body,
+          maxTranscriptSize,
+          notaryUrl,
+          websocketProxyUrl: websocketProxyUrl + `?token=${token}`,
         },
-        options?.secretHeaders || [],
-        options?.secretResps || [],
+        secretHeaders,
+        secretResps,
       );
       const resJSON = JSON.parse(resProver);
       devlog('!@# resProver,resJSON=', { resProver, resJSON });
