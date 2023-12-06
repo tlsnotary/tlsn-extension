@@ -21,7 +21,7 @@ tokio-util = "0.7"
 futures = "0.3"
 serde_json = "1.0"
 serde = { version = "1.0.147", features = ["derive"] }
-serde-wasm-bindgen = "0.4"
+serde-wasm-bindgen = "0.6.1"
 url = { version = "2.0", features = ["serde"] }
 futures-util = "0.3.28"
 chrono = "0.4"
@@ -75,20 +75,11 @@ features = [
   'Response',
 ]
 
-# Replace ring with the forked version `ring-xous` implemented in pure rust
-# to make it compiled to wasm.
-# Refs:
-# - Rationale for `ring-xous`: https://www.bunniestudios.com/blog/?p=6521
-# - Issue for wasm comptability: https://github.com/briansmith/ring/issues/918
-[patch.crates-io.ring]
-git="https://github.com/betrusted-io/ring-xous"
-branch="0.16.20-cleanup"
-
 [patch.crates-io.ws_stream_wasm]
 # path = "../../../others/ws_stream_wasm"
 # Use the patched ws_stream_wasm to fix the issue https://github.com/najamelan/ws_stream_wasm/issues/12#issuecomment-1711902958
-git="https://github.com/mhchia/ws_stream_wasm"
-branch="dev"
+git = "https://github.com/mhchia/ws_stream_wasm"
+branch = "dev"
 
 # [patch.'https://github.com/tlsnotary/tlsn-utils']
 # # Use single cpu backend
