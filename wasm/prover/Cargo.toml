@@ -33,6 +33,8 @@ console_error_panic_hook = "0.1.7"
 tracing-web = "0.1.2"
 tracing-subscriber = { version = "0.3", features = ["time"] }
 
+ring = { version = "0.17", features = ["wasm32_unknown_unknown_js"] }
+
 # time crate: https://crates.io/crates/time
 # NOTE: It is required, otherwise "time not implemented on this platform" error happens right after "!@# 2".
 # Probably due to tokio's time feature is used in tlsn-prover?
@@ -74,7 +76,6 @@ features = [
   'RequestMode',
   'Response',
 ]
-ring = { version = "0.17", features = ["wasm32_unknown_unknown_js"] }
 [patch.crates-io.ws_stream_wasm]
 # path = "../../../others/ws_stream_wasm"
 # Use the patched ws_stream_wasm to fix the issue https://github.com/najamelan/ws_stream_wasm/issues/12#issuecomment-1711902958
