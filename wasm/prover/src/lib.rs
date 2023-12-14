@@ -59,13 +59,13 @@ async fn fetch_as_json_string(url: &str, opts: &RequestInit) -> Result<String, J
 
 #[wasm_bindgen]
 pub async fn prover(
-    targetUrl: &str,
+    target_url_str: &str,
     val: JsValue,
     secret_headers: JsValue,
     secret_body: JsValue,
 ) -> Result<String, JsValue> {
-    log!("target_url: {}", targetUrl);
-    let target_url = Url::parse(targetUrl).expect("url must be valid");
+    log!("target_url: {}", target_url_str);
+    let target_url = Url::parse(target_url_str).expect("url must be valid");
 
     log!("target_url.host: {}", target_url.host().unwrap());
     let options: RequestOptions = serde_wasm_bindgen::from_value(val).unwrap();
@@ -219,11 +219,11 @@ pub async fn prover(
     log!(
         "!@# 9 - {} request to {}",
         options.method.as_str(),
-        targetUrl
+        target_url_str
     );
 
     let mut req_with_header = Request::builder()
-        .uri(targetUrl)
+        .uri(target_url_str)
         .method(options.method.as_str());
 
     for (key, value) in options.headers {
