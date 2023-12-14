@@ -1,5 +1,3 @@
-use std::{collections::HashMap, sync::Arc};
-
 use serde::{Deserialize, Serialize};
 
 /// Response object of the /session API
