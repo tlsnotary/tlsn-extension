@@ -50,7 +50,7 @@ class TLSN {
     const {
       method = 'GET',
       headers = {},
-      body= '',
+      body = '',
       maxTranscriptSize = 16384,
       notaryUrl,
       websocketProxyUrl,
