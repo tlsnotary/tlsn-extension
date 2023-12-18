@@ -158,6 +158,7 @@ pub async fn prover(
     let config = ProverConfig::builder()
         .id(notarization_response.session_id)
         .server_dns(target_host)
+        .max_transcript_size(options.max_transcript_size)
         .build()
         .unwrap();
 
