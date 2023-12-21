@@ -4,8 +4,8 @@ import React, {
   useCallback,
   ChangeEventHandler,
 } from 'react';
-import Icon from '../Icon';
-import { BackgroundActiontype } from '../../pages/Background/actionTypes';
+import Icon from '../../components/Icon';
+import { BackgroundActiontype } from '../../entries/Background/rpc';
 import ProofViewer from '../ProofViewer';
 
 export default function ProofUploader(): ReactElement {

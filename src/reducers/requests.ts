@@ -1,12 +1,12 @@
 import {
   type RequestLog,
   type RequestHistory,
-} from '../pages/Background/actionTypes';
+} from '../entries/Background/rpc';
 import { useSelector } from 'react-redux';
 import { AppRootState } from './index';
 import deepEqual from 'fast-deep-equal';
 import { get, NOTARY_API_LS_KEY, PROXY_API_LS_KEY } from '../utils/storage';
-import { BackgroundActiontype } from '../pages/Background/actionTypes';
+import { BackgroundActiontype } from '../entries/Background/rpc';
 
 enum ActionType {
   '/requests/setRequests' = '/requests/setRequests',

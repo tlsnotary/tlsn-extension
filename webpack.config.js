@@ -43,11 +43,11 @@ var options = {
   ],
 
   entry: {
-    options: path.join(__dirname, "src", "pages", "Options", "index.tsx"),
-    popup: path.join(__dirname, "src", "pages", "Popup", "index.tsx"),
-    background: path.join(__dirname, "src", "pages", "Background", "index.ts"),
-    contentScript: path.join(__dirname, "src", "pages", "Content", "index.ts"),
-    offscreen: path.join(__dirname, "src", "pages", "Offscreen", "index.tsx"),
+    options: path.join(__dirname, "src", "entries", "Options", "index.tsx"),
+    popup: path.join(__dirname, "src", "entries", "Popup", "index.tsx"),
+    background: path.join(__dirname, "src", "entries", "Background", "index.ts"),
+    contentScript: path.join(__dirname, "src", "entries", "Content", "index.ts"),
+    offscreen: path.join(__dirname, "src", "entries", "Offscreen", "index.tsx"),
   },
   // chromeExtensionBoilerplate: {
   //   notHotReload: ["background", "contentScript", "devtools"],
@@ -167,7 +167,7 @@ var options = {
     new CopyWebpackPlugin({
       patterns: [
         {
-          from: "src/pages/Content/content.styles.css",
+          from: "src/entries/Content/content.styles.css",
           to: path.join(__dirname, "build"),
           force: true,
         },
@@ -191,20 +191,44 @@ var options = {
         },
       ],
     }),
+    new CopyWebpackPlugin({
+      patterns: [
+        {
+          from: "node_modules/tlsn-js/build/7.js",
+          to: path.join(__dirname, "build"),
+          force: true,
+        },
+        {
+          from: "node_modules/tlsn-js/build/278.js",
+          to: path.join(__dirname, "build"),
+          force: true,
+        },
+        {
+          from: "node_modules/tlsn-js/build/349.js",
+          to: path.join(__dirname, "build"),
+          force: true,
+        },
+        {
+          from: "node_modules/tlsn-js/build/26f00cc36bec9d635c39.wasm",
+          to: path.join(__dirname, "build"),
+          force: true,
+        },
+      ],
+    }),
     new HtmlWebpackPlugin({
-      template: path.join(__dirname, "src", "pages", "Options", "index.html"),
+      template: path.join(__dirname, "src", "entries", "Options", "index.html"),
       filename: "options.html",
       chunks: ["options"],
       cache: false,
     }),
     new HtmlWebpackPlugin({
-      template: path.join(__dirname, "src", "pages", "Popup", "index.html"),
+      template: path.join(__dirname, "src", "entries", "Popup", "index.html"),
       filename: "popup.html",
       chunks: ["popup"],
       cache: false,
     }),
     new HtmlWebpackPlugin({
-      template: path.join(__dirname, "src", "pages", "Offscreen", "index.html"),
+      template: path.join(__dirname, "src", "entries", "Offscreen", "index.html"),
       filename: "offscreen.html",
       chunks: ["offscreen"],
       cache: false,

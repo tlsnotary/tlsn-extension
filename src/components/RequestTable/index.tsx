@@ -1,8 +1,5 @@
 import React, { ReactElement, useCallback, useState } from 'react';
-import {
-  BackgroundActiontype,
-  RequestLog,
-} from '../../pages/Background/actionTypes';
+import { BackgroundActiontype, RequestLog } from '../../entries/Background/rpc';
 import { useNavigate } from 'react-router';
 import Fuse from 'fuse.js';
 import Icon from '../Icon';

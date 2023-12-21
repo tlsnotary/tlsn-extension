@@ -1,6 +1,6 @@
 window.onerror = (error) => {
-  console.log('error');
-  console.log(error);
+  // console.log('error');
+  // console.log(error);
 };
 
 (async () => {

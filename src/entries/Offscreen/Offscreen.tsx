@@ -1,18 +1,8 @@
 import React, { useEffect } from 'react';
-import * as Comlink from 'comlink';
-import { BackgroundActiontype } from '../Background/actionTypes';
-
-const TLSN: any = Comlink.wrap(
-  new Worker(new URL('./worker.ts', import.meta.url)),
-);
-
-let tlsn: any | null = null;
-
-async function getTLSN(): Promise<any | null> {
-  if (tlsn) return tlsn;
-  tlsn = await new TLSN();
-  return tlsn;
-}
+import { BackgroundActiontype } from '../Background/rpc';
+import { prove, verify } from 'tlsn-js';
+import { urlify } from '../../utils/misc';
+import browser from 'webextension-polyfill';
 
 const Offscreen = () => {
   useEffect(() => {
@@ -34,21 +24,20 @@ const Offscreen = () => {
           } = request.data;
 
           (async () => {
-            const tlsn = await getTLSN();
-
             try {
-              const proof = await tlsn.prover(url, {
+              const token = urlify(url)?.hostname || '';
+              const proof = await prove(url, {
                 method,
                 headers,
                 body,
                 maxTranscriptSize,
                 notaryUrl,
-                websocketProxyUrl,
+                websocketProxyUrl: websocketProxyUrl + `?token=${token}`,
                 secretHeaders,
                 secretResps,
               });
 
-              chrome.runtime.sendMessage<any, string>({
+              browser.runtime.sendMessage({
                 type: BackgroundActiontype.finish_prove_request,
                 data: {
                   id,
@@ -56,7 +45,7 @@ const Offscreen = () => {
                 },
               });
             } catch (error) {
-              chrome.runtime.sendMessage<any, string>({
+              browser.runtime.sendMessage({
                 type: BackgroundActiontype.finish_prove_request,
                 data: {
                   id,
@@ -70,13 +59,7 @@ const Offscreen = () => {
         }
         case BackgroundActiontype.verify_proof: {
           (async () => {
-            const tlsn = await getTLSN();
-
-            const result = await tlsn.verify(
-              request.data,
-              `-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEBv36FI4ZFszJa0DQFJ3wWCXvVLFr\ncRzMG5kaTeHGoSzDu6cFqx3uEWYpFGo6C0EOUgf+mEgbktLrXocv5yHzKg==\n-----END PUBLIC KEY-----`,
-            );
-
+            const result = await verify(request.data);
             sendResponse(result);
           })();
 
@@ -84,12 +67,7 @@ const Offscreen = () => {
         }
         case BackgroundActiontype.verify_prove_request: {
           (async () => {
-            const tlsn = await getTLSN();
-
-            const result = await tlsn.verify(
-              request.data.proof,
-              `-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEBv36FI4ZFszJa0DQFJ3wWCXvVLFr\ncRzMG5kaTeHGoSzDu6cFqx3uEWYpFGo6C0EOUgf+mEgbktLrXocv5yHzKg==\n-----END PUBLIC KEY-----`,
-            );
+            const result = await verify(request.data.proof);
 
             if (result) {
               chrome.runtime.sendMessage<any, string>({

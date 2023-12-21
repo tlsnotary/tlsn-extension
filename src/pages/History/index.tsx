@@ -9,7 +9,7 @@ import {
 import Icon from '../../components/Icon';
 import { get, NOTARY_API_LS_KEY, PROXY_API_LS_KEY } from '../../utils/storage';
 import { urlify, download } from '../../utils/misc';
-import { BackgroundActiontype } from '../../pages/Background/actionTypes';
+import { BackgroundActiontype } from '../../entries/Background/rpc';
 
 export default function History(): ReactElement {
   const history = useHistoryOrder();
