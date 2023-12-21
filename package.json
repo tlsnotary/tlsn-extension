@@ -36,7 +36,8 @@
     "redux": "^4.2.1",
     "redux-logger": "^3.0.6",
     "redux-thunk": "^2.4.2",
-    "tailwindcss": "^3.3.3"
+    "tailwindcss": "^3.3.3",
+    "tlsn-js": "^0.0.2"
   },
   "devDependencies": {
     "@babel/core": "^7.20.12",
@@ -50,6 +51,7 @@
     "@types/react-dom": "^18.0.10",
     "@types/react-router-dom": "^5.3.3",
     "@types/redux-logger": "^3.0.9",
+    "@types/webextension-polyfill": "^0.10.7",
     "babel-eslint": "^10.1.0",
     "babel-loader": "^9.1.2",
     "babel-preset-react-app": "^10.0.1",
@@ -80,9 +82,10 @@
     "style-loader": "^3.3.1",
     "terser-webpack-plugin": "^5.3.6",
     "ts-loader": "^9.4.2",
-    "ttlcache": "link:@types/@isaacs/ttlcache",
+    "ttlcache": "@types/@isaacs/ttlcache",
     "type-fest": "^3.5.2",
     "typescript": "^4.9.4",
+    "webextension-polyfill": "^0.10.0",
     "webpack": "^5.75.0",
     "webpack-cli": "^4.10.0",
     "webpack-dev-server": "^4.11.1",

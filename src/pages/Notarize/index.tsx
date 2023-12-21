@@ -10,7 +10,7 @@ import React, {
 } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
 import { notarizeRequest, useRequest } from '../../reducers/requests';
-import Icon from '../Icon';
+import Icon from '../../components/Icon';
 import { urlify } from '../../utils/misc';
 import { get, NOTARY_API_LS_KEY, PROXY_API_LS_KEY } from '../../utils/storage';
 import { useDispatch } from 'react-redux';

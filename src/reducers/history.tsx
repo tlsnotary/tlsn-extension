@@ -1,7 +1,7 @@
 import {
   BackgroundActiontype,
   RequestHistory,
-} from '../pages/Background/actionTypes';
+} from '../entries/Background/rpc';
 import { useSelector } from 'react-redux';
 import { AppRootState } from './index';
 import deepEqual from 'fast-deep-equal';
