@@ -249,6 +249,7 @@ function WebResponse(props: Props): ReactElement {
     const options = {
       method: data.method,
       headers: data.requestHeaders.reduce(
+        // @ts-ignore
         (acc: { [key: string]: string }, h: chrome.webRequest.HttpHeader) => {
           if (typeof h.name !== 'undefined' && typeof h.value !== 'undefined') {
             acc[h.name] = h.value;
@@ -264,6 +265,7 @@ function WebResponse(props: Props): ReactElement {
       options.body = formData.toString();
     }
 
+    // @ts-ignore
     const resp = await fetch(data.url, options);
     setResponse(resp);
 
