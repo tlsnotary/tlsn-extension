@@ -241,6 +241,7 @@ function HideResponseStep(props: {
     const options = {
       method: req.method,
       headers: req.requestHeaders.reduce(
+        // @ts-ignore
         (acc: { [key: string]: string }, h: chrome.webRequest.HttpHeader) => {
           if (typeof h.name !== 'undefined' && typeof h.value !== 'undefined') {
             acc[h.name] = h.value;

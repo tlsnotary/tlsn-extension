@@ -45,6 +45,7 @@ export async function replayRequest(req: RequestLog): Promise<string> {
   const options = {
     method: req.method,
     headers: req.requestHeaders.reduce(
+      // @ts-ignore
       (acc: { [key: string]: string }, h: chrome.webRequest.HttpHeader) => {
         if (typeof h.name !== 'undefined' && typeof h.value !== 'undefined') {
           acc[h.name] = h.value;
@@ -64,6 +65,7 @@ export async function replayRequest(req: RequestLog): Promise<string> {
     options.body = formData.toString();
   }
 
+  // @ts-ignore
   const resp = await fetch(req.url, options);
   const contentType =
     resp?.headers.get('content-type') || resp?.headers.get('Content-Type');
