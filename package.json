@@ -8,8 +8,6 @@
   },
   "scripts": {
     "clone:tlsn": "bash ./utils/download-tlsn.sh",
-    "build:wasm": "wasm-pack build --target web wasm/prover",
-    "update:wasm": "cargo update --manifest-path wasm/prover/Cargo.toml",
     "build": "NODE_ENV=production node utils/build.js",
     "build:webpack": "NODE_ENV=production webpack --config webpack.config.js",
     "websockify": "docker run -it --rm -p 55688:80 -v $(pwd):/app novnc/websockify 80 --target-config /app/websockify_config",
