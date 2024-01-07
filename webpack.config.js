@@ -38,8 +38,8 @@ const isDevelopment = process.env.NODE_ENV !== "production";
 var options = {
   mode: process.env.NODE_ENV || "development",
   ignoreWarnings: [
-      /Circular dependency between chunks with runtime/,
-      /ResizeObserver loop completed with undelivered notifications/
+    /Circular dependency between chunks with runtime/,
+    /ResizeObserver loop completed with undelivered notifications/
   ],
 
   entry: {
@@ -209,7 +209,7 @@ var options = {
           force: true,
         },
         {
-          from: "node_modules/tlsn-js/build/26f00cc36bec9d635c39.wasm",
+          from: "node_modules/tlsn-js/build/*.wasm",
           to: path.join(__dirname, "build"),
           force: true,
         },
