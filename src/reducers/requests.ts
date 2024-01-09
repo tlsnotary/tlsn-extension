@@ -7,6 +7,7 @@ import { AppRootState } from './index';
 import deepEqual from 'fast-deep-equal';
 import { get, NOTARY_API_LS_KEY, PROXY_API_LS_KEY } from '../utils/storage';
 import { BackgroundActiontype } from '../entries/Background/rpc';
+import browser from 'webextension-polyfill';
 
 enum ActionType {
   '/requests/setRequests' = '/requests/setRequests',
@@ -59,8 +60,8 @@ export const notarizeRequest = (options: RequestHistory) => async () => {
 };
 
 export const setActiveTab = (
-  activeTab: chrome.tabs.Tab | null,
-): Action<chrome.tabs.Tab | null> => ({
+  activeTab: browser.Tabs.Tab | null,
+): Action<browser.Tabs.Tab | null> => ({
   type: ActionType['/requests/setActiveTab'],
   payload: activeTab,
 });
@@ -79,7 +80,7 @@ export default function requests(
       return {
         ...state,
         map: {
-          ...(action.payload || []).reduce(
+          ...(action?.payload || []).reduce(
             (acc: { [requestId: string]: RequestLog }, req: RequestLog) => {
               if (req) {
                 acc[req.requestId] = req;

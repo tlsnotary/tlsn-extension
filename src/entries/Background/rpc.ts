@@ -103,7 +103,7 @@ function handleGetRequests(
   const cache = getCacheByTabId(request.data);
   const keys = cache.keys() || [];
   const data = keys.map((key) => cache.get(key));
-  return sendResponse(data);
+  return data;
 }
 
 async function handleGetProveRequests(

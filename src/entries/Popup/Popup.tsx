@@ -18,6 +18,7 @@ import Notarize from '../../pages/Notarize';
 import ProofViewer from '../../pages/ProofViewer';
 import History from '../../pages/History';
 import ProofUploader from '../../pages/ProofUploader';
+import browser from 'webextension-polyfill';
 
 const Popup = () => {
   const dispatch = useDispatch();
@@ -27,21 +28,21 @@ const Popup = () => {
 
   useEffect(() => {
     (async () => {
-      const [tab] = await chrome.tabs.query({
+      const [tab] = await browser.tabs.query({
         active: true,
         lastFocusedWindow: true,
       });
 
       dispatch(setActiveTab(tab || null));
 
-      const logs = await chrome.runtime.sendMessage({
+      const logs = await browser.runtime.sendMessage({
         type: BackgroundActiontype.get_requests,
         data: tab?.id,
       });
 
       dispatch(setRequests(logs));
 
-      const history = await chrome.runtime.sendMessage({
+      await browser.runtime.sendMessage({
         type: BackgroundActiontype.get_prove_requests,
         data: tab?.id,
       });
