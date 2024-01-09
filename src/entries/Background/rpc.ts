@@ -103,7 +103,7 @@ function handleGetRequests(
   const cache = getCacheByTabId(request.data);
   const keys = cache.keys() || [];
   const data = keys.map((key) => cache.get(key));
-  return sendResponse(data);
+  return data;
 }
 
 async function handleGetProveRequests(
@@ -120,7 +120,7 @@ async function handleGetProveRequests(
       action: addRequestHistory(req),
     });
   }
-  return sendResponse();
+  return false;
 }
 
 async function handleFinishProveRequest(
@@ -168,7 +168,7 @@ async function handleFinishProveRequest(
     });
   }
 
-  return sendResponse();
+  return false;
 }
 
 async function handleRetryProveReqest(
@@ -190,7 +190,7 @@ async function handleRetryProveReqest(
     },
   });
 
-  return sendResponse();
+  return false;
 }
 
 async function handleProveRequestStart(
@@ -247,5 +247,5 @@ async function handleProveRequestStart(
     },
   });
 
-  return sendResponse();
+  return false;
 }
