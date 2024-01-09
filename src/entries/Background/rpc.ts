@@ -120,7 +120,7 @@ async function handleGetProveRequests(
       action: addRequestHistory(req),
     });
   }
-  return false;
+  return sendResponse();
 }
 
 async function handleFinishProveRequest(
@@ -168,7 +168,7 @@ async function handleFinishProveRequest(
     });
   }
 
-  return false;
+  return sendResponse();
 }
 
 async function handleRetryProveReqest(
@@ -190,7 +190,7 @@ async function handleRetryProveReqest(
     },
   });
 
-  return false;
+  return sendResponse();
 }
 
 async function handleProveRequestStart(
@@ -247,5 +247,5 @@ async function handleProveRequestStart(
     },
   });
 
-  return false;
+  return sendResponse();
 }
