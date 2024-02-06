@@ -45,6 +45,8 @@ const Offscreen = () => {
                 },
               });
             } catch (error) {
+              console.log('i caught an error');
+              console.error(error);
               browser.runtime.sendMessage({
                 type: BackgroundActiontype.finish_prove_request,
                 data: {

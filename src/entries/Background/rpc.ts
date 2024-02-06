@@ -177,9 +177,18 @@ async function handleRetryProveReqest(
 ) {
   const { id, notaryUrl, websocketProxyUrl } = request.data;
 
+  await setNotaryRequestError(id, null);
   await setNotaryRequestStatus(id, 'pending');
 
   const req = await getNotaryRequest(id);
+
+  await browser.runtime.sendMessage({
+    type: BackgroundActiontype.push_action,
+    data: {
+      tabId: 'background',
+    },
+    action: addRequestHistory(req),
+  });
 
   await browser.runtime.sendMessage({
     type: BackgroundActiontype.process_prove_request,
