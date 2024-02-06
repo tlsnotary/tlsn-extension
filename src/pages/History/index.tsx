@@ -10,6 +10,11 @@ import Icon from '../../components/Icon';
 import { get, NOTARY_API_LS_KEY, PROXY_API_LS_KEY } from '../../utils/storage';
 import { urlify, download } from '../../utils/misc';
 import { BackgroundActiontype } from '../../entries/Background/rpc';
+import Modal, {
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+} from '../../components/Modal/Modal';
 
 export default function History(): ReactElement {
   const history = useHistoryOrder();
@@ -26,6 +31,7 @@ export default function History(): ReactElement {
 function OneRequestHistory(props: { requestId: string }): ReactElement {
   const dispatch = useDispatch();
   const request = useRequestHistory(props.requestId);
+  const [showingError, showError] = useState(false);
   const navigate = useNavigate();
   const { status } = request || {};
   const requestUrl = urlify(request?.url || '');
@@ -55,8 +61,50 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
     dispatch(deleteRequestHistory(props.requestId));
   }, [props.requestId]);
 
+  const onShowError = useCallback(async () => {
+    showError(true);
+  }, [request?.error, showError]);
+
+  const closeModal = useCallback(() => showError(false), [showError]);
+
+  const RetryButton = (): ReactElement => (
+    <button
+      className="flex flex-row flex-grow-0 gap-2 self-end items-center justify-end px-2 py-1 bg-slate-100 text-slate-300 hover:bg-slate-200 hover:text-slate-500 hover:font-bold"
+      onClick={onRetry}
+    >
+      <Icon fa="fa-solid fa-arrows-rotate" size={1} />
+      <span className="text-xs font-bold">Retry</span>
+    </button>
+  );
+
+  const ErrorButton = (): ReactElement => (
+    <button
+      className="flex flex-row flex-grow-0 gap-2 self-end items-center justify-end px-2 py-1 bg-red-100 text-red-300 hover:bg-red-200 hover:text-red-500 hover:font-bold"
+      onClick={onShowError}
+    >
+      <Icon fa="fa-solid fa-circle-exclamation" size={1} />
+      <span className="text-xs font-bold">Error</span>
+    </button>
+  );
+
   return (
     <div className="flex flex-row flex-nowrap border rounded-md p-2 gap-1 hover:bg-slate-50 cursor-pointer">
+      {showingError && (
+        <Modal
+          className="flex flex-col gap-4 items-center text-base cursor-default justify-center !w-auto mx-4 my-[50%] min-h-24 p-4 border border-red-500"
+          onClose={closeModal}
+        >
+          <ModalContent className="flex justify-center items-center text-slate-500">
+            {request?.error || 'Something went wrong :('}
+          </ModalContent>
+          <button
+            className="m-0 w-24 bg-red-100 text-red-300 hover:bg-red-200 hover:text-red-500"
+            onClick={closeModal}
+          >
+            OK
+          </button>
+        </Modal>
+      )}
       <div className="flex flex-col flex-nowrap flex-grow flex-shrink w-0">
         <div className="flex flex-row items-center text-xs">
           <div className="bg-slate-200 text-slate-400 px-1 py-0.5 rounded-sm">
@@ -84,14 +132,14 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
       <div className="flex flex-col gap-1">
         {status === 'success' && (
           <>
-            <div
+            <button
               className="flex flex-row flex-grow-0 gap-2 self-end items-center justify-end px-2 py-1 bg-slate-600 text-slate-200 hover:bg-slate-500 hover:text-slate-100 hover:font-bold"
               onClick={onView}
             >
               <Icon className="" fa="fa-solid fa-receipt" size={1} />
               <span className="text-xs font-bold">View Proof</span>
-            </div>
-            <div
+            </button>
+            <button
               className="flex flex-row flex-grow-0 gap-2 self-end items-center justify-end px-2 py-1 bg-slate-100 text-slate-300 hover:bg-slate-200 hover:text-slate-500 hover:font-bold"
               onClick={() =>
                 download(`${request?.id}.json`, JSON.stringify(request?.proof))
@@ -99,31 +147,24 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
             >
               <Icon className="" fa="fa-solid fa-download" size={1} />
               <span className="text-xs font-bold">Download</span>
-            </div>
+            </button>
           </>
         )}
-        {(!status || status === 'error') && (
-          <div
-            className="flex flex-row flex-grow-0 gap-2 self-end items-center justify-end px-2 py-1 bg-slate-100 text-slate-300 hover:bg-slate-200 hover:text-slate-500 hover:font-bold"
-            onClick={onRetry}
-          >
-            <Icon fa="fa-solid fa-arrows-rotate" size={1} />
-            <span className="text-xs font-bold">Retry</span>
-          </div>
-        )}
+        {status === 'error' && !!request?.error && <ErrorButton />}
+        {(!status || status === 'error') && <RetryButton />}
         {status === 'pending' && (
-          <div className="flex flex-row flex-grow-0 gap-2 self-end items-center justify-end px-2 py-1 bg-slate-100 text-slate-300 font-bold">
+          <button className="flex flex-row flex-grow-0 gap-2 self-end items-center justify-end px-2 py-1 bg-slate-100 text-slate-300 font-bold">
             <Icon className="animate-spin" fa="fa-solid fa-spinner" size={1} />
             <span className="text-xs font-bold">Pending</span>
-          </div>
+          </button>
         )}
-        <div
+        <button
           className="flex flex-row flex-grow-0 gap-2 self-end items-center justify-end px-2 py-1 bg-slate-100 text-slate-300 hover:bg-red-100 hover:text-red-500 hover:font-bold"
           onClick={onDelete}
         >
           <Icon className="" fa="fa-solid fa-trash" size={1} />
           <span className="text-xs font-bold">Delete</span>
-        </div>
+        </button>
       </div>
     </div>
   );
