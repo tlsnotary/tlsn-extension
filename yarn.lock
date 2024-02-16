@@ -6745,10 +6745,10 @@
   "resolved" "https://registry.npmjs.org/titleize/-/titleize-3.0.0.tgz"
   "version" "3.0.0"
 
-"tlsn-js@0.1.0-alpha.3":
-  "integrity" "sha512-P26JOq50UOeQgjznH/M5E4B2lHBuSHd36jvHly/c2mNt5N3TsH0Dmhk16Ll7t/Dt62YdVcYOEvg/GVA3Xdkh0A=="
-  "resolved" "https://registry.npmjs.org/tlsn-js/-/tlsn-js-0.1.0-alpha.3.tgz"
-  "version" "0.1.0-alpha.3"
+"tlsn-js@0.1.0-alpha.4":
+  "integrity" "sha512-XRDckXVT10fuBMuaSnfG9MvlQD6Qp6mjM8bMitBHrURP7esjGBUAJBzmQmdkssqv5y+fRwLoOcGUrn+n3qmWAQ=="
+  "resolved" "https://registry.npmjs.org/tlsn-js/-/tlsn-js-0.1.0-alpha.4.tgz"
+  "version" "0.1.0-alpha.4"
   dependencies:
     "comlink" "^4.4.1"
 
