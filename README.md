@@ -3,7 +3,7 @@
 # Chrome Extension (MV3) for TLSNotary
 
 ### ⚠️ Notice
-- When running the extension against a local [notary server](https://github.com/tlsnotary/tlsn/releases), please ensure that the server's version is the same as the version of this extension
+- When running the extension against a [notary server](https://github.com/tlsnotary/tlsn/tree/dev/notary-server), please ensure that the server's version is the same as the version of this extension
 
 ## Installing and Running
 
