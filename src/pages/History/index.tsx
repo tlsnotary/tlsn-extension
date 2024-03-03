@@ -8,7 +8,7 @@ import {
 } from '../../reducers/history';
 import Icon from '../../components/Icon';
 import { get, NOTARY_API_LS_KEY, PROXY_API_LS_KEY } from '../../utils/storage';
-import { urlify, download } from '../../utils/misc';
+import { urlify, download, upload } from '../../utils/misc';
 import { BackgroundActiontype } from '../../entries/Background/rpc';
 import Modal, {
   ModalContent,
@@ -147,6 +147,15 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
             >
               <Icon className="" fa="fa-solid fa-download" size={1} />
               <span className="text-xs font-bold">Download</span>
+            </button>
+            <button
+            className="flex flex-row flex-grow-0 gap-2 self-end items-center justify-end px-2 py-1 bg-slate-100 text-slate-300 hover:bg-slate-200 hover:text-slate-500 hover:font-bold"
+            onClick={async () =>
+             await upload(`${request?.id}.json`, JSON.stringify(request?.proof))
+             }
+             >
+              <Icon className="" fa="fa-solid fa-upload" size={1} />
+              <span>Share</span>
             </button>
           </>
         )}
