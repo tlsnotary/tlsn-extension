@@ -57,6 +57,14 @@ export async function upload(filename: string, content: string) {
 
 }
 
+export const copyText = async (text: string): Promise<void> => {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch (e) {
+    console.error(e);
+  }
+};
+
 export async function replayRequest(req: RequestLog): Promise<string> {
   const options = {
     method: req.method,

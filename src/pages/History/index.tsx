@@ -70,6 +70,7 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
 
   const closeModal = useCallback(() => showError(false), [showError]);
   const openModal = useCallback(() => setIsOpen(true), [setIsOpen]);
+
   const handleAccept = useCallback(async () => {
     try {
       const data = await upload(
@@ -183,11 +184,13 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
                   {!accepted ? (
                   <button
                   onClick={handleAccept}
-                  className="m-0 w-32 bg-red-100 text-red-300 hover:bg-red-200 hover:text-red-500">
+                  className="m-0 w-32 bg-red-200 text-red-500 hover:bg-red-200 hover:text-red-500">
                     I understand
                   </button>
                   ) : (
-                  <input className="w-64" readOnly value={`https://localhost:3030/ipfs/${cid}`}></input>
+                    <div className="border border-solid border-black rounded">
+                      <input className="w-64" readOnly value={`https://localhost:3030/ipfs/${cid}`}></input>
+                    </div>
                   )}
                 </ModalContent>
                 <ModalFooter>
