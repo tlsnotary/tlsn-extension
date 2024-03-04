@@ -4,7 +4,7 @@ import React, {
   useState,
   MouseEventHandler,
 } from 'react';
-import { useParams, useLocation, useNavigate } from 'react-router';
+import { useParams, useNavigate } from 'react-router';
 import c from 'classnames';
 import { useRequestHistory } from '../../reducers/history';
 import Icon from '../../components/Icon';
