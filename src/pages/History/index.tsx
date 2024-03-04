@@ -7,7 +7,7 @@ import {
   deleteRequestHistory,
 } from '../../reducers/history';
 import Icon from '../../components/Icon';
-import { get, NOTARY_API_LS_KEY, PROXY_API_LS_KEY } from '../../utils/storage';
+import { get, NOTARY_API_LS_KEY, PROXY_API_LS_KEY, set } from '../../utils/storage';
 import { urlify, download, upload } from '../../utils/misc';
 import { BackgroundActiontype } from '../../entries/Background/rpc';
 import Modal, {
@@ -32,6 +32,9 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
   const dispatch = useDispatch();
   const request = useRequestHistory(props.requestId);
   const [showingError, showError] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const [accepted, setAccepted] = useState(false);
+  const [cid, setCid] = useState('');
   const navigate = useNavigate();
   const { status } = request || {};
   const requestUrl = urlify(request?.url || '');
@@ -66,6 +69,16 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
   }, [request?.error, showError]);
 
   const closeModal = useCallback(() => showError(false), [showError]);
+  const openModal = useCallback(() => setIsOpen(true), [setIsOpen]);
+  const handleAccept = useCallback(async () => {
+    try {
+      const data = await upload(`${request?.id}.json`, JSON.stringify(request?.proof));
+      setCid(data);
+      setAccepted(true);
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
 
   const RetryButton = (): ReactElement => (
     <button
@@ -150,13 +163,42 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
             </button>
             <button
             className="flex flex-row flex-grow-0 gap-2 self-end items-center justify-end px-2 py-1 bg-slate-100 text-slate-300 hover:bg-slate-200 hover:text-slate-500 hover:font-bold"
-            onClick={async () =>
-             await upload(`${request?.id}.json`, JSON.stringify(request?.proof))
-             }
+            onClick={openModal}
+            // onClick={async () =>
+            //  await upload(`${request?.id}.json`, JSON.stringify(request?.proof))
+            //  }
              >
               <Icon className="" fa="fa-solid fa-upload" size={1} />
               <span>Share</span>
             </button>
+            {isOpen && (
+              <Modal
+                className="flex flex-col gap-4 items-center text-base cursor-default justify-center !w-auto mx-4 my-[50%] min-h-24 p-4 border border-red-500"
+                onClose={() => setIsOpen(false) }
+              >
+                <ModalHeader onClose={() => setIsOpen(false)}>Share Proof</ModalHeader>
+                <ModalContent className="flex flex-col gap-4 items-center text-base justify-center">
+                  <p className="text-red-500 font-bold text-center">This will make your proof publicly accessible by anyone with the CID</p>
+                  {!accepted ? (
+                  <button
+                  onClick={handleAccept}
+                  className="m-0 w-32 bg-red-100 text-red-300 hover:bg-red-200 hover:text-red-500">
+                    I understand
+                  </button>
+                  ) : (
+                  <input className="w-64" readOnly value={`https://localhost:3030/ipfs/${cid}`}></input>
+                  )}
+                </ModalContent>
+                <ModalFooter>
+                  <button
+                    className="m-0 w-24 bg-red-100 text-red-300 hover:bg-red-200 hover:text-red-500"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    Close
+                  </button>
+                </ModalFooter>
+              </Modal>
+            )}
           </>
         )}
         {status === 'error' && !!request?.error && <ErrorButton />}

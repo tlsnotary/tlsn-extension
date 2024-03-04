@@ -53,7 +53,6 @@ export async function upload(filename: string, content: string) {
     throw new Error('Failed to upload');
   }
   const data = await response.json();
-  console.log(data);
   return data;
 
 }
