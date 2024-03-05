@@ -68,8 +68,8 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
     showError(true);
   }, [request?.error, showError]);
 
-  const closeModal = useCallback(() => showError(false), [showError]);
-  const openModal = useCallback(() => setIsOpen(true), [setIsOpen]);
+  const closeModal = useCallback(() => setIsOpen(false), []);
+  const openModal = useCallback(() => setIsOpen(true), []);
 
   const handleAccept = useCallback(async () => {
     try {
@@ -176,9 +176,9 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
             {isOpen && (
               <Modal
                 className="flex flex-col gap-4 items-center text-base cursor-default justify-center !w-auto mx-4 my-[50%] min-h-24 p-4 border"
-                onClose={() => setIsOpen(false)}
+                onClose={closeModal}
              >
-                <ModalHeader onClose={() => setIsOpen(false)}>Share Proof</ModalHeader>
+                <ModalHeader onClose={closeModal}>Share Proof</ModalHeader>
                 <ModalContent className="flex flex-col gap-4 items-center text-base justify-center">
                   <p className="text-red-500 font-bold text-center">This will make your proof publicly accessible by anyone with the CID</p>
                   {!accepted ? (
@@ -200,7 +200,7 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
                 <ModalFooter>
                   <button
                     className="m-0 w-24 bg-slate-600 text-slate-200 hover:bg-slate-500 hover:text-slate-100 hover:font-bold"
-                    onClick={() => setIsOpen(false)}
+                    onClick={closeModal}
                   >
                     Close
                   </button>
