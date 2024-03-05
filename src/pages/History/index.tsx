@@ -175,7 +175,7 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
             </button>
             {isOpen && (
               <Modal
-                className="flex flex-col gap-4 items-center text-base cursor-default justify-center !w-auto mx-4 my-[50%] min-h-24 p-4 border border-red-500"
+                className="flex flex-col gap-4 items-center text-base cursor-default justify-center !w-auto mx-4 my-[50%] min-h-24 p-4 border"
                 onClose={() => setIsOpen(false)}
              >
                 <ModalHeader onClose={() => setIsOpen(false)}>Share Proof</ModalHeader>
@@ -184,18 +184,22 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
                   {!accepted ? (
                   <button
                   onClick={handleAccept}
-                  className="m-0 w-32 bg-red-200 text-red-500 hover:bg-red-200 hover:text-red-500">
+                  className="m-0 w-32 bg-red-200 text-red-500 hover:bg-red-200 hover:text-red-500 hover:font-bold">
                     I understand
                   </button>
                   ) : (
-                    <div className="border border-solid border-black rounded">
-                      <input className="w-64" readOnly value={`https://localhost:3030/ipfs/${cid}`}></input>
+                    <div className="w-full border border-solid border-gray-300 rounded-lg p-2">
+                      <input
+                        className="w-full bg-slate-100 px-2 py-1 rounded-md focus:outline-none focus:ring focus:border-blue-300 text-slate-500 font-bold"
+                        readOnly
+                        value={`http://localhost:3030/ipfs/${cid}`}
+                      />
                     </div>
                   )}
                 </ModalContent>
                 <ModalFooter>
                   <button
-                    className="m-0 w-24 bg-red-100 text-red-300 hover:bg-red-200 hover:text-red-500"
+                    className="m-0 w-24 bg-slate-600 text-slate-200 hover:bg-slate-500 hover:text-slate-100 hover:font-bold"
                     onClick={() => setIsOpen(false)}
                   >
                     Close
