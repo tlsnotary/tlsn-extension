@@ -41,6 +41,33 @@ export function download(filename: string, content: string) {
   document.body.removeChild(element);
 }
 
+export async function upload(filename: string, content: string) {
+  const formData = new FormData();
+
+  formData.append(
+    'file',
+    new Blob([content], { type: 'application/json' }),
+    filename,
+  );
+  const response = await fetch('http://localhost:3030/upload', {
+    method: 'POST',
+    body: formData,
+  });
+  if (!response.ok) {
+    throw new Error('Failed to upload');
+  }
+  const data = await response.json();
+  return data;
+}
+
+export const copyText = async (text: string): Promise<void> => {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch (e) {
+    console.error(e);
+  }
+};
+
 export async function replayRequest(req: RequestLog): Promise<string> {
   const options = {
     method: req.method,

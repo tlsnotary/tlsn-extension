@@ -8,7 +8,7 @@ import {
 } from '../../reducers/history';
 import Icon from '../../components/Icon';
 import { get, NOTARY_API_LS_KEY, PROXY_API_LS_KEY } from '../../utils/storage';
-import { urlify, download } from '../../utils/misc';
+import { urlify, download, upload } from '../../utils/misc';
 import { BackgroundActiontype } from '../../entries/Background/rpc';
 import Modal, {
   ModalContent,
@@ -32,6 +32,9 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
   const dispatch = useDispatch();
   const request = useRequestHistory(props.requestId);
   const [showingError, showError] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const [accepted, setAccepted] = useState(false);
+  const [cid, setCid] = useState('');
   const navigate = useNavigate();
   const { status } = request || {};
   const requestUrl = urlify(request?.url || '');
@@ -65,7 +68,21 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
     showError(true);
   }, [request?.error, showError]);
 
-  const closeModal = useCallback(() => showError(false), [showError]);
+  const closeModal = useCallback(() => setIsOpen(false), []);
+  const openModal = useCallback(() => setIsOpen(true), []);
+
+  const handleAccept = useCallback(async () => {
+    try {
+      const data = await upload(
+        `${request?.id}.json`,
+        JSON.stringify(request?.proof),
+      );
+      setCid(data);
+      setAccepted(true);
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
 
   const RetryButton = (): ReactElement => (
     <button
@@ -148,6 +165,51 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
               <Icon className="" fa="fa-solid fa-download" size={1} />
               <span className="text-xs font-bold">Download</span>
             </button>
+            <button
+              className="flex flex-row flex-grow-0 gap-2 self-end items-center justify-end px-2 py-1 bg-slate-100 text-slate-300 hover:bg-slate-200 hover:text-slate-500 hover:font-bold"
+              onClick={openModal}
+            >
+              <Icon className="" fa="fa-solid fa-upload" size={1} />
+              <span>Share</span>
+            </button>
+            {isOpen && (
+              <Modal
+                className="flex flex-col gap-4 items-center text-base cursor-default justify-center !w-auto mx-4 my-[50%] min-h-24 p-4 border"
+                onClose={closeModal}
+              >
+                <ModalHeader onClose={closeModal}>Share Proof</ModalHeader>
+                <ModalContent className="flex flex-col gap-4 items-center text-base justify-center">
+                  <p className="text-red-500 font-bold text-center">
+                    This will make your proof publicly accessible by anyone with
+                    the CID
+                  </p>
+                  {!accepted ? (
+                    <button
+                      onClick={handleAccept}
+                      className="m-0 w-32 bg-red-200 text-red-500 hover:bg-red-200 hover:text-red-500 hover:font-bold"
+                    >
+                      I understand
+                    </button>
+                  ) : (
+                    <div className="w-full border border-solid border-gray-300 rounded-lg p-2">
+                      <input
+                        className="w-full bg-slate-100 px-2 py-1 rounded-md focus:outline-none focus:ring focus:border-blue-300 text-slate-500 font-bold"
+                        readOnly
+                        value={`http://localhost:3030/ipfs/${cid}`}
+                      />
+                    </div>
+                  )}
+                </ModalContent>
+                <ModalFooter>
+                  <button
+                    className="m-0 w-24 bg-slate-600 text-slate-200 hover:bg-slate-500 hover:text-slate-100 hover:font-bold"
+                    onClick={closeModal}
+                  >
+                    Close
+                  </button>
+                </ModalFooter>
+              </Modal>
+            )}
           </>
         )}
         {status === 'error' && !!request?.error && <ErrorButton />}
