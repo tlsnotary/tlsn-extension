@@ -74,8 +74,9 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
   const handleAccept = useCallback(async () => {
     try {
       const data = await upload(
-        `${request?.id}.json`, JSON.stringify(request?.proof)
-        );
+        `${request?.id}.json`,
+        JSON.stringify(request?.proof),
+      );
       setCid(data);
       setAccepted(true);
     } catch (e) {
@@ -158,18 +159,16 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
             <button
               className="flex flex-row flex-grow-0 gap-2 self-end items-center justify-end px-2 py-1 bg-slate-100 text-slate-300 hover:bg-slate-200 hover:text-slate-500 hover:font-bold"
               onClick={() =>
-                download(
-                  `${request?.id}.json`, JSON.stringify(request?.proof)
-                  )
+                download(`${request?.id}.json`, JSON.stringify(request?.proof))
               }
             >
               <Icon className="" fa="fa-solid fa-download" size={1} />
               <span className="text-xs font-bold">Download</span>
             </button>
             <button
-            className="flex flex-row flex-grow-0 gap-2 self-end items-center justify-end px-2 py-1 bg-slate-100 text-slate-300 hover:bg-slate-200 hover:text-slate-500 hover:font-bold"
-            onClick={openModal}
-             >
+              className="flex flex-row flex-grow-0 gap-2 self-end items-center justify-end px-2 py-1 bg-slate-100 text-slate-300 hover:bg-slate-200 hover:text-slate-500 hover:font-bold"
+              onClick={openModal}
+            >
               <Icon className="" fa="fa-solid fa-upload" size={1} />
               <span>Share</span>
             </button>
@@ -177,16 +176,20 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
               <Modal
                 className="flex flex-col gap-4 items-center text-base cursor-default justify-center !w-auto mx-4 my-[50%] min-h-24 p-4 border"
                 onClose={closeModal}
-             >
+              >
                 <ModalHeader onClose={closeModal}>Share Proof</ModalHeader>
                 <ModalContent className="flex flex-col gap-4 items-center text-base justify-center">
-                  <p className="text-red-500 font-bold text-center">This will make your proof publicly accessible by anyone with the CID</p>
+                  <p className="text-red-500 font-bold text-center">
+                    This will make your proof publicly accessible by anyone with
+                    the CID
+                  </p>
                   {!accepted ? (
-                  <button
-                  onClick={handleAccept}
-                  className="m-0 w-32 bg-red-200 text-red-500 hover:bg-red-200 hover:text-red-500 hover:font-bold">
-                    I understand
-                  </button>
+                    <button
+                      onClick={handleAccept}
+                      className="m-0 w-32 bg-red-200 text-red-500 hover:bg-red-200 hover:text-red-500 hover:font-bold"
+                    >
+                      I understand
+                    </button>
                   ) : (
                     <div className="w-full border border-solid border-gray-300 rounded-lg p-2">
                       <input

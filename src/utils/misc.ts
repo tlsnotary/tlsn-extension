@@ -44,7 +44,11 @@ export function download(filename: string, content: string) {
 export async function upload(filename: string, content: string) {
   const formData = new FormData();
 
-  formData.append('file', new Blob([content], { type: 'application/json' }), filename);
+  formData.append(
+    'file',
+    new Blob([content], { type: 'application/json' }),
+    filename,
+  );
   const response = await fetch('http://localhost:3030/upload', {
     method: 'POST',
     body: formData,
@@ -54,7 +58,6 @@ export async function upload(filename: string, content: string) {
   }
   const data = await response.json();
   return data;
-
 }
 
 export const copyText = async (text: string): Promise<void> => {
