@@ -8,6 +8,7 @@ var webpack = require("webpack"),
 var { CleanWebpackPlugin } = require("clean-webpack-plugin");
 var ReactRefreshWebpackPlugin = require("@pmmmwh/react-refresh-webpack-plugin");
 var ReactRefreshTypeScript = require("react-refresh-typescript");
+var ExtReloader = require('webpack-ext-reloader');
 
 const ASSET_PATH = process.env.ASSET_PATH || "/";
 
@@ -145,6 +146,9 @@ var options = {
     new webpack.ProgressPlugin(),
     // expose and write the allowed env vars on the compiled bundle
     new webpack.EnvironmentPlugin(["NODE_ENV"]),
+    new ExtReloader({
+      manifest: path.resolve(__dirname, "src/manifest.json")
+    }),
     new CopyWebpackPlugin({
       patterns: [
         {
