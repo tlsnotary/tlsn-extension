@@ -49,7 +49,7 @@ export async function upload(filename: string, content: string) {
     new Blob([content], { type: 'application/json' }),
     filename,
   );
-  const response = await fetch('http://localhost:3030/upload', {
+  const response = await fetch('http://localhost:3000/api/upload', {
     method: 'POST',
     body: formData,
   });

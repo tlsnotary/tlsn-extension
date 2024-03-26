@@ -84,7 +84,7 @@ export function ModalFooter(props: FooterProps): ReactElement {
   return (
     <div
       className={classNames(
-        'border-t modal__footer border-gray-100',
+        'border-t modal__footer border-gray-100 w-full',
         props.className,
       )}
     >
