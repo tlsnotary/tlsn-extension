@@ -1,4 +1,5 @@
 import { RequestLog } from '../entries/Background/rpc';
+import { EXPLORER_API } from './constants';
 
 export function urlify(
   text: string,
@@ -49,7 +50,7 @@ export async function upload(filename: string, content: string) {
     new Blob([content], { type: 'application/json' }),
     filename,
   );
-  const response = await fetch('http://localhost:3000/api/upload', {
+  const response = await fetch(`${EXPLORER_API}/api/upload`, {
     method: 'POST',
     body: formData,
   });

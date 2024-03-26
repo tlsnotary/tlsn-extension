@@ -13,8 +13,7 @@ import { BackgroundActiontype } from '../../entries/Background/rpc';
 import Modal, { ModalContent } from '../../components/Modal/Modal';
 import classNames from 'classnames';
 import copy from 'copy-to-clipboard';
-
-const EXPLORER_API = 'http://localhost:3000';
+import { EXPLORER_API } from '../../utils/constants';
 
 export default function History(): ReactElement {
   const history = useHistoryOrder();
