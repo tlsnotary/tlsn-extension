@@ -107,5 +107,3 @@ export async function replayRequest(req: RequestLog): Promise<string> {
     return resp.blob().then((blob) => blob.text());
   }
 }
-
-
