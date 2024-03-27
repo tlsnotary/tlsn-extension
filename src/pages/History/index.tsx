@@ -38,8 +38,9 @@ function OnRequestHistory(props: { requestId: string }): ReactElement {
   const request = useRequestHistory(props.requestId);
   const [showingError, showError] = useState(false);
   const [uploadError, setUploadError] = useState('');
-  const [showingShareConfirmation, setShowingShareConfirmation] = useState(false);
-  const [cid, setCid] = useState<{ [key: string]: string}>({})
+  const [showingShareConfirmation, setShowingShareConfirmation] =
+    useState(false);
+  const [cid, setCid] = useState<{ [key: string]: string }>({});
   const [uploading, setUploading] = useState(false);
   const navigate = useNavigate();
   const { status } = request || {};
@@ -47,8 +48,8 @@ function OnRequestHistory(props: { requestId: string }): ReactElement {
 
   useEffect(() => {
     chrome.storage.sync.get(null, (data) => {
-      setCid(data)
-    })
+      setCid(data);
+    });
   }, []);
 
   const onRetry = useCallback(async () => {
@@ -90,11 +91,11 @@ function OnRequestHistory(props: { requestId: string }): ReactElement {
     try {
       const data = await upload(
         `${request?.id}.json`,
-        JSON.stringify(request?.proof)
+        JSON.stringify(request?.proof),
       );
       const newCids = { ...cid, [props.requestId]: data };
       setCid(newCids);
-      console.log(newCids)
+      console.log(newCids);
       chrome.storage.sync.set({
         ...newCids,
       });
@@ -151,7 +152,7 @@ function OnRequestHistory(props: { requestId: string }): ReactElement {
               ctaText="Download"
             />
             <ActionButton
- className="flex flex-row flex-grow-0 gap-2 self-end items-center justify-end px-2 py-1 bg-slate-100 text-slate-300 hover:bg-slate-200 hover:text-slate-500 hover:font-bold"
+              className="flex flex-row flex-grow-0 gap-2 self-end items-center justify-end px-2 py-1 bg-slate-100 text-slate-300 hover:bg-slate-200 hover:text-slate-500 hover:font-bold"
               onClick={() => setShowingShareConfirmation(true)}
               fa="fa-solid fa-upload"
               ctaText="Share"
@@ -274,7 +275,9 @@ function OnRequestHistory(props: { requestId: string }): ReactElement {
           ) : (
             <>
               <button
-                onClick={() => copy(`${EXPLORER_API}/ipfs/${cid[props.requestId]}`)}
+                onClick={() =>
+                  copy(`${EXPLORER_API}/ipfs/${cid[props.requestId]}`)
+                }
                 className="m-0 w-24 bg-slate-600 text-slate-200 hover:bg-slate-500 hover:text-slate-100 font-bold"
               >
                 Copy
@@ -303,7 +306,7 @@ function ActionButton(props: {
     <button
       className={classNames(
         'flex flex-row flex-grow-0 gap-2 self-end items-center justify-end px-2 py-1 hover:font-bold',
-        props.className
+        props.className,
       )}
       onClick={props.onClick}
     >
