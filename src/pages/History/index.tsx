@@ -1,4 +1,4 @@
-import React, { ReactElement, useState, useCallback } from 'react';
+import React, { ReactElement, useState, useCallback, useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router';
 import {
@@ -27,24 +27,29 @@ export default function History(): ReactElement {
   return (
     <div className="flex flex-col flex-nowrap overflow-y-auto">
       {history.map((id) => {
-        return <OneRequestHistory key={id} requestId={id} />;
+        return <OnRequestHistory key={id} requestId={id} />;
       })}
     </div>
   );
 }
 
-function OneRequestHistory(props: { requestId: string }): ReactElement {
+function OnRequestHistory(props: { requestId: string }): ReactElement {
   const dispatch = useDispatch();
   const request = useRequestHistory(props.requestId);
-  const [showingError, showError] = useState(false);
+  const [showingError, setShowError] = useState(false);
   const [uploadError, setUploadError] = useState('');
-  const [showingShareConfirmation, setShowingShareConfirmation] =
-    useState(false);
-  const [cid, setCid] = useState('');
+  const [showingShareConfirmation, setShowingShareConfirmation] = useState(false);
+  const [cid, setCid] = useState<{ [key: string]: string}>({})
   const [uploading, setUploading] = useState(false);
   const navigate = useNavigate();
   const { status } = request || {};
   const requestUrl = urlify(request?.url || '');
+
+  useEffect(() => {
+    chrome.storage.sync.get(null, (data) => {
+      setCid(data)
+    })
+  }, []);
 
   const onRetry = useCallback(async () => {
     const notaryUrl = await getNotaryApi();
@@ -72,28 +77,33 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
   }, [props.requestId]);
 
   const onShowError = useCallback(async () => {
-    showError(true);
-  }, [request?.error, showError]);
+    setShowError(true);
+  }, [request?.error, setShowError]);
 
   const closeAllModal = useCallback(() => {
     setShowingShareConfirmation(false);
-    showError(false);
-  }, [setShowingShareConfirmation, showError]);
+    setShowError(false);
+  }, [setShowingShareConfirmation, setShowError]);
 
   const handleUpload = useCallback(async () => {
     setUploading(true);
     try {
       const data = await upload(
         `${request?.id}.json`,
-        JSON.stringify(request?.proof),
+        JSON.stringify(request?.proof)
       );
-      setCid(data);
+      const newCids = { ...cid, [props.requestId]: data };
+      setCid(newCids);
+      console.log(newCids)
+      chrome.storage.sync.set({
+        ...newCids,
+      });
     } catch (e: any) {
       setUploadError(e.message);
     } finally {
       setUploading(false);
     }
-  }, []);
+  }, [props.requestId, request]);
 
   return (
     <div className="flex flex-row flex-nowrap border rounded-md p-2 gap-1 hover:bg-slate-50 cursor-pointer">
@@ -141,7 +151,7 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
               ctaText="Download"
             />
             <ActionButton
-              className="flex flex-row flex-grow-0 gap-2 self-end items-center justify-end px-2 py-1 bg-slate-100 text-slate-300 hover:bg-slate-200 hover:text-slate-500 hover:font-bold"
+ className="flex flex-row flex-grow-0 gap-2 self-end items-center justify-end px-2 py-1 bg-slate-100 text-slate-300 hover:bg-slate-200 hover:text-slate-500 hover:font-bold"
               onClick={() => setShowingShareConfirmation(true)}
               fa="fa-solid fa-upload"
               ctaText="Share"
@@ -221,7 +231,7 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
         onClose={closeAllModal}
       >
         <ModalContent className="flex flex-col w-full gap-4 items-center text-base justify-center">
-          {!cid ? (
+          {!cid[props.requestId] ? (
             <p className="text-slate-500 text-center">
               {uploadError ||
                 'This will make your proof publicly accessible by anyone with the CID'}
@@ -230,13 +240,13 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
             <input
               className="input w-full bg-slate-100 border border-slate-200"
               readOnly
-              value={`${EXPLORER_API}/ipfs/${cid}`}
+              value={`${EXPLORER_API}/ipfs/${cid[props.requestId]}`}
               onFocus={(e) => e.target.select()}
             />
           )}
         </ModalContent>
         <div className="flex flex-row gap-2 justify-center">
-          {!cid ? (
+          {!cid[props.requestId] ? (
             <>
               {!uploadError && (
                 <button
@@ -264,7 +274,7 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
           ) : (
             <>
               <button
-                onClick={() => copy(`${EXPLORER_API}/ipfs/${cid}`)}
+                onClick={() => copy(`${EXPLORER_API}/ipfs/${cid[props.requestId]}`)}
                 className="m-0 w-24 bg-slate-600 text-slate-200 hover:bg-slate-500 hover:text-slate-100 font-bold"
               >
                 Copy
@@ -293,7 +303,7 @@ function ActionButton(props: {
     <button
       className={classNames(
         'flex flex-row flex-grow-0 gap-2 self-end items-center justify-end px-2 py-1 hover:font-bold',
-        props.className,
+        props.className
       )}
       onClick={props.onClick}
     >

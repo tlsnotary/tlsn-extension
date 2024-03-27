@@ -58,7 +58,6 @@ export function download(filename: string, content: string) {
 
 export async function upload(filename: string, content: string) {
   const formData = new FormData();
-
   formData.append(
     'file',
     new Blob([content], { type: 'application/json' }),
