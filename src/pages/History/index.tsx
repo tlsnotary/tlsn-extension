@@ -36,7 +36,7 @@ export default function History(): ReactElement {
 function OnRequestHistory(props: { requestId: string }): ReactElement {
   const dispatch = useDispatch();
   const request = useRequestHistory(props.requestId);
-  const [showingError, setShowError] = useState(false);
+  const [showingError, showError] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [showingShareConfirmation, setShowingShareConfirmation] = useState(false);
   const [cid, setCid] = useState<{ [key: string]: string}>({})
@@ -77,13 +77,13 @@ function OnRequestHistory(props: { requestId: string }): ReactElement {
   }, [props.requestId]);
 
   const onShowError = useCallback(async () => {
-    setShowError(true);
-  }, [request?.error, setShowError]);
+    showError(true);
+  }, [request?.error, showError]);
 
   const closeAllModal = useCallback(() => {
     setShowingShareConfirmation(false);
-    setShowError(false);
-  }, [setShowingShareConfirmation, setShowError]);
+    showError(false);
+  }, [setShowingShareConfirmation, showError]);
 
   const handleUpload = useCallback(async () => {
     setUploading(true);
