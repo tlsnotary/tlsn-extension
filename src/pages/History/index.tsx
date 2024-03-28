@@ -20,6 +20,10 @@ import Modal, { ModalContent } from '../../components/Modal/Modal';
 import classNames from 'classnames';
 import copy from 'copy-to-clipboard';
 import { EXPLORER_API } from '../../utils/constants';
+import {
+  getNotaryRequest,
+  setNotaryRequestCid,
+} from '../../entries/Background/db';
 
 export default function History(): ReactElement {
   const history = useHistoryOrder();
@@ -47,9 +51,17 @@ function OnRequestHistory(props: { requestId: string }): ReactElement {
   const requestUrl = urlify(request?.url || '');
 
   useEffect(() => {
-    chrome.storage.sync.get(null, (data) => {
-      setCid(data);
-    });
+    const fetchData = async () => {
+      try {
+        const request = await getNotaryRequest(props.requestId);
+        if (request && request.cid) {
+          setCid({ [props.requestId]: request.cid });
+        }
+      } catch (e) {
+        console.error('Error fetching data', e);
+      }
+    };
+    fetchData();
   }, []);
 
   const onRetry = useCallback(async () => {
@@ -93,18 +105,14 @@ function OnRequestHistory(props: { requestId: string }): ReactElement {
         `${request?.id}.json`,
         JSON.stringify(request?.proof),
       );
-      const newCids = { ...cid, [props.requestId]: data };
-      setCid(newCids);
-      console.log(newCids);
-      chrome.storage.sync.set({
-        ...newCids,
-      });
+      setCid((prevCid) => ({ ...prevCid, [props.requestId]: data }));
+      await setNotaryRequestCid(props.requestId, data);
     } catch (e: any) {
       setUploadError(e.message);
     } finally {
       setUploading(false);
     }
-  }, [props.requestId, request]);
+  }, [props.requestId, request, cid]);
 
   return (
     <div className="flex flex-row flex-nowrap border rounded-md p-2 gap-1 hover:bg-slate-50 cursor-pointer">
