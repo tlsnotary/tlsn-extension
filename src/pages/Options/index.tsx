@@ -5,11 +5,11 @@ import {
   NOTARY_API_LS_KEY,
   PROXY_API_LS_KEY,
 } from '../../utils/storage';
-import { NOTARY_API } from '../../utils/constants';
+import { NOTARY_API, NOTARY_PROXY } from '../../utils/constants';
 
 export default function Options(): ReactElement {
   const [notary, setNotary] = useState(NOTARY_API);
-  const [proxy, setProxy] = useState('wss://notary.pse.dev/proxy');
+  const [proxy, setProxy] = useState(NOTARY_PROXY);
   const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
