@@ -3,7 +3,6 @@ import React, {
   ReactElement,
   ReactNode,
   useCallback,
-  useState,
 } from 'react';
 import Icon from '../../components/Icon';
 import classNames from 'classnames';
@@ -23,12 +22,49 @@ import {
   getNotaryApi,
   getProxyApi,
 } from '../../utils/storage';
+import createPlugin, { CallContext } from '@extism/extism';
 
 export default function Home(): ReactElement {
   const requests = useRequests();
   const url = useActiveTabUrl();
   const navigate = useNavigate();
   const dispatch = useDispatch();
+
+  const twReq =
+    requests.filter((req) =>
+      req.url.includes('https://api.twitter.com/1.1/account/settings.json'),
+    )[0] || {};
+
+  const plugin = useCallback(
+    async (name: string) => {
+      const config = {
+        ...twReq.requestHeaders.reduce((acc: { [k: string]: string }, r) => {
+          if (r.name && r.value) {
+            acc[r.name] = r.value;
+          }
+          return acc;
+        }, {}),
+      };
+      const p = await createPlugin(
+        'http://localhost:61853/twitter_profile/index.wasm',
+        {
+          useWasi: true,
+          config,
+          functions: {
+            'extism:host/user': {
+              get_response: (context: CallContext, off: bigint) => {
+                const executed = context.read(off)?.string();
+                return context.store('wow okay then');
+              },
+            },
+          },
+        },
+      );
+      const out = await p.call('plugin', name);
+      console.log(out.text());
+    },
+    [JSON.stringify(twReq)],
+  );
 
   return (
     <div className="flex flex-col gap-4 py-4 overflow-y-auto">
@@ -66,6 +102,12 @@ export default function Home(): ReactElement {
           </div>
         </div>
       )}
+      <div className="flex flex-col px-4 gap-4">
+        <h1>Plugins</h1>
+        <button className="button" onClick={() => plugin('tsukino')}>
+          Test Plugin
+        </button>
+      </div>
       <div className="flex flex-col px-4 gap-4">
         {bookmarks.map((bm, i) => {
           try {

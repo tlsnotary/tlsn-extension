@@ -1456,6 +1456,11 @@
   "resolved" "https://registry.npmjs.org/@eslint/js/-/js-8.57.0.tgz"
   "version" "8.57.0"
 
+"@extism/extism@^1.0.2":
+  "integrity" "sha512-cT48pP0mOroj4Z/gcS/PceRviIUH9vWMGhkDc5H84wXcEeOHjiyfcY4l67Gc6BvNBrvNl7sYq/XlOh2f9aEs6g=="
+  "resolved" "https://registry.npmjs.org/@extism/extism/-/extism-1.0.2.tgz"
+  "version" "1.0.2"
+
 "@fortawesome/fontawesome-free@^6.4.2":
   "integrity" "sha512-CNy5vSwN3fsUStPRLX7fUYojyuzoEMSXPl7zSLJ8TgtRfjv24LOnOWKT2zYwaHZCJGkdyRnTmstR0P+Ah503Gw=="
   "resolved" "https://registry.npmjs.org/@fortawesome/fontawesome-free/-/fontawesome-free-6.5.1.tgz"
