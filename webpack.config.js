@@ -146,9 +146,9 @@ var options = {
     new webpack.ProgressPlugin(),
     // expose and write the allowed env vars on the compiled bundle
     new webpack.EnvironmentPlugin(["NODE_ENV"]),
-    new ExtReloader({
-      manifest: path.resolve(__dirname, "src/manifest.json")
-    }),
+    // new ExtReloader({
+    //   manifest: path.resolve(__dirname, "src/manifest.json")
+    // }),
     new CopyWebpackPlugin({
       patterns: [
         {
