@@ -6944,10 +6944,10 @@
   "resolved" "https://registry.npmjs.org/thunky/-/thunky-1.1.0.tgz"
   "version" "1.1.0"
 
-"tlsn-js@0.1.0-alpha.5.1":
-  "integrity" "sha512-hXwUmmxS/7n0nsZs+8V7N+05xo+QtWAAYcHSW1yJ8fCGH72nu+GvLUy6P3+OjiJA/NwNtV7fMVLfnWgJNRB7OA=="
-  "resolved" "https://registry.npmjs.org/tlsn-js/-/tlsn-js-0.1.0-alpha.5.1.tgz"
-  "version" "0.1.0-alpha.5.1"
+"tlsn-js@0.1.0-alpha.5.2":
+  "integrity" "sha512-5QEAzjOPLrw7TN5nRYphUbVBihZ2ufIQ+BcKnTw+0MejqZHo9pUcjHGkrkt9EfhdkC2zsWWKbDZXlAPxwaPtOQ=="
+  "resolved" "https://registry.npmjs.org/tlsn-js/-/tlsn-js-0.1.0-alpha.5.2.tgz"
+  "version" "0.1.0-alpha.5.2"
   dependencies:
     "comlink" "^4.4.1"
 
