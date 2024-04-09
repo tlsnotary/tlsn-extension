@@ -8,6 +8,7 @@ import deepEqual from 'fast-deep-equal';
 import { get, NOTARY_API_LS_KEY, PROXY_API_LS_KEY } from '../utils/storage';
 import { BackgroundActiontype } from '../entries/Background/rpc';
 import browser from 'webextension-polyfill';
+import { NOTARY_API, NOTARY_PROXY } from '../utils/constants';
 
 enum ActionType {
   '/requests/setRequests' = '/requests/setRequests',
@@ -40,14 +41,8 @@ export const setRequests = (requests: RequestLog[]): Action<RequestLog[]> => ({
 });
 
 export const notarizeRequest = (options: RequestHistory) => async () => {
-  const notaryUrl = await get(
-    NOTARY_API_LS_KEY,
-    'https://notary.pse.dev/v0.1.0-alpha.5',
-  );
-  const websocketProxyUrl = await get(
-    PROXY_API_LS_KEY,
-    'wss://notary.pse.dev/proxy',
-  );
+  const notaryUrl = await get(NOTARY_API_LS_KEY, NOTARY_API);
+  const websocketProxyUrl = await get(PROXY_API_LS_KEY, NOTARY_PROXY);
 
   chrome.runtime.sendMessage<any, string>({
     type: BackgroundActiontype.prove_request_start,
