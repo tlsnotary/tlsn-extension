@@ -10,6 +10,7 @@ import { NOTARY_API, NOTARY_PROXY } from '../../utils/constants';
 export default function Options(): ReactElement {
   const [notary, setNotary] = useState(NOTARY_API);
   const [proxy, setProxy] = useState(NOTARY_PROXY);
+
   const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
