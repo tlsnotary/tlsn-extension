@@ -66,8 +66,8 @@ dependencies:
     specifier: ^3.3.3
     version: 3.4.1
   tlsn-js:
-    specifier: 0.1.0-alpha.4.1
-    version: 0.1.0-alpha.4.1
+    specifier: 0.1.0-alpha.5.0
+    version: 0.1.0-alpha.5.0
 
 devDependencies:
   '@babel/core':
@@ -7971,8 +7971,8 @@ packages:
     resolution: {integrity: sha512-eHY7nBftgThBqOyHGVN+l8gF0BucP09fMo0oO/Lb0w1OF80dJv+lDVpXG60WMQvkcxAkNybKsrEIE3ZtKGmPrA==}
     dev: true
 
-  /tlsn-js@0.1.0-alpha.4.1:
-    resolution: {integrity: sha512-vQdauBqRkB9i6EnHbuCP4JJyZ+/YT/r2WbGVJVqMbYT0BLYTOx7zI+zv9RkmMZ0a8urhPZT/bJPVWTrymyleWg==}
+  /tlsn-js@0.1.0-alpha.5.0:
+    resolution: {integrity: sha512-GgspJeGnaqwTVRlXwOMeNsBCdEIXAAfrQbL8EDdGy7JlEYhAJYJPXYxkLqALTV7muaSmIoCXArznGbZHnX8sCQ==}
     engines: {node: '>= 16.20.2'}
     dependencies:
       comlink: 4.4.1

@@ -40,7 +40,10 @@ export const setRequests = (requests: RequestLog[]): Action<RequestLog[]> => ({
 });
 
 export const notarizeRequest = (options: RequestHistory) => async () => {
-  const notaryUrl = await get(NOTARY_API_LS_KEY, 'https://notary.pse.dev');
+  const notaryUrl = await get(
+    NOTARY_API_LS_KEY,
+    'https://notary.pse.dev/v0.1.0-alpha.5',
+  );
   const websocketProxyUrl = await get(
     PROXY_API_LS_KEY,
     'wss://notary.pse.dev/proxy',
