@@ -18,7 +18,10 @@ import Notarize from '../../pages/Notarize';
 import ProofViewer from '../../pages/ProofViewer';
 import History from '../../pages/History';
 import ProofUploader from '../../pages/ProofUploader';
+import Connect from '../../pages/Connect';
 import browser from 'webextension-polyfill';
+
+
 
 const Popup = () => {
   const dispatch = useDispatch();
@@ -79,6 +82,7 @@ const Popup = () => {
         <Route path="/custom/*" element={<RequestBuilder />} />
         <Route path="/options" element={<Options />} />
         <Route path="/home" element={<Home />} />
+        <Route path="/connect" element={<Connect />} />
         <Route path="*" element={<Navigate to="/home" />} />
       </Routes>
     </div>
