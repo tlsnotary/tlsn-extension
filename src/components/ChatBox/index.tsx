@@ -61,7 +61,7 @@ export default function ChatBox() {
         Accept: '*',
       },
     };
-    await prover.setup(`ws://0.tcp.ngrok.io:14339?clientId=${pairId}-yeet`);
+    await prover.setup(`ws://0.tcp.ngrok.io:14339?clientId=${pairId}`);
     await prover.send_request(
       'wss://notary.pse.dev/proxy?token=swapi.dev',
       request,
@@ -71,7 +71,7 @@ export default function ChatBox() {
       received: [],
     };
     const resp = await prover.reveal(redact);
-    console.log(resp);
+    console.log(resp, redact);
   }, []);
   const onIVerify = useCallback(async () => {
     await init();
@@ -80,7 +80,7 @@ export default function ChatBox() {
       max_sent_data: 1024,
       max_received_data: 1024,
     });
-    await verifier.connect(`ws://0.tcp.ngrok.io:14339?clientId=${pairId}-yeet`);
+    await verifier.connect(`ws://0.tcp.ngrok.io:14339?clientId=${pairId}`);
     await verifier.verify();
   }, [pairId]);
 
