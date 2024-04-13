@@ -1,58 +1,139 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 
+interface Messages {
+  from: string;
+  to: string;
+  text: string;
+  id: number;
+}
 
 export default function Connect() {
-
-  const [inviteLink, setInviteLink] = useState('Waiting for server...');
-  const [isConnected, setIsConnected]= useState(false);
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
   const [connectedToPeer, setConnectedToPeer] = useState(false);
+  const [messages, setMessages] = useState<Messages[]>([]);
   const [refresh, setRefresh] = useState(false);
+  const [socket, setSocket] = useState<WebSocket | null>(null);
+  const [input, setInput] = useState('');
+  const [peerId, setPeerId] = useState('');
+
 
   useEffect(() => {
-      const socket = new WebSocket('wss://notary.pse.dev/rendezvous');
-      socket.onopen = () => {
-        console.log('Connected to websocket')
-        setIsConnected(true);
+    const socket = new WebSocket('ws://0.tcp.ngrok.io:14339');
+    socket.onopen = () => {
+      console.log('Connected to websocket');
+      setIsConnected(true);
+    };
+    socket.onmessage = async (event) => {
+      const message = JSON.parse(await event.data.text());
+      console.log(message);
+      switch (message.method) {
+        case 'client_connect':
+          setConnectedToPeer(true);
+          setPeerId(message.peer_id);
+          break;
+        case 'chat':
+          setMessages([...messages, message]);
+          break;
+        default:
+          console.log('Unknown message type');
+          break;
       }
-      console.log('Error connecting to websocket')
+    };
+    socket.onerror = () => {
+      console.log('Error connecting to websocket');
       setIsConnected(false);
+    };
 
-    socket.onmessage = (e) => {
-      console.log('Received message from peer')
-      setConnectedToPeer(true);
+    setSocket(socket);
+
+    return () => {
+      socket.close();
+    };
+  }, [messages]);
+
+  const fetchInviteLink = useCallback(async (): Promise<void> => {
+    try {
+      const res = await fetch('https://notary.pse.dev/invite');
+      const inviteLink: string = await res.json();
+      setInviteLink(`${inviteLink}`);
+    } catch {
+      setInviteLink('Error fetching invite link');
     }
-    const fetchInviteLink = async (): Promise<void> => {
-      try {
-        const res = await fetch('https://notary.pse.dev/invite');
-        const inviteLink: string = await res.json();
-        setInviteLink(`${inviteLink}`);
-      } catch {
-        setInviteLink('Error fetching invite link');
+  }, []);
+
+  const handleInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setInput(e.target.value);
+    },
+    [input],
+  );
+
+  const handleKeyPress = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter') {
+        sendMessage();
       }
+    },
+    [input],
+  );
+
+  const sendMessage = () => {
+    if (socket) {
+      const message: Messages = {
+        text: input,
+        from: 'me',
+        to: 'peer',
+        id: Math.random(),
+      };
+      socket.send(JSON.stringify(message));
+      setMessages([...messages, message]);
+      setInput('');
     }
-    fetchInviteLink();
-  }, [refresh])
-
-
+  };
   return (
     <div className="flex flex-col justify-center items-center w-full">
       <h1>Peer to peer proving</h1>
       <div className="flex flex-col justify-center items-center w-full h-full">
-        {isConnected ?
+        {isConnected ? (
           <span className="fa-solid fa-plug"></span>
-         :
+        ) : (
           <span className="fa-solid fa-plug-circle-xmark"></span>
-        }
-      <textarea readOnly className="resize-none">
-        {inviteLink}
-      </textarea>
-      <button>Copy button</button>
-      <button onClick={(e) => setRefresh(!refresh)}>Refresh button</button>
-      {connectedToPeer ?
-      <span className="text-green-500">Connected to peer</span>
-       :
-      <span className="text-red-500">Waiting for connection to peer</span>
-      }
+        )}
+        {connectedToPeer ? (
+          <div>
+            <span className="text-green-500">Connected to peer</span>
+            {messages.map((message, index) => (
+              <div key={index}>
+                <strong>{message.from} :</strong>
+                {message.text}
+              </div>
+            ))}
+            <input
+              type="text"
+              onChange={handleInputChange}
+              onKeyDown={handleKeyPress}
+              value={input}
+            />
+          </div>
+        ) : (
+          <div>
+            {inviteLink ? (
+              <div>
+                <textarea readOnly className="resize-none">
+                  {inviteLink}
+                </textarea>
+                <button>Copy button</button>
+                <button onClick={(e) => setRefresh(!refresh)}>
+                  Refresh button
+                </button>
+              </div>
+            ) : (
+              <button onClick={fetchInviteLink}>Generate Invite Link</button>
+            )}
+            <span className="text-red-500">Waiting for connection to peer</span>
+          </div>
+        )}
       </div>
     </div>
   );

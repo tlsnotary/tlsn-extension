@@ -50,7 +50,7 @@ export default function Home(): ReactElement {
         <NavButton fa="fa-solid fa-gear" onClick={() => navigate('/options')}>
           Options
         </NavButton>
-        <NavButton fa="fa-solid fa-wifi" onClick={(() => navigate('/connect'))}>
+        <NavButton fa="fa-solid fa-wifi" onClick={() => navigate('/connect')}>
           Prove to peer
         </NavButton>
       </div>

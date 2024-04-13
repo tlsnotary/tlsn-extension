@@ -9,7 +9,9 @@ import {
 export default function Options(): ReactElement {
   const [notary, setNotary] = useState('https://notary.pse.dev/v0.1.0-alpha.5');
   const [proxy, setProxy] = useState('wss://notary.pse.dev/proxy');
-  const [rendezvous, setRendezvous] = useState('wss://notary.pse.dev/rendezvous');
+  const [rendezvous, setRendezvous] = useState(
+    'wss://notary.pse.dev/rendezvous',
+  );
   const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
