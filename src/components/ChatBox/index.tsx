@@ -17,18 +17,18 @@ export default function ChatBox() {
   const pairId = usePairId();
 
   const onSend = useCallback(() => {
-    if (text) {
+    if (text && pairId) {
       dispatch(
         sendChat({
           text,
           from: clientId,
-          to: 'meh',
+          to: pairId,
         }),
       );
 
       setText('');
     }
-  }, [text]);
+  }, [text, pairId]);
 
   return (
     <div className="flex flex-col flex-nowrap flex-grow gap-1 p-2">
