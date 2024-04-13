@@ -28,16 +28,23 @@ export default function ChatBox() {
 
       setText('');
 
-      console.log('after sending')
+      console.log('after sending');
     }
   }, [text, pairId]);
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && text && pairId) {
-      onSend();
-      setText('');
-    }
-  }, [text]);
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        onSend();
+        setText('');
+      }
+    },
+    [text],
+  );
+    const isClient = (msg: any) => {
+      return msg.from === clientId;
+    };
+
 
   return (
     <div className="flex flex-col flex-nowrap flex-grow gap-1 p-2">
@@ -69,9 +76,16 @@ export default function ChatBox() {
         )}
       </div>
       <div className="flex flex-col h-full gap-1">
-        <div className="flex flex-col border border-slate-200 flex-grow overflow-y-auto">
+        <div className="flex flex-col border gap-1 border-slate-200 flex-grow overflow-y-auto">
           {messages.map((msg) => {
-            return <div>{msg.text}</div>;
+            return <div className={`rounded-lg p-2 max-w-[50%] break-all ${isClient(msg) ? 'mr-auto  bg-blue-600' : "ml-auto bg-slate-300"}`}>
+              <div
+            className={`${isClient(msg) ? 'text-white' : 'text-black'}`}
+            >
+              {msg.text}
+              </div>
+            </div>
+              ;
           })}
         </div>
         <div className="flex flex-row w-full gap-1">
@@ -80,7 +94,7 @@ export default function ChatBox() {
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyDown}
             value={text}
-            
+            autoFocus
           />
           <button
             className={classNames('button', {
