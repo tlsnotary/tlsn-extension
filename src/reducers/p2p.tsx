@@ -77,6 +77,11 @@ export const connectSession =
           );
           break;
         }
+        case 'pair_request': {
+          const { from } = message.params;
+          dispatch(confirmPairRequest(from));
+          break;
+        }
         case 'pair_request_confirm': {
           const { from } = message.params;
           dispatch(setPairing(from));
@@ -184,6 +189,7 @@ export const confirmPairRequest =
           }),
         ),
       );
+      dispatch(setPairing(target));
     }
   };
 
