@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { safeParseJSON } from '../../utils/misc';
 
 interface Messages {
   from: string;
@@ -17,7 +18,6 @@ export default function Connect() {
   const [input, setInput] = useState('');
   const [peerId, setPeerId] = useState('');
 
-
   useEffect(() => {
     const socket = new WebSocket('ws://0.tcp.ngrok.io:14339');
     socket.onopen = () => {
@@ -25,7 +25,7 @@ export default function Connect() {
       setIsConnected(true);
     };
     socket.onmessage = async (event) => {
-      const message = JSON.parse(await event.data.text());
+      const message: any = safeParseJSON(await event.data.text());
       console.log(message);
       switch (message.method) {
         case 'client_connect':
@@ -103,18 +103,18 @@ export default function Connect() {
         {connectedToPeer ? (
           <div>
             <span className="text-green-500">Connected to peer</span>
-            <div  className="border border-solid border-gray-300">
+            <div className="border border-solid border-gray-300">
               <strong>Peer ID:</strong>
               {peerId}
-            {messages.map((message, index) => (
-              <div key={index}>
-                <strong>{message.from} :</strong>
-                {message.text}
-              </div>
-            ))}
+              {messages.map((message, index) => (
+                <div key={index}>
+                  <strong>{message.from} :</strong>
+                  {message.text}
+                </div>
+              ))}
             </div>
             <input
-            className="border border-solid border-gray-300"
+              className="border border-solid border-gray-300"
               type="text"
               onChange={handleInputChange}
               onKeyDown={handleKeyPress}

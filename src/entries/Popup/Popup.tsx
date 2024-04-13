@@ -20,6 +20,8 @@ import History from '../../pages/History';
 import ProofUploader from '../../pages/ProofUploader';
 import Connect from '../../pages/Connect';
 import browser from 'webextension-polyfill';
+import P2P from '../../pages/P2P';
+import CreateSession from '../../pages/CreateSession';
 
 const Popup = () => {
   const dispatch = useDispatch();
@@ -80,7 +82,9 @@ const Popup = () => {
         <Route path="/custom/*" element={<RequestBuilder />} />
         <Route path="/options" element={<Options />} />
         <Route path="/home" element={<Home />} />
-        <Route path="/connect" element={<Connect />} />
+        <Route path="/connect-session" element={<Connect />} />
+        <Route path="/create-session" element={<CreateSession />} />
+        <Route path="/p2p" element={<P2P />} />
         <Route path="*" element={<Navigate to="/home" />} />
       </Routes>
     </div>
