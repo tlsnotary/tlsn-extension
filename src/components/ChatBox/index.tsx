@@ -44,6 +44,21 @@ export default function ChatBox() {
           />
         )}
       </div>
+      <div className="flex flex-row gap-1 font-semibold text-xs align-center">
+        <div>Peer ID:</div>
+        {pairId ? (
+          <div className="text-red-500">{pairId}</div>
+        ) : (
+          <div className="flex flex-row gap-1">
+            <span className="text-slate-500">Waiting for Peer</span>
+            <Icon
+              className="animate-spin text-slate-500 w-fit"
+              fa="fa-solid fa-spinner"
+              size={1}
+            />
+          </div>
+        )}
+      </div>
       <div className="flex flex-col h-full gap-1">
         <div className="flex flex-col border border-slate-200 flex-grow overflow-y-auto">
           {messages.map((msg) => {

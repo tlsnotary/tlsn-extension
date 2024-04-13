@@ -60,6 +60,7 @@ export const connectSession =
     socket.onmessage = async (event) => {
       const message: any = safeParseJSON(await event.data.text());
 
+      console.log(message);
       switch (message.method) {
         case 'client_connect': {
           const { clientId } = message.params;
