@@ -17,7 +17,7 @@ export default function Connect() {
     if (pairId && loading) {
       console.log('Connected to peer', pairId);
       setLoading(false);
-      navigate('/p2p');
+      navigate('/create-session');
     }
 
   }, [pairId]);
