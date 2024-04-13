@@ -1,10 +1,18 @@
-import React, { ReactElement } from 'react';
+import React, { ReactElement, useEffect } from 'react';
 import { useNavigate } from 'react-router';
+import { useDispatch } from 'react-redux';
+import { connectSession } from '../../reducers/p2p';
 
 type Props = {};
 
 export default function P2P(props: Props): ReactElement {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+
+  useEffect(() => {
+    dispatch(connectSession());
+  }, []);
+
   return (
     <div className="flex flex-col flex-nowrap flex-grow gap-2 m-4">
       <button
