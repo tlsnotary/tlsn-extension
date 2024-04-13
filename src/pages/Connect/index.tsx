@@ -50,7 +50,7 @@ export default function Connect() {
     return () => {
       socket.close();
     };
-  }, [messages]);
+  }, []);
 
   const fetchInviteLink = useCallback(async (): Promise<void> => {
     try {
@@ -83,7 +83,7 @@ export default function Connect() {
       const message: Messages = {
         text: input,
         from: 'me',
-        to: 'peer',
+        to: peerId,
         id: Math.random(),
       };
       socket.send(JSON.stringify(message));
@@ -103,13 +103,18 @@ export default function Connect() {
         {connectedToPeer ? (
           <div>
             <span className="text-green-500">Connected to peer</span>
+            <div  className="border border-solid border-gray-300">
+              <strong>Peer ID:</strong>
+              {peerId}
             {messages.map((message, index) => (
               <div key={index}>
                 <strong>{message.from} :</strong>
                 {message.text}
               </div>
             ))}
+            </div>
             <input
+            className="border border-solid border-gray-300"
               type="text"
               onChange={handleInputChange}
               onKeyDown={handleKeyPress}
