@@ -11,6 +11,7 @@ enum ActionType {
   '/p2p/setSocket' = '/p2p/setSocket',
   '/p2p/appendMessage' = '/p2p/appendMessage',
   '/p2p/setMessages' = '/p2p/setMessages',
+  '/p2p/setPairing' = '/p2p/setPairing',
 }
 
 type Action<payload> = {
@@ -22,6 +23,7 @@ type Action<payload> = {
 
 type State = {
   clientId: string;
+  pairing: string;
   socket: WebSocket | null;
   connected: boolean;
   messages: Chat[];
@@ -35,6 +37,7 @@ type Chat = {
 
 const initialState: State = {
   clientId: '',
+  pairing: '',
   socket: null,
   connected: false,
   messages: [],
@@ -74,6 +77,11 @@ export const connectSession =
           );
           break;
         }
+        case 'pair_request_confirm': {
+          const { from } = message.params;
+          dispatch(setPairing(from));
+          break;
+        }
         default:
           console.warn(`Unknown message type "${message.method}"`);
           break;
@@ -110,6 +118,11 @@ export const appendMessage = (message: Chat) => ({
   payload: message,
 });
 
+export const setPairing = (clientId: string) => ({
+  type: ActionType['/p2p/setPairing'],
+  payload: clientId,
+});
+
 let id = 1;
 export const sendChat =
   (message: Chat) =>
@@ -121,8 +134,53 @@ export const sendChat =
       socket.send(
         Buffer.from(
           JSON.stringify({
-            ...message,
-            id: id++,
+            method: 'chat',
+            params: {
+              ...message,
+              id: id++,
+            },
+          }),
+        ),
+      );
+    }
+  };
+export const sendPairRequest =
+  (target: string) =>
+  async (dispatch: Dispatch, getState: () => AppRootState) => {
+    const {
+      p2p: { socket, clientId },
+    } = getState();
+    if (socket && clientId) {
+      socket.send(
+        Buffer.from(
+          JSON.stringify({
+            method: 'pair_request',
+            params: {
+              from: clientId,
+              to: target,
+              id: id++,
+            },
+          }),
+        ),
+      );
+    }
+  };
+export const confirmPairRequest =
+  (target: string) =>
+  async (dispatch: Dispatch, getState: () => AppRootState) => {
+    const {
+      p2p: { socket, clientId },
+    } = getState();
+    if (socket && clientId) {
+      socket.send(
+        Buffer.from(
+          JSON.stringify({
+            method: 'pair_request_success',
+            params: {
+              from: clientId,
+              to: target,
+              id: id++,
+            },
           }),
         ),
       );
@@ -150,6 +208,11 @@ export default function p2p(state = initialState, action: Action<any>) {
       return {
         ...state,
         messages: action.payload,
+      };
+    case ActionType['/p2p/setPairing']:
+      return {
+        ...state,
+        pairing: action.payload,
       };
     case ActionType['/p2p/appendMessage']:
       return {
@@ -182,5 +245,11 @@ export function useConnected() {
 export function useChatMessages(): Chat[] {
   return useSelector((state: AppRootState) => {
     return state.p2p.messages;
+  }, deepEqual);
+}
+
+export function usePairId(): string {
+  return useSelector((state: AppRootState) => {
+    return state.p2p.pairing;
   }, deepEqual);
 }
