@@ -147,6 +147,7 @@ export const sendChat =
           }),
         ),
       );
+      dispatch(appendMessage(message));
     }
   };
 export const sendPairRequest =
