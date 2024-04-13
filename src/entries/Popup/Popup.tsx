@@ -21,8 +21,6 @@ import ProofUploader from '../../pages/ProofUploader';
 import Connect from '../../pages/Connect';
 import browser from 'webextension-polyfill';
 
-
-
 const Popup = () => {
   const dispatch = useDispatch();
   const activeTab = useActiveTab();
