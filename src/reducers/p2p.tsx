@@ -83,7 +83,7 @@ export const connectSession =
           dispatch(confirmPairRequest(from));
           break;
         }
-        case 'pair_request_confirm': {
+        case 'pair_request_success': {
           const { from } = message.params;
           dispatch(setPairing(from));
           break;
@@ -173,11 +173,12 @@ export const sendPairRequest =
     }
   };
 export const confirmPairRequest =
-  (target: string) =>
-  async (dispatch: Dispatch, getState: () => AppRootState) => {
+  (target: string) => (dispatch: Dispatch, getState: () => AppRootState) => {
     const {
       p2p: { socket, clientId },
     } = getState();
+
+    console.log({ target, clientId });
     if (socket && clientId) {
       socket.send(
         Buffer.from(
