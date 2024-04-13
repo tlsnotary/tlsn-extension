@@ -1,14 +1,19 @@
 import type {} from 'redux-thunk/extend-redux';
 import React, { ReactElement, useEffect } from 'react';
-import { connectSession, useClientId, useSocket } from '../../reducers/p2p';
+import {
+  connectSession,
+  useClientId,
+  useConnected,
+  useSocket,
+} from '../../reducers/p2p';
 import { useDispatch } from 'react-redux';
+import Icon from '../../components/Icon';
+import ChatBox from '../../components/ChatBox';
 
-type Props = {};
-
-export default function CreateSession(props: Props): ReactElement {
+export default function CreateSession(): ReactElement {
   const clientId = useClientId();
-  const socket = useSocket();
   const dispatch = useDispatch();
+  const connected = useConnected();
 
   useEffect(() => {
     dispatch(connectSession());
@@ -16,10 +21,19 @@ export default function CreateSession(props: Props): ReactElement {
 
   return (
     <div className="flex flex-col flex-nowrap flex-grow gap-1 p-2">
-      <div className="flex flex-row gap-2 font-semibold text-xs">
+      <div className="flex flex-row gap-1 font-semibold text-xs align-center">
         <div>Client ID:</div>
-        <div className="text-green-700">{clientId}</div>
+        {clientId ? (
+          <div className="text-green-500">{clientId}</div>
+        ) : (
+          <Icon
+            className="animate-spin text-gray-500"
+            fa="fa-solid fa-spinner"
+            size={1}
+          />
+        )}
       </div>
+      {connected && <ChatBox />}
     </div>
   );
 }

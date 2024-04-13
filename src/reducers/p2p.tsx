@@ -9,6 +9,8 @@ enum ActionType {
   '/p2p/setConnected' = '/p2p/setConnected',
   '/p2p/setClientId' = '/p2p/setClientId',
   '/p2p/setSocket' = '/p2p/setSocket',
+  '/p2p/appendMessage' = '/p2p/appendMessage',
+  '/p2p/setMessages' = '/p2p/setMessages',
 }
 
 type Action<payload> = {
@@ -22,12 +24,20 @@ type State = {
   clientId: string;
   socket: WebSocket | null;
   connected: boolean;
+  messages: Chat[];
+};
+
+type Chat = {
+  to: string;
+  from: string;
+  text: string;
 };
 
 const initialState: State = {
   clientId: '',
   socket: null,
   connected: false,
+  messages: [],
 };
 
 export const connectSession =
@@ -47,12 +57,21 @@ export const connectSession =
     socket.onmessage = async (event) => {
       const message: any = safeParseJSON(await event.data.text());
 
-      console.log(message);
-
       switch (message.method) {
         case 'client_connect': {
           const { clientId } = message.params;
           dispatch(setClientId(clientId));
+          break;
+        }
+        case 'chat': {
+          const { to, from, text } = message.params;
+          dispatch(
+            appendMessage({
+              to,
+              from,
+              text,
+            }),
+          );
           break;
         }
         default:
@@ -81,6 +100,35 @@ export const setSocket = (socket: WebSocket) => ({
   payload: socket,
 });
 
+export const setMessages = (messages: Chat[]) => ({
+  type: ActionType['/p2p/setMessages'],
+  payload: messages,
+});
+
+export const appendMessage = (message: Chat) => ({
+  type: ActionType['/p2p/appendMessage'],
+  payload: message,
+});
+
+let id = 1;
+export const sendChat =
+  (message: Chat) =>
+  async (dispatch: Dispatch, getState: () => AppRootState) => {
+    const {
+      p2p: { socket },
+    } = getState();
+    if (socket) {
+      socket.send(
+        Buffer.from(
+          JSON.stringify({
+            ...message,
+            id: id++,
+          }),
+        ),
+      );
+    }
+  };
+
 export default function p2p(state = initialState, action: Action<any>) {
   switch (action.type) {
     case ActionType['/p2p/setConnected']:
@@ -98,6 +146,16 @@ export default function p2p(state = initialState, action: Action<any>) {
         ...state,
         socket: action.payload,
       };
+    case ActionType['/p2p/setMessages']:
+      return {
+        ...state,
+        messages: action.payload,
+      };
+    case ActionType['/p2p/appendMessage']:
+      return {
+        ...state,
+        messages: state.messages.concat(action.payload),
+      };
     default:
       return state;
   }
@@ -112,5 +170,17 @@ export function useClientId() {
 export function useSocket() {
   return useSelector((state: AppRootState) => {
     return state.p2p.socket;
+  }, deepEqual);
+}
+
+export function useConnected() {
+  return useSelector((state: AppRootState) => {
+    return state.p2p.connected;
+  }, deepEqual);
+}
+
+export function useChatMessages(): Chat[] {
+  return useSelector((state: AppRootState) => {
+    return state.p2p.messages;
   }, deepEqual);
 }
