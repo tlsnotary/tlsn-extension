@@ -33,7 +33,6 @@ export default function Connect() {
     fetchInviteLink();
   }, [refresh])
 
-// receive some message from peer to check if connected
 
   return (
     <div className="flex flex-col justify-center items-center w-full">
