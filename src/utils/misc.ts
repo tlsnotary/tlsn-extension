@@ -108,3 +108,11 @@ export async function replayRequest(req: RequestLog): Promise<string> {
     return resp.blob().then((blob) => blob.text());
   }
 }
+
+export function safeParseJSON(data: string) {
+  try {
+    return JSON.parse(data);
+  } catch (e) {
+    return null;
+  }
+}
