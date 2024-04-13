@@ -8,6 +8,10 @@ import {
 import { useDispatch } from 'react-redux';
 import classNames from 'classnames';
 import Icon from '../Icon';
+import init, {
+  Prover,
+  Verifier,
+} from '../../../tlsn/tlsn/tlsn-wasm/pkg/tlsn_wasm';
 
 export default function ChatBox() {
   const messages = useChatMessages();
@@ -34,13 +38,52 @@ export default function ChatBox() {
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter' && text && pairId)  {
+      if (e.key === 'Enter' && text && pairId) {
         onSend();
         setText('');
       }
     },
     [text],
   );
+
+  const onIProve = useCallback(async () => {
+    await init();
+    const prover = new Prover({
+      id: 'test',
+      server_dns: 'swapi.dev',
+      max_sent_data: 1024,
+      max_received_data: 1024,
+    });
+    const request = {
+      method: 'GET',
+      uri: 'https://swapi.dev/api',
+      headers: {
+        Accept: '*',
+      },
+    };
+    await prover.setup(`ws://0.tcp.ngrok.io:14339?clientId=${pairId}-yeet`);
+    await prover.send_request(
+      'wss://notary.pse.dev/proxy?token=swapi.dev',
+      request,
+    );
+    const redact = {
+      sent: [],
+      received: [],
+    };
+    const resp = await prover.reveal(redact);
+    console.log(resp);
+  }, []);
+  const onIVerify = useCallback(async () => {
+    await init();
+    const verifier = new Verifier({
+      id: 'test',
+      max_sent_data: 1024,
+      max_received_data: 1024,
+    });
+    await verifier.connect(`ws://0.tcp.ngrok.io:14339?clientId=${pairId}-yeet`);
+    await verifier.verify();
+  }, [pairId]);
+
   const isClient = (msg: any) => {
     return msg.from === clientId;
   };
@@ -98,6 +141,24 @@ export default function ChatBox() {
             value={text}
             autoFocus
           />
+          <button
+            className={classNames('button', {
+              'button--primary': !!pairId,
+            })}
+            disabled={!pairId}
+            onClick={onIProve}
+          >
+            Prove
+          </button>
+          <button
+            className={classNames('button', {
+              'button--primary': !!pairId,
+            })}
+            disabled={!pairId}
+            onClick={onIVerify}
+          >
+            Verify
+          </button>
           <button
             className={classNames('button', {
               'button--primary': !!text && !!pairId,
