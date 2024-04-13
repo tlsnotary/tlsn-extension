@@ -34,7 +34,7 @@ export default function ChatBox() {
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter') {
+      if (e.key === 'Enter' && text && pairId)  {
         onSend();
         setText('');
       }
