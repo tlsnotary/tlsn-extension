@@ -9,6 +9,7 @@ import {
 export default function Options(): ReactElement {
   const [notary, setNotary] = useState('https://notary.pse.dev');
   const [proxy, setProxy] = useState('wss://notary.pse.dev/proxy');
+  const [rendezvous, setRendezvous] = useState('wss://notary.pse.dev/rendezvous');
   const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
@@ -53,6 +54,19 @@ export default function Options(): ReactElement {
             setDirty(true);
           }}
           value={proxy}
+        />
+      </div>
+      <div className="flex flex-col flex-nowrap py-1 px-2 gap-2">
+        <div className="font-semibold">Rendezvous API</div>
+        <input
+          type="text"
+          className="input border"
+          placeholder="wss://notary.pse.dev/rendezvous"
+          onChange={(e) => {
+            setRendezvous(e.target.value);
+            setDirty(true);
+          }}
+          value={rendezvous}
         />
       </div>
       <div className="flex flex-row flex-nowrap justify-end gap-2 p-2">
