@@ -49,7 +49,7 @@ export const connectSession =
 
     if (p2p.socket) return;
 
-    const socket = new WebSocket('ws://0.tcp.ngrok.io:14339');
+    const socket = new WebSocket('ws://0.tcp.ngrok.io:14339?clientId=hi');
 
     socket.onopen = () => {
       console.log('Connected to websocket');
