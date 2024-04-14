@@ -3,6 +3,8 @@ import { AppRootState } from './index';
 import deepEqual from 'fast-deep-equal';
 import { safeParseJSON } from '../utils/misc';
 import { Dispatch } from 'redux';
+import { RENDEZVOUS_API } from '../utils/constants';
+import { PluginParams } from '../components/PluginDisplayBox';
 
 enum ActionType {
   '/p2p/createSession' = '/p2p/createSession',
@@ -26,13 +28,23 @@ type State = {
   pairing: string;
   socket: WebSocket | null;
   connected: boolean;
-  messages: Chat[];
+  messages: (Chat | RequestProofMessage)[];
 };
 
-type Chat = {
+export type Chat = {
   to: string;
   from: string;
   text: string;
+  id: number;
+  plugin?: undefined;
+};
+
+export type RequestProofMessage = {
+  to: string;
+  from: string;
+  plugin: PluginParams;
+  id: number;
+  text?: undefined;
 };
 
 const initialState: State = {
@@ -49,7 +61,7 @@ export const connectSession =
 
     if (p2p.socket) return;
 
-    const socket = new WebSocket('ws://0.tcp.ngrok.io:14339');
+    const socket = new WebSocket(RENDEZVOUS_API);
 
     socket.onopen = () => {
       console.log('Connected to websocket');
@@ -60,7 +72,6 @@ export const connectSession =
     socket.onmessage = async (event) => {
       const message: any = safeParseJSON(await event.data.text());
 
-      console.log(message);
       switch (message.method) {
         case 'client_connect': {
           const { clientId } = message.params;
@@ -68,12 +79,25 @@ export const connectSession =
           break;
         }
         case 'chat': {
-          const { to, from, text } = message.params;
+          const { to, from, text, id } = message.params;
           dispatch(
             appendMessage({
               to,
               from,
               text,
+              id,
+            }),
+          );
+          break;
+        }
+        case 'request_proof': {
+          const { to, from, plugin, id } = message.params;
+          dispatch(
+            appendMessage({
+              to,
+              from,
+              plugin,
+              id,
             }),
           );
           break;
@@ -119,7 +143,7 @@ export const setMessages = (messages: Chat[]) => ({
   payload: messages,
 });
 
-export const appendMessage = (message: Chat) => ({
+export const appendMessage = (message: Chat | RequestProofMessage) => ({
   type: ActionType['/p2p/appendMessage'],
   payload: message,
 });
@@ -131,44 +155,69 @@ export const setPairing = (clientId: string) => ({
 
 let id = 1;
 export const sendChat =
-  (message: Chat) =>
+  (message: Omit<Chat, 'id'>) =>
   async (dispatch: Dispatch, getState: () => AppRootState) => {
     const {
       p2p: { socket },
     } = getState();
+    const reqId = id++;
+    const params = {
+      ...message,
+      id: reqId,
+    };
+
     if (socket) {
       socket.send(
-        Buffer.from(
-          JSON.stringify({
-            method: 'chat',
-            params: {
-              ...message,
-              id: id++,
-            },
-          }),
-        ),
+        bufferify({
+          method: 'chat',
+          params,
+        }),
       );
-      dispatch(appendMessage(message));
+      dispatch(appendMessage(params));
     }
   };
+
+export const requestProof =
+  (message: Omit<RequestProofMessage, 'id'>) =>
+  async (dispatch: Dispatch, getState: () => AppRootState) => {
+    const {
+      p2p: { socket },
+    } = getState();
+    const reqId = id++;
+    const params = {
+      ...message,
+      id: reqId,
+    };
+
+    if (socket) {
+      socket.send(
+        bufferify({
+          method: 'request_proof',
+          params,
+        }),
+      );
+      dispatch(appendMessage(params));
+    }
+  };
+
 export const sendPairRequest =
   (target: string) =>
   async (dispatch: Dispatch, getState: () => AppRootState) => {
     const {
       p2p: { socket, clientId },
     } = getState();
+    const reqId = id++;
+
     if (socket && clientId) {
       socket.send(
-        Buffer.from(
-          JSON.stringify({
-            method: 'pair_request',
-            params: {
-              from: clientId,
-              to: target,
-              id: id++,
-            },
-          }),
-        ),
+        bufferify({
+          method: 'pair_request',
+          params: {
+            from: clientId,
+            to: target,
+            id: reqId,
+          },
+        }),
       );
     }
   };
@@ -178,19 +227,18 @@ export const confirmPairRequest =
       p2p: { socket, clientId },
     } = getState();
 
-    console.log({ target, clientId });
+    const reqId = id++;
+
     if (socket && clientId) {
       socket.send(
-        Buffer.from(
-          JSON.stringify({
-            method: 'pair_request_success',
-            params: {
-              from: clientId,
-              to: target,
-              id: id++,
-            },
-          }),
-        ),
+        bufferify({
+          method: 'pair_request_success',
+          params: {
+            from: clientId,
+            to: target,
+            id: reqId,
+          },
+        }),
       );
       dispatch(setPairing(target));
     }
@@ -251,7 +299,7 @@ export function useConnected() {
   }, deepEqual);
 }
 
-export function useChatMessages(): Chat[] {
+export function useChatMessages(): (Chat | RequestProofMessage)[] {
   return useSelector((state: AppRootState) => {
     return state.p2p.messages;
   }, deepEqual);
@@ -261,4 +309,8 @@ export function usePairId(): string {
   return useSelector((state: AppRootState) => {
     return state.p2p.pairing;
   }, deepEqual);
+}
+
+function bufferify(data: any): Buffer {
+  return Buffer.from(JSON.stringify(data));
 }

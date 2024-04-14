@@ -50,7 +50,7 @@ export function ModalHeader(props: HeaderProps): ReactElement {
           <div
             className={classNames(
               'flex flex-row items-center justify-center',
-              'p-2 rounded-full opacity-50',
+              'rounded-full opacity-50',
               'hover:opacity-100 text-black',
             )}
           >

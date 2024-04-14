@@ -1,5 +1,8 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
+  Chat,
+  requestProof,
+  RequestProofMessage,
   sendChat,
   useChatMessages,
   useClientId,
@@ -12,6 +15,9 @@ import init, {
   Prover,
   Verifier,
 } from '../../../tlsn/tlsn/tlsn-wasm/pkg/tlsn_wasm';
+import { RENDEZVOUS_API } from '../../utils/constants';
+import PluginModal from '../PluginModal';
+import PluginDisplayBox, { PluginParams } from '../PluginDisplayBox';
 
 export default function ChatBox() {
   const messages = useChatMessages();
@@ -19,6 +25,7 @@ export default function ChatBox() {
   const clientId = useClientId();
   const [text, setText] = useState('');
   const pairId = usePairId();
+  const [showingPluginModal, showPluginModal] = useState(false);
 
   const onSend = useCallback(() => {
     if (text && pairId) {
@@ -29,12 +36,8 @@ export default function ChatBox() {
           to: pairId,
         }),
       );
-
-      setText('');
-
-      console.log('after sending');
     }
-  }, [text, pairId]);
+  }, [text, pairId, clientId]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -61,7 +64,7 @@ export default function ChatBox() {
         Accept: '*',
       },
     };
-    await prover.setup(`ws://0.tcp.ngrok.io:14339?clientId=${pairId}`);
+    await prover.setup(`${RENDEZVOUS_API}?clientId=${pairId}`);
     await prover.send_request(
       'wss://notary.pse.dev/proxy?token=swapi.dev',
       request,
@@ -73,6 +76,7 @@ export default function ChatBox() {
     const resp = await prover.reveal(redact);
     console.log(resp, redact);
   }, []);
+
   const onIVerify = useCallback(async () => {
     await init();
     const verifier = new Verifier({
@@ -80,9 +84,23 @@ export default function ChatBox() {
       max_sent_data: 1024,
       max_received_data: 1024,
     });
-    await verifier.connect(`ws://0.tcp.ngrok.io:14339?clientId=${pairId}`);
+    await verifier.connect(`${RENDEZVOUS_API}?clientId=${pairId}`);
     await verifier.verify();
   }, [pairId]);
+
+  const onRequestProof = useCallback(
+    async (plugin: PluginParams) => {
+      dispatch(
+        requestProof({
+          plugin,
+          from: clientId,
+          to: pairId,
+        }),
+      );
+      showPluginModal(false);
+    },
+    [clientId, pairId],
+  );
 
   const isClient = (msg: any) => {
     return msg.from === clientId;
@@ -90,6 +108,12 @@ export default function ChatBox() {
 
   return (
     <div className="flex flex-col flex-nowrap flex-grow gap-1 p-2 flex-shrink h-0 ">
+      {showingPluginModal && (
+        <PluginModal
+          onClose={() => showPluginModal(false)}
+          onSelect={onRequestProof}
+        />
+      )}
       <div className="flex flex-row gap-1 font-semibold text-xs align-center">
         <div>Client ID:</div>
         {clientId ? (
@@ -118,17 +142,34 @@ export default function ChatBox() {
         )}
       </div>
       <div className="flex flex-col flex-grow flex-shrink h-0 gap-1">
-        <div className="flex flex-col border gap-1 border-slate-200 flex-grow overflow-y-auto">
-          {messages.map((msg) => {
+        <div className="flex flex-col border gap-1 border-slate-200 flex-grow overflow-y-auto p-2">
+          {messages.map((msg: Chat | RequestProofMessage) => {
             return (
               <div
-                className={`rounded-lg p-2 max-w-[50%] break-all ${isClient(msg) ? 'mr-auto  bg-blue-600' : 'ml-auto bg-slate-300'}`}
+                className={classNames(`p-2 max-w-[50%] break-all`, {
+                  'mr-auto bg-blue-600  rounded-t-lg rounded-br-lg':
+                    isClient(msg),
+                  'ml-auto bg-slate-300 rounded-b-lg rounded-tl-lg':
+                    !isClient(msg),
+                })}
               >
-                <div
-                  className={`${isClient(msg) ? 'text-white' : 'text-black'}`}
-                >
-                  {msg.text}
-                </div>
+                {typeof msg.text === 'string' && (
+                  <div
+                    className={`${isClient(msg) ? 'text-white' : 'text-black'}`}
+                  >
+                    {msg.text}
+                  </div>
+                )}
+                {typeof msg.plugin !== 'undefined' && (
+                  <div
+                    className={`${isClient(msg) ? 'text-white' : 'text-black'}`}
+                  >
+                    <PluginDisplayBox
+                      {...msg.plugin}
+                      hideAction={isClient(msg)}
+                    />
+                  </div>
+                )}
               </div>
             );
           })}
@@ -145,19 +186,10 @@ export default function ChatBox() {
             className={classNames('button', {
               'button--primary': !!pairId,
             })}
-            disabled={!pairId}
-            onClick={onIProve}
+            // disabled={!pairId}
+            onClick={() => showPluginModal(true)}
           >
-            Prove
-          </button>
-          <button
-            className={classNames('button', {
-              'button--primary': !!pairId,
-            })}
-            disabled={!pairId}
-            onClick={onIVerify}
-          >
-            Verify
+            Request Proof
           </button>
           <button
             className={classNames('button', {
