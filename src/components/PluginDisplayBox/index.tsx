@@ -1,7 +1,7 @@
 import { replayRequest, urlify } from '../../utils/misc';
 import { get, NOTARY_API_LS_KEY, PROXY_API_LS_KEY } from '../../utils/storage';
 import { notarizeRequest, useRequests } from '../../reducers/requests';
-import React, { ReactElement } from 'react';
+import React, { ReactElement, useCallback } from 'react';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router';
 import classNames from 'classnames';
@@ -21,6 +21,7 @@ type Props = PluginParams & {
   className?: string;
   hideAction?: boolean;
   onClick?: () => void;
+  onNotarize?: () => Promise<void>;
 };
 
 export default function PluginDisplayBox(props: Props): ReactElement {
@@ -49,6 +50,79 @@ export default function PluginDisplayBox(props: Props): ReactElement {
   const bmHost = urlify(targetUrl)?.host;
   const isReady = !!reqs.length;
 
+  const onNotarize = useCallback(async () => {
+    if (!isReady) return;
+
+    const req = reqs[0];
+    const res = await replayRequest(req);
+    const secretHeaders = req.requestHeaders
+      .map((h) => {
+        return `${h.name.toLowerCase()}: ${h.value || ''}` || '';
+      })
+      .filter((d) => !!d);
+    const selectedValue = res.match(new RegExp(responseSelector, 'g'));
+
+    if (selectedValue) {
+      const revealed = valueTransform.replace('%s', selectedValue[0]);
+      const selectionStart = res.indexOf(revealed);
+      const selectionEnd = selectionStart + revealed.length - 1;
+      const secretResps = [
+        res.substring(0, selectionStart),
+        res.substring(selectionEnd, res.length),
+      ].filter((d) => !!d);
+
+      const hostname = urlify(req.url)?.hostname;
+      const notaryUrl = await get(
+        NOTARY_API_LS_KEY,
+        'https://notary.pse.dev/v0.1.0-alpha.5',
+      );
+      const websocketProxyUrl = await get(
+        PROXY_API_LS_KEY,
+        'wss://notary.pse.dev/proxy',
+      );
+
+      const headers: { [k: string]: string } = req.requestHeaders.reduce(
+        (acc: any, h) => {
+          acc[h.name] = h.value;
+          return acc;
+        },
+        { Host: hostname },
+      );
+
+      //TODO: for some reason, these needs to be override to work
+      headers['Accept-Encoding'] = 'identity';
+      headers['Connection'] = 'close';
+
+      dispatch(
+        // @ts-ignore
+        notarizeRequest({
+          url: req.url,
+          method: req.method,
+          headers: headers,
+          body: req.requestBody,
+          maxTranscriptSize: 16384,
+          notaryUrl,
+          websocketProxyUrl,
+          secretHeaders,
+          secretResps,
+        }),
+      );
+
+      navigate(`/history`);
+    }
+  }, [
+    isReady,
+    reqs[0],
+    method,
+    type,
+    title,
+    description,
+    responseSelector,
+    valueTransform,
+    targetUrl,
+    url,
+  ]);
+
   return (
     <div
       className={classNames('flex flex-col flex-nowrap p-2 gap-1', className)}
@@ -65,62 +139,7 @@ export default function PluginDisplayBox(props: Props): ReactElement {
       {isReady && !hideAction && (
         <button
           className="button button--primary w-fit self-end mt-2"
-          onClick={async () => {
-            if (!isReady) return;
-
-            const req = reqs[0];
-            const res = await replayRequest(req);
-            const secretHeaders = req.requestHeaders
-              .map((h) => {
-                return `${h.name.toLowerCase()}: ${h.value || ''}` || '';
-              })
-              .filter((d) => !!d);
-            const selectedValue = res.match(new RegExp(responseSelector, 'g'));
-
-            if (selectedValue) {
-              const revealed = valueTransform.replace('%s', selectedValue[0]);
-              const selectionStart = res.indexOf(revealed);
-              const selectionEnd = selectionStart + revealed.length - 1;
-              const secretResps = [
-                res.substring(0, selectionStart),
-                res.substring(selectionEnd, res.length),
-              ].filter((d) => !!d);
-
-              const hostname = urlify(req.url)?.hostname;
-              const notaryUrl = await get(NOTARY_API_LS_KEY);
-              const websocketProxyUrl = await get(PROXY_API_LS_KEY);
-
-              const headers: { [k: string]: string } =
-                req.requestHeaders.reduce(
-                  (acc: any, h) => {
-                    acc[h.name] = h.value;
-                    return acc;
-                  },
-                  { Host: hostname },
-                );
-
-              //TODO: for some reason, these needs to be override to work
-              headers['Accept-Encoding'] = 'identity';
-              headers['Connection'] = 'close';
-
-              dispatch(
-                // @ts-ignore
-                notarizeRequest({
-                  url: req.url,
-                  method: req.method,
-                  headers: headers,
-                  body: req.requestBody,
-                  maxTranscriptSize: 16384,
-                  notaryUrl,
-                  websocketProxyUrl,
-                  secretHeaders,
-                  secretResps,
-                }),
-              );
-
-              navigate(`/history`);
-            }
-          }}
+          onClick={props.onNotarize || onNotarize}
         >
           Notarize
         </button>

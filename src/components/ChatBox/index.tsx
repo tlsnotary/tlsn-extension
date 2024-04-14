@@ -18,6 +18,9 @@ import init, {
 import { RENDEZVOUS_API } from '../../utils/constants';
 import PluginModal from '../PluginModal';
 import PluginDisplayBox, { PluginParams } from '../PluginDisplayBox';
+import { get, PROXY_API_LS_KEY } from '../../utils/storage';
+import { urlify } from '../../utils/misc';
+import { useRequests } from '../../reducers/requests';
 
 export default function ChatBox() {
   const messages = useChatMessages();
@@ -26,6 +29,7 @@ export default function ChatBox() {
   const [text, setText] = useState('');
   const pairId = usePairId();
   const [showingPluginModal, showPluginModal] = useState(false);
+  const requests = useRequests();
 
   const onSend = useCallback(() => {
     if (text && pairId) {
@@ -49,47 +53,74 @@ export default function ChatBox() {
     [text],
   );
 
-  const onIProve = useCallback(async () => {
-    await init();
-    const prover = new Prover({
-      id: 'test',
-      server_dns: 'swapi.dev',
-      max_sent_data: 1024,
-      max_received_data: 1024,
-    });
-    const request = {
-      method: 'GET',
-      uri: 'https://swapi.dev/api',
-      headers: {
-        Accept: '*',
-      },
-    };
-    await prover.setup(`${RENDEZVOUS_API}?clientId=${pairId}`);
-    await prover.send_request(
-      'wss://notary.pse.dev/proxy?token=swapi.dev',
-      request,
-    );
-    const redact = {
-      sent: [],
-      received: [],
-    };
-    const resp = await prover.reveal(redact);
-    console.log(resp, redact);
-  }, []);
+  const onIProve = useCallback(
+    async (config: {
+      method: string;
+      uri: string;
+      headers: { [key: string]: string };
+    }) => {
+      await init();
+      const websocketProxyUrl = await get(
+        PROXY_API_LS_KEY,
+        'wss://notary.pse.dev/proxy',
+      );
+      const hostname = urlify(config.uri)?.hostname || '';
+      const prover = new Prover({
+        id: 'p2p_proof',
+        server_dns: hostname,
+        // max_sent_data: 1024,
+        // max_received_data: 1024,
+      });
+      await prover.setup(`${RENDEZVOUS_API}?clientId=${pairId}:proof`);
+      console.log('yooooooooo;', `${websocketProxyUrl}?token=${hostname}`);
+      await prover.send_request(
+        `${websocketProxyUrl}?token=${hostname}`,
+        config,
+      );
+      const redact = {
+        sent: [],
+        received: [],
+      };
+      const resp = await prover.reveal(redact);
+      console.log(resp, redact);
+    },
+    [],
+  );
 
-  const onIVerify = useCallback(async () => {
-    await init();
-    const verifier = new Verifier({
-      id: 'test',
-      max_sent_data: 1024,
-      max_received_data: 1024,
-    });
-    await verifier.connect(`${RENDEZVOUS_API}?clientId=${pairId}`);
-    await verifier.verify();
-  }, [pairId]);
+  const onNotarize = useCallback(
+    async (url: string) => {
+      const reqs = requests.filter((req) => {
+        return req?.url?.includes(url);
+      });
+      const req = reqs[0];
+      const hostname = urlify(req.url)?.hostname || '';
+      const headers: { [k: string]: string } = req.requestHeaders.reduce(
+        (acc: any, h) => {
+          acc[h.name] = h.value;
+          return acc;
+        },
+        { Host: hostname },
+      );
+      headers['Accept-Encoding'] = 'identity';
+      headers['Connection'] = 'close';
+      onIProve({
+        method: req.method,
+        uri: req.url,
+        headers: headers,
+      });
+    },
+    [onIProve],
+  );
 
   const onRequestProof = useCallback(
     async (plugin: PluginParams) => {
+      await init();
+      const verifier = new Verifier({
+        id: 'p2p_proof',
+        // max_sent_data: 1024,
+        // max_received_data: 1024,
+      });
+      await verifier.connect(`${RENDEZVOUS_API}?clientId=${pairId}:proof`);
       dispatch(
         requestProof({
           plugin,
@@ -98,6 +129,8 @@ export default function ChatBox() {
         }),
       );
       showPluginModal(false);
+      const res = await verifier.verify();
+      console.log(res);
     },
     [clientId, pairId],
   );
@@ -167,6 +200,7 @@ export default function ChatBox() {
                     <PluginDisplayBox
                       {...msg.plugin}
                       hideAction={isClient(msg)}
+                      onNotarize={() => onNotarize(msg.plugin.url)}
                     />
                   </div>
                 )}
