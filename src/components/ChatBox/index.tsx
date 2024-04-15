@@ -71,8 +71,7 @@ export default function ChatBox() {
         // max_sent_data: 1024,
         // max_received_data: 1024,
       });
-      await prover.setup(`${RENDEZVOUS_API}?clientId=${pairId}:proof`);
-      console.log('yooooooooo;', `${websocketProxyUrl}?token=${hostname}`);
+      await prover.setup(`${RENDEZVOUS_API}?clientId=${clientId}:proof`);
       await prover.send_request(
         `${websocketProxyUrl}?token=${hostname}`,
         config,
@@ -84,7 +83,7 @@ export default function ChatBox() {
       const resp = await prover.reveal(redact);
       console.log(resp, redact);
     },
-    [],
+    [clientId, pairId],
   );
 
   const onNotarize = useCallback(
@@ -120,7 +119,7 @@ export default function ChatBox() {
         // max_sent_data: 1024,
         // max_received_data: 1024,
       });
-      await verifier.connect(`${RENDEZVOUS_API}?clientId=${pairId}:proof`);
+      await verifier.connect(`${RENDEZVOUS_API}?clientId=${clientId}:proof`);
       dispatch(
         requestProof({
           plugin,
@@ -131,6 +130,13 @@ export default function ChatBox() {
       showPluginModal(false);
       const res = await verifier.verify();
       console.log(res);
+      dispatch(
+        sendChat({
+          text: JSON.stringify(res),
+          from: clientId,
+          to: pairId,
+        }),
+      );
     },
     [clientId, pairId],
   );
