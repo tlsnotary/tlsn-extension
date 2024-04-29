@@ -23,6 +23,8 @@ import {
   getProxyApi,
 } from '../../utils/storage';
 import createPlugin, { CallContext } from '@extism/extism';
+// @ts-ignore
+import twitterProfilePlugin from '../../../plugins/twitter_profile/index.wasm';
 
 export default function Home(): ReactElement {
   const requests = useRequests();
@@ -35,36 +37,44 @@ export default function Home(): ReactElement {
       req.url.includes('https://api.twitter.com/1.1/account/settings.json'),
     )[0] || {};
 
-  const plugin = useCallback(
-    async (name: string) => {
-      const config = {
-        ...twReq.requestHeaders.reduce((acc: { [k: string]: string }, r) => {
-          if (r.name && r.value) {
-            acc[r.name] = r.value;
-          }
-          return acc;
-        }, {}),
-      };
-      const p = await createPlugin(
-        'http://localhost:61853/twitter_profile/index.wasm',
-        {
-          useWasi: true,
-          config,
-          functions: {
-            'extism:host/user': {
-              get_response: (context: CallContext, off: bigint) => {
-                const executed = context.read(off)?.string();
-                return context.store('wow okay then');
-              },
+  const plugin = useCallback(async () => {
+    const config = {
+      ...twReq.requestHeaders?.reduce((acc: { [k: string]: string }, r) => {
+        if (r.name && r.value) {
+          acc[r.name] = r.value;
+        }
+        return acc;
+      }, {}),
+    };
+
+    const p = await createPlugin(
+      'http://localhost:61853/twitter_profile/index.wasm',
+      {
+        useWasi: true,
+        config,
+        functions: {
+          'extism:host/user': {
+            get_response: (context: CallContext, off: bigint) => {
+              const r = context.read(off);
+              const param = r.text();
+              console.log({ param });
+              return context.store('yo');
+            },
+            has_request_uri: (context: CallContext, off: bigint) => {
+              const r = context.read(off);
+              const requestUri = r.text();
+              const req = requests.filter((req) =>
+                req.url.includes(requestUri),
+              )[0];
+              return context.store(JSON.stringify(req));
             },
           },
         },
-      );
-      const out = await p.call('plugin', name);
-      console.log(out.text());
-    },
-    [JSON.stringify(twReq)],
-  );
+      },
+    );
+    const out = await p.call('plugin');
+    console.log(out.string());
+  }, [JSON.stringify(twReq), requests]);
 
   return (
     <div className="flex flex-col gap-4 py-4 overflow-y-auto">
@@ -104,7 +114,7 @@ export default function Home(): ReactElement {
       )}
       <div className="flex flex-col px-4 gap-4">
         <h1>Plugins</h1>
-        <button className="button" onClick={() => plugin('tsukino')}>
+        <button className="button" onClick={plugin}>
           Test Plugin
         </button>
       </div>
@@ -171,7 +181,7 @@ export default function Home(): ReactElement {
                         const maxSent = await getMaxSent();
                         const maxRecv = await getMaxRecv();
                         const headers: { [k: string]: string } =
-                          req.requestHeaders.reduce(
+                          req.requestHeaders?.reduce(
                             (acc: any, h) => {
                               acc[h.name] = h.value;
                               return acc;
