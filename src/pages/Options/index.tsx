@@ -8,6 +8,7 @@ import {
   MAX_RECEIVED_LS_KEY,
 } from '../../utils/storage';
 import {
+  EXPLORER_API,
   NOTARY_API,
   NOTARY_PROXY,
   MAX_RECV,
@@ -21,17 +22,16 @@ export default function Options(): ReactElement {
   const [dirty, setDirty] = useState(false);
   const [isAdvanced, setIsAdvanced] = useState(false);
 
-  const [maxSent, setMaxSent] = useState(parseInt(MAX_SENT));
-  const [maxReceived, setMaxReceived] = useState<number>(parseInt(MAX_RECV));
+  const [maxSent, setMaxSent] = useState(MAX_SENT);
+  const [maxReceived, setMaxReceived] = useState<number>(MAX_RECV);
 
   useEffect(() => {
     const fetchSettings = async () => {
       const storedNotary = (await get(NOTARY_API_LS_KEY)) || NOTARY_API;
       const storedProxy = (await get(PROXY_API_LS_KEY)) || NOTARY_PROXY;
       const storedMaxReceived =
-        parseInt(await get(MAX_RECEIVED_LS_KEY)) || parseInt(MAX_RECV);
-      const storedMaxSent =
-        parseInt(await get(MAX_SENT_LS_KEY)) || parseInt(MAX_SENT);
+        parseInt(await get(MAX_RECEIVED_LS_KEY)) || MAX_RECV;
+      const storedMaxSent = parseInt(await get(MAX_SENT_LS_KEY)) || MAX_SENT;
 
       setNotary(storedNotary);
       setProxy(storedProxy);
@@ -63,44 +63,20 @@ export default function Options(): ReactElement {
         </button>
       </div>
       {!isAdvanced ? (
-        <div>
-          <InputField
-            label="Notary API"
-            placeholder="https://api.tlsnotary.org"
-            value={notary}
-            onChange={(e) => {
-              setNotary(e.target.value);
-              setDirty(true);
-            }}
-          />
-          <InputField
-            label="Proxy API"
-            placeholder="https://proxy.tlsnotary.org"
-            value={proxy}
-            onChange={(e) => {
-              setProxy(e.target.value);
-              setDirty(true);
-            }}
-          />
-          <div className="flex flex-col flex-nowrap py-1 px-2 gap-2">
-            <div className="font-semibold">Explorer URL</div>
-            <div className="input border">https://explorer.tlsnotary.org</div>
-          </div>
-          <div className="flex flex-row flex-nowrap justify-end gap-2 p-2">
-            <button
-              className="button !bg-primary/[0.9] hover:bg-primary/[0.8] active:bg-primary !text-white"
-              disabled={!dirty}
-              onClick={onSave}
-            >
-              Save
-            </button>
-          </div>
-        </div>
+        <NormalOptions
+          notary={notary}
+          setNotary={setNotary}
+          proxy={proxy}
+          setProxy={setProxy}
+          dirty={dirty}
+          setDirty={setDirty}
+          onSave={onSave}
+        />
       ) : (
         <AdvancedOptions
           maxSent={maxSent}
-          maxReceived={maxReceived}
           setMaxSent={setMaxSent}
+          maxReceived={maxReceived}
           setMaxReceived={setMaxReceived}
           dirty={dirty}
           setDirty={setDirty}
@@ -115,7 +91,7 @@ function InputField(props: {
   label: string;
   placeholder: string;
   value: string;
-  type?: string;
+  type: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }) {
   const { label, placeholder, value, type, onChange } = props;
@@ -134,10 +110,60 @@ function InputField(props: {
   );
 }
 
+function NormalOptions(props: {
+  notary: string;
+  setNotary: (value: string) => void;
+  proxy: string;
+  setProxy: (value: string) => void;
+  dirty: boolean;
+  setDirty: (value: boolean) => void;
+  onSave: () => void;
+}) {
+  const { notary, setNotary, proxy, setProxy, dirty, setDirty, onSave } = props;
+
+  return (
+    <div>
+      <InputField
+        label="Notary API"
+        placeholder="https://api.tlsnotary.org"
+        value={notary}
+        type="text"
+        onChange={(e) => {
+          setNotary(e.target.value);
+          setDirty(true);
+        }}
+      />
+      <InputField
+        label="Proxy API"
+        placeholder="https://proxy.tlsnotary.org"
+        value={proxy}
+        type="text"
+        onChange={(e) => {
+          setProxy(e.target.value);
+          setDirty(true);
+        }}
+      />
+      <div className="flex flex-col flex-nowrap py-1 px-2 gap-2">
+        <div className="font-semibold">Explorer URL</div>
+        <div className="input border">{EXPLORER_API}</div>
+      </div>
+      <div className="flex flex-row flex-nowrap justify-end gap-2 p-2">
+        <button
+          className="button !bg-primary/[0.9] hover:bg-primary/[0.8] active:bg-primary !text-white"
+          disabled={!dirty}
+          onClick={onSave}
+        >
+          Save
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function AdvancedOptions(props: {
   maxSent: number;
-  maxReceived: number;
   setMaxSent: (value: number) => void;
+  maxReceived: number;
   setMaxReceived: (value: number) => void;
   dirty: boolean;
   setDirty: (value: boolean) => void;
@@ -145,8 +171,8 @@ function AdvancedOptions(props: {
 }) {
   const {
     maxSent,
-    maxReceived,
     setMaxSent,
+    maxReceived,
     setMaxReceived,
     dirty,
     setDirty,
