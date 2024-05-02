@@ -1,9 +1,27 @@
+![MIT licensed][mit-badge]
+![Apache licensed][apache-badge]
+[![Build Status][actions-badge]][actions-url]
+
+[mit-badge]: https://img.shields.io/badge/license-MIT-blue.svg
+[apache-badge]: https://img.shields.io/github/license/saltstack/salt
+[actions-badge]: https://github.com/tlsnotary/tlsn-extension/actions/workflows/build.yaml/badge.svg
+[actions-url]: https://github.com/tlsnotary/tlsn-extension/actions?query=workflow%3Abuild+branch%3Amain++
+
 <img src="src/assets/img/icon-128.png" width="64"/>
 
 # Chrome Extension (MV3) for TLSNotary
 
-### ⚠️ Notice
-- When running the extension against a [notary server](https://github.com/tlsnotary/tlsn/tree/dev/notary-server), please ensure that the server's version is the same as the version of this extension
+> [!IMPORTANT]
+> ⚠️ When running the extension against a [notary server](https://github.com/tlsnotary/tlsn/tree/dev/notary-server), please ensure that the server's version is the same as the version of this extension
+
+## License
+This repository is licensed under either of
+
+- [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0)
+- [MIT license](http://opensource.org/licenses/MIT)
+
+at your option.
+
 
 ## Installing and Running
 
