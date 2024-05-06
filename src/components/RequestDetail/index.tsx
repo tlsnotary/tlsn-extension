@@ -17,7 +17,15 @@ import {
 } from 'react-router';
 import Icon from '../Icon';
 import NavigateWithParams from '../NavigateWithParams';
-import { get, NOTARY_API_LS_KEY, PROXY_API_LS_KEY } from '../../utils/storage';
+import {
+  get,
+  NOTARY_API_LS_KEY,
+  PROXY_API_LS_KEY,
+  MAX_SENT_LS_KEY,
+  MAX_RECEIVED_LS_KEY,
+  set,
+} from '../../utils/storage';
+import { MAX_RECV, MAX_SENT } from '../../utils/constants';
 import { urlify } from '../../utils/misc';
 
 type Props = {
@@ -54,6 +62,9 @@ export default function RequestDetail(props: Props): ReactElement {
         <RequestDetailsHeaderTab path="/response">
           Response
         </RequestDetailsHeaderTab>
+        <RequestDetailsHeaderTab path="/advanced">
+          Advanced
+        </RequestDetailsHeaderTab>
         <button
           className="absolute right-2 bg-primary/[0.9] text-white font-bold px-2 py-0.5 hover:bg-primary/[0.8] active:bg-primary"
           onClick={notarize}
@@ -73,6 +84,10 @@ export default function RequestDetail(props: Props): ReactElement {
         <Route
           path="response"
           element={<WebResponse requestId={props.requestId} />}
+        />
+        <Route
+          path="advanced"
+          element={<AdvancedOptions requestId={props.requestId} />}
         />
         <Route path="/" element={<NavigateWithParams to="/headers" />} />
       </Routes>
@@ -97,6 +112,67 @@ function RequestDetailsHeaderTab(props: {
       onClick={() => navigate('/requests/' + params.requestId + props.path)}
     >
       {props.children}
+    </div>
+  );
+}
+
+function AdvancedOptions(props: Props): ReactElement {
+  const [maxSent, setMaxSent] = useState(MAX_SENT);
+  const [maxRecv, setMaxRecv] = useState(MAX_RECV);
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      const storedMaxReceived =
+        parseInt(await get(MAX_RECEIVED_LS_KEY)) || MAX_RECV;
+      const storedMaxSent = parseInt(await get(MAX_SENT_LS_KEY)) || MAX_SENT;
+
+      setMaxRecv(storedMaxReceived);
+      setMaxSent(storedMaxSent);
+    };
+
+    fetchSettings();
+  }, []);
+
+  const onSave = useCallback(async () => {
+    await set(MAX_RECEIVED_LS_KEY, maxRecv.toString());
+    await set(MAX_SENT_LS_KEY, maxSent.toString());
+    setDirty(false);
+  }, [maxSent, maxRecv]);
+
+  return (
+    <div className="flex flex-col flex-nowrap py-1 px-2 gap-2">
+      <div className="font-semibold">Max Sent Data</div>
+      <input
+        type="number"
+        className="input border"
+        value={maxSent}
+        placeholder={maxSent.toString()}
+        onChange={(e) => {
+          setMaxSent(parseInt(e.target.value));
+          setDirty(true);
+        }}
+      />
+      <div className="font-semibold">Max Received Data</div>
+      <input
+        type="number"
+        className="input border"
+        value={maxRecv}
+        placeholder={maxRecv.toString()}
+        onChange={(e) => {
+          setMaxRecv(parseInt(e.target.value));
+          setDirty(true);
+        }}
+      />
+      <div className="flex flex-row flex-nowrap justify-end gap-2 p-2">
+        <button
+          className="button !bg-primary/[0.9] hover:bg-primary/[0.8] active:bg-primary !text-white"
+          disabled={!dirty}
+          onClick={onSave}
+        >
+          Save
+        </button>
+      </div>
     </div>
   );
 }

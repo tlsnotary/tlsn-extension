@@ -18,12 +18,11 @@ import {
 export default function Options(): ReactElement {
   const [notary, setNotary] = useState(NOTARY_API);
   const [proxy, setProxy] = useState(NOTARY_PROXY);
+  const [maxSent, setMaxSent] = useState(MAX_SENT);
+  const [maxReceived, setMaxReceived] = useState(MAX_RECV);
 
   const [dirty, setDirty] = useState(false);
   const [isAdvanced, setIsAdvanced] = useState(false);
-
-  const [maxSent, setMaxSent] = useState(MAX_SENT);
-  const [maxReceived, setMaxReceived] = useState<number>(MAX_RECV);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -88,10 +87,10 @@ export default function Options(): ReactElement {
 }
 
 function InputField(props: {
-  label: string;
-  placeholder: string;
-  value: string;
-  type: string;
+  label?: string;
+  placeholder?: string;
+  value?: string;
+  type?: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }) {
   const { label, placeholder, value, type, onChange } = props;
@@ -183,7 +182,6 @@ function AdvancedOptions(props: {
     <div>
       <InputField
         label="Set Max Received Data"
-        placeholder="1024"
         value={maxReceived.toString()}
         type="number"
         onChange={(e) => {
@@ -193,7 +191,6 @@ function AdvancedOptions(props: {
       />
       <InputField
         label="Set Max Sent Data"
-        placeholder="1024"
         value={maxSent.toString()}
         type="number"
         onChange={(e) => {

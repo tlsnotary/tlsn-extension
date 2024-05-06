@@ -12,7 +12,13 @@ import { useLocation, useNavigate, useParams } from 'react-router';
 import { notarizeRequest, useRequest } from '../../reducers/requests';
 import Icon from '../../components/Icon';
 import { urlify } from '../../utils/misc';
-import { get, NOTARY_API_LS_KEY, PROXY_API_LS_KEY } from '../../utils/storage';
+import {
+  get,
+  NOTARY_API_LS_KEY,
+  PROXY_API_LS_KEY,
+  MAX_SENT_LS_KEY,
+  MAX_RECEIVED_LS_KEY,
+} from '../../utils/storage';
 import { useDispatch } from 'react-redux';
 
 const maxTranscriptSize = 16384;
