@@ -58,6 +58,7 @@ export default function Home(): ReactElement {
               const r = context.read(off);
               const param = r.text();
               console.log({ param });
+              2;
               return context.store('yo');
             },
             has_request_uri: (context: CallContext, off: bigint) => {
@@ -66,7 +67,8 @@ export default function Home(): ReactElement {
               const req = requests.filter((req) =>
                 req.url.includes(requestUri),
               )[0];
-              return context.store(JSON.stringify(req));
+              console.log({ req });
+              return context.store(req ? JSON.stringify(req) : 'undefined');
             },
           },
         },
