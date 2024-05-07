@@ -83,10 +83,7 @@ export default function RequestDetail(props: Props): ReactElement {
           path="response"
           element={<WebResponse requestId={props.requestId} />}
         />
-        <Route
-          path="advanced"
-          element={<AdvancedOptions />}
-        />
+        <Route path="advanced" element={<AdvancedOptions />} />
         <Route path="/" element={<NavigateWithParams to="/headers" />} />
       </Routes>
     </>
@@ -128,7 +125,7 @@ function AdvancedOptions(): ReactElement {
 
       setMaxRecv(storedMaxReceived);
       setMaxSent(storedMaxSent);
-    }) ();
+    })();
   }, []);
 
   const onSave = useCallback(async () => {
