@@ -19,8 +19,6 @@ import Icon from '../Icon';
 import NavigateWithParams from '../NavigateWithParams';
 import {
   get,
-  NOTARY_API_LS_KEY,
-  PROXY_API_LS_KEY,
   MAX_SENT_LS_KEY,
   MAX_RECEIVED_LS_KEY,
   set,
@@ -87,7 +85,7 @@ export default function RequestDetail(props: Props): ReactElement {
         />
         <Route
           path="advanced"
-          element={<AdvancedOptions requestId={props.requestId} />}
+          element={<AdvancedOptions />}
         />
         <Route path="/" element={<NavigateWithParams to="/headers" />} />
       </Routes>
@@ -116,22 +114,21 @@ function RequestDetailsHeaderTab(props: {
   );
 }
 
-function AdvancedOptions(props: Props): ReactElement {
+function AdvancedOptions(): ReactElement {
   const [maxSent, setMaxSent] = useState(MAX_SENT);
   const [maxRecv, setMaxRecv] = useState(MAX_RECV);
+
   const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
-    const fetchSettings = async () => {
+    (async () => {
       const storedMaxReceived =
         parseInt(await get(MAX_RECEIVED_LS_KEY)) || MAX_RECV;
       const storedMaxSent = parseInt(await get(MAX_SENT_LS_KEY)) || MAX_SENT;
 
       setMaxRecv(storedMaxReceived);
       setMaxSent(storedMaxSent);
-    };
-
-    fetchSettings();
+    }) ();
   }, []);
 
   const onSave = useCallback(async () => {
