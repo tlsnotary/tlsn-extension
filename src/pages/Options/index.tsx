@@ -22,7 +22,7 @@ export default function Options(): ReactElement {
   const [maxReceived, setMaxReceived] = useState(MAX_RECV);
 
   const [dirty, setDirty] = useState(false);
-  const [isAdvanced, setIsAdvanced] = useState(false);
+  const [advanced, setAdvanced] = useState(false);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -39,7 +39,7 @@ export default function Options(): ReactElement {
     };
 
     fetchSettings();
-  }, [isAdvanced]);
+  }, [advanced]);
 
   const onSave = useCallback(async () => {
     await set(NOTARY_API_LS_KEY, notary);
@@ -50,38 +50,53 @@ export default function Options(): ReactElement {
   }, [notary, proxy, maxSent, maxReceived]);
 
   const onAdvanced = useCallback(() => {
-    setIsAdvanced(!isAdvanced);
-  }, [isAdvanced]);
+    setAdvanced(!advanced);
+  }, [advanced]);
 
   return (
     <div className="flex flex-col flex-nowrap flex-grow">
       <div className="flex flex-row flex-nowrap justify-between items-between py-1 px-2 gap-2">
         <p className="font-bold text-base">Settings</p>
-        <button className="button" onClick={onAdvanced}>
+      </div>
+      <NormalOptions
+        notary={notary}
+        setNotary={setNotary}
+        proxy={proxy}
+        setProxy={setProxy}
+        setDirty={setDirty}
+      />
+      <div className="justify-left px-2 pt-3 gap-2">
+        <button className="font-bold" onClick={onAdvanced}>
+          <i
+            className={
+              advanced
+                ? 'fa-solid fa-caret-down pr-1'
+                : 'fa-solid fa-caret-right pr-1'
+            }
+          ></i>
           Advanced
         </button>
       </div>
-      {!isAdvanced ? (
-        <NormalOptions
-          notary={notary}
-          setNotary={setNotary}
-          proxy={proxy}
-          setProxy={setProxy}
-          dirty={dirty}
-          setDirty={setDirty}
-          onSave={onSave}
-        />
+      {!advanced ? (
+        <></>
       ) : (
         <AdvancedOptions
           maxSent={maxSent}
           setMaxSent={setMaxSent}
           maxReceived={maxReceived}
           setMaxReceived={setMaxReceived}
-          dirty={dirty}
           setDirty={setDirty}
-          onSave={onSave}
         />
       )}
+      <div className="flex flex-row flex-nowrap justify-end gap-2 p-2">
+        <button
+          className="button !bg-primary/[0.9] hover:bg-primary/[0.8] active:bg-primary !text-white"
+          disabled={!dirty}
+          onClick={onSave}
+        >
+          Save
+        </button>
+      </div>
     </div>
   );
 }
@@ -91,9 +106,10 @@ function InputField(props: {
   placeholder?: string;
   value?: string;
   type?: string;
+  min?: number;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }) {
-  const { label, placeholder, value, type, onChange } = props;
+  const { label, placeholder, value, type, min, onChange } = props;
 
   return (
     <div className="flex flex-col flex-nowrap py-1 px-2 gap-2">
@@ -104,6 +120,7 @@ function InputField(props: {
         placeholder={placeholder}
         onChange={onChange}
         value={value}
+        min={min}
       />
     </div>
   );
@@ -114,11 +131,9 @@ function NormalOptions(props: {
   setNotary: (value: string) => void;
   proxy: string;
   setProxy: (value: string) => void;
-  dirty: boolean;
   setDirty: (value: boolean) => void;
-  onSave: () => void;
 }) {
-  const { notary, setNotary, proxy, setProxy, dirty, setDirty, onSave } = props;
+  const { notary, setNotary, proxy, setProxy, setDirty } = props;
 
   return (
     <div>
@@ -146,15 +161,6 @@ function NormalOptions(props: {
         <div className="font-semibold">Explorer URL</div>
         <div className="input border">{EXPLORER_API}</div>
       </div>
-      <div className="flex flex-row flex-nowrap justify-end gap-2 p-2">
-        <button
-          className="button !bg-primary/[0.9] hover:bg-primary/[0.8] active:bg-primary !text-white"
-          disabled={!dirty}
-          onClick={onSave}
-        >
-          Save
-        </button>
-      </div>
     </div>
   );
 }
@@ -164,19 +170,9 @@ function AdvancedOptions(props: {
   setMaxSent: (value: number) => void;
   maxReceived: number;
   setMaxReceived: (value: number) => void;
-  dirty: boolean;
   setDirty: (value: boolean) => void;
-  onSave: () => void;
 }) {
-  const {
-    maxSent,
-    setMaxSent,
-    maxReceived,
-    setMaxReceived,
-    dirty,
-    setDirty,
-    onSave,
-  } = props;
+  const { maxSent, setMaxSent, maxReceived, setMaxReceived, setDirty } = props;
 
   return (
     <div>
@@ -184,6 +180,7 @@ function AdvancedOptions(props: {
         label="Set Max Received Data"
         value={maxReceived.toString()}
         type="number"
+        min={0}
         onChange={(e) => {
           setMaxReceived(parseInt(e.target.value));
           setDirty(true);
@@ -193,20 +190,13 @@ function AdvancedOptions(props: {
         label="Set Max Sent Data"
         value={maxSent.toString()}
         type="number"
+        min={0}
         onChange={(e) => {
           setMaxSent(parseInt(e.target.value));
           setDirty(true);
         }}
       />
-      <div className="flex flex-row flex-nowrap justify-end gap-2 p-2">
-        <button
-          className="button !bg-primary/[0.9] hover:bg-primary/[0.8] active:bg-primary !text-white"
-          disabled={!dirty}
-          onClick={onSave}
-        >
-          Save
-        </button>
-      </div>
+      <div className="flex flex-row flex-nowrap justify-end gap-2 p-2"></div>
     </div>
   );
 }

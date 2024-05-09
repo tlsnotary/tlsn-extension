@@ -83,7 +83,6 @@ export default function RequestDetail(props: Props): ReactElement {
           path="response"
           element={<WebResponse requestId={props.requestId} />}
         />
-        <Route path="advanced" element={<AdvancedOptions />} />
         <Route path="/" element={<NavigateWithParams to="/headers" />} />
       </Routes>
     </>
