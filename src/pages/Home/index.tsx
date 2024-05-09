@@ -23,8 +23,6 @@ import {
   getProxyApi,
 } from '../../utils/storage';
 import createPlugin, { CallContext } from '@extism/extism';
-// @ts-ignore
-import twitterProfilePlugin from '../../../plugins/twitter_profile/index.wasm';
 
 export default function Home(): ReactElement {
   const requests = useRequests();
@@ -32,19 +30,28 @@ export default function Home(): ReactElement {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  const twReq =
-    requests.filter((req) =>
-      req.url.includes('https://api.twitter.com/1.1/account/settings.json'),
-    )[0] || {};
-
   const plugin = useCallback(async () => {
+    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+      if (tabs.length > 0) {
+        const tabId = tabs[0].id;
+        chrome.sidePanel.open({ tabId });
+        setTimeout(() => {
+          chrome.sidePanel.close({ tabId });
+        }, 1000);
+      }
+    });
+    const notaryUrl = await get(
+      NOTARY_API_LS_KEY,
+      'https://notary.pse.dev/v0.1.0-alpha.5',
+    );
+    const websocketProxyUrl = await get(
+      PROXY_API_LS_KEY,
+      'wss://notary.pse.dev/proxy',
+    );
+    console.log(notaryUrl, websocketProxyUrl);
     const config = {
-      ...twReq.requestHeaders?.reduce((acc: { [k: string]: string }, r) => {
-        if (r.name && r.value) {
-          acc[r.name] = r.value;
-        }
-        return acc;
-      }, {}),
+      notaryUrl,
+      websocketProxyUrl,
     };
 
     const p = await createPlugin(
@@ -57,8 +64,12 @@ export default function Home(): ReactElement {
             get_response: (context: CallContext, off: bigint) => {
               const r = context.read(off);
               const param = r.text();
-              console.log({ param });
-              2;
+              const proverConfig = JSON.parse(param);
+              console.log('proving...', proverConfig);
+              dispatch(
+                // @ts-ignore
+                notarizeRequest(proverConfig),
+              );
               return context.store('yo');
             },
             has_request_uri: (context: CallContext, off: bigint) => {
@@ -67,7 +78,6 @@ export default function Home(): ReactElement {
               const req = requests.filter((req) =>
                 req.url.includes(requestUri),
               )[0];
-              console.log({ req });
               return context.store(req ? JSON.stringify(req) : 'undefined');
             },
           },
@@ -76,7 +86,7 @@ export default function Home(): ReactElement {
     );
     const out = await p.call('plugin');
     console.log(out.string());
-  }, [JSON.stringify(twReq), requests]);
+  }, [requests, dispatch]);
 
   return (
     <div className="flex flex-col gap-4 py-4 overflow-y-auto">

@@ -1,7 +1,6 @@
 function plugin() {
-  // const csrfToken = Config.get('x-csrf-token');
-  // const authToken = Config.get('authorization');
-  // const cookie = Config.get('Cookie');
+  const notaryUrl = Config.get('notaryUrl');
+  const websocketProxyUrl = Config.get('websocketProxyUrl');
   const { get_response, has_request_uri } = Host.getFunctions();
   let mem = Memory.fromString(
     'https://api.twitter.com/1.1/account/settings.json',
@@ -11,15 +10,31 @@ function plugin() {
   let offset = has_request_uri(mem.offset);
   console.log(`'from plugin: offset', ${offset}`);
 
-  let response = Memory.find(offset).readString();
-  console.log(`'from plugin: response', ${response}`);
-  // if (res.status != 200) throw new Error(`Got non 200 response ${res.status}`);
+  let req = Memory.find(offset).readString();
+  console.log(`'from plugin: req', ${req}`);
+  req = JSON.parse(req);
 
-  Host.outputString(
+  const headers = req.requestHeaders?.reduce(
+    (acc, h) => {
+      acc[h.name] = h.value;
+      return acc;
+    },
+    { Host: 'api.twitter.com' },
+  );
+
+  mem = Memory.fromString(
     JSON.stringify({
-      response,
+      url: req.url,
+      method: req.method,
+      maxTranscriptSize: 16384,
+      notaryUrl,
+      websocketProxyUrl,
+      headers,
     }),
   );
+  get_response(mem.offset);
+
+  Host.outputString(JSON.stringify('hahaha'));
 }
 
 module.exports = { plugin };

@@ -8,6 +8,9 @@
     "default_popup": "popup.html",
     "default_icon": "icon-34.png"
   },
+  "side_panel": {
+    "default_path": "sidePanel.html"
+  },
   "icons": {
     "128": "icon-128.png"
   },
@@ -32,6 +35,7 @@
     "offscreen",
     "storage",
     "webRequest",
-    "activeTab"
+    "activeTab",
+    "sidePanel"
   ]
 }

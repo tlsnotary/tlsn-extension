@@ -6,5 +6,6 @@ declare module 'main' {
 declare module 'extism:host' {
   interface user {
     has_request_uri(ptr: I64): I64;
+    get_response(ptr: I64): I64;
   }
 }
