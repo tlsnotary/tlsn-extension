@@ -7,7 +7,13 @@ import {
   deleteRequestHistory,
 } from '../../reducers/history';
 import Icon from '../../components/Icon';
-import { get, NOTARY_API_LS_KEY, PROXY_API_LS_KEY, getNotaryApi, getProxyApi } from '../../utils/storage';
+import {
+  get,
+  NOTARY_API_LS_KEY,
+  PROXY_API_LS_KEY,
+  getNotaryApi,
+  getProxyApi,
+} from '../../utils/storage';
 import { urlify, download, upload } from '../../utils/misc';
 import { BackgroundActiontype } from '../../entries/Background/rpc';
 import Modal, { ModalContent } from '../../components/Modal/Modal';

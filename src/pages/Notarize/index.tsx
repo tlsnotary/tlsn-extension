@@ -17,7 +17,7 @@ import {
   NOTARY_API_LS_KEY,
   PROXY_API_LS_KEY,
   getNotaryApi,
-  getProxyApi
+  getProxyApi,
 } from '../../utils/storage';
 import { useDispatch } from 'react-redux';
 

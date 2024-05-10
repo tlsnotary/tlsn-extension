@@ -17,7 +17,13 @@ import { Link } from 'react-router-dom';
 import bookmarks from '../../../utils/bookmark/bookmarks.json';
 import { replayRequest, urlify } from '../../utils/misc';
 import { useDispatch } from 'react-redux';
-import { get, NOTARY_API_LS_KEY, PROXY_API_LS_KEY, getNotaryApi, getProxyApi } from '../../utils/storage';
+import {
+  get,
+  NOTARY_API_LS_KEY,
+  PROXY_API_LS_KEY,
+  getNotaryApi,
+  getProxyApi,
+} from '../../utils/storage';
 
 export default function Home(): ReactElement {
   const requests = useRequests();

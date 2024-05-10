@@ -5,7 +5,13 @@ import {
 import { useSelector } from 'react-redux';
 import { AppRootState } from './index';
 import deepEqual from 'fast-deep-equal';
-import { get, NOTARY_API_LS_KEY, PROXY_API_LS_KEY, getNotaryApi, getProxyApi } from '../utils/storage';
+import {
+  get,
+  NOTARY_API_LS_KEY,
+  PROXY_API_LS_KEY,
+  getNotaryApi,
+  getProxyApi,
+} from '../utils/storage';
 import { BackgroundActiontype } from '../entries/Background/rpc';
 import browser from 'webextension-polyfill';
 import { NOTARY_API, NOTARY_PROXY } from '../utils/constants';
