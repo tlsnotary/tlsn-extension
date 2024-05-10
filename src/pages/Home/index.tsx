@@ -23,6 +23,8 @@ import {
   getProxyApi,
 } from '../../utils/storage';
 import createPlugin, { CallContext } from '@extism/extism';
+import { getCookiesByHost, getHeadersByHost } from '../../utils/rpc';
+import { PluginList } from '../../components/PluginList';
 
 export default function Home(): ReactElement {
   const requests = useRequests();
@@ -31,24 +33,39 @@ export default function Home(): ReactElement {
   const dispatch = useDispatch();
 
   const plugin = useCallback(async () => {
-    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-      if (tabs.length > 0) {
-        const tabId = tabs[0].id;
-        chrome.sidePanel.open({ tabId });
-        setTimeout(() => {
-          chrome.sidePanel.close({ tabId });
-        }, 1000);
-      }
-    });
+    chrome.tabs.query(
+      { active: true, currentWindow: true },
+      async function (tabs) {
+        const { url, id } = tabs[0] || {};
+
+        if (url) {
+          const { hostname } = urlify(url) || {};
+          if (hostname) {
+            const cookies = await getCookiesByHost(hostname);
+            const headers = await getHeadersByHost(hostname);
+            console.log(hostname, cookies, headers);
+          }
+        }
+
+        // if (tabs.length > 0) {
+        //   const tabId = tabs[0].id;
+        //   chrome.sidePanel.open({ tabId });
+        //   setTimeout(() => {
+        //     chrome.sidePanel.close({ tabId });
+        //   }, 1000);
+        // }
+      },
+    );
     const notaryUrl = await get(
       NOTARY_API_LS_KEY,
       'https://notary.pse.dev/v0.1.0-alpha.5',
     );
+
     const websocketProxyUrl = await get(
       PROXY_API_LS_KEY,
       'wss://notary.pse.dev/proxy',
     );
-    console.log(notaryUrl, websocketProxyUrl);
+
     const config = {
       notaryUrl,
       websocketProxyUrl,
@@ -84,8 +101,8 @@ export default function Home(): ReactElement {
         },
       },
     );
-    const out = await p.call('plugin');
-    console.log(out.string());
+    // const out = await p.call('plugin');
+    // console.log(out.string());
   }, [requests, dispatch]);
 
   return (
@@ -114,136 +131,123 @@ export default function Home(): ReactElement {
           Options
         </NavButton>
       </div>
-      {!bookmarks.length && (
-        <div className="flex flex-col flex-nowrap">
-          <div className="flex flex-col items-center justify-center text-slate-300 cursor-default select-none">
-            <div>No available notarization for {url?.hostname}</div>
-            <div>
-              Browse <Link to="/requests">Requests</Link>
-            </div>
-          </div>
-        </div>
-      )}
-      <div className="flex flex-col px-4 gap-4">
-        <h1>Plugins</h1>
-        <button className="button" onClick={plugin}>
-          Test Plugin
-        </button>
-      </div>
-      <div className="flex flex-col px-4 gap-4">
-        {bookmarks.map((bm, i) => {
-          try {
-            const reqs = requests.filter((req) => {
-              return req?.url?.includes(bm.url);
-            });
+      <PluginList />
+      {/*<div className="flex flex-col px-4 gap-4">*/}
+      {/*  <h1>Plugins</h1>*/}
+      {/*  <button className="button" onClick={plugin}>*/}
+      {/*    Test Plugin*/}
+      {/*  </button>*/}
+      {/*</div>*/}
+      {/*<div className="flex flex-col px-4 gap-4">*/}
+      {/*  {bookmarks.map((bm, i) => {*/}
+      {/*    try {*/}
+      {/*      const reqs = requests.filter((req) => {*/}
+      {/*        return req?.url?.includes(bm.url);*/}
+      {/*      });*/}
 
-            const bmHost = urlify(bm.targetUrl)?.host;
-            const isReady = !!reqs.length;
+      {/*      const bmHost = urlify(bm.targetUrl)?.host;*/}
+      {/*      const isReady = !!reqs.length;*/}
 
-            return (
-              <div
-                key={i}
-                className="flex flex-col flex-nowrap border rounded-md p-2 gap-1 hover:bg-slate-50 cursor-pointer"
-              >
-                <div className="flex flex-row items-center text-xs">
-                  <div className="bg-slate-200 text-slate-400 px-1 py-0.5 rounded-sm">
-                    {bm.method}
-                  </div>
-                  <div className="text-slate-400 px-2 py-1 rounded-md">
-                    {bm.type}
-                  </div>
-                </div>
-                <div className="font-bold">{bm.title}</div>
-                <div className="italic">{bm.description}</div>
-                {isReady && (
-                  <button
-                    className="button button--primary w-fit self-end mt-2"
-                    onClick={async () => {
-                      if (!isReady) return;
+      {/*      return (*/}
+      {/*        <div*/}
+      {/*          key={i}*/}
+      {/*          className="flex flex-col flex-nowrap border rounded-md p-2 gap-1 hover:bg-slate-50 cursor-pointer"*/}
+      {/*        >*/}
+      {/*          <div className="flex flex-row items-center text-xs">*/}
+      {/*            <div className="bg-slate-200 text-slate-400 px-1 py-0.5 rounded-sm">*/}
+      {/*              {bm.method}*/}
+      {/*            </div>*/}
+      {/*            <div className="text-slate-400 px-2 py-1 rounded-md">*/}
+      {/*              {bm.type}*/}
+      {/*            </div>*/}
+      {/*          </div>*/}
+      {/*          <div className="font-bold">{bm.title}</div>*/}
+      {/*          <div className="italic">{bm.description}</div>*/}
+      {/*          {isReady && (*/}
+      {/*            <button*/}
+      {/*              className="button button--primary w-fit self-end mt-2"*/}
+      {/*              onClick={async () => {*/}
+      {/*                if (!isReady) return;*/}
 
-                      const req = reqs[0];
-                      const res = await replayRequest(req);
-                      const secretHeaders = req.requestHeaders
-                        .map((h) => {
-                          return (
-                            `${h.name.toLowerCase()}: ${h.value || ''}` || ''
-                          );
-                        })
-                        .filter((d) => !!d);
-                      const selectedValue = res.match(
-                        new RegExp(bm.responseSelector, 'g'),
-                      );
+      {/*                const req = reqs[0];*/}
+      {/*                const res = await replayRequest(req);*/}
+      {/*                const secretHeaders = req.requestHeaders*/}
+      {/*                  .map((h) => {*/}
+      {/*                    return (*/}
+      {/*                      `${h.name.toLowerCase()}: ${h.value || ''}` || ''*/}
+      {/*                    );*/}
+      {/*                  })*/}
+      {/*                  .filter((d) => !!d);*/}
+      {/*                const selectedValue = res.match(*/}
+      {/*                  new RegExp(bm.responseSelector, 'g'),*/}
+      {/*                );*/}
 
-                      if (selectedValue) {
-                        const revealed = bm.valueTransform.replace(
-                          '%s',
-                          selectedValue[0],
-                        );
-                        const selectionStart = res.indexOf(revealed);
-                        const selectionEnd =
-                          selectionStart + revealed.length - 1;
-                        const secretResps = [
-                          res.substring(0, selectionStart),
-                          res.substring(selectionEnd, res.length),
-                        ].filter((d) => !!d);
+      {/*                if (selectedValue) {*/}
+      {/*                  const revealed = bm.valueTransform.replace(*/}
+      {/*                    '%s',*/}
+      {/*                    selectedValue[0],*/}
+      {/*                  );*/}
+      {/*                  const selectionStart = res.indexOf(revealed);*/}
+      {/*                  const selectionEnd =*/}
+      {/*                    selectionStart + revealed.length - 1;*/}
+      {/*                  const secretResps = [*/}
+      {/*                    res.substring(0, selectionStart),*/}
+      {/*                    res.substring(selectionEnd, res.length),*/}
+      {/*                  ].filter((d) => !!d);*/}
 
-                        const hostname = urlify(req.url)?.hostname;
-                        const notaryUrl = await getNotaryApi();
-                        const websocketProxyUrl = await getProxyApi();
-                        const maxSent = await getMaxSent();
-                        const maxRecv = await getMaxRecv();
-                        const headers: { [k: string]: string } =
-                          req.requestHeaders?.reduce(
-                            (acc: any, h) => {
-                              acc[h.name] = h.value;
-                              return acc;
-                            },
-                            { Host: hostname },
-                          );
+      {/*                  const hostname = urlify(req.url)?.hostname;*/}
+      {/*                  const notaryUrl = await get(NOTARY_API_LS_KEY);*/}
+      {/*                  const websocketProxyUrl = await get(PROXY_API_LS_KEY);*/}
 
-                        //TODO: for some reason, these needs to be override to work
-                        headers['Accept-Encoding'] = 'identity';
-                        headers['Connection'] = 'close';
+      {/*                  const headers: { [k: string]: string } =*/}
+      {/*                    req.requestHeaders?.reduce(*/}
+      {/*                      (acc: any, h) => {*/}
+      {/*                        acc[h.name] = h.value;*/}
+      {/*                        return acc;*/}
+      {/*                      },*/}
+      {/*                      { Host: hostname },*/}
+      {/*                    );*/}
 
-                        dispatch(
-                          // @ts-ignore
-                          notarizeRequest({
-                            url: req.url,
-                            method: req.method,
-                            headers: headers,
-                            body: req.requestBody,
-                            maxSentData: maxSent,
-                            maxRecvData: maxRecv,
-                            maxTranscriptSize: 16384,
-                            notaryUrl,
-                            websocketProxyUrl,
-                            secretHeaders,
-                            secretResps,
-                          }),
-                        );
+      {/*                  //TODO: for some reason, these needs to be override to work*/}
+      {/*                  headers['Accept-Encoding'] = 'identity';*/}
+      {/*                  headers['Connection'] = 'close';*/}
+      {/*                  dispatch(*/}
+      {/*                    // @ts-ignore*/}
+      {/*                    notarizeRequest({*/}
+      {/*                      url: req.url,*/}
+      {/*                      method: req.method,*/}
+      {/*                      headers: headers,*/}
+      {/*                      body: req.requestBody,*/}
+      {/*                      maxTranscriptSize: 16384,*/}
+      {/*                      notaryUrl,*/}
+      {/*                      websocketProxyUrl,*/}
+      {/*                      secretHeaders,*/}
+      {/*                      secretResps,*/}
+      {/*                    }),*/}
+      {/*                  );*/}
 
-                        navigate(`/history`);
-                      }
-                    }}
-                  >
-                    Notarize
-                  </button>
-                )}
-                {!isReady && (
-                  <button
-                    className="button w-fit self-end mt-2"
-                    onClick={() => chrome.tabs.update({ url: bm.targetUrl })}
-                  >
-                    {`Go to ${bmHost}`}
-                  </button>
-                )}
-              </div>
-            );
-          } catch (e) {
-            return null;
-          }
-        })}
-      </div>
+      {/*                  navigate(`/history`);*/}
+      {/*                }*/}
+      {/*              }}*/}
+      {/*            >*/}
+      {/*              Notarize*/}
+      {/*            </button>*/}
+      {/*          )}*/}
+      {/*          {!isReady && (*/}
+      {/*            <button*/}
+      {/*              className="button w-fit self-end mt-2"*/}
+      {/*              onClick={() => chrome.tabs.update({ url: bm.targetUrl })}*/}
+      {/*            >*/}
+      {/*              {`Go to ${bmHost}`}*/}
+      {/*            </button>*/}
+      {/*          )}*/}
+      {/*        </div>*/}
+      {/*      );*/}
+      {/*    } catch (e) {*/}
+      {/*      return null;*/}
+      {/*    }*/}
+      {/*  })}*/}
+      {/*</div>*/}
     </div>
   );
 }

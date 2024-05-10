@@ -31,7 +31,7 @@ export const deleteHeadersByHost = (hostname: string) => {
   delete HeadersStore[hostname];
 };
 
-export const getHeadersByHost = (hostname: string): NodeCache => {
+export const getHeaderStoreByHost = (hostname: string): NodeCache => {
   HeadersStore[hostname] =
     HeadersStore[hostname] ||
     new NodeCache({
@@ -46,7 +46,7 @@ export const deleteCookiesByHost = (hostname: string) => {
   delete CookieStore[hostname];
 };
 
-export const getCookiesByHost = (hostname: string): NodeCache => {
+export const getCookieStoreByHost = (hostname: string): NodeCache => {
   CookieStore[hostname] =
     CookieStore[hostname] ||
     new NodeCache({

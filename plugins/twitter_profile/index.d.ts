@@ -1,6 +1,7 @@
 declare module 'main' {
   // Extism exports take no params and return an I32
   export function plugin(): I32;
+  export function config(): I32;
 }
 
 declare module 'extism:host' {

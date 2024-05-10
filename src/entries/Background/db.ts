@@ -1,5 +1,6 @@
 import { Level } from 'level';
 import type { RequestHistory } from './rpc';
+import { sha256 } from '../../utils/misc';
 const charwise = require('charwise');
 
 const db = new Level('./ext-db', {
@@ -7,6 +8,9 @@ const db = new Level('./ext-db', {
 });
 const historyDb = db.sublevel<string, RequestHistory>('history', {
   valueEncoding: 'json',
+});
+const pluginDb = db.sublevel<string, string>('plugin', {
+  valueEncoding: 'hex',
 });
 
 export async function addNotaryRequest(
@@ -121,4 +125,33 @@ export async function getNotaryRequest(
   id: string,
 ): Promise<RequestHistory | null> {
   return historyDb.get(id);
+}
+
+export async function getPluginHashes(): Promise<string[]> {
+  const retVal: string[] = [];
+  for await (const [key] of pluginDb.iterator()) {
+    // await pluginDb.del(key);
+    retVal.push(key);
+  }
+  return retVal;
+}
+
+export async function getPluginByHash(hash: string): Promise<string | null> {
+  try {
+    const plugin = await pluginDb.get(hash);
+    return plugin;
+  } catch (e) {
+    return null;
+  }
+}
+
+export async function addPlugin(hex: string): Promise<string | null> {
+  const hash = await sha256(hex);
+
+  if (await getPluginByHash(hash)) {
+    return null;
+  }
+
+  await pluginDb.put(hash, hex);
+  return hash;
 }

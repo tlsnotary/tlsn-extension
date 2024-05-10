@@ -37,4 +37,26 @@ function plugin() {
   Host.outputString(JSON.stringify('hahaha'));
 }
 
-module.exports = { plugin };
+function config() {
+  Host.outputString(
+    JSON.stringify({
+      title: 'Twitter Profile',
+      description: 'Notarize ownership of a twitter profile',
+      cta: 'Go to www.twitter.com',
+      action: 'getActiveUrl',
+      steps: [
+        {
+          title: 'Go to twitter.com',
+        },
+        {
+          title: 'Login to your account',
+        },
+        {
+          title: 'Notarize',
+        },
+      ],
+    }),
+  );
+}
+
+module.exports = { plugin, config };

@@ -1,16 +1,25 @@
 import browser from 'webextension-polyfill';
-import { clearCache, getCacheByTabId } from './cache';
+import {
+  clearCache,
+  getCacheByTabId,
+  getCookieStoreByHost,
+  getHeaderStoreByHost,
+} from './cache';
 import { addRequestHistory } from '../../reducers/history';
 import {
-  getNotaryRequests,
   addNotaryRequest,
   addNotaryRequestProofs,
   getNotaryRequest,
-  setNotaryRequestStatus,
-  setNotaryRequestError,
-  setNotaryRequestVerification,
+  getNotaryRequests,
   removeNotaryRequest,
+  setNotaryRequestError,
+  setNotaryRequestStatus,
+  setNotaryRequestVerification,
+  addPlugin,
+  getPluginHashes,
+  getPluginByHash,
 } from './db';
+import { addOnePlugin } from '../../reducers/plugins';
 
 export enum BackgroundActiontype {
   get_requests = 'get_requests',
@@ -24,6 +33,11 @@ export enum BackgroundActiontype {
   verify_proof = 'verify_proof',
   delete_prove_request = 'delete_prove_request',
   retry_prove_request = 'retry_prove_request',
+  get_cookies_by_hostname = 'get_cookies_by_hostname',
+  get_headers_by_hostname = 'get_headers_by_hostname',
+  add_plugin = 'add_plugin',
+  get_plugin_by_hash = 'get_plugin_by_hash',
+  get_plugin_hashes = 'get_plugin_hashes',
 }
 
 export type BackgroundAction = {
@@ -91,6 +105,16 @@ export const initRPC = () => {
           return handleRetryProveReqest(request, sendResponse);
         case BackgroundActiontype.prove_request_start:
           return handleProveRequestStart(request, sendResponse);
+        case BackgroundActiontype.get_cookies_by_hostname:
+          return handleGetCookiesByHostname(request, sendResponse);
+        case BackgroundActiontype.get_headers_by_hostname:
+          return handleGetHeadersByHostname(request, sendResponse);
+        case BackgroundActiontype.add_plugin:
+          return handleAddPlugin(request, sendResponse);
+        case BackgroundActiontype.get_plugin_hashes:
+          return handleGetPluginHashes(request, sendResponse);
+        case BackgroundActiontype.get_plugin_by_hash:
+          return handleGetPluginByHash(request, sendResponse);
         default:
           break;
       }
@@ -265,4 +289,74 @@ async function handleProveRequestStart(
   });
 
   return sendResponse();
+}
+
+function handleGetCookiesByHostname(
+  request: BackgroundAction,
+  sendResponse: (data?: any) => void,
+) {
+  const cache = getCookieStoreByHost(request.data);
+  const keys = cache.keys() || [];
+  const data = keys.reduce((acc: { [k: string]: string }, key) => {
+    acc[key] = cache.get(key) || '';
+    return acc;
+  }, {});
+  return data;
+}
+
+function handleGetHeadersByHostname(
+  request: BackgroundAction,
+  sendResponse: (data?: any) => void,
+) {
+  const cache = getHeaderStoreByHost(request.data);
+  const keys = cache.keys() || [];
+  const data = keys.reduce((acc: { [k: string]: string }, key) => {
+    acc[key] = cache.get(key) || '';
+    return acc;
+  }, {});
+  return data;
+}
+
+async function handleAddPlugin(
+  request: BackgroundAction,
+  sendResponse: (data?: any) => void,
+) {
+  const hash = await addPlugin(request.data);
+
+  if (hash) {
+    await browser.runtime.sendMessage({
+      type: BackgroundActiontype.push_action,
+      data: {
+        tabId: 'background',
+      },
+      action: addOnePlugin(hash),
+    });
+  }
+  return sendResponse();
+}
+
+async function handleGetPluginHashes(
+  request: BackgroundAction,
+  sendResponse: (data?: any) => void,
+) {
+  const hashes = await getPluginHashes();
+  for (const hash of hashes) {
+    await browser.runtime.sendMessage({
+      type: BackgroundActiontype.push_action,
+      data: {
+        tabId: 'background',
+      },
+      action: addOnePlugin(hash),
+    });
+  }
+  return sendResponse();
+}
+
+async function handleGetPluginByHash(
+  request: BackgroundAction,
+  sendResponse: (data?: any) => void,
+) {
+  const hash = request.data;
+  const hex = await getPluginByHash(hash);
+  return hex;
 }
