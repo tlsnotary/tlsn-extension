@@ -23,7 +23,7 @@ import {
   MAX_SENT_LS_KEY,
   MAX_RECEIVED_LS_KEY,
   getMaxRecv,
-  getMaxSent
+  getMaxSent,
 } from '../../utils/storage';
 import { MAX_RECV, MAX_SENT } from '../../utils/constants';
 import { urlify } from '../../utils/misc';
@@ -121,8 +121,8 @@ function AdvancedOptions(): ReactElement {
 
   useEffect(() => {
     (async () => {
-      setMaxRecv(await getMaxRecv() || MAX_RECV);
-      setMaxSent(await getMaxSent() || MAX_SENT);
+      setMaxRecv((await getMaxRecv()) || MAX_RECV);
+      setMaxSent((await getMaxSent()) || MAX_SENT);
     })();
   }, []);
 

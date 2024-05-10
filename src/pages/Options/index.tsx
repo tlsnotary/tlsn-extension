@@ -9,7 +9,7 @@ import {
   getMaxSent,
   getMaxRecv,
   getNotaryApi,
-  getProxyApi
+  getProxyApi,
 } from '../../utils/storage';
 import {
   EXPLORER_API,
@@ -30,11 +30,10 @@ export default function Options(): ReactElement {
 
   useEffect(() => {
     (async () => {
-      setNotary(await getNotaryApi() || NOTARY_API);
-      setProxy(await getProxyApi() || NOTARY_PROXY);
+      setNotary((await getNotaryApi()) || NOTARY_API);
+      setProxy((await getProxyApi()) || NOTARY_PROXY);
       setMaxReceived(parseInt(await getMaxRecv()) || MAX_RECV);
       setMaxSent(parseInt(await getMaxSent()) || MAX_SENT);
-
     })();
   }, [advanced]);
 
