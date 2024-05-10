@@ -6,6 +6,10 @@ import {
   PROXY_API_LS_KEY,
   MAX_SENT_LS_KEY,
   MAX_RECEIVED_LS_KEY,
+  getMaxSent,
+  getMaxRecv,
+  getNotaryApi,
+  getProxyApi
 } from '../../utils/storage';
 import {
   EXPLORER_API,
@@ -25,20 +29,13 @@ export default function Options(): ReactElement {
   const [advanced, setAdvanced] = useState(false);
 
   useEffect(() => {
-    const fetchSettings = async () => {
-      const storedNotary = (await get(NOTARY_API_LS_KEY)) || NOTARY_API;
-      const storedProxy = (await get(PROXY_API_LS_KEY)) || NOTARY_PROXY;
-      const storedMaxReceived =
-        parseInt(await get(MAX_RECEIVED_LS_KEY)) || MAX_RECV;
-      const storedMaxSent = parseInt(await get(MAX_SENT_LS_KEY)) || MAX_SENT;
+    (async () => {
+      setNotary(await getNotaryApi() || NOTARY_API);
+      setProxy(await getProxyApi() || NOTARY_PROXY);
+      setMaxReceived(parseInt(await getMaxRecv()) || MAX_RECV);
+      setMaxSent(parseInt(await getMaxSent()) || MAX_SENT);
 
-      setNotary(storedNotary);
-      setProxy(storedProxy);
-      setMaxReceived(storedMaxReceived);
-      setMaxSent(storedMaxSent);
-    };
-
-    fetchSettings();
+    })();
   }, [advanced]);
 
   const onSave = useCallback(async () => {

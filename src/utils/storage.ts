@@ -14,3 +14,21 @@ export async function get(key: string, defaultValue?: string) {
     .then((json: any) => json[key] || defaultValue)
     .catch(() => '');
 }
+
+export async function getMaxSent () {
+  return await get(MAX_SENT_LS_KEY, "4096");
+}
+
+
+export async function getMaxRecv () {
+  return await get(MAX_RECEIVED_LS_KEY, "16384");
+}
+
+export async function getNotaryApi () {
+  return await get(NOTARY_API_LS_KEY, "https://notary.pse.dev/v0.1.0-alpha.5");
+}
+
+export async function getProxyApi () {
+  return await get(PROXY_API_LS_KEY, "wss://notary.pse.dev/proxy");
+}
+
