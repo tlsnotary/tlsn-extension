@@ -1,8 +1,9 @@
-import { getCacheByTabId } from './cache';
+import { getCacheByTabId, getCookiesByHost, getHeadersByHost } from './cache';
 import { BackgroundActiontype, RequestLog } from './rpc';
 import mutex from './mutex';
 import browser from 'webextension-polyfill';
 import { addRequest } from '../../reducers/requests';
+import { urlify } from '../../utils/misc';
 
 export const onSendHeaders = (
   details: browser.WebRequest.OnSendHeadersDetailsType,
@@ -13,6 +14,27 @@ export const onSendHeaders = (
     if (method !== 'OPTIONS') {
       const cache = getCacheByTabId(tabId);
       const existing = cache.get<RequestLog>(requestId);
+      const { hostname } = urlify(details.url) || {};
+
+      if (hostname && details.requestHeaders) {
+        const headerStore = getHeadersByHost(hostname);
+
+        details.requestHeaders.forEach((header) => {
+          const { name, value } = header;
+          if (/^cookie$/i.test(name) && value) {
+            const cookieStore = getCookiesByHost(hostname);
+            value
+              .split(';')
+              .map((v) => v.split('='))
+              .forEach((cookie) => {
+                cookieStore.set(cookie[0], cookie[1]);
+              });
+          } else {
+            headerStore.set(name, value);
+          }
+        });
+      }
+
       cache.set(requestId, {
         ...existing,
         method: details.method as 'GET' | 'POST',
