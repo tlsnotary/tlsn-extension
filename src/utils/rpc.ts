@@ -16,10 +16,16 @@ export async function getHeadersByHost(hostname: string) {
 }
 
 export async function addPlugin(hex: string) {
-  console.log('adding plugin', hex);
   return browser.runtime.sendMessage({
     type: BackgroundActiontype.add_plugin,
     data: hex,
+  });
+}
+
+export async function removePlugin(hash: string) {
+  return browser.runtime.sendMessage({
+    type: BackgroundActiontype.remove_plugin,
+    data: hash,
   });
 }
 

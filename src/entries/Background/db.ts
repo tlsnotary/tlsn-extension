@@ -155,3 +155,13 @@ export async function addPlugin(hex: string): Promise<string | null> {
   await pluginDb.put(hash, hex);
   return hash;
 }
+
+export async function removePlugin(hash: string): Promise<string | null> {
+  const existing = await pluginDb.get(hash);
+
+  if (!existing) return null;
+
+  await pluginDb.del(hash);
+
+  return hash;
+}

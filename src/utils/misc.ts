@@ -1,5 +1,6 @@
 import { RequestLog } from '../entries/Background/rpc';
 import { EXPLORER_API } from './constants';
+import createPlugin, { CallContext, Plugin } from '@extism/extism';
 
 export function urlify(
   text: string,
@@ -117,4 +118,80 @@ export const sha256 = async (data: string) => {
     .map((bytes) => bytes.toString(16).padStart(2, '0'))
     .join('');
   return hashHex;
+};
+
+export const makePlugin = async (arrayBuffer: ArrayBuffer) => {
+  const module = await WebAssembly.compile(arrayBuffer);
+  const pluginConfig = {
+    useWasi: true,
+    config: {},
+    functions: {
+      'extism:host/user': {
+        get_response: (context: CallContext, off: bigint) => {
+          // const r = context.read(off);
+          // const param = r.text();
+          // const proverConfig = JSON.parse(param);
+          // console.log('proving...', proverConfig);
+          // dispatch(
+          //   // @ts-ignore
+          //   notarizeRequest(proverConfig),
+          // );
+          return context.store('yo');
+        },
+        has_request_uri: (context: CallContext, off: bigint) => {
+          // const r = context.read(off);
+          // const requestUri = r.text();
+          // const req = requests.filter((req) =>
+          //   req.url.includes(requestUri),
+          // )[0];
+          // return context.store(req ? JSON.stringify(req) : 'undefined');
+          return context.store('yo');
+        },
+      },
+    },
+  };
+  const plugin = await createPlugin(module, pluginConfig);
+  return plugin;
+};
+
+export type PluginConfig = {
+  title: string;
+  description: string;
+  icon?: string;
+  cta: string;
+  action: string;
+  steps?: {
+    title: string;
+    description?: string;
+    cta: string;
+    action: string;
+  }[];
+};
+
+export const getPluginConfig = async (
+  data: Plugin | ArrayBuffer,
+): Promise<PluginConfig> => {
+  const plugin = data instanceof ArrayBuffer ? await makePlugin(data) : data;
+  const out = await plugin.call('config');
+  const config = JSON.parse(out.string());
+  assert(typeof config.title === 'string' && config.title.length);
+  assert(typeof config.description === 'string' && config.description.length);
+  assert(typeof config.cta === 'string' && config.cta.length);
+  assert(typeof config.action === 'string' && config.action.length);
+  assert(!config.icon || typeof config.icon === 'string');
+
+  if (config.steps) {
+    for (const step of config.steps) {
+      assert(typeof step.title === 'string' && step.title.length);
+      assert(!step.description || typeof step.description);
+      assert(typeof step.cta === 'string' && step.cta.length);
+      assert(typeof step.action === 'string' && step.action.length);
+    }
+  }
+
+  return config;
+};
+
+export const assert = (expr: any, msg = 'unknown error') => {
+  if (!expr) throw new Error(msg);
 };

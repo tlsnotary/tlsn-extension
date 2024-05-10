@@ -1,8 +1,10 @@
 import React, {
+  ChangeEvent,
   MouseEventHandler,
   ReactElement,
   ReactNode,
   useCallback,
+  useState,
 } from 'react';
 import Icon from '../../components/Icon';
 import classNames from 'classnames';
@@ -14,7 +16,12 @@ import {
 } from '../../reducers/requests';
 import { Link } from 'react-router-dom';
 import bookmarks from '../../../utils/bookmark/bookmarks.json';
-import { replayRequest, urlify } from '../../utils/misc';
+import {
+  makePlugin,
+  replayRequest,
+  urlify,
+  getPluginConfig,
+} from '../../utils/misc';
 import { useDispatch } from 'react-redux';
 import {
   getMaxRecv,
@@ -23,14 +30,32 @@ import {
   getProxyApi,
 } from '../../utils/storage';
 import createPlugin, { CallContext } from '@extism/extism';
-import { getCookiesByHost, getHeadersByHost } from '../../utils/rpc';
+import { addPlugin, getCookiesByHost, getHeadersByHost } from '../../utils/rpc';
 import { PluginList } from '../../components/PluginList';
+import Modal, { ModalContent } from '../../components/Modal/Modal';
 
 export default function Home(): ReactElement {
   const requests = useRequests();
   const url = useActiveTabUrl();
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const [error, showError] = useState('');
+
+  const onAddPlugin = useCallback(
+    async (evt: ChangeEvent<HTMLInputElement>) => {
+      if (!evt.target.files) return;
+      try {
+        const [file] = evt.target.files;
+        const arrayBuffer = await file.arrayBuffer();
+        const plugin = await makePlugin(arrayBuffer);
+        await getPluginConfig(plugin);
+        await addPlugin(Buffer.from(arrayBuffer).toString('hex'));
+      } catch (e: any) {
+        showError(e?.message || 'Invalid Plugin');
+      }
+    },
+    [],
+  );
 
   const plugin = useCallback(async () => {
     chrome.tabs.query(
@@ -107,6 +132,22 @@ export default function Home(): ReactElement {
 
   return (
     <div className="flex flex-col gap-4 py-4 overflow-y-auto">
+      {error && (
+        <Modal
+          className="flex flex-col gap-4 items-center text-base cursor-default justify-center !w-auto mx-4 my-[50%] min-h-24 p-4 border border-red-500 !bg-red-100"
+          onClose={() => showError('')}
+        >
+          <ModalContent className="flex justify-center items-center text-red-500">
+            {error || 'Something went wrong :('}
+          </ModalContent>
+          <button
+            className="m-0 w-24 bg-red-200 text-red-400 hover:bg-red-200 hover:text-red-500"
+            onClick={() => showError('')}
+          >
+            OK
+          </button>
+        </Modal>
+      )}
       <div className="flex flex-col flex-nowrap justify-center gap-2 mx-4">
         <NavButton fa="fa-solid fa-table" onClick={() => navigate('/requests')}>
           <span>Requests</span>
@@ -127,11 +168,19 @@ export default function Home(): ReactElement {
         <NavButton fa="fa-solid fa-list" onClick={() => navigate('/history')}>
           History
         </NavButton>
+        <NavButton className="relative" fa="fa-solid fa-plus">
+          <input
+            className="opacity-0 absolute top-0 right-0 h-full w-full"
+            type="file"
+            onChange={onAddPlugin}
+          />
+          Add a plugin
+        </NavButton>
         <NavButton fa="fa-solid fa-gear" onClick={() => navigate('/options')}>
           Options
         </NavButton>
       </div>
-      <PluginList />
+      <PluginList className="mx-4" />
       {/*<div className="flex flex-col px-4 gap-4">*/}
       {/*  <h1>Plugins</h1>*/}
       {/*  <button className="button" onClick={plugin}>*/}

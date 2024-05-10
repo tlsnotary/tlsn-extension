@@ -18,8 +18,9 @@ import {
   addPlugin,
   getPluginHashes,
   getPluginByHash,
+  removePlugin,
 } from './db';
-import { addOnePlugin } from '../../reducers/plugins';
+import { addOnePlugin, removeOnePlugin } from '../../reducers/plugins';
 
 export enum BackgroundActiontype {
   get_requests = 'get_requests',
@@ -36,6 +37,7 @@ export enum BackgroundActiontype {
   get_cookies_by_hostname = 'get_cookies_by_hostname',
   get_headers_by_hostname = 'get_headers_by_hostname',
   add_plugin = 'add_plugin',
+  remove_plugin = 'remove_plugin',
   get_plugin_by_hash = 'get_plugin_by_hash',
   get_plugin_hashes = 'get_plugin_hashes',
 }
@@ -111,6 +113,8 @@ export const initRPC = () => {
           return handleGetHeadersByHostname(request, sendResponse);
         case BackgroundActiontype.add_plugin:
           return handleAddPlugin(request, sendResponse);
+        case BackgroundActiontype.remove_plugin:
+          return handleRemovePlugin(request, sendResponse);
         case BackgroundActiontype.get_plugin_hashes:
           return handleGetPluginHashes(request, sendResponse);
         case BackgroundActiontype.get_plugin_by_hash:
@@ -332,6 +336,24 @@ async function handleAddPlugin(
       action: addOnePlugin(hash),
     });
   }
+
+  return sendResponse();
+}
+
+async function handleRemovePlugin(
+  request: BackgroundAction,
+  sendResponse: (data?: any) => void,
+) {
+  await removePlugin(request.data);
+
+  await browser.runtime.sendMessage({
+    type: BackgroundActiontype.push_action,
+    data: {
+      tabId: 'background',
+    },
+    action: removeOnePlugin(request.data),
+  });
+
   return sendResponse();
 }
 

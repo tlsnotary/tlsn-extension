@@ -9,40 +9,31 @@ import {
   addPlugin,
   fetchPluginHashes,
   fetchPluginByHash,
+  removePlugin,
 } from '../../utils/rpc';
 import { usePluginHashes } from '../../reducers/plugins';
 import createPlugin, { CallContext } from '@extism/extism';
 import { notarizeRequest } from '../../reducers/requests';
+import { getPluginConfig, PluginConfig } from '../../utils/misc';
+import DefaultPluginIcon from '../../assets/img/default-plugin-icon.png';
+import classNames from 'classnames';
+import Icon from '../Icon';
+import './index.scss';
 
-export function PluginList(): ReactElement {
+export function PluginList(props: { className?: string }): ReactElement {
   const hashes = usePluginHashes();
-
-  const onChange = useCallback(async (evt: ChangeEvent<HTMLInputElement>) => {
-    if (!evt.target.files) return;
-    const [file] = evt.target.files;
-    const arrayBuffer = await file.arrayBuffer();
-    await addPlugin(Buffer.from(arrayBuffer).toString('hex'));
-  }, []);
 
   useEffect(() => {
     fetchPluginHashes();
   }, []);
 
   return (
-    <div className="flex flex-col flex-nowrap">
+    <div className={classNames('flex flex-col flex-nowrap', props.className)}>
       {!hashes.length && (
         <div className="flex flex-col items-center justify-center text-slate-400 cursor-default select-none">
           <div>No available plugins</div>
         </div>
       )}
-      <a className="relative">
-        <input
-          className="opacity-0 absolute top-0 right-0 h-full w-full"
-          type="file"
-          onChange={onChange}
-        />
-        Add a plugin
-      </a>
       {hashes.map((hash) => (
         <Plugin key={hash} hash={hash} />
       ))}
@@ -52,6 +43,7 @@ export function PluginList(): ReactElement {
 
 export function Plugin(props: { hash: string }): ReactElement {
   const [arrayBuffer, setArrayBuffer] = useState<ArrayBuffer | null>(null);
+  const [config, setConfig] = useState<PluginConfig | null>(null);
 
   useEffect(() => {
     (async function () {
@@ -61,46 +53,38 @@ export function Plugin(props: { hash: string }): ReactElement {
         setArrayBuffer(new Uint8Array(Buffer.from(hex, 'hex')).buffer);
       }
     })();
-  }, []);
+  }, [props.hash]);
 
   useEffect(() => {
     (async function () {
       if (!arrayBuffer) return;
-
-      const module = await WebAssembly.compile(arrayBuffer);
-      const pluginConfig = {
-        useWasi: true,
-        config: {},
-        functions: {
-          'extism:host/user': {
-            get_response: (context: CallContext, off: bigint) => {
-              // const r = context.read(off);
-              // const param = r.text();
-              // const proverConfig = JSON.parse(param);
-              // console.log('proving...', proverConfig);
-              // dispatch(
-              //   // @ts-ignore
-              //   notarizeRequest(proverConfig),
-              // );
-              return context.store('yo');
-            },
-            has_request_uri: (context: CallContext, off: bigint) => {
-              // const r = context.read(off);
-              // const requestUri = r.text();
-              // const req = requests.filter((req) =>
-              //   req.url.includes(requestUri),
-              // )[0];
-              // return context.store(req ? JSON.stringify(req) : 'undefined');
-              return context.store('yo');
-            },
-          },
-        },
-      };
-      const plugin = await createPlugin(module, pluginConfig);
-      const out = await plugin.call('config');
-      console.log(out.string());
+      setConfig(await getPluginConfig(arrayBuffer));
     })();
   }, [arrayBuffer]);
 
-  return <div>{props.hash}</div>;
+  const onRemove = useCallback(() => {
+    removePlugin(props.hash);
+  }, [props.hash]);
+
+  if (!config) return <></>;
+
+  return (
+    <div className="flex flex-row border rounded border-slate-300 p-2 gap-2 plugin-box">
+      <img className="w-10 h-10" src={config.icon || DefaultPluginIcon} />
+      <div className="flex flex-col w-full">
+        <div className="font-bold flex flex-row h-6 items-center justify-between">
+          {config.title}
+          <Icon
+            fa="fa-solid fa-xmark"
+            className="flex flex-row items-center justify-center cursor-pointer text-red-500 bg-red-200 rounded-full p-1 w-5 h-5 plugin-box__remove-icon"
+            onClick={onRemove}
+          />
+        </div>
+        <div>{config.description}</div>
+        <div className="flex flew-row justify-end mt-4">
+          <button className="button">{config.cta}</button>
+        </div>
+      </div>
+    </div>
+  );
 }

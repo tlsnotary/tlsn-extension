@@ -1,0 +1,19 @@
+.plugin-box {
+  cursor: default;
+
+  &__remove-icon {
+    display: none !important;
+    opacity: 0;
+  }
+
+  &:hover {
+    .plugin-box__remove-icon {
+      display: flex !important;
+      opacity: .5;
+
+      &:hover {
+        opacity: 1;
+      }
+    }
+  }
+}
