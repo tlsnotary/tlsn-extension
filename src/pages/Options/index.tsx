@@ -114,7 +114,6 @@ function InputField(props: {
       <input
         type={type}
         className="input border"
-        placeholder={placeholder}
         onChange={onChange}
         value={value}
         min={min}

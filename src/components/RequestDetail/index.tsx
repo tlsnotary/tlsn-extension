@@ -18,10 +18,12 @@ import {
 import Icon from '../Icon';
 import NavigateWithParams from '../NavigateWithParams';
 import {
+  set,
   get,
   MAX_SENT_LS_KEY,
   MAX_RECEIVED_LS_KEY,
-  set,
+  getMaxRecv,
+  getMaxSent
 } from '../../utils/storage';
 import { MAX_RECV, MAX_SENT } from '../../utils/constants';
 import { urlify } from '../../utils/misc';
@@ -83,6 +85,7 @@ export default function RequestDetail(props: Props): ReactElement {
           path="response"
           element={<WebResponse requestId={props.requestId} />}
         />
+        <Route path="advanced" element={<AdvancedOptions />} />
         <Route path="/" element={<NavigateWithParams to="/headers" />} />
       </Routes>
     </>
@@ -118,12 +121,8 @@ function AdvancedOptions(): ReactElement {
 
   useEffect(() => {
     (async () => {
-      const storedMaxReceived =
-        parseInt(await get(MAX_RECEIVED_LS_KEY)) || MAX_RECV;
-      const storedMaxSent = parseInt(await get(MAX_SENT_LS_KEY)) || MAX_SENT;
-
-      setMaxRecv(storedMaxReceived);
-      setMaxSent(storedMaxSent);
+      setMaxRecv(await getMaxRecv() || MAX_RECV);
+      setMaxSent(await getMaxSent() || MAX_SENT);
     })();
   }, []);
 
@@ -140,7 +139,7 @@ function AdvancedOptions(): ReactElement {
         type="number"
         className="input border"
         value={maxSent}
-        placeholder={maxSent.toString()}
+        min={0}
         onChange={(e) => {
           setMaxSent(parseInt(e.target.value));
           setDirty(true);
@@ -151,7 +150,7 @@ function AdvancedOptions(): ReactElement {
         type="number"
         className="input border"
         value={maxRecv}
-        placeholder={maxRecv.toString()}
+        min={0}
         onChange={(e) => {
           setMaxRecv(parseInt(e.target.value));
           setDirty(true);
