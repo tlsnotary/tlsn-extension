@@ -16,8 +16,8 @@ import {
   get,
   NOTARY_API_LS_KEY,
   PROXY_API_LS_KEY,
-  MAX_SENT_LS_KEY,
-  MAX_RECEIVED_LS_KEY,
+  getNotaryApi,
+  getProxyApi
 } from '../../utils/storage';
 import { useDispatch } from 'react-redux';
 
@@ -35,8 +35,8 @@ export default function Notarize(): ReactElement {
   const notarize = useCallback(async () => {
     if (!req) return;
     const hostname = urlify(req.url)?.hostname;
-    const notaryUrl = await get(NOTARY_API_LS_KEY);
-    const websocketProxyUrl = await get(PROXY_API_LS_KEY);
+    const notaryUrl = await getNotaryApi();
+    const websocketProxyUrl = await getProxyApi();
 
     const headers: { [k: string]: string } = req.requestHeaders.reduce(
       (acc: any, h) => {

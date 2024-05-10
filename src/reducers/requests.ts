@@ -5,7 +5,7 @@ import {
 import { useSelector } from 'react-redux';
 import { AppRootState } from './index';
 import deepEqual from 'fast-deep-equal';
-import { get, NOTARY_API_LS_KEY, PROXY_API_LS_KEY } from '../utils/storage';
+import { get, NOTARY_API_LS_KEY, PROXY_API_LS_KEY, getNotaryApi, getProxyApi } from '../utils/storage';
 import { BackgroundActiontype } from '../entries/Background/rpc';
 import browser from 'webextension-polyfill';
 import { NOTARY_API, NOTARY_PROXY } from '../utils/constants';
@@ -41,8 +41,8 @@ export const setRequests = (requests: RequestLog[]): Action<RequestLog[]> => ({
 });
 
 export const notarizeRequest = (options: RequestHistory) => async () => {
-  const notaryUrl = await get(NOTARY_API_LS_KEY, NOTARY_API);
-  const websocketProxyUrl = await get(PROXY_API_LS_KEY, NOTARY_PROXY);
+  const notaryUrl = await getNotaryApi();
+  const websocketProxyUrl = await getProxyApi();
 
   chrome.runtime.sendMessage<any, string>({
     type: BackgroundActiontype.prove_request_start,
