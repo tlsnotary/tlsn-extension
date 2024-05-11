@@ -1,6 +1,7 @@
 import { RequestLog } from '../entries/Background/rpc';
 import { EXPLORER_API } from './constants';
 import createPlugin, { CallContext, Plugin } from '@extism/extism';
+import browser from 'webextension-polyfill';
 
 export function urlify(
   text: string,
@@ -122,9 +123,13 @@ export const sha256 = async (data: string) => {
 
 export const makePlugin = async (arrayBuffer: ArrayBuffer) => {
   const module = await WebAssembly.compile(arrayBuffer);
+  const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
   const pluginConfig = {
     useWasi: true,
-    config: {},
+    config: {
+      tabUrl: tab.url,
+      tabId: tab.id,
+    },
     functions: {
       'extism:host/user': {
         get_response: (context: CallContext, off: bigint) => {
@@ -158,7 +163,6 @@ export type PluginConfig = {
   title: string;
   description: string;
   icon?: string;
-  cta: string;
   action: string;
   steps?: {
     title: string;
@@ -176,7 +180,6 @@ export const getPluginConfig = async (
   const config = JSON.parse(out.string());
   assert(typeof config.title === 'string' && config.title.length);
   assert(typeof config.description === 'string' && config.description.length);
-  assert(typeof config.cta === 'string' && config.cta.length);
   assert(typeof config.action === 'string' && config.action.length);
   assert(!config.icon || typeof config.icon === 'string');
 

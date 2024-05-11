@@ -1,5 +1,6 @@
 import browser from 'webextension-polyfill';
 import { BackgroundActiontype } from '../entries/Background/rpc';
+import { PluginConfig } from './misc';
 
 export async function getCookiesByHost(hostname: string) {
   return browser.runtime.sendMessage({
@@ -38,6 +39,15 @@ export async function fetchPluginHashes() {
 export async function fetchPluginByHash(hash: string) {
   return browser.runtime.sendMessage({
     type: BackgroundActiontype.get_plugin_by_hash,
+    data: hash,
+  });
+}
+
+export async function fetchPluginConfigByHash(
+  hash: string,
+): Promise<PluginConfig | null> {
+  return browser.runtime.sendMessage({
+    type: BackgroundActiontype.get_plugin_config_by_hash,
     data: hash,
   });
 }

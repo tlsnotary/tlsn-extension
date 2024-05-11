@@ -1,6 +1,6 @@
 import { Level } from 'level';
 import type { RequestHistory } from './rpc';
-import { sha256 } from '../../utils/misc';
+import { PluginConfig, sha256 } from '../../utils/misc';
 const charwise = require('charwise');
 
 const db = new Level('./ext-db', {
@@ -11,6 +11,9 @@ const historyDb = db.sublevel<string, RequestHistory>('history', {
 });
 const pluginDb = db.sublevel<string, string>('plugin', {
   valueEncoding: 'hex',
+});
+const pluginConfigDb = db.sublevel<string, PluginConfig>('pluginConfig', {
+  valueEncoding: 'json',
 });
 
 export async function addNotaryRequest(
@@ -130,7 +133,7 @@ export async function getNotaryRequest(
 export async function getPluginHashes(): Promise<string[]> {
   const retVal: string[] = [];
   for await (const [key] of pluginDb.iterator()) {
-    // await pluginDb.del(key);
+    // pluginDb.del(key);
     retVal.push(key);
   }
   return retVal;
@@ -164,4 +167,39 @@ export async function removePlugin(hash: string): Promise<string | null> {
   await pluginDb.del(hash);
 
   return hash;
+}
+
+export async function getPluginConfigByHash(
+  hash: string,
+): Promise<PluginConfig | null> {
+  try {
+    const config = await pluginConfigDb.get(hash);
+    return config;
+  } catch (e) {
+    return null;
+  }
+}
+
+export async function addPluginConfig(
+  hash: string,
+  config: PluginConfig,
+): Promise<PluginConfig | null> {
+  if (await getPluginConfigByHash(hash)) {
+    return null;
+  }
+
+  await pluginConfigDb.put(hash, config);
+  return config;
+}
+
+export async function removePluginConfig(
+  hash: string,
+): Promise<PluginConfig | null> {
+  const existing = await pluginConfigDb.get(hash);
+
+  if (!existing) return null;
+
+  await pluginConfigDb.del(hash);
+
+  return existing;
 }

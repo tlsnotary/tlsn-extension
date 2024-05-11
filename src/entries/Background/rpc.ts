@@ -19,8 +19,11 @@ import {
   getPluginHashes,
   getPluginByHash,
   removePlugin,
+  addPluginConfig,
+  getPluginConfigByHash,
 } from './db';
 import { addOnePlugin, removeOnePlugin } from '../../reducers/plugins';
+import { getPluginConfig, makePlugin } from '../../utils/misc';
 
 export enum BackgroundActiontype {
   get_requests = 'get_requests',
@@ -39,6 +42,7 @@ export enum BackgroundActiontype {
   add_plugin = 'add_plugin',
   remove_plugin = 'remove_plugin',
   get_plugin_by_hash = 'get_plugin_by_hash',
+  get_plugin_config_by_hash = 'get_plugin_config_by_hash',
   get_plugin_hashes = 'get_plugin_hashes',
 }
 
@@ -119,6 +123,8 @@ export const initRPC = () => {
           return handleGetPluginHashes(request, sendResponse);
         case BackgroundActiontype.get_plugin_by_hash:
           return handleGetPluginByHash(request, sendResponse);
+        case BackgroundActiontype.get_plugin_config_by_hash:
+          return handleGetPluginConfigByHash(request, sendResponse);
         default:
           break;
       }
@@ -328,6 +334,10 @@ async function handleAddPlugin(
   const hash = await addPlugin(request.data);
 
   if (hash) {
+    const config = await getPluginConfig(
+      new Uint8Array(Buffer.from(request.data, 'hex')).buffer,
+    );
+    await addPluginConfig(hash, config);
     await browser.runtime.sendMessage({
       type: BackgroundActiontype.push_action,
       data: {
@@ -381,4 +391,13 @@ async function handleGetPluginByHash(
   const hash = request.data;
   const hex = await getPluginByHash(hash);
   return hex;
+}
+
+async function handleGetPluginConfigByHash(
+  request: BackgroundAction,
+  sendResponse: (data?: any) => void,
+) {
+  const hash = request.data;
+  const config = await getPluginConfigByHash(hash);
+  return config;
 }

@@ -19,6 +19,7 @@ import DefaultPluginIcon from '../../assets/img/default-plugin-icon.png';
 import classNames from 'classnames';
 import Icon from '../Icon';
 import './index.scss';
+import { getPluginConfigByHash } from '../../entries/Background/db';
 
 export function PluginList(props: { className?: string }): ReactElement {
   const hashes = usePluginHashes();
@@ -27,6 +28,7 @@ export function PluginList(props: { className?: string }): ReactElement {
     fetchPluginHashes();
   }, []);
 
+  console.log(hashes);
   return (
     <div className={classNames('flex flex-col flex-nowrap', props.className)}>
       {!hashes.length && (
@@ -41,26 +43,21 @@ export function PluginList(props: { className?: string }): ReactElement {
   );
 }
 
-export function Plugin(props: { hash: string }): ReactElement {
-  const [arrayBuffer, setArrayBuffer] = useState<ArrayBuffer | null>(null);
+export function Plugin(props: {
+  hash: string;
+  onClick?: () => void;
+}): ReactElement {
   const [config, setConfig] = useState<PluginConfig | null>(null);
 
+  const onClick = useCallback(async () => {
+    if (!config) return;
+  }, [config]);
+
   useEffect(() => {
     (async function () {
-      const hex = await fetchPluginByHash(props.hash);
-
-      if (hex) {
-        setArrayBuffer(new Uint8Array(Buffer.from(hex, 'hex')).buffer);
-      }
+      setConfig(await getPluginConfigByHash(props.hash));
     })();
   }, [props.hash]);
-
-  useEffect(() => {
-    (async function () {
-      if (!arrayBuffer) return;
-      setConfig(await getPluginConfig(arrayBuffer));
-    })();
-  }, [arrayBuffer]);
 
   const onRemove = useCallback(() => {
     removePlugin(props.hash);
@@ -69,22 +66,25 @@ export function Plugin(props: { hash: string }): ReactElement {
   if (!config) return <></>;
 
   return (
-    <div className="flex flex-row border rounded border-slate-300 p-2 gap-2 plugin-box">
-      <img className="w-10 h-10" src={config.icon || DefaultPluginIcon} />
-      <div className="flex flex-col w-full">
-        <div className="font-bold flex flex-row h-6 items-center justify-between">
+    <button
+      className={classNames(
+        'flex flex-row border rounded border-slate-300 p-2 gap-2 plugin-box',
+        'cursor-pointer hover:bg-slate-100 hover:border-slate-400 active:bg-slate-200',
+      )}
+      onClick={onClick}
+    >
+      <img className="w-12 h-12" src={config.icon || DefaultPluginIcon} />
+      <div className="flex flex-col w-full items-start">
+        <div className="font-bold flex flex-row h-6 items-center justify-between w-full">
           {config.title}
           <Icon
             fa="fa-solid fa-xmark"
-            className="flex flex-row items-center justify-center cursor-pointer text-red-500 bg-red-200 rounded-full p-1 w-5 h-5 plugin-box__remove-icon"
+            className="flex flex-row items-center justify-center cursor-pointer text-red-500 bg-red-200 rounded-full plugin-box__remove-icon"
             onClick={onRemove}
           />
         </div>
         <div>{config.description}</div>
-        <div className="flex flew-row justify-end mt-4">
-          <button className="button">{config.cta}</button>
-        </div>
       </div>
-    </div>
+    </button>
   );
 }
