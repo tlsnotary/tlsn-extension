@@ -134,6 +134,7 @@ export async function getPluginHashes(): Promise<string[]> {
   const retVal: string[] = [];
   for await (const [key] of pluginDb.iterator()) {
     // pluginDb.del(key);
+    // pluginConfigDb.del(key);
     retVal.push(key);
   }
   return retVal;

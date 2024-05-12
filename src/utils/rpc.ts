@@ -51,3 +51,14 @@ export async function fetchPluginConfigByHash(
     data: hash,
   });
 }
+
+export async function runPlugin(hash: string, method: string, params?: string) {
+  return browser.runtime.sendMessage({
+    type: BackgroundActiontype.run_plugin,
+    data: {
+      hash,
+      method,
+      params,
+    },
+  });
+}

@@ -1,15 +1,16 @@
 import React, {
   ChangeEvent,
+  MouseEventHandler,
   ReactElement,
   useCallback,
   useEffect,
   useState,
 } from 'react';
 import {
-  addPlugin,
   fetchPluginHashes,
-  fetchPluginByHash,
   removePlugin,
+  fetchPluginConfigByHash,
+  runPlugin,
 } from '../../utils/rpc';
 import { usePluginHashes } from '../../reducers/plugins';
 import createPlugin, { CallContext } from '@extism/extism';
@@ -19,7 +20,7 @@ import DefaultPluginIcon from '../../assets/img/default-plugin-icon.png';
 import classNames from 'classnames';
 import Icon from '../Icon';
 import './index.scss';
-import { getPluginConfigByHash } from '../../entries/Background/db';
+import browser from 'webextension-polyfill';
 
 export function PluginList(props: { className?: string }): ReactElement {
   const hashes = usePluginHashes();
@@ -28,7 +29,6 @@ export function PluginList(props: { className?: string }): ReactElement {
     fetchPluginHashes();
   }, []);
 
-  console.log(hashes);
   return (
     <div className={classNames('flex flex-col flex-nowrap', props.className)}>
       {!hashes.length && (
@@ -51,17 +51,33 @@ export function Plugin(props: {
 
   const onClick = useCallback(async () => {
     if (!config) return;
-  }, [config]);
+
+    await runPlugin(props.hash, 'start');
+
+    const [tab] = await browser.tabs.query({
+      active: true,
+      currentWindow: true,
+    });
+
+    await browser.storage.local.set({ plugin_hash: props.hash });
+
+    // @ts-ignore
+    if (chrome.sidePanel) await chrome.sidePanel.open({ tabId: tab.id });
+  }, [props.hash, config]);
 
   useEffect(() => {
     (async function () {
-      setConfig(await getPluginConfigByHash(props.hash));
+      setConfig(await fetchPluginConfigByHash(props.hash));
     })();
   }, [props.hash]);
 
-  const onRemove = useCallback(() => {
-    removePlugin(props.hash);
-  }, [props.hash]);
+  const onRemove: MouseEventHandler = useCallback(
+    (e) => {
+      e.stopPropagation();
+      removePlugin(props.hash);
+    },
+    [props.hash],
+  );
 
   if (!config) return <></>;
 

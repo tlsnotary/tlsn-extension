@@ -121,38 +121,74 @@ export const sha256 = async (data: string) => {
   return hashHex;
 };
 
-export const makePlugin = async (arrayBuffer: ArrayBuffer) => {
+const VALID_HOST_FUNCS: { [name: string]: string } = {
+  redirect: 'redirect',
+};
+
+export const makePlugin = async (
+  arrayBuffer: ArrayBuffer,
+  config?: PluginConfig,
+) => {
   const module = await WebAssembly.compile(arrayBuffer);
   const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+
+  const HostFunctions: {
+    [key: string]: (callContext: CallContext, ...args: any[]) => any;
+  } = {
+    redirect: function (context: CallContext, off: bigint) {
+      const r = context.read(off);
+      const url = r.text();
+      console.log('plugin::redirect', url);
+      browser.tabs.update(tab.id, { url });
+    },
+  };
+
+  const funcs: {
+    [key: string]: (callContext: CallContext, ...args: any[]) => any;
+  } = {};
+
+  for (const fn of Object.keys(VALID_HOST_FUNCS)) {
+    funcs[fn] = function (context: CallContext) {
+      return context.store('');
+    };
+  }
+
+  if (config?.hostFunctions) {
+    for (const fn of config.hostFunctions) {
+      funcs[fn] = HostFunctions[fn];
+    }
+  }
+
   const pluginConfig = {
     useWasi: true,
     config: {
-      tabUrl: tab.url,
-      tabId: tab.id,
+      tabUrl: tab?.url,
+      tabId: tab?.id,
     },
     functions: {
-      'extism:host/user': {
-        get_response: (context: CallContext, off: bigint) => {
-          // const r = context.read(off);
-          // const param = r.text();
-          // const proverConfig = JSON.parse(param);
-          // console.log('proving...', proverConfig);
-          // dispatch(
-          //   // @ts-ignore
-          //   notarizeRequest(proverConfig),
-          // );
-          return context.store('yo');
-        },
-        has_request_uri: (context: CallContext, off: bigint) => {
-          // const r = context.read(off);
-          // const requestUri = r.text();
-          // const req = requests.filter((req) =>
-          //   req.url.includes(requestUri),
-          // )[0];
-          // return context.store(req ? JSON.stringify(req) : 'undefined');
-          return context.store('yo');
-        },
-      },
+      'extism:host/user': funcs,
+      // 'extism:host/user': {
+      // get_response: (context: CallContext, off: bigint) => {
+      // const r = context.read(off);
+      // const param = r.text();
+      // const proverConfig = JSON.parse(param);
+      // console.log('proving...', proverConfig);
+      // dispatch(
+      //   // @ts-ignore
+      //   notarizeRequest(proverConfig),
+      // );
+      // return context.store('yo');
+      // },
+      // has_request_uri: (context: CallContext, off: bigint) => {
+      // const r = context.read(off);
+      // const requestUri = r.text();
+      // const req = requests.filter((req) =>
+      //   req.url.includes(requestUri),
+      // )[0];
+      // return context.store(req ? JSON.stringify(req) : 'undefined');
+      // return context.store('yo');
+      // },
+      // },
     },
   };
   const plugin = await createPlugin(module, pluginConfig);
@@ -163,13 +199,14 @@ export type PluginConfig = {
   title: string;
   description: string;
   icon?: string;
-  action: string;
   steps?: {
     title: string;
     description?: string;
     cta: string;
     action: string;
   }[];
+  hostFunctions?: string[];
+  cookies?: string[];
 };
 
 export const getPluginConfig = async (
@@ -180,8 +217,19 @@ export const getPluginConfig = async (
   const config = JSON.parse(out.string());
   assert(typeof config.title === 'string' && config.title.length);
   assert(typeof config.description === 'string' && config.description.length);
-  assert(typeof config.action === 'string' && config.action.length);
   assert(!config.icon || typeof config.icon === 'string');
+
+  if (config.hostFunctions) {
+    for (const func of config.hostFunctions) {
+      assert(typeof func === 'string' && !!VALID_HOST_FUNCS[func]);
+    }
+  }
+
+  if (config.cookies) {
+    for (const name of config.cookies) {
+      assert(typeof name === 'string' && name.length);
+    }
+  }
 
   if (config.steps) {
     for (const step of config.steps) {
@@ -198,3 +246,6 @@ export const getPluginConfig = async (
 export const assert = (expr: any, msg = 'unknown error') => {
   if (!expr) throw new Error(msg);
 };
+
+export const hexToArrayBuffer = (hex: string) =>
+  new Uint8Array(Buffer.from(hex, 'hex')).buffer;

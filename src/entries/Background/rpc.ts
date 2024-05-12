@@ -21,9 +21,14 @@ import {
   removePlugin,
   addPluginConfig,
   getPluginConfigByHash,
+  removePluginConfig,
 } from './db';
 import { addOnePlugin, removeOnePlugin } from '../../reducers/plugins';
-import { getPluginConfig, makePlugin } from '../../utils/misc';
+import {
+  getPluginConfig,
+  hexToArrayBuffer,
+  makePlugin,
+} from '../../utils/misc';
 
 export enum BackgroundActiontype {
   get_requests = 'get_requests',
@@ -43,6 +48,7 @@ export enum BackgroundActiontype {
   remove_plugin = 'remove_plugin',
   get_plugin_by_hash = 'get_plugin_by_hash',
   get_plugin_config_by_hash = 'get_plugin_config_by_hash',
+  run_plugin = 'run_plugin',
   get_plugin_hashes = 'get_plugin_hashes',
 }
 
@@ -125,6 +131,8 @@ export const initRPC = () => {
           return handleGetPluginByHash(request, sendResponse);
         case BackgroundActiontype.get_plugin_config_by_hash:
           return handleGetPluginConfigByHash(request, sendResponse);
+        case BackgroundActiontype.run_plugin:
+          return handleRunPlugin(request, sendResponse);
         default:
           break;
       }
@@ -331,23 +339,27 @@ async function handleAddPlugin(
   request: BackgroundAction,
   sendResponse: (data?: any) => void,
 ) {
-  const hash = await addPlugin(request.data);
+  try {
+    const config = await getPluginConfig(hexToArrayBuffer(request.data));
 
-  if (hash) {
-    const config = await getPluginConfig(
-      new Uint8Array(Buffer.from(request.data, 'hex')).buffer,
-    );
-    await addPluginConfig(hash, config);
-    await browser.runtime.sendMessage({
-      type: BackgroundActiontype.push_action,
-      data: {
-        tabId: 'background',
-      },
-      action: addOnePlugin(hash),
-    });
+    if (config) {
+      const hash = await addPlugin(request.data);
+
+      if (hash) {
+        await addPluginConfig(hash, config);
+
+        await browser.runtime.sendMessage({
+          type: BackgroundActiontype.push_action,
+          data: {
+            tabId: 'background',
+          },
+          action: addOnePlugin(hash),
+        });
+      }
+    }
+  } finally {
+    return sendResponse();
   }
-
-  return sendResponse();
 }
 
 async function handleRemovePlugin(
@@ -355,7 +367,7 @@ async function handleRemovePlugin(
   sendResponse: (data?: any) => void,
 ) {
   await removePlugin(request.data);
-
+  await removePluginConfig(request.data);
   await browser.runtime.sendMessage({
     type: BackgroundActiontype.push_action,
     data: {
@@ -400,4 +412,17 @@ async function handleGetPluginConfigByHash(
   const hash = request.data;
   const config = await getPluginConfigByHash(hash);
   return config;
+}
+
+async function handleRunPlugin(
+  request: BackgroundAction,
+  sendResponse: (data?: any) => void,
+) {
+  const { hash, method, params } = request.data;
+  const hex = await getPluginByHash(hash);
+  const arrayBuffer = hexToArrayBuffer(hex!);
+  const config = await getPluginConfig(arrayBuffer);
+  const plugin = await makePlugin(arrayBuffer, config);
+  const out = plugin.call(method, params);
+  return out;
 }
