@@ -195,16 +195,18 @@ export const makePlugin = async (
   return plugin;
 };
 
+export type StepConfig = {
+  title: string;
+  description?: string;
+  cta: string;
+  action: string;
+};
+
 export type PluginConfig = {
   title: string;
   description: string;
   icon?: string;
-  steps?: {
-    title: string;
-    description?: string;
-    cta: string;
-    action: string;
-  }[];
+  steps?: StepConfig[];
   hostFunctions?: string[];
   cookies?: string[];
 };

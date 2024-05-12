@@ -63,6 +63,8 @@ export function Plugin(props: {
 
     // @ts-ignore
     if (chrome.sidePanel) await chrome.sidePanel.open({ tabId: tab.id });
+
+    window.close();
   }, [props.hash, config]);
 
   useEffect(() => {

@@ -423,6 +423,6 @@ async function handleRunPlugin(
   const arrayBuffer = hexToArrayBuffer(hex!);
   const config = await getPluginConfig(arrayBuffer);
   const plugin = await makePlugin(arrayBuffer, config);
-  const out = plugin.call(method, params);
-  return out;
+  const out = await plugin.call(method, params);
+  return JSON.parse(out.string());
 }
