@@ -9,6 +9,6 @@ declare module 'main' {
 declare module 'extism:host' {
   interface user {
     redirect(ptr: I64): void;
-    notarize(ptr: I64): void;
+    notarize(ptr: I64): I64;
   }
 }

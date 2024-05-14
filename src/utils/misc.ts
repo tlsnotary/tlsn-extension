@@ -1,14 +1,18 @@
-import { RequestLog } from '../entries/Background/rpc';
+import {
+  BackgroundActiontype,
+  handleExecPluginProver,
+  RequestLog,
+} from '../entries/Background/rpc';
 import { EXPLORER_API } from './constants';
 import createPlugin, { CallContext, Plugin } from '@extism/extism';
 import browser from 'webextension-polyfill';
-import { getCookiesByHost, getHeadersByHost } from './rpc';
 import NodeCache from 'node-cache';
 import {
   getCookieStoreByHost,
   getHeaderStoreByHost,
 } from '../entries/Background/cache';
-import local = chrome.storage.local;
+
+const charwise = require('charwise');
 
 export function urlify(
   text: string,
@@ -162,27 +166,20 @@ export const makePlugin = async (
     notarize: function (context: CallContext, off: bigint) {
       const r = context.read(off);
       const params = JSON.parse(r.text());
+      const now = Date.now();
+      const id = charwise.encode(now).toString('hex');
 
-      let error = '';
-      let response = '';
+      handleExecPluginProver({
+        type: BackgroundActiontype.execute_plugin_prover,
+        data: {
+          now,
+          url: params.url,
+          method: params.method,
+          headers: params.headers,
+        },
+      });
 
-      fetch(params.url, {
-        method: params.method,
-        headers: params.headers,
-      })
-        .then(async (resp) => {
-          if (resp.status !== 200) {
-            error = `${resp.status} - ${(await resp.text()) || 'unknown error'}`;
-          } else {
-            return extractBodyFromResponse(resp);
-          }
-        })
-        .then((data) => {
-          response = data || 'empty response';
-          console.log('RESPOINSE!', response);
-        });
-
-      return context.store(error || response);
+      return context.store(`${id}`);
     },
   };
 
@@ -206,6 +203,7 @@ export const makePlugin = async (
     for (const host of config.cookies) {
       const cache = getCookieStoreByHost(host);
       const cookies = cacheToMap(cache);
+      console.log(cookies);
       // @ts-ignore
       injectedConfig.cookies = JSON.stringify(cookies);
     }
@@ -215,6 +213,7 @@ export const makePlugin = async (
     for (const host of config.headers) {
       const cache = getHeaderStoreByHost(host);
       const headers = cacheToMap(cache);
+      console.log(headers);
       // @ts-ignore
       injectedConfig.headers = JSON.stringify(headers);
     }

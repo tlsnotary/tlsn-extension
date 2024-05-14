@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { BackgroundActiontype } from '../Background/rpc';
 import { prove, verify } from 'tlsn-js';
-import { extractBodyFromResponse, urlify } from '../../utils/misc';
+import { urlify } from '../../utils/misc';
 import browser from 'webextension-polyfill';
 
 const Offscreen = () => {
@@ -67,15 +67,6 @@ const Offscreen = () => {
           (async () => {
             const result = await verify(request.data);
             sendResponse(result);
-          })();
-
-          return true;
-        }
-        case BackgroundActiontype.fetch_request: {
-          (async () => {
-            const resp = await fetch(request.data.url, request.data.params);
-            const data = await extractBodyFromResponse(resp);
-            sendResponse(data);
           })();
 
           return true;

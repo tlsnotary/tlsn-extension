@@ -30,3 +30,11 @@ export async function getNotaryApi() {
 export async function getProxyApi() {
   return await get(PROXY_API_LS_KEY, 'wss://notary.pse.dev/proxy');
 }
+
+export async function getNotaryUrl() {
+  return get(NOTARY_API_LS_KEY, 'https://notary.pse.dev/v0.1.0-alpha.5');
+}
+
+export async function getProxyUrl() {
+  return get(PROXY_API_LS_KEY, 'wss://notary.pse.dev/proxy');
+}

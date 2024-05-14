@@ -37,22 +37,33 @@ function two() {
       headers: {
         'x-twitter-client-language': 'en',
         'x-csrf-token': headers['x-csrf-token'],
+        Origin: 'https://twitter.com',
+        Host: 'api.twitter.com',
         authorization: headers.authorization,
-        cookies: `lang=en; auth_token=${cookies.auth_token};auth_token`,
+        cookies: `lang=en; auth_token=${cookies.auth_token};`,
+        // ...headers,
+        // cookies: Object.keys(cookies)
+        //   .map((key) => [key, cookies[key]].join('='))
+        //   .join('; '),
+        'Accept-Encoding': 'identity',
+        Connection: 'close',
       },
     }),
   );
 }
 
 function three() {
-  const params = JSON.parse(Host.inputString())[1];
+  const params = JSON.parse(Host.inputString());
   const { notarize } = Host.getFunctions();
 
   if (!params) {
     Host.outputString(JSON.stringify(false));
   } else {
     const mem = Memory.fromString(JSON.stringify(params));
-    Host.outputString(JSON.stringify(notarize(mem.offset)));
+    const idOffset = notarize(mem.offset);
+    const id = Memory.find(idOffset).readString();
+    console.log(`plugin id: ${id}`);
+    Host.outputString(JSON.stringify(id));
   }
 }
 

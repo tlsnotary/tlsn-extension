@@ -26,18 +26,23 @@ import {
 import { addOnePlugin, removeOnePlugin } from '../../reducers/plugins';
 import {
   devlog,
+  extractBodyFromResponse,
   getPluginConfig,
   hexToArrayBuffer,
   makePlugin,
+  urlify,
 } from '../../utils/misc';
+import { getNotaryUrl, getProxyUrl } from '../../utils/storage';
+
+const charwise = require('charwise');
 
 export enum BackgroundActiontype {
   get_requests = 'get_requests',
   clear_requests = 'clear_requests',
   push_action = 'push_action',
+  execute_plugin_prover = 'execute_plugin_prover',
   get_prove_requests = 'get_prove_requests',
   prove_request_start = 'prove_request_start',
-  fetch_request = 'fetch_request',
   process_prove_request = 'process_prove_request',
   finish_prove_request = 'finish_prove_request',
   verify_prove_request = 'verify_prove_request',
@@ -135,6 +140,8 @@ export const initRPC = () => {
           return handleGetPluginConfigByHash(request, sendResponse);
         case BackgroundActiontype.run_plugin:
           return handleRunPlugin(request, sendResponse);
+        case BackgroundActiontype.execute_plugin_prover:
+          return handleExecPluginProver(request);
         default:
           break;
       }
@@ -309,6 +316,95 @@ async function handleProveRequestStart(
   });
 
   return sendResponse();
+}
+
+async function runPluginProver(request: BackgroundAction, now = Date.now()) {
+  const { url, method, headers } = request.data;
+
+  const resp = await fetch(url, {
+    method,
+    headers,
+  });
+  const body = await extractBodyFromResponse(resp);
+  const notaryUrl = await getNotaryUrl();
+  const websocketProxyUrl = await getProxyUrl();
+  const maxTranscriptSize = 16384;
+  const [tab] = await browser.tabs.query({
+    active: true,
+    lastFocusedWindow: true,
+  });
+  const cache = await getCacheByTabId(tab?.id);
+  const requests = cache
+    .keys()
+    .map((key) => cache.get(key))
+    .filter((req) =>
+      req?.url?.includes('https://api.twitter.com/1.1/account/settings.json'),
+    );
+  const req = requests[0];
+  const hostname = urlify(req.url)?.hostname;
+  const hea: { [k: string]: string } = req.requestHeaders.reduce(
+    (acc: any, h) => {
+      acc[h.name] = h.value;
+      return acc;
+    },
+    { Host: hostname },
+  );
+
+  //TODO: for some reason, these needs to be override to work
+  hea['Accept-Encoding'] = 'identity';
+  hea['Connection'] = 'close';
+
+  console.log(hea, {
+    url,
+    method,
+    headers: hea,
+    body,
+    maxTranscriptSize,
+    notaryUrl,
+    websocketProxyUrl,
+  });
+
+  const { id } = await addNotaryRequest(now, {
+    url,
+    method,
+    headers: hea,
+    body,
+    maxTranscriptSize,
+    notaryUrl,
+    websocketProxyUrl,
+  });
+
+  await setNotaryRequestStatus(id, 'pending');
+
+  await browser.runtime.sendMessage({
+    type: BackgroundActiontype.push_action,
+    data: {
+      tabId: 'background',
+    },
+    action: addRequestHistory(await getNotaryRequest(id)),
+  });
+
+  await browser.runtime.sendMessage({
+    type: BackgroundActiontype.process_prove_request,
+    data: {
+      id,
+      url,
+      method,
+      headers,
+      body,
+      maxTranscriptSize,
+      notaryUrl,
+      websocketProxyUrl,
+    },
+  });
+}
+
+export async function handleExecPluginProver(request: BackgroundAction) {
+  const now = request.data.now;
+  const id = charwise.encode(now).toString('hex');
+  console.log('exec plugin', id);
+  runPluginProver(request, now);
+  return id;
 }
 
 function handleGetCookiesByHostname(
