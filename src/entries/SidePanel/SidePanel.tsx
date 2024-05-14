@@ -44,7 +44,18 @@ function PluginBody(props: {
   config: PluginConfig;
   hash: string;
 }): ReactElement {
+  const { hash } = props;
   const { title, description, icon, steps } = props.config;
+  const [responses, setResponses] = useState<any[]>([]);
+
+  const setResponse = useCallback(
+    (response: any, i: number) => {
+      const result = responses.concat();
+      result[i] = response;
+      setResponses(result);
+    },
+    [responses],
+  );
 
   return (
     <div className="flex flex-col p-4">
@@ -59,7 +70,13 @@ function PluginBody(props: {
       </div>
       <div className="flex flex-col items-start gap-8 mt-8">
         {steps?.map((step, i) => (
-          <StepContent hash={props.hash} index={i} {...step} />
+          <StepContent
+            hash={hash}
+            index={i}
+            setResponse={setResponse}
+            params={i > 0 ? responses[i - 1] : undefined}
+            {...step}
+          />
         ))}
       </div>
     </div>
@@ -70,25 +87,32 @@ function StepContent(
   props: StepConfig & {
     hash: string;
     index: number;
+    setResponse: (resp: any, i: number) => void;
+    params?: any;
   },
 ): ReactElement {
-  const { index, title, description, cta, action, hash } = props;
+  const { index, title, description, cta, action, hash, setResponse, params } =
+    props;
   const [completed, setCompleted] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
 
   const processStep = useCallback(async () => {
+    if (index > 0 && !params) return;
+
     setPending(true);
     try {
       setError('');
-      const val = await runPlugin(hash, action);
+      const val = await runPlugin(hash, action, JSON.stringify(params));
       setCompleted(!!val);
+      setResponse(val, index);
     } catch (e: any) {
+      console.error(e);
       setError(e?.message || 'Unkonwn error');
     } finally {
       setPending(false);
     }
-  }, [hash, action, index]);
+  }, [hash, action, index, params]);
 
   const onClick = useCallback(() => {
     if (pending || completed) return;
