@@ -23,7 +23,6 @@ import {
   getNotaryApi,
   getProxyApi,
 } from '../../utils/storage';
-import { MAX_SENT } from '../../utils/constants';
 
 export default function Home(): ReactElement {
   const requests = useRequests();
