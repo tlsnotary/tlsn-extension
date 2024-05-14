@@ -1,59 +1,59 @@
-function start() {
+function isValidHost(urlString) {
+  const url = new URL(urlString);
+  return url.hostname === 'twitter.com';
+}
+
+function gotoTwitter() {
   const { redirect } = Host.getFunctions();
-  const tabUrl = Config.get('tabUrl');
+  const mem = Memory.fromString('https://twitter.com');
+  redirect(mem.offset);
+}
 
-  const url = new URL(tabUrl);
+function start() {
+  if (!isValidHost(Config.get('tabUrl'))) {
+    gotoTwitter();
+    Host.outputString(JSON.stringify(false));
+    return;
+  }
+  Host.outputString(JSON.stringify(true));
+}
 
-  let mem = Memory.fromString('https://twitter.com');
+function two() {
+  const cookies = JSON.parse(Config.get('cookies'));
+  const headers = JSON.parse(Config.get('headers'));
+  if (
+    !cookies.auth_token ||
+    !headers['x-csrf-token'] ||
+    !headers['authorization']
+  ) {
+    Host.outputString(JSON.stringify(false));
+    return;
+  }
 
-  if (url.hostname !== 'twitter.com') {
-    redirect(mem.offset);
+  Host.outputString(
+    JSON.stringify({
+      url: 'https://api.twitter.com/1.1/account/settings.json',
+      method: 'GET',
+      headers: {
+        'x-twitter-client-language': 'en',
+        'x-csrf-token': headers['x-csrf-token'],
+        authorization: headers.authorization,
+        cookies: `lang=en; auth_token=${cookies.auth_token};auth_token`,
+      },
+    }),
+  );
+}
+
+function three() {
+  const params = JSON.parse(Host.inputString())[1];
+  const { notarize } = Host.getFunctions();
+
+  if (!params) {
     Host.outputString(JSON.stringify(false));
   } else {
-    Host.outputString(JSON.stringify(true));
+    const mem = Memory.fromString(JSON.stringify(params));
+    Host.outputString(JSON.stringify(notarize(mem.offset)));
   }
-  // const notaryUrl = Config.get('notaryUrl');
-  // const websocketProxyUrl = Config.get('websocketProxyUrl');
-  // const { get_response, has_request_uri } = Host.getFunctions();
-  // let mem = Memory.fromString(
-  //   'https://api.twitter.com/1.1/account/settings.json',
-  // );
-  // console.log(`'from plugin: mem', ${JSON.stringify(mem)}`);
-  //
-  // let offset = has_request_uri(mem.offset);
-  // console.log(`'from plugin: offset', ${offset}`);
-  //
-  // let req = Memory.find(offset).readString();
-  // console.log(`'from plugin: req', ${req}`);
-  // req = JSON.parse(req);3e;?
-  //
-  // const headers = req.requestHeaders?.reduce(
-  //   (acc, h) => {
-  //     acc[h.name] = h.value;
-  //     return acc;
-  //   },
-  //   { Host: 'api.twitter.com' },
-  // );
-  //
-  // mem = Memory.fromString(
-  //   JSON.stringify({
-  //     url: req.url,
-  //     method: req.method,
-  //     maxTranscriptSize: 16384,
-  //     notaryUrl,
-  //     websocketProxyUrl,
-  //     headers,
-  //   }),
-  // );
-  // get_response(mem.offset);
-}
-
-function checkCookies() {
-  Host.outputString(JSON.stringify(false));
-}
-
-function notarize() {
-  Host.outputString(JSON.stringify(false));
 }
 
 function config() {
@@ -72,17 +72,20 @@ function config() {
           title: 'Collect credentials',
           description: "Login to your account if you haven't already",
           cta: 'Check cookies',
-          action: 'checkCookies',
+          action: 'two',
         },
         {
           title: 'Notarize twitter profile',
           cta: 'Notarize',
-          action: 'notarize',
+          action: 'three',
+          prover: true,
         },
       ],
-      hostFunctions: ['redirect'],
+      hostFunctions: ['redirect', 'notarize'],
+      cookies: ['api.twitter.com'],
+      headers: ['api.twitter.com'],
     }),
   );
 }
 
-module.exports = { start, config, checkCookies, notarize };
+module.exports = { start, config, two, three };

@@ -25,6 +25,7 @@ import {
 } from './db';
 import { addOnePlugin, removeOnePlugin } from '../../reducers/plugins';
 import {
+  devlog,
   getPluginConfig,
   hexToArrayBuffer,
   makePlugin,
@@ -36,6 +37,7 @@ export enum BackgroundActiontype {
   push_action = 'push_action',
   get_prove_requests = 'get_prove_requests',
   prove_request_start = 'prove_request_start',
+  fetch_request = 'fetch_request',
   process_prove_request = 'process_prove_request',
   finish_prove_request = 'finish_prove_request',
   verify_prove_request = 'verify_prove_request',
@@ -423,6 +425,8 @@ async function handleRunPlugin(
   const arrayBuffer = hexToArrayBuffer(hex!);
   const config = await getPluginConfig(arrayBuffer);
   const plugin = await makePlugin(arrayBuffer, config);
+  devlog(`plugin::${method}`, params);
   const out = await plugin.call(method, params);
+  devlog(`plugin response: `, out.string());
   return JSON.parse(out.string());
 }

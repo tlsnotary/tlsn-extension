@@ -1,7 +1,11 @@
-import React, { ReactElement, useEffect, useState } from 'react';
+import React, { ReactElement, useCallback, useEffect, useState } from 'react';
 import './sidePanel.scss';
 import browser from 'webextension-polyfill';
-import { fetchPluginConfigByHash, runPlugin } from '../../utils/rpc';
+import {
+  fetchPluginConfigByHash,
+  getCookiesByHost,
+  runPlugin,
+} from '../../utils/rpc';
 import { PluginConfig, StepConfig } from '../../utils/misc';
 import { PluginList } from '../../components/PluginList';
 import DefaultPluginIcon from '../../assets/img/default-plugin-icon.png';
@@ -41,6 +45,7 @@ function PluginBody(props: {
   hash: string;
 }): ReactElement {
   const { title, description, icon, steps } = props.config;
+
   return (
     <div className="flex flex-col p-4">
       <div className="flex flex-row items-center gap-4">
@@ -69,14 +74,30 @@ function StepContent(
 ): ReactElement {
   const { index, title, description, cta, action, hash } = props;
   const [completed, setCompleted] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    console.log(action, hash);
-    (async function () {
+  const processStep = useCallback(async () => {
+    setPending(true);
+    try {
+      setError('');
       const val = await runPlugin(hash, action);
       setCompleted(!!val);
-    })();
+    } catch (e: any) {
+      setError(e?.message || 'Unkonwn error');
+    } finally {
+      setPending(false);
+    }
   }, [hash, action, index]);
+
+  const onClick = useCallback(() => {
+    if (pending || completed) return;
+    processStep();
+  }, [processStep, pending, completed]);
+
+  useEffect(() => {
+    processStep();
+  }, [processStep]);
 
   return (
     <div className="flex flex-row gap-4 text-base w-full">
@@ -92,19 +113,26 @@ function StepContent(
         {!!description && (
           <div className="text-slate-500 text-sm">{description}</div>
         )}
+        {!!error && <div className="text-red-500 text-sm">{error}</div>}
         <button
           className={classNames('button mt-2 w-fit', {
             '!bg-green-200 !text-black cursor-default border border-green-500 rounded':
               completed,
           })}
+          onClick={onClick}
         >
-          {!completed && cta}
-          {completed && (
-            <div className="flex flex-row flex-nowrap items-center gap-2">
+          <div className="flex flex-row flex-nowrap items-center gap-2">
+            {pending ? (
+              <Icon
+                className="animate-spin"
+                fa="fa-solid fa-spinner"
+                size={1}
+              />
+            ) : completed ? (
               <Icon className="text-green-600" fa="fa-solid fa-check" />
-              <span className="text-sm">DONE</span>
-            </div>
-          )}
+            ) : null}
+            <span className="text-sm">{completed ? 'DONE' : cta}</span>
+          </div>
         </button>
       </div>
     </div>

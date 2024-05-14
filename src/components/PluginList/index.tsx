@@ -13,14 +13,13 @@ import {
   runPlugin,
 } from '../../utils/rpc';
 import { usePluginHashes } from '../../reducers/plugins';
-import createPlugin, { CallContext } from '@extism/extism';
-import { notarizeRequest } from '../../reducers/requests';
-import { getPluginConfig, PluginConfig } from '../../utils/misc';
+import { PluginConfig } from '../../utils/misc';
 import DefaultPluginIcon from '../../assets/img/default-plugin-icon.png';
 import classNames from 'classnames';
 import Icon from '../Icon';
 import './index.scss';
 import browser from 'webextension-polyfill';
+import { ErrorModal } from '../ErrorModal';
 
 export function PluginList(props: { className?: string }): ReactElement {
   const hashes = usePluginHashes();
@@ -47,24 +46,29 @@ export function Plugin(props: {
   hash: string;
   onClick?: () => void;
 }): ReactElement {
+  const [error, showError] = useState('');
   const [config, setConfig] = useState<PluginConfig | null>(null);
 
   const onClick = useCallback(async () => {
     if (!config) return;
 
-    await runPlugin(props.hash, 'start');
+    try {
+      await runPlugin(props.hash, 'start');
 
-    const [tab] = await browser.tabs.query({
-      active: true,
-      currentWindow: true,
-    });
+      const [tab] = await browser.tabs.query({
+        active: true,
+        currentWindow: true,
+      });
 
-    await browser.storage.local.set({ plugin_hash: props.hash });
+      await browser.storage.local.set({ plugin_hash: props.hash });
 
-    // @ts-ignore
-    if (chrome.sidePanel) await chrome.sidePanel.open({ tabId: tab.id });
+      // @ts-ignore
+      if (chrome.sidePanel) await chrome.sidePanel.open({ tabId: tab.id });
 
-    window.close();
+      window.close();
+    } catch (e: any) {
+      showError(e.message);
+    }
   }, [props.hash, config]);
 
   useEffect(() => {
@@ -91,6 +95,7 @@ export function Plugin(props: {
       )}
       onClick={onClick}
     >
+      {!!error && <ErrorModal onClose={() => showError('')} message={error} />}
       <img className="w-12 h-12" src={config.icon || DefaultPluginIcon} />
       <div className="flex flex-col w-full items-start">
         <div className="font-bold flex flex-row h-6 items-center justify-between w-full">

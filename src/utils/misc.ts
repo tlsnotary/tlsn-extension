@@ -2,6 +2,13 @@ import { RequestLog } from '../entries/Background/rpc';
 import { EXPLORER_API } from './constants';
 import createPlugin, { CallContext, Plugin } from '@extism/extism';
 import browser from 'webextension-polyfill';
+import { getCookiesByHost, getHeadersByHost } from './rpc';
+import NodeCache from 'node-cache';
+import {
+  getCookieStoreByHost,
+  getHeaderStoreByHost,
+} from '../entries/Background/cache';
+import local = chrome.storage.local;
 
 export function urlify(
   text: string,
@@ -97,8 +104,14 @@ export async function replayRequest(req: RequestLog): Promise<string> {
 
   // @ts-ignore
   const resp = await fetch(req.url, options);
+  return extractBodyFromResponse(resp);
+}
+
+export const extractBodyFromResponse = async (
+  resp: Response,
+): Promise<string> => {
   const contentType =
-    resp?.headers.get('content-type') || resp?.headers.get('Content-Type');
+    resp.headers.get('content-type') || resp.headers.get('Content-Type');
 
   if (contentType?.includes('application/json')) {
     return resp.text();
@@ -109,7 +122,7 @@ export async function replayRequest(req: RequestLog): Promise<string> {
   } else {
     return resp.blob().then((blob) => blob.text());
   }
-}
+};
 
 export const sha256 = async (data: string) => {
   const encoder = new TextEncoder().encode(data);
@@ -123,6 +136,7 @@ export const sha256 = async (data: string) => {
 
 const VALID_HOST_FUNCS: { [name: string]: string } = {
   redirect: 'redirect',
+  notarize: 'notarize',
 };
 
 export const makePlugin = async (
@@ -132,14 +146,43 @@ export const makePlugin = async (
   const module = await WebAssembly.compile(arrayBuffer);
   const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
 
+  const injectedConfig = {
+    tabUrl: tab?.url,
+    tabId: tab?.id,
+  };
+
   const HostFunctions: {
     [key: string]: (callContext: CallContext, ...args: any[]) => any;
   } = {
     redirect: function (context: CallContext, off: bigint) {
       const r = context.read(off);
       const url = r.text();
-      console.log('plugin::redirect', url);
       browser.tabs.update(tab.id, { url });
+    },
+    notarize: function (context: CallContext, off: bigint) {
+      const r = context.read(off);
+      const params = JSON.parse(r.text());
+
+      let error = '';
+      let response = '';
+
+      fetch(params.url, {
+        method: params.method,
+        headers: params.headers,
+      })
+        .then(async (resp) => {
+          if (resp.status !== 200) {
+            error = `${resp.status} - ${(await resp.text()) || 'unknown error'}`;
+          } else {
+            return extractBodyFromResponse(resp);
+          }
+        })
+        .then((data) => {
+          response = data || 'empty response';
+          console.log('RESPOINSE!', response);
+        });
+
+      return context.store(error || response);
     },
   };
 
@@ -149,7 +192,7 @@ export const makePlugin = async (
 
   for (const fn of Object.keys(VALID_HOST_FUNCS)) {
     funcs[fn] = function (context: CallContext) {
-      return context.store('');
+      throw new Error(`no permission for ${fn}`);
     };
   }
 
@@ -159,36 +202,29 @@ export const makePlugin = async (
     }
   }
 
+  if (config?.cookies) {
+    for (const host of config.cookies) {
+      const cache = getCookieStoreByHost(host);
+      const cookies = cacheToMap(cache);
+      // @ts-ignore
+      injectedConfig.cookies = JSON.stringify(cookies);
+    }
+  }
+
+  if (config?.headers) {
+    for (const host of config.headers) {
+      const cache = getHeaderStoreByHost(host);
+      const headers = cacheToMap(cache);
+      // @ts-ignore
+      injectedConfig.headers = JSON.stringify(headers);
+    }
+  }
+
   const pluginConfig = {
     useWasi: true,
-    config: {
-      tabUrl: tab?.url,
-      tabId: tab?.id,
-    },
+    config: injectedConfig,
     functions: {
       'extism:host/user': funcs,
-      // 'extism:host/user': {
-      // get_response: (context: CallContext, off: bigint) => {
-      // const r = context.read(off);
-      // const param = r.text();
-      // const proverConfig = JSON.parse(param);
-      // console.log('proving...', proverConfig);
-      // dispatch(
-      //   // @ts-ignore
-      //   notarizeRequest(proverConfig),
-      // );
-      // return context.store('yo');
-      // },
-      // has_request_uri: (context: CallContext, off: bigint) => {
-      // const r = context.read(off);
-      // const requestUri = r.text();
-      // const req = requests.filter((req) =>
-      //   req.url.includes(requestUri),
-      // )[0];
-      // return context.store(req ? JSON.stringify(req) : 'undefined');
-      // return context.store('yo');
-      // },
-      // },
     },
   };
   const plugin = await createPlugin(module, pluginConfig);
@@ -209,6 +245,7 @@ export type PluginConfig = {
   steps?: StepConfig[];
   hostFunctions?: string[];
   cookies?: string[];
+  headers?: string[];
 };
 
 export const getPluginConfig = async (
@@ -233,6 +270,12 @@ export const getPluginConfig = async (
     }
   }
 
+  if (config.headers) {
+    for (const name of config.headers) {
+      assert(typeof name === 'string' && name.length);
+    }
+  }
+
   if (config.steps) {
     for (const step of config.steps) {
       assert(typeof step.title === 'string' && step.title.length);
@@ -251,3 +294,11 @@ export const assert = (expr: any, msg = 'unknown error') => {
 
 export const hexToArrayBuffer = (hex: string) =>
   new Uint8Array(Buffer.from(hex, 'hex')).buffer;
+
+export const cacheToMap = (cache: NodeCache) => {
+  const keys = cache.keys();
+  return keys.reduce((acc: { [k: string]: string }, key) => {
+    acc[key] = cache.get(key) || '';
+    return acc;
+  }, {});
+};
