@@ -18,6 +18,8 @@ import {
   PROXY_API_LS_KEY,
   getNotaryApi,
   getProxyApi,
+  getMaxSent,
+  getMaxRecv,
 } from '../../utils/storage';
 import { useDispatch } from 'react-redux';
 
@@ -37,7 +39,8 @@ export default function Notarize(): ReactElement {
     const hostname = urlify(req.url)?.hostname;
     const notaryUrl = await getNotaryApi();
     const websocketProxyUrl = await getProxyApi();
-
+    const maxSentData = await getMaxSent();
+    const maxRecvData = await getMaxRecv();
     const headers: { [k: string]: string } = req.requestHeaders.reduce(
       (acc: any, h) => {
         acc[h.name] = h.value;
@@ -57,6 +60,8 @@ export default function Notarize(): ReactElement {
         method: req.method,
         headers,
         body: req.requestBody,
+        maxSentData,
+        maxRecvData,
         maxTranscriptSize,
         notaryUrl,
         websocketProxyUrl,

@@ -32,8 +32,8 @@ export default function Options(): ReactElement {
     (async () => {
       setNotary((await getNotaryApi()) || NOTARY_API);
       setProxy((await getProxyApi()) || NOTARY_PROXY);
-      setMaxReceived(parseInt(await getMaxRecv()) || MAX_RECV);
-      setMaxSent(parseInt(await getMaxSent()) || MAX_SENT);
+      setMaxReceived(await getMaxRecv() || MAX_RECV);
+      setMaxSent(await getMaxSent() || MAX_SENT);
     })();
   }, [advanced]);
 

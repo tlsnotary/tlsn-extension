@@ -55,6 +55,8 @@ export type RequestHistory = {
   headers: { [key: string]: string };
   body?: string;
   maxTranscriptSize: number;
+  maxSentData: number;
+  maxRecvData: number;
   notaryUrl: string;
   websocketProxyUrl: string;
   status: '' | 'pending' | 'success' | 'error';
@@ -212,6 +214,8 @@ async function handleProveRequestStart(
     headers,
     body,
     maxTranscriptSize,
+    maxSentData,
+    maxRecvData,
     notaryUrl,
     websocketProxyUrl,
     secretHeaders,
@@ -223,13 +227,15 @@ async function handleProveRequestStart(
     method,
     headers,
     body,
+    maxSentData,
+    maxRecvData,
     maxTranscriptSize,
     notaryUrl,
     websocketProxyUrl,
     secretHeaders,
     secretResps,
   });
-
+  console.log(request.data);
   await setNotaryRequestStatus(id, 'pending');
 
   await browser.runtime.sendMessage({
@@ -249,6 +255,8 @@ async function handleProveRequestStart(
       headers,
       body,
       maxTranscriptSize,
+      maxSentData,
+      maxRecvData,
       notaryUrl,
       websocketProxyUrl,
       secretHeaders,

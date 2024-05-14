@@ -18,12 +18,12 @@ import bookmarks from '../../../utils/bookmark/bookmarks.json';
 import { replayRequest, urlify } from '../../utils/misc';
 import { useDispatch } from 'react-redux';
 import {
-  get,
-  NOTARY_API_LS_KEY,
-  PROXY_API_LS_KEY,
+  getMaxRecv,
+  getMaxSent,
   getNotaryApi,
   getProxyApi,
 } from '../../utils/storage';
+import { MAX_SENT } from '../../utils/constants';
 
 export default function Home(): ReactElement {
   const requests = useRequests();
@@ -127,7 +127,8 @@ export default function Home(): ReactElement {
                         const hostname = urlify(req.url)?.hostname;
                         const notaryUrl = await getNotaryApi();
                         const websocketProxyUrl = await getProxyApi();
-
+                        const maxSent = await getMaxSent();
+                        const maxRecv = await getMaxRecv();
                         const headers: { [k: string]: string } =
                           req.requestHeaders.reduce(
                             (acc: any, h) => {
@@ -148,6 +149,8 @@ export default function Home(): ReactElement {
                             method: req.method,
                             headers: headers,
                             body: req.requestBody,
+                            maxSentData: maxSent,
+                            maxRecvData: maxRecv,
                             maxTranscriptSize: 16384,
                             notaryUrl,
                             websocketProxyUrl,

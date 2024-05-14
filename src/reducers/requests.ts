@@ -6,15 +6,13 @@ import { useSelector } from 'react-redux';
 import { AppRootState } from './index';
 import deepEqual from 'fast-deep-equal';
 import {
-  get,
-  NOTARY_API_LS_KEY,
-  PROXY_API_LS_KEY,
   getNotaryApi,
   getProxyApi,
+  getMaxSent,
+  getMaxRecv,
 } from '../utils/storage';
 import { BackgroundActiontype } from '../entries/Background/rpc';
 import browser from 'webextension-polyfill';
-import { NOTARY_API, NOTARY_PROXY } from '../utils/constants';
 
 enum ActionType {
   '/requests/setRequests' = '/requests/setRequests',
@@ -49,6 +47,8 @@ export const setRequests = (requests: RequestLog[]): Action<RequestLog[]> => ({
 export const notarizeRequest = (options: RequestHistory) => async () => {
   const notaryUrl = await getNotaryApi();
   const websocketProxyUrl = await getProxyApi();
+  const maxSentData = await getMaxSent();
+  const maxRecvData = await getMaxRecv();
 
   chrome.runtime.sendMessage<any, string>({
     type: BackgroundActiontype.prove_request_start,
@@ -58,6 +58,8 @@ export const notarizeRequest = (options: RequestHistory) => async () => {
       headers: options.headers,
       body: options.body,
       maxTranscriptSize: options.maxTranscriptSize,
+      maxSentData,
+      maxRecvData,
       secretHeaders: options.secretHeaders,
       secretResps: options.secretResps,
       notaryUrl,

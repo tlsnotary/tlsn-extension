@@ -16,11 +16,11 @@ export async function get(key: string, defaultValue?: string) {
 }
 
 export async function getMaxSent() {
-  return await get(MAX_SENT_LS_KEY, '4096');
+  return parseInt(await get(MAX_SENT_LS_KEY, '4096'));
 }
 
 export async function getMaxRecv() {
-  return await get(MAX_RECEIVED_LS_KEY, '16384');
+  return parseInt(await get(MAX_RECEIVED_LS_KEY, '16384'));
 }
 
 export async function getNotaryApi() {
