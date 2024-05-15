@@ -12,6 +12,7 @@ import DefaultPluginIcon from '../../assets/img/default-plugin-icon.png';
 import logo from '../../assets/img/icon-128.png';
 import classNames from 'classnames';
 import Icon from '../../components/Icon';
+import { useRequestHistory } from '../../reducers/history';
 
 export default function SidePanel(): ReactElement {
   const [config, setConfig] = useState<PluginConfig | null>(null);
@@ -30,8 +31,14 @@ export default function SidePanel(): ReactElement {
 
   return (
     <div className="flex flex-col bg-slate-100 w-screen h-screen">
-      <div className="flex flex-nowrap flex-shrink-0 flex-row items-center relative gap-2 h-9 p-2 cursor-default justify-center bg-slate-300 w-full">
+      <div className="relative flex flex-nowrap flex-shrink-0 flex-row items-center relative gap-2 h-9 p-2 cursor-default justify-center bg-slate-300 w-full">
         <img className="h-5" src={logo} alt="logo" />
+        <button
+          className="button absolute right-2"
+          onClick={() => window.close()}
+        >
+          Close
+        </button>
       </div>
       {!config && <PluginList />}
       {config && <PluginBody hash={hash} config={config} />}
@@ -74,7 +81,8 @@ function PluginBody(props: {
             hash={hash}
             index={i}
             setResponse={setResponse}
-            params={i > 0 ? responses[i - 1] : undefined}
+            lastResponse={i > 0 ? responses[i - 1] : undefined}
+            responses={responses}
             {...step}
           />
         ))}
@@ -88,40 +96,83 @@ function StepContent(
     hash: string;
     index: number;
     setResponse: (resp: any, i: number) => void;
-    params?: any;
+    responses: any[];
+    lastResponse?: any;
   },
 ): ReactElement {
-  const { index, title, description, cta, action, hash, setResponse, params } =
-    props;
+  const {
+    index,
+    title,
+    description,
+    cta,
+    action,
+    hash,
+    setResponse,
+    lastResponse,
+    responses,
+    prover,
+  } = props;
   const [completed, setCompleted] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
+  const [notarizationId, setNotarizationId] = useState('');
+  const notaryRequest = useRequestHistory(notarizationId);
 
   const processStep = useCallback(async () => {
-    if (index > 0 && !params) return;
+    if (index > 0 && !lastResponse) return;
+
+    if (responses[index]) return;
 
     setPending(true);
     try {
       setError('');
-      const val = await runPlugin(hash, action, JSON.stringify(params));
-      setCompleted(!!val);
-      setResponse(val, index);
+      const val = await runPlugin(hash, action, JSON.stringify(responses));
+      if (val && prover) {
+        setNotarizationId(val);
+      } else {
+        setCompleted(!!val);
+        setResponse(val, index);
+      }
     } catch (e: any) {
       console.error(e);
       setError(e?.message || 'Unkonwn error');
     } finally {
       setPending(false);
     }
-  }, [hash, action, index, params]);
+  }, [hash, action, index, lastResponse, responses, prover]);
 
   const onClick = useCallback(() => {
-    if (pending || completed) return;
+    if (
+      pending ||
+      completed ||
+      notaryRequest?.status === 'pending' ||
+      notaryRequest?.status === 'success'
+    )
+      return;
     processStep();
-  }, [processStep, pending, completed]);
+  }, [processStep, pending, completed, notaryRequest]);
 
   useEffect(() => {
     processStep();
   }, [processStep]);
+
+  let btnContent = null;
+
+  if (notaryRequest?.status === 'pending' || pending) {
+    btnContent = (
+      <>
+        <Icon className="animate-spin" fa="fa-solid fa-spinner" size={1} />
+        <span className="text-sm">{cta}</span>
+      </>
+    );
+  } else if (notaryRequest?.status === 'success' || completed) {
+    btnContent = (
+      <>
+        <Icon className="text-green-600" fa="fa-solid fa-check" />
+        <span className="text-sm">DONE</span>
+      </>
+    );
+  }
 
   return (
     <div className="flex flex-row gap-4 text-base w-full">
@@ -139,24 +190,17 @@ function StepContent(
         )}
         {!!error && <div className="text-red-500 text-sm">{error}</div>}
         <button
-          className={classNames('button mt-2 w-fit', {
-            '!bg-green-200 !text-black cursor-default border border-green-500 rounded':
-              completed,
-          })}
+          className={classNames(
+            'button mt-2 w-fit flex flex-row flex-nowrap items-center gap-2',
+            {
+              '!bg-green-200 !text-black cursor-default border border-green-500 rounded':
+                notaryRequest?.status === 'success' || completed,
+              'cursor-default': notaryRequest?.status === 'pending' || pending,
+            },
+          )}
           onClick={onClick}
         >
-          <div className="flex flex-row flex-nowrap items-center gap-2">
-            {pending ? (
-              <Icon
-                className="animate-spin"
-                fa="fa-solid fa-spinner"
-                size={1}
-              />
-            ) : completed ? (
-              <Icon className="text-green-600" fa="fa-solid fa-check" />
-            ) : null}
-            <span className="text-sm">{completed ? 'DONE' : cta}</span>
-          </div>
+          {btnContent}
         </button>
       </div>
     </div>

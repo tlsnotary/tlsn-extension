@@ -23,6 +23,7 @@ function two() {
   const headers = JSON.parse(Config.get('headers'));
   if (
     !cookies.auth_token ||
+    !cookies.ct0 ||
     !headers['x-csrf-token'] ||
     !headers['authorization']
   ) {
@@ -37,14 +38,9 @@ function two() {
       headers: {
         'x-twitter-client-language': 'en',
         'x-csrf-token': headers['x-csrf-token'],
-        Origin: 'https://twitter.com',
         Host: 'api.twitter.com',
         authorization: headers.authorization,
-        cookies: `lang=en; auth_token=${cookies.auth_token};`,
-        // ...headers,
-        // cookies: Object.keys(cookies)
-        //   .map((key) => [key, cookies[key]].join('='))
-        //   .join('; '),
+        Cookie: `lang=en; auth_token=${cookies.auth_token}; ct0=${cookies.ct0}`,
         'Accept-Encoding': 'identity',
         Connection: 'close',
       },
@@ -53,7 +49,7 @@ function two() {
 }
 
 function three() {
-  const params = JSON.parse(Host.inputString());
+  const params = JSON.parse(Host.inputString())[1];
   const { notarize } = Host.getFunctions();
 
   if (!params) {
@@ -62,7 +58,6 @@ function three() {
     const mem = Memory.fromString(JSON.stringify(params));
     const idOffset = notarize(mem.offset);
     const id = Memory.find(idOffset).readString();
-    console.log(`plugin id: ${id}`);
     Host.outputString(JSON.stringify(id));
   }
 }

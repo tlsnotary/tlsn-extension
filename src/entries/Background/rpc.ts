@@ -30,7 +30,6 @@ import {
   getPluginConfig,
   hexToArrayBuffer,
   makePlugin,
-  urlify,
 } from '../../utils/misc';
 import { getNotaryUrl, getProxyUrl } from '../../utils/storage';
 
@@ -329,45 +328,11 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
   const notaryUrl = await getNotaryUrl();
   const websocketProxyUrl = await getProxyUrl();
   const maxTranscriptSize = 16384;
-  const [tab] = await browser.tabs.query({
-    active: true,
-    lastFocusedWindow: true,
-  });
-  const cache = await getCacheByTabId(tab?.id);
-  const requests = cache
-    .keys()
-    .map((key) => cache.get(key))
-    .filter((req) =>
-      req?.url?.includes('https://api.twitter.com/1.1/account/settings.json'),
-    );
-  const req = requests[0];
-  const hostname = urlify(req.url)?.hostname;
-  const hea: { [k: string]: string } = req.requestHeaders.reduce(
-    (acc: any, h) => {
-      acc[h.name] = h.value;
-      return acc;
-    },
-    { Host: hostname },
-  );
-
-  //TODO: for some reason, these needs to be override to work
-  hea['Accept-Encoding'] = 'identity';
-  hea['Connection'] = 'close';
-
-  console.log(hea, {
-    url,
-    method,
-    headers: hea,
-    body,
-    maxTranscriptSize,
-    notaryUrl,
-    websocketProxyUrl,
-  });
 
   const { id } = await addNotaryRequest(now, {
     url,
     method,
-    headers: hea,
+    headers,
     body,
     maxTranscriptSize,
     notaryUrl,
@@ -402,7 +367,6 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
 export async function handleExecPluginProver(request: BackgroundAction) {
   const now = request.data.now;
   const id = charwise.encode(now).toString('hex');
-  console.log('exec plugin', id);
   runPluginProver(request, now);
   return id;
 }

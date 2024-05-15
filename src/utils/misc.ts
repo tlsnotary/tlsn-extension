@@ -203,7 +203,6 @@ export const makePlugin = async (
     for (const host of config.cookies) {
       const cache = getCookieStoreByHost(host);
       const cookies = cacheToMap(cache);
-      console.log(cookies);
       // @ts-ignore
       injectedConfig.cookies = JSON.stringify(cookies);
     }
@@ -213,7 +212,6 @@ export const makePlugin = async (
     for (const host of config.headers) {
       const cache = getHeaderStoreByHost(host);
       const headers = cacheToMap(cache);
-      console.log(headers);
       // @ts-ignore
       injectedConfig.headers = JSON.stringify(headers);
     }
@@ -235,6 +233,7 @@ export type StepConfig = {
   description?: string;
   cta: string;
   action: string;
+  prover?: boolean;
 };
 
 export type PluginConfig = {
@@ -281,6 +280,7 @@ export const getPluginConfig = async (
       assert(!step.description || typeof step.description);
       assert(typeof step.cta === 'string' && step.cta.length);
       assert(typeof step.action === 'string' && step.action.length);
+      console.assert(!step.prover || typeof step.prover === 'boolean');
     }
   }
 
