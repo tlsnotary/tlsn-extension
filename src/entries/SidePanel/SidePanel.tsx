@@ -117,6 +117,7 @@ function StepContent(
   const [error, setError] = useState('');
   const [notarizationId, setNotarizationId] = useState('');
   const notaryRequest = useRequestHistory(notarizationId);
+  const [initialized, setInitialized] = useState(false);
 
   const processStep = useCallback(async () => {
     if (index > 0 && !lastResponse) return;
@@ -154,7 +155,7 @@ function StepContent(
 
   useEffect(() => {
     processStep();
-  }, [processStep]);
+  }, []);
 
   let btnContent = null;
 
@@ -170,6 +171,12 @@ function StepContent(
       <>
         <Icon className="text-green-600" fa="fa-solid fa-check" />
         <span className="text-sm">DONE</span>
+      </>
+    );
+  } else {
+    btnContent = (
+      <>
+        <span className="text-sm">{cta}</span>
       </>
     );
   }
