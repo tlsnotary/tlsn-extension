@@ -117,17 +117,14 @@ function StepContent(
   const [error, setError] = useState('');
   const [notarizationId, setNotarizationId] = useState('');
   const notaryRequest = useRequestHistory(notarizationId);
-  const [initialized, setInitialized] = useState(false);
 
   const processStep = useCallback(async () => {
     if (index > 0 && !lastResponse) return;
 
-    if (responses[index]) return;
-
     setPending(true);
     try {
       setError('');
-      const val = await runPlugin(hash, action, JSON.stringify(responses));
+      const val = await runPlugin(hash, action, JSON.stringify(lastResponse));
       if (val && prover) {
         setNotarizationId(val);
       } else {
@@ -140,7 +137,7 @@ function StepContent(
     } finally {
       setPending(false);
     }
-  }, [hash, action, index, lastResponse, responses, prover]);
+  }, [hash, action, index, lastResponse, prover]);
 
   const onClick = useCallback(() => {
     if (
@@ -155,7 +152,7 @@ function StepContent(
 
   useEffect(() => {
     processStep();
-  }, []);
+  }, [processStep]);
 
   let btnContent = null;
 
@@ -205,6 +202,7 @@ function StepContent(
               'cursor-default': notaryRequest?.status === 'pending' || pending,
             },
           )}
+          disabled={index > 0 && typeof lastResponse === 'undefined'}
           onClick={onClick}
         >
           {btnContent}

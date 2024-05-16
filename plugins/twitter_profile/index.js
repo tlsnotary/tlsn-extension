@@ -49,7 +49,7 @@ function two() {
 }
 
 function three() {
-  const params = JSON.parse(Host.inputString())[1];
+  const params = JSON.parse(Host.inputString());
   const { notarize } = Host.getFunctions();
 
   if (!params) {
