@@ -35,3 +35,14 @@ This command compiles the TypeScript code in index.js into a WebAssembly module,
 ## Future Plugins
 
 This directory will be expanded with more plugins designed to demonstrate the functionality of the TLSNotary extension. Plugins enable flexible use of the TLSNotary across a broad range of applications. The use of Extism facilitates plugin development in various languages, further enhancing flexibility.
+
+## Create an icon
+
+1. resize to 320x320 pixels:
+    ```sh
+    convert icon.png -resize 320x320! icon_320.png
+    ```
+2. convert to base64
+    ```sh
+    base64 -i icon_320.png -o icon_320.txt
+    ```
