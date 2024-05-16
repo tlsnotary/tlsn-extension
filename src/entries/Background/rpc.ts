@@ -57,6 +57,7 @@ export enum BackgroundActiontype {
   run_plugin = 'run_plugin',
   get_plugin_hashes = 'get_plugin_hashes',
   open_popup = 'open_popup',
+  change_route = 'change_route',
 }
 
 export type BackgroundAction = {
@@ -107,7 +108,6 @@ export type RequestHistory = {
 export const initRPC = () => {
   browser.runtime.onMessage.addListener(
     async (request, sender, sendResponse) => {
-      console.log(request);
       switch (request.type) {
         case BackgroundActiontype.get_requests:
           return handleGetRequests(request, sendResponse);
@@ -495,29 +495,38 @@ async function handleRunPlugin(
   return JSON.parse(out.string());
 }
 
+let cachePopup: browser.Windows.Window | null = null;
+
 async function handleOpenPopup(request: BackgroundAction) {
-  console.log('opening popup');
-  const tab = await browser.tabs.create({
-    url: browser.runtime.getURL('popup.html'),
-    active: false,
-  });
+  if (cachePopup) {
+    browser.windows.update(cachePopup.id!, {
+      focused: true,
+    });
+  } else {
+    const tab = await browser.tabs.create({
+      url: browser.runtime.getURL('popup.html') + '#' + request.data.route,
+      active: false,
+    });
 
-  console.log(request.data);
-  const popup = await browser.windows.create({
-    tabId: tab.id,
-    type: 'popup',
-    focused: true,
-    width: 480,
-    height: 640,
-    left: request.data.position.left,
-    top: request.data.position.top,
-  });
+    const popup = await browser.windows.create({
+      tabId: tab.id,
+      type: 'popup',
+      focused: true,
+      width: 480,
+      height: 640,
+      left: request.data.position.left,
+      top: request.data.position.top,
+    });
 
-  // browser.action.openPopup({
-  //   width: 480,
-  //   height: 640,
-  // })
+    cachePopup = popup;
 
-  console.log(popup);
-  return popup;
+    const onPopUpClose = (windowId: number) => {
+      if (windowId === popup.id) {
+        cachePopup = null;
+        browser.windows.onRemoved.removeListener(onPopUpClose);
+      }
+    };
+
+    browser.windows.onRemoved.addListener(onPopUpClose);
+  }
 }

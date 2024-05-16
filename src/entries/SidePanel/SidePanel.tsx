@@ -1,11 +1,7 @@
 import React, { ReactElement, useCallback, useEffect, useState } from 'react';
 import './sidePanel.scss';
 import browser from 'webextension-polyfill';
-import {
-  fetchPluginConfigByHash,
-  getCookiesByHost,
-  runPlugin,
-} from '../../utils/rpc';
+import { fetchPluginConfigByHash, runPlugin } from '../../utils/rpc';
 import { PluginConfig, StepConfig } from '../../utils/misc';
 import { PluginList } from '../../components/PluginList';
 import DefaultPluginIcon from '../../assets/img/default-plugin-icon.png';
@@ -43,7 +39,6 @@ export default function SidePanel(): ReactElement {
       </div>
       {!config && <PluginList />}
       {config && <PluginBody hash={hash} config={config} />}
-      {/*<PluginList />*/}
     </div>
   );
 }
@@ -110,7 +105,6 @@ function StepContent(
     hash,
     setResponse,
     lastResponse,
-    responses,
     prover,
   } = props;
   const [completed, setCompleted] = useState(false);
@@ -153,17 +147,21 @@ function StepContent(
 
   const viewProofInPopup = useCallback(async () => {
     if (!notaryRequest) return;
-    const popup = await browser.runtime.sendMessage({
+    chrome.runtime.sendMessage<any, string>({
+      type: BackgroundActiontype.verify_prove_request,
+      data: notaryRequest,
+    });
+    await browser.runtime.sendMessage({
       type: BackgroundActiontype.open_popup,
       data: {
         position: {
           left: window.screen.width / 2 - 240,
           top: window.screen.height / 2 - 300,
         },
+        route: `/verify/${notaryRequest.id}`,
       },
     });
-    console.log(popup);
-  }, [notaryRequest]);
+  }, [notaryRequest, notarizationId]);
 
   useEffect(() => {
     processStep();
@@ -171,14 +169,7 @@ function StepContent(
 
   let btnContent = null;
 
-  if (notaryRequest?.status === 'pending' || pending) {
-    btnContent = (
-      <button className="button mt-2 w-fit flex flex-row flex-nowrap items-center gap-2 cursor-default">
-        <Icon className="animate-spin" fa="fa-solid fa-spinner" size={1} />
-        <span className="text-sm">{cta}</span>
-      </button>
-    );
-  } else if (completed) {
+  if (completed) {
     btnContent = (
       <button
         className={classNames(
@@ -199,6 +190,13 @@ function StepContent(
         onClick={viewProofInPopup}
       >
         <span className="text-sm">View Proof</span>
+      </button>
+    );
+  } else if (notaryRequest?.status === 'pending' || pending || notarizationId) {
+    btnContent = (
+      <button className="button mt-2 w-fit flex flex-row flex-nowrap items-center gap-2 cursor-default">
+        <Icon className="animate-spin" fa="fa-solid fa-spinner" size={1} />
+        <span className="text-sm">{cta}</span>
       </button>
     );
   } else {
