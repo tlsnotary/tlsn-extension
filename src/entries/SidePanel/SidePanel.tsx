@@ -13,6 +13,7 @@ import logo from '../../assets/img/icon-128.png';
 import classNames from 'classnames';
 import Icon from '../../components/Icon';
 import { useRequestHistory } from '../../reducers/history';
+import { BackgroundActiontype } from '../Background/rpc';
 
 export default function SidePanel(): ReactElement {
   const [config, setConfig] = useState<PluginConfig | null>(null);
@@ -150,6 +151,20 @@ function StepContent(
     processStep();
   }, [processStep, pending, completed, notaryRequest]);
 
+  const viewProofInPopup = useCallback(async () => {
+    if (!notaryRequest) return;
+    const popup = await browser.runtime.sendMessage({
+      type: BackgroundActiontype.open_popup,
+      data: {
+        position: {
+          left: window.screen.width / 2 - 240,
+          top: window.screen.height / 2 - 300,
+        },
+      },
+    });
+    console.log(popup);
+  }, [notaryRequest]);
+
   useEffect(() => {
     processStep();
   }, [processStep]);
@@ -158,23 +173,45 @@ function StepContent(
 
   if (notaryRequest?.status === 'pending' || pending) {
     btnContent = (
-      <>
+      <button className="button mt-2 w-fit flex flex-row flex-nowrap items-center gap-2 cursor-default">
         <Icon className="animate-spin" fa="fa-solid fa-spinner" size={1} />
         <span className="text-sm">{cta}</span>
-      </>
+      </button>
     );
-  } else if (notaryRequest?.status === 'success' || completed) {
+  } else if (completed) {
     btnContent = (
-      <>
+      <button
+        className={classNames(
+          'button mt-2 w-fit flex flex-row flex-nowrap items-center gap-2',
+          '!bg-green-200 !text-black cursor-default border border-green-500 rounded',
+        )}
+      >
         <Icon className="text-green-600" fa="fa-solid fa-check" />
         <span className="text-sm">DONE</span>
-      </>
+      </button>
+    );
+  } else if (notaryRequest?.status === 'success') {
+    btnContent = (
+      <button
+        className={classNames(
+          'button button--primary mt-2 w-fit flex flex-row flex-nowrap items-center gap-2',
+        )}
+        onClick={viewProofInPopup}
+      >
+        <span className="text-sm">View Proof</span>
+      </button>
     );
   } else {
     btnContent = (
-      <>
+      <button
+        className={classNames(
+          'button mt-2 w-fit flex flex-row flex-nowrap items-center gap-2',
+        )}
+        disabled={index > 0 && typeof lastResponse === 'undefined'}
+        onClick={onClick}
+      >
         <span className="text-sm">{cta}</span>
-      </>
+      </button>
     );
   }
 
@@ -193,20 +230,7 @@ function StepContent(
           <div className="text-slate-500 text-sm">{description}</div>
         )}
         {!!error && <div className="text-red-500 text-sm">{error}</div>}
-        <button
-          className={classNames(
-            'button mt-2 w-fit flex flex-row flex-nowrap items-center gap-2',
-            {
-              '!bg-green-200 !text-black cursor-default border border-green-500 rounded':
-                notaryRequest?.status === 'success' || completed,
-              'cursor-default': notaryRequest?.status === 'pending' || pending,
-            },
-          )}
-          disabled={index > 0 && typeof lastResponse === 'undefined'}
-          onClick={onClick}
-        >
-          {btnContent}
-        </button>
+        {btnContent}
       </div>
     </div>
   );

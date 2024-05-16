@@ -56,6 +56,7 @@ export enum BackgroundActiontype {
   get_plugin_config_by_hash = 'get_plugin_config_by_hash',
   run_plugin = 'run_plugin',
   get_plugin_hashes = 'get_plugin_hashes',
+  open_popup = 'open_popup',
 }
 
 export type BackgroundAction = {
@@ -106,6 +107,7 @@ export type RequestHistory = {
 export const initRPC = () => {
   browser.runtime.onMessage.addListener(
     async (request, sender, sendResponse) => {
+      console.log(request);
       switch (request.type) {
         case BackgroundActiontype.get_requests:
           return handleGetRequests(request, sendResponse);
@@ -141,6 +143,8 @@ export const initRPC = () => {
           return handleRunPlugin(request, sendResponse);
         case BackgroundActiontype.execute_plugin_prover:
           return handleExecPluginProver(request);
+        case BackgroundActiontype.open_popup:
+          return handleOpenPopup(request);
         default:
           break;
       }
@@ -489,4 +493,31 @@ async function handleRunPlugin(
   const out = await plugin.call(method, params);
   devlog(`plugin response: `, out.string());
   return JSON.parse(out.string());
+}
+
+async function handleOpenPopup(request: BackgroundAction) {
+  console.log('opening popup');
+  const tab = await browser.tabs.create({
+    url: browser.runtime.getURL('popup.html'),
+    active: false,
+  });
+
+  console.log(request.data);
+  const popup = await browser.windows.create({
+    tabId: tab.id,
+    type: 'popup',
+    focused: true,
+    width: 480,
+    height: 640,
+    left: request.data.position.left,
+    top: request.data.position.top,
+  });
+
+  // browser.action.openPopup({
+  //   width: 480,
+  //   height: 640,
+  // })
+
+  console.log(popup);
+  return popup;
 }
