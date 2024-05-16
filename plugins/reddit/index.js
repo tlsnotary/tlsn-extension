@@ -10,7 +10,7 @@ function gotoReddit() {
 }
 
 function start() {
-  console.log(JSON.stringify("TLSN start"));
+  console.log(JSON.stringify('TLSN start'));
   if (!isValidHost(Config.get('tabUrl'))) {
     gotoReddit();
     Host.outputString(JSON.stringify(false));
@@ -26,9 +26,7 @@ function two() {
   // console.log(JSON.stringify(cookies));
   // console.log("TLSN headers");
   // console.log(JSON.stringify(headers));
-  if (
-    !headers['Authorization']
-  ) {
+  if (!headers['Authorization']) {
     Host.outputString(JSON.stringify(false));
     return;
   }
@@ -94,4 +92,3 @@ function config() {
 }
 
 module.exports = { start, config, two, three };
-
