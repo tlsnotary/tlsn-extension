@@ -11,6 +11,7 @@ import {
   getCookieStoreByHost,
   getHeaderStoreByHost,
 } from '../entries/Background/cache';
+import { getNotaryApi, getProxyApi } from './storage';
 
 const charwise = require('charwise');
 
@@ -155,6 +156,10 @@ export const makePlugin = async (
     tabId: tab?.id,
   };
 
+  const approvedRequests = config?.requests || [];
+  const approvedNotary = [await getNotaryApi()].concat(config?.notaryUrls);
+  const approvedProxy = [await getProxyApi()].concat(config?.proxyUrls);
+
   const HostFunctions: {
     [key: string]: (callContext: CallContext, ...args: any[]) => any;
   } = {
@@ -169,13 +174,33 @@ export const makePlugin = async (
       const now = Date.now();
       const id = charwise.encode(now).toString('hex');
 
+      if (
+        !approvedRequests.find(
+          ({ method, url }) => method === params.method && url === params.url,
+        )
+      ) {
+        throw new Error(`Unapproved request - ${params.method}: ${params.url}`);
+      }
+
+      if (
+        params.notaryUrl &&
+        !approvedNotary.find((n) => n === params.notaryUrl)
+      ) {
+        throw new Error(`Unapproved notary: ${params.notaryUrl}`);
+      }
+
+      if (
+        params.websocketProxyUrl &&
+        !approvedProxy.find((w) => w === params.websocketProxyUrl)
+      ) {
+        throw new Error(`Unapproved proxy: ${params.websocketProxyUrl}`);
+      }
+
       handleExecPluginProver({
         type: BackgroundActiontype.execute_plugin_prover,
         data: {
+          ...params,
           now,
-          url: params.url,
-          method: params.method,
-          headers: params.headers,
         },
       });
 
@@ -246,6 +271,9 @@ export type PluginConfig = {
   hostFunctions?: string[];
   cookies?: string[];
   headers?: string[];
+  requests: { method: string; url: string }[];
+  notaryUrls?: string[];
+  proxyUrls?: string[];
 };
 
 export const getPluginConfig = async (
@@ -253,14 +281,32 @@ export const getPluginConfig = async (
 ): Promise<PluginConfig> => {
   const plugin = data instanceof ArrayBuffer ? await makePlugin(data) : data;
   const out = await plugin.call('config');
-  const config = JSON.parse(out.string());
+  const config: PluginConfig = JSON.parse(out.string());
+
   assert(typeof config.title === 'string' && config.title.length);
   assert(typeof config.description === 'string' && config.description.length);
   assert(!config.icon || typeof config.icon === 'string');
 
+  for (const req of config.requests) {
+    assert(typeof req.method === 'string' && req.method);
+    assert(typeof req.url === 'string' && req.url);
+  }
+
   if (config.hostFunctions) {
     for (const func of config.hostFunctions) {
       assert(typeof func === 'string' && !!VALID_HOST_FUNCS[func]);
+    }
+  }
+
+  if (config.notaryUrls) {
+    for (const notaryUrl of config.notaryUrls) {
+      assert(typeof notaryUrl === 'string' && notaryUrl);
+    }
+  }
+
+  if (config.proxyUrls) {
+    for (const proxyUrl of config.proxyUrls) {
+      assert(typeof proxyUrl === 'string' && proxyUrl);
     }
   }
 
@@ -282,7 +328,7 @@ export const getPluginConfig = async (
       assert(!step.description || typeof step.description);
       assert(typeof step.cta === 'string' && step.cta.length);
       assert(typeof step.action === 'string' && step.action.length);
-      console.assert(!step.prover || typeof step.prover === 'boolean');
+      assert(!step.prover || typeof step.prover === 'boolean');
     }
   }
 

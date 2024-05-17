@@ -327,17 +327,25 @@ async function handleProveRequestStart(
 }
 
 async function runPluginProver(request: BackgroundAction, now = Date.now()) {
-  const { url, method, headers } = request.data;
+  const {
+    url,
+    method,
+    headers,
+    notaryUrl: _notaryUrl,
+    websocketProxyUrl: _websocketProxyUrl,
+    maxSentData: _maxSentData,
+    maxRecvData: _maxRecvData,
+  } = request.data;
 
   const resp = await fetch(url, {
     method,
     headers,
   });
   const body = await extractBodyFromResponse(resp);
-  const notaryUrl = await getNotaryApi();
-  const websocketProxyUrl = await getProxyApi();
-  const maxSentData = await getMaxSent();
-  const maxRecvData = await getMaxRecv();
+  const notaryUrl = _notaryUrl || (await getNotaryApi());
+  const websocketProxyUrl = _websocketProxyUrl || (await getProxyApi());
+  const maxSentData = _maxSentData || (await getMaxSent());
+  const maxRecvData = _maxRecvData || (await getMaxRecv());
   const maxTranscriptSize = 16384;
 
   const { id } = await addNotaryRequest(now, {

@@ -44,6 +44,8 @@ function two() {
         'Accept-Encoding': 'identity',
         Connection: 'close',
       },
+      notaryUrl: 'http://localhost:7047',
+      websocketProxyUrl: 'ws://localhost:55688'
     }),
   );
 }
@@ -90,6 +92,12 @@ function config() {
       hostFunctions: ['redirect', 'notarize'],
       cookies: ['api.x.com'],
       headers: ['api.x.com'],
+      requests: [
+        {
+          url: 'https://api.x.com/1.1/account/settings.json',
+          method: 'GET',
+        },
+      ],
     }),
   );
 }
