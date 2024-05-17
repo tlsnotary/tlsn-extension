@@ -294,7 +294,7 @@ async function handleProveRequestStart(
     secretHeaders,
     secretResps,
   });
-  console.log(request.data);
+
   await setNotaryRequestStatus(id, 'pending');
 
   await browser.runtime.sendMessage({

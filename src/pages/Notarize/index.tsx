@@ -140,7 +140,6 @@ function RevealHeaderStep(props: {
     props.setSecretHeaders(
       req.requestHeaders
         .map((h) => {
-          console.log(h.name, !revealed[h.name]);
           if (!revealed[h.name]) {
             return `${h.name.toLowerCase()}: ${h.value || ''}` || '';
           }

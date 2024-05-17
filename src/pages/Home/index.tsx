@@ -44,14 +44,11 @@ export default function Home(): ReactElement {
           <span>Requests</span>
           <span>{`(${requests.length})`}</span>
         </NavButton>
-        <NavButton
-          fa="fa-solid fa-magnifying-glass"
-          onClick={() => navigate('/custom')}
-        >
+        <NavButton fa="fa-solid fa-hammer" onClick={() => navigate('/custom')}>
           Custom
         </NavButton>
         <NavButton
-          fa="fa-solid fa-magnifying-glass"
+          fa="fa-solid fa-certificate"
           onClick={() => navigate('/verify')}
         >
           Verify

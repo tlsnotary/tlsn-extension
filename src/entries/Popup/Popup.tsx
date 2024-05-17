@@ -52,7 +52,6 @@ const Popup = () => {
 
   useEffect(() => {
     chrome.runtime.onMessage.addListener((request) => {
-      console.log(request);
       switch (request.type) {
         case BackgroundActiontype.push_action: {
           if (
