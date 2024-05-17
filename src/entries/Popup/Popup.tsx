@@ -19,6 +19,7 @@ import ProofViewer from '../../pages/ProofViewer';
 import History from '../../pages/History';
 import ProofUploader from '../../pages/ProofUploader';
 import browser from 'webextension-polyfill';
+import store from '../../utils/store';
 
 const Popup = () => {
   const dispatch = useDispatch();
@@ -47,6 +48,28 @@ const Popup = () => {
         data: tab?.id,
       });
     })();
+  }, []);
+
+  useEffect(() => {
+    chrome.runtime.onMessage.addListener((request) => {
+      switch (request.type) {
+        case BackgroundActiontype.push_action: {
+          if (
+            request.data.tabId === store.getState().requests.activeTab?.id ||
+            request.data.tabId === 'background'
+          ) {
+            store.dispatch(request.action);
+          }
+          break;
+        }
+        case BackgroundActiontype.change_route: {
+          if (request.data.tabId === 'background') {
+            navigate(request.route);
+            break;
+          }
+        }
+      }
+    });
   }, []);
 
   return (

@@ -5,6 +5,9 @@ settings:
   excludeLinksFromLockfile: false
 
 dependencies:
+  '@extism/extism':
+    specifier: ^1.0.2
+    version: 1.0.2
   '@fortawesome/fontawesome-free':
     specifier: ^6.4.2
     version: 6.5.1
@@ -2127,6 +2130,10 @@ packages:
     resolution: {integrity: sha512-Ys+3g2TaW7gADOJzPt83SJtCDhMjndcDMFVQ/Tj9iA1BfJzFKD9mAUXT3OenpuPHbI6P/myECxRJrofUsDx/5g==}
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
     dev: true
+
+  /@extism/extism@1.0.2:
+    resolution: {integrity: sha512-cT48pP0mOroj4Z/gcS/PceRviIUH9vWMGhkDc5H84wXcEeOHjiyfcY4l67Gc6BvNBrvNl7sYq/XlOh2f9aEs6g==}
+    dev: false
 
   /@fortawesome/fontawesome-free@6.5.1:
     resolution: {integrity: sha512-CNy5vSwN3fsUStPRLX7fUYojyuzoEMSXPl7zSLJ8TgtRfjv24LOnOWKT2zYwaHZCJGkdyRnTmstR0P+Ah503Gw==}

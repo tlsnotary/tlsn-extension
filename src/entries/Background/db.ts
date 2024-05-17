@@ -1,11 +1,18 @@
 import { Level } from 'level';
 import type { RequestHistory } from './rpc';
+import { PluginConfig, sha256 } from '../../utils/misc';
 const charwise = require('charwise');
 
 const db = new Level('./ext-db', {
   valueEncoding: 'json',
 });
 const historyDb = db.sublevel<string, RequestHistory>('history', {
+  valueEncoding: 'json',
+});
+const pluginDb = db.sublevel<string, string>('plugin', {
+  valueEncoding: 'hex',
+});
+const pluginConfigDb = db.sublevel<string, PluginConfig>('pluginConfig', {
   valueEncoding: 'json',
 });
 
@@ -121,4 +128,79 @@ export async function getNotaryRequest(
   id: string,
 ): Promise<RequestHistory | null> {
   return historyDb.get(id);
+}
+
+export async function getPluginHashes(): Promise<string[]> {
+  const retVal: string[] = [];
+  for await (const [key] of pluginDb.iterator()) {
+    // pluginDb.del(key);
+    // pluginConfigDb.del(key);
+    retVal.push(key);
+  }
+  return retVal;
+}
+
+export async function getPluginByHash(hash: string): Promise<string | null> {
+  try {
+    const plugin = await pluginDb.get(hash);
+    return plugin;
+  } catch (e) {
+    return null;
+  }
+}
+
+export async function addPlugin(hex: string): Promise<string | null> {
+  const hash = await sha256(hex);
+
+  if (await getPluginByHash(hash)) {
+    return null;
+  }
+
+  await pluginDb.put(hash, hex);
+  return hash;
+}
+
+export async function removePlugin(hash: string): Promise<string | null> {
+  const existing = await pluginDb.get(hash);
+
+  if (!existing) return null;
+
+  await pluginDb.del(hash);
+
+  return hash;
+}
+
+export async function getPluginConfigByHash(
+  hash: string,
+): Promise<PluginConfig | null> {
+  try {
+    const config = await pluginConfigDb.get(hash);
+    return config;
+  } catch (e) {
+    return null;
+  }
+}
+
+export async function addPluginConfig(
+  hash: string,
+  config: PluginConfig,
+): Promise<PluginConfig | null> {
+  if (await getPluginConfigByHash(hash)) {
+    return null;
+  }
+
+  await pluginConfigDb.put(hash, config);
+  return config;
+}
+
+export async function removePluginConfig(
+  hash: string,
+): Promise<PluginConfig | null> {
+  const existing = await pluginConfigDb.get(hash);
+
+  if (!existing) return null;
+
+  await pluginConfigDb.del(hash);
+
+  return existing;
 }

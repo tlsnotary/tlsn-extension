@@ -1,0 +1,23 @@
+.plugin-box {
+  &__remove-icon {
+    opacity: 0;
+    height: 0;
+    width: 0;
+    padding: 0;
+    overflow: hidden;
+    transition: 200ms opacity;
+  }
+
+  &:hover {
+    .plugin-box__remove-icon {
+      height: 1.25rem;
+      width: 1.25rem;
+      padding: .5rem;
+      opacity: .5;
+
+      &:hover {
+        opacity: 1;
+      }
+    }
+  }
+}

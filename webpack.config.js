@@ -49,6 +49,7 @@ var options = {
     background: path.join(__dirname, "src", "entries", "Background", "index.ts"),
     contentScript: path.join(__dirname, "src", "entries", "Content", "index.ts"),
     offscreen: path.join(__dirname, "src", "entries", "Offscreen", "index.tsx"),
+    sidePanel: path.join(__dirname, "src", "entries", "SidePanel", "index.tsx"),
   },
   // chromeExtensionBoilerplate: {
   //   notHotReload: ["background", "contentScript", "devtools"],
@@ -146,9 +147,9 @@ var options = {
     new webpack.ProgressPlugin(),
     // expose and write the allowed env vars on the compiled bundle
     new webpack.EnvironmentPlugin(["NODE_ENV"]),
-    new ExtReloader({
-      manifest: path.resolve(__dirname, "src/manifest.json")
-    }),
+    // new ExtReloader({
+    //   manifest: path.resolve(__dirname, "src/manifest.json")
+    // }),
     new CopyWebpackPlugin({
       patterns: [
         {
@@ -240,6 +241,12 @@ var options = {
       template: path.join(__dirname, "src", "entries", "Offscreen", "index.html"),
       filename: "offscreen.html",
       chunks: ["offscreen"],
+      cache: false,
+    }),
+    new HtmlWebpackPlugin({
+      template: path.join(__dirname, "src", "entries", "SidePanel", "index.html"),
+      filename: "sidePanel.html",
+      chunks: ["sidePanel"],
       cache: false,
     }),
     new webpack.ProvidePlugin({

@@ -1,21 +1,50 @@
 import browser from 'webextension-polyfill';
-import { clearCache, getCacheByTabId } from './cache';
+import {
+  clearCache,
+  getCacheByTabId,
+  getCookieStoreByHost,
+  getHeaderStoreByHost,
+} from './cache';
 import { addRequestHistory } from '../../reducers/history';
 import {
-  getNotaryRequests,
   addNotaryRequest,
   addNotaryRequestProofs,
   getNotaryRequest,
-  setNotaryRequestStatus,
-  setNotaryRequestError,
-  setNotaryRequestVerification,
+  getNotaryRequests,
   removeNotaryRequest,
+  setNotaryRequestError,
+  setNotaryRequestStatus,
+  setNotaryRequestVerification,
+  addPlugin,
+  getPluginHashes,
+  getPluginByHash,
+  removePlugin,
+  addPluginConfig,
+  getPluginConfigByHash,
+  removePluginConfig,
 } from './db';
+import { addOnePlugin, removeOnePlugin } from '../../reducers/plugins';
+import {
+  devlog,
+  extractBodyFromResponse,
+  getPluginConfig,
+  hexToArrayBuffer,
+  makePlugin,
+} from '../../utils/misc';
+import {
+  getMaxRecv,
+  getMaxSent,
+  getNotaryApi,
+  getProxyApi,
+} from '../../utils/storage';
+
+const charwise = require('charwise');
 
 export enum BackgroundActiontype {
   get_requests = 'get_requests',
   clear_requests = 'clear_requests',
   push_action = 'push_action',
+  execute_plugin_prover = 'execute_plugin_prover',
   get_prove_requests = 'get_prove_requests',
   prove_request_start = 'prove_request_start',
   process_prove_request = 'process_prove_request',
@@ -24,6 +53,16 @@ export enum BackgroundActiontype {
   verify_proof = 'verify_proof',
   delete_prove_request = 'delete_prove_request',
   retry_prove_request = 'retry_prove_request',
+  get_cookies_by_hostname = 'get_cookies_by_hostname',
+  get_headers_by_hostname = 'get_headers_by_hostname',
+  add_plugin = 'add_plugin',
+  remove_plugin = 'remove_plugin',
+  get_plugin_by_hash = 'get_plugin_by_hash',
+  get_plugin_config_by_hash = 'get_plugin_config_by_hash',
+  run_plugin = 'run_plugin',
+  get_plugin_hashes = 'get_plugin_hashes',
+  open_popup = 'open_popup',
+  change_route = 'change_route',
 }
 
 export type BackgroundAction = {
@@ -91,6 +130,26 @@ export const initRPC = () => {
           return handleRetryProveReqest(request, sendResponse);
         case BackgroundActiontype.prove_request_start:
           return handleProveRequestStart(request, sendResponse);
+        case BackgroundActiontype.get_cookies_by_hostname:
+          return handleGetCookiesByHostname(request, sendResponse);
+        case BackgroundActiontype.get_headers_by_hostname:
+          return handleGetHeadersByHostname(request, sendResponse);
+        case BackgroundActiontype.add_plugin:
+          return handleAddPlugin(request, sendResponse);
+        case BackgroundActiontype.remove_plugin:
+          return handleRemovePlugin(request, sendResponse);
+        case BackgroundActiontype.get_plugin_hashes:
+          return handleGetPluginHashes(request, sendResponse);
+        case BackgroundActiontype.get_plugin_by_hash:
+          return handleGetPluginByHash(request, sendResponse);
+        case BackgroundActiontype.get_plugin_config_by_hash:
+          return handleGetPluginConfigByHash(request, sendResponse);
+        case BackgroundActiontype.run_plugin:
+          return handleRunPlugin(request, sendResponse);
+        case BackgroundActiontype.execute_plugin_prover:
+          return handleExecPluginProver(request);
+        case BackgroundActiontype.open_popup:
+          return handleOpenPopup(request);
         default:
           break;
       }
@@ -235,7 +294,7 @@ async function handleProveRequestStart(
     secretHeaders,
     secretResps,
   });
-  console.log(request.data);
+
   await setNotaryRequestStatus(id, 'pending');
 
   await browser.runtime.sendMessage({
@@ -265,4 +324,226 @@ async function handleProveRequestStart(
   });
 
   return sendResponse();
+}
+
+async function runPluginProver(request: BackgroundAction, now = Date.now()) {
+  const {
+    url,
+    method,
+    headers,
+    notaryUrl: _notaryUrl,
+    websocketProxyUrl: _websocketProxyUrl,
+    maxSentData: _maxSentData,
+    maxRecvData: _maxRecvData,
+  } = request.data;
+
+  const resp = await fetch(url, {
+    method,
+    headers,
+  });
+  const body = await extractBodyFromResponse(resp);
+  const notaryUrl = _notaryUrl || (await getNotaryApi());
+  const websocketProxyUrl = _websocketProxyUrl || (await getProxyApi());
+  const maxSentData = _maxSentData || (await getMaxSent());
+  const maxRecvData = _maxRecvData || (await getMaxRecv());
+  const maxTranscriptSize = 16384;
+
+  const { id } = await addNotaryRequest(now, {
+    url,
+    method,
+    headers,
+    body,
+    maxTranscriptSize,
+    notaryUrl,
+    websocketProxyUrl,
+    maxRecvData,
+    maxSentData,
+  });
+
+  await setNotaryRequestStatus(id, 'pending');
+
+  await browser.runtime.sendMessage({
+    type: BackgroundActiontype.push_action,
+    data: {
+      tabId: 'background',
+    },
+    action: addRequestHistory(await getNotaryRequest(id)),
+  });
+
+  await browser.runtime.sendMessage({
+    type: BackgroundActiontype.process_prove_request,
+    data: {
+      id,
+      url,
+      method,
+      headers,
+      body,
+      maxTranscriptSize,
+      notaryUrl,
+      websocketProxyUrl,
+    },
+  });
+}
+
+export async function handleExecPluginProver(request: BackgroundAction) {
+  const now = request.data.now;
+  const id = charwise.encode(now).toString('hex');
+  runPluginProver(request, now);
+  return id;
+}
+
+function handleGetCookiesByHostname(
+  request: BackgroundAction,
+  sendResponse: (data?: any) => void,
+) {
+  const cache = getCookieStoreByHost(request.data);
+  const keys = cache.keys() || [];
+  const data = keys.reduce((acc: { [k: string]: string }, key) => {
+    acc[key] = cache.get(key) || '';
+    return acc;
+  }, {});
+  return data;
+}
+
+function handleGetHeadersByHostname(
+  request: BackgroundAction,
+  sendResponse: (data?: any) => void,
+) {
+  const cache = getHeaderStoreByHost(request.data);
+  const keys = cache.keys() || [];
+  const data = keys.reduce((acc: { [k: string]: string }, key) => {
+    acc[key] = cache.get(key) || '';
+    return acc;
+  }, {});
+  return data;
+}
+
+async function handleAddPlugin(
+  request: BackgroundAction,
+  sendResponse: (data?: any) => void,
+) {
+  try {
+    const config = await getPluginConfig(hexToArrayBuffer(request.data));
+
+    if (config) {
+      const hash = await addPlugin(request.data);
+
+      if (hash) {
+        await addPluginConfig(hash, config);
+
+        await browser.runtime.sendMessage({
+          type: BackgroundActiontype.push_action,
+          data: {
+            tabId: 'background',
+          },
+          action: addOnePlugin(hash),
+        });
+      }
+    }
+  } finally {
+    return sendResponse();
+  }
+}
+
+async function handleRemovePlugin(
+  request: BackgroundAction,
+  sendResponse: (data?: any) => void,
+) {
+  await removePlugin(request.data);
+  await removePluginConfig(request.data);
+  await browser.runtime.sendMessage({
+    type: BackgroundActiontype.push_action,
+    data: {
+      tabId: 'background',
+    },
+    action: removeOnePlugin(request.data),
+  });
+
+  return sendResponse();
+}
+
+async function handleGetPluginHashes(
+  request: BackgroundAction,
+  sendResponse: (data?: any) => void,
+) {
+  const hashes = await getPluginHashes();
+  for (const hash of hashes) {
+    await browser.runtime.sendMessage({
+      type: BackgroundActiontype.push_action,
+      data: {
+        tabId: 'background',
+      },
+      action: addOnePlugin(hash),
+    });
+  }
+  return sendResponse();
+}
+
+async function handleGetPluginByHash(
+  request: BackgroundAction,
+  sendResponse: (data?: any) => void,
+) {
+  const hash = request.data;
+  const hex = await getPluginByHash(hash);
+  return hex;
+}
+
+async function handleGetPluginConfigByHash(
+  request: BackgroundAction,
+  sendResponse: (data?: any) => void,
+) {
+  const hash = request.data;
+  const config = await getPluginConfigByHash(hash);
+  return config;
+}
+
+async function handleRunPlugin(
+  request: BackgroundAction,
+  sendResponse: (data?: any) => void,
+) {
+  const { hash, method, params } = request.data;
+  const hex = await getPluginByHash(hash);
+  const arrayBuffer = hexToArrayBuffer(hex!);
+  const config = await getPluginConfig(arrayBuffer);
+  const plugin = await makePlugin(arrayBuffer, config);
+  devlog(`plugin::${method}`, params);
+  const out = await plugin.call(method, params);
+  devlog(`plugin response: `, out.string());
+  return JSON.parse(out.string());
+}
+
+let cachePopup: browser.Windows.Window | null = null;
+
+async function handleOpenPopup(request: BackgroundAction) {
+  if (cachePopup) {
+    browser.windows.update(cachePopup.id!, {
+      focused: true,
+    });
+  } else {
+    const tab = await browser.tabs.create({
+      url: browser.runtime.getURL('popup.html') + '#' + request.data.route,
+      active: false,
+    });
+
+    const popup = await browser.windows.create({
+      tabId: tab.id,
+      type: 'popup',
+      focused: true,
+      width: 480,
+      height: 640,
+      left: request.data.position.left,
+      top: request.data.position.top,
+    });
+
+    cachePopup = popup;
+
+    const onPopUpClose = (windowId: number) => {
+      if (windowId === popup.id) {
+        cachePopup = null;
+        browser.windows.onRemoved.removeListener(onPopUpClose);
+      }
+    };
+
+    browser.windows.onRemoved.addListener(onPopUpClose);
+  }
 }

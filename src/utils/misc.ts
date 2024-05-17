@@ -1,5 +1,19 @@
-import { RequestLog } from '../entries/Background/rpc';
+import {
+  BackgroundActiontype,
+  handleExecPluginProver,
+  RequestLog,
+} from '../entries/Background/rpc';
 import { EXPLORER_API } from './constants';
+import createPlugin, { CallContext, Plugin } from '@extism/extism';
+import browser from 'webextension-polyfill';
+import NodeCache from 'node-cache';
+import {
+  getCookieStoreByHost,
+  getHeaderStoreByHost,
+} from '../entries/Background/cache';
+import { getNotaryApi, getProxyApi } from './storage';
+
+const charwise = require('charwise');
 
 export function urlify(
   text: string,
@@ -95,8 +109,14 @@ export async function replayRequest(req: RequestLog): Promise<string> {
 
   // @ts-ignore
   const resp = await fetch(req.url, options);
+  return extractBodyFromResponse(resp);
+}
+
+export const extractBodyFromResponse = async (
+  resp: Response,
+): Promise<string> => {
   const contentType =
-    resp?.headers.get('content-type') || resp?.headers.get('Content-Type');
+    resp.headers.get('content-type') || resp.headers.get('Content-Type');
 
   if (contentType?.includes('application/json')) {
     return resp.text();
@@ -107,4 +127,225 @@ export async function replayRequest(req: RequestLog): Promise<string> {
   } else {
     return resp.blob().then((blob) => blob.text());
   }
-}
+};
+
+export const sha256 = async (data: string) => {
+  const encoder = new TextEncoder().encode(data);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', encoder);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray
+    .map((bytes) => bytes.toString(16).padStart(2, '0'))
+    .join('');
+  return hashHex;
+};
+
+const VALID_HOST_FUNCS: { [name: string]: string } = {
+  redirect: 'redirect',
+  notarize: 'notarize',
+};
+
+export const makePlugin = async (
+  arrayBuffer: ArrayBuffer,
+  config?: PluginConfig,
+) => {
+  const module = await WebAssembly.compile(arrayBuffer);
+  const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+
+  const injectedConfig = {
+    tabUrl: tab?.url,
+    tabId: tab?.id,
+  };
+
+  const approvedRequests = config?.requests || [];
+  const approvedNotary = [await getNotaryApi()].concat(config?.notaryUrls);
+  const approvedProxy = [await getProxyApi()].concat(config?.proxyUrls);
+
+  const HostFunctions: {
+    [key: string]: (callContext: CallContext, ...args: any[]) => any;
+  } = {
+    redirect: function (context: CallContext, off: bigint) {
+      const r = context.read(off);
+      const url = r.text();
+      browser.tabs.update(tab.id, { url });
+    },
+    notarize: function (context: CallContext, off: bigint) {
+      const r = context.read(off);
+      const params = JSON.parse(r.text());
+      const now = Date.now();
+      const id = charwise.encode(now).toString('hex');
+
+      if (
+        !approvedRequests.find(
+          ({ method, url }) => method === params.method && url === params.url,
+        )
+      ) {
+        throw new Error(`Unapproved request - ${params.method}: ${params.url}`);
+      }
+
+      if (
+        params.notaryUrl &&
+        !approvedNotary.find((n) => n === params.notaryUrl)
+      ) {
+        throw new Error(`Unapproved notary: ${params.notaryUrl}`);
+      }
+
+      if (
+        params.websocketProxyUrl &&
+        !approvedProxy.find((w) => w === params.websocketProxyUrl)
+      ) {
+        throw new Error(`Unapproved proxy: ${params.websocketProxyUrl}`);
+      }
+
+      handleExecPluginProver({
+        type: BackgroundActiontype.execute_plugin_prover,
+        data: {
+          ...params,
+          now,
+        },
+      });
+
+      return context.store(`${id}`);
+    },
+  };
+
+  const funcs: {
+    [key: string]: (callContext: CallContext, ...args: any[]) => any;
+  } = {};
+
+  for (const fn of Object.keys(VALID_HOST_FUNCS)) {
+    funcs[fn] = function (context: CallContext) {
+      throw new Error(`no permission for ${fn}`);
+    };
+  }
+
+  if (config?.hostFunctions) {
+    for (const fn of config.hostFunctions) {
+      funcs[fn] = HostFunctions[fn];
+    }
+  }
+
+  if (config?.cookies) {
+    const cookies: { [hostname: string]: { [key: string]: string } } = {};
+    for (const host of config.cookies) {
+      const cache = getCookieStoreByHost(host);
+      cookies[host] = cacheToMap(cache);
+    }
+    // @ts-ignore
+    injectedConfig.cookies = JSON.stringify(cookies);
+  }
+
+  if (config?.headers) {
+    const headers: { [hostname: string]: { [key: string]: string } } = {};
+    for (const host of config.headers) {
+      const cache = getHeaderStoreByHost(host);
+      headers[host] = cacheToMap(cache);
+    }
+    // @ts-ignore
+    injectedConfig.headers = JSON.stringify(headers);
+  }
+
+  const pluginConfig = {
+    useWasi: true,
+    config: injectedConfig,
+    functions: {
+      'extism:host/user': funcs,
+    },
+  };
+  const plugin = await createPlugin(module, pluginConfig);
+  return plugin;
+};
+
+export type StepConfig = {
+  title: string;
+  description?: string;
+  cta: string;
+  action: string;
+  prover?: boolean;
+};
+
+export type PluginConfig = {
+  title: string;
+  description: string;
+  icon?: string;
+  steps?: StepConfig[];
+  hostFunctions?: string[];
+  cookies?: string[];
+  headers?: string[];
+  requests: { method: string; url: string }[];
+  notaryUrls?: string[];
+  proxyUrls?: string[];
+};
+
+export const getPluginConfig = async (
+  data: Plugin | ArrayBuffer,
+): Promise<PluginConfig> => {
+  const plugin = data instanceof ArrayBuffer ? await makePlugin(data) : data;
+  const out = await plugin.call('config');
+  const config: PluginConfig = JSON.parse(out.string());
+
+  assert(typeof config.title === 'string' && config.title.length);
+  assert(typeof config.description === 'string' && config.description.length);
+  assert(!config.icon || typeof config.icon === 'string');
+
+  for (const req of config.requests) {
+    assert(typeof req.method === 'string' && req.method);
+    assert(typeof req.url === 'string' && req.url);
+  }
+
+  if (config.hostFunctions) {
+    for (const func of config.hostFunctions) {
+      assert(typeof func === 'string' && !!VALID_HOST_FUNCS[func]);
+    }
+  }
+
+  if (config.notaryUrls) {
+    for (const notaryUrl of config.notaryUrls) {
+      assert(typeof notaryUrl === 'string' && notaryUrl);
+    }
+  }
+
+  if (config.proxyUrls) {
+    for (const proxyUrl of config.proxyUrls) {
+      assert(typeof proxyUrl === 'string' && proxyUrl);
+    }
+  }
+
+  if (config.cookies) {
+    for (const name of config.cookies) {
+      assert(typeof name === 'string' && name.length);
+    }
+  }
+
+  if (config.headers) {
+    for (const name of config.headers) {
+      assert(typeof name === 'string' && name.length);
+    }
+  }
+
+  if (config.steps) {
+    for (const step of config.steps) {
+      assert(typeof step.title === 'string' && step.title.length);
+      assert(!step.description || typeof step.description);
+      assert(typeof step.cta === 'string' && step.cta.length);
+      assert(typeof step.action === 'string' && step.action.length);
+      assert(!step.prover || typeof step.prover === 'boolean');
+    }
+  }
+
+  return config;
+};
+
+export const assert = (expr: any, msg = 'unknown error') => {
+  if (!expr) throw new Error(msg);
+};
+
+export const hexToArrayBuffer = (hex: string) =>
+  new Uint8Array(Buffer.from(hex, 'hex')).buffer;
+
+export const cacheToMap = (cache: NodeCache) => {
+  const keys = cache.keys();
+  return keys.reduce((acc: { [k: string]: string }, key) => {
+    acc[key] = cache.get(key) || '';
+    return acc;
+  }, {});
+};
