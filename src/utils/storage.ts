@@ -1,6 +1,5 @@
 export const NOTARY_API_LS_KEY = 'notary-api';
 export const PROXY_API_LS_KEY = 'proxy-api';
-export const HISTORY_LS_KEY = 'history';
 export const MAX_SENT_LS_KEY = 'max-sent';
 export const MAX_RECEIVED_LS_KEY = 'max-received';
 
@@ -29,12 +28,4 @@ export async function getNotaryApi() {
 
 export async function getProxyApi() {
   return await get(PROXY_API_LS_KEY, 'wss://notary.pse.dev/proxy');
-}
-
-export async function getNotaryUrl() {
-  return get(NOTARY_API_LS_KEY, 'https://notary.pse.dev/v0.1.0-alpha.5');
-}
-
-export async function getProxyUrl() {
-  return get(PROXY_API_LS_KEY, 'wss://notary.pse.dev/proxy');
 }

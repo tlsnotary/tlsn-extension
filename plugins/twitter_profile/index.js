@@ -1,11 +1,11 @@
 function isValidHost(urlString) {
   const url = new URL(urlString);
-  return url.hostname === 'twitter.com';
+  return url.hostname === 'twitter.com' || url.hostname === 'x.com';
 }
 
 function gotoTwitter() {
   const { redirect } = Host.getFunctions();
-  const mem = Memory.fromString('https://twitter.com');
+  const mem = Memory.fromString('https://x.com');
   redirect(mem.offset);
 }
 
@@ -19,8 +19,8 @@ function start() {
 }
 
 function two() {
-  const cookies = JSON.parse(Config.get('cookies'));
-  const headers = JSON.parse(Config.get('headers'));
+  const cookies = JSON.parse(Config.get('cookies'))['api.x.com'];
+  const headers = JSON.parse(Config.get('headers'))['api.x.com'];
   if (
     !cookies.auth_token ||
     !cookies.ct0 ||
@@ -33,12 +33,12 @@ function two() {
 
   Host.outputString(
     JSON.stringify({
-      url: 'https://api.twitter.com/1.1/account/settings.json',
+      url: 'https://api.x.com/1.1/account/settings.json',
       method: 'GET',
       headers: {
         'x-twitter-client-language': 'en',
         'x-csrf-token': headers['x-csrf-token'],
-        Host: 'api.twitter.com',
+        Host: 'api.x.com',
         authorization: headers.authorization,
         Cookie: `lang=en; auth_token=${cookies.auth_token}; ct0=${cookies.ct0}`,
         'Accept-Encoding': 'identity',
@@ -88,8 +88,8 @@ function config() {
         },
       ],
       hostFunctions: ['redirect', 'notarize'],
-      cookies: ['api.twitter.com'],
-      headers: ['api.twitter.com'],
+      cookies: ['api.x.com'],
+      headers: ['api.x.com'],
     }),
   );
 }

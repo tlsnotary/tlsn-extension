@@ -200,21 +200,23 @@ export const makePlugin = async (
   }
 
   if (config?.cookies) {
+    const cookies: { [hostname: string]: { [key: string]: string } } = {};
     for (const host of config.cookies) {
       const cache = getCookieStoreByHost(host);
-      const cookies = cacheToMap(cache);
-      // @ts-ignore
-      injectedConfig.cookies = JSON.stringify(cookies);
+      cookies[host] = cacheToMap(cache);
     }
+    // @ts-ignore
+    injectedConfig.cookies = JSON.stringify(cookies);
   }
 
   if (config?.headers) {
+    const headers: { [hostname: string]: { [key: string]: string } } = {};
     for (const host of config.headers) {
       const cache = getHeaderStoreByHost(host);
-      const headers = cacheToMap(cache);
-      // @ts-ignore
-      injectedConfig.headers = JSON.stringify(headers);
+      headers[host] = cacheToMap(cache);
     }
+    // @ts-ignore
+    injectedConfig.headers = JSON.stringify(headers);
   }
 
   const pluginConfig = {

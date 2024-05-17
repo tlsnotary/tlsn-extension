@@ -11,15 +11,7 @@ import classNames from 'classnames';
 import { useNavigate } from 'react-router';
 import { useRequests } from '../../reducers/requests';
 import { makePlugin, getPluginConfig } from '../../utils/misc';
-import { useDispatch } from 'react-redux';
-import {
-  getMaxRecv,
-  getMaxSent,
-  getNotaryApi,
-  getProxyApi,
-} from '../../utils/storage';
-import createPlugin, { CallContext } from '@extism/extism';
-import { addPlugin, getCookiesByHost, getHeadersByHost } from '../../utils/rpc';
+import { addPlugin } from '../../utils/rpc';
 import { PluginList } from '../../components/PluginList';
 import { ErrorModal } from '../../components/ErrorModal';
 

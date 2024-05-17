@@ -31,7 +31,12 @@ import {
   hexToArrayBuffer,
   makePlugin,
 } from '../../utils/misc';
-import { getNotaryUrl, getProxyUrl } from '../../utils/storage';
+import {
+  getMaxRecv,
+  getMaxSent,
+  getNotaryApi,
+  getProxyApi,
+} from '../../utils/storage';
 
 const charwise = require('charwise');
 
@@ -329,8 +334,10 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
     headers,
   });
   const body = await extractBodyFromResponse(resp);
-  const notaryUrl = await getNotaryUrl();
-  const websocketProxyUrl = await getProxyUrl();
+  const notaryUrl = await getNotaryApi();
+  const websocketProxyUrl = await getProxyApi();
+  const maxSentData = await getMaxSent();
+  const maxRecvData = await getMaxRecv();
   const maxTranscriptSize = 16384;
 
   const { id } = await addNotaryRequest(now, {
@@ -341,6 +348,8 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
     maxTranscriptSize,
     notaryUrl,
     websocketProxyUrl,
+    maxRecvData,
+    maxSentData,
   });
 
   await setNotaryRequestStatus(id, 'pending');
