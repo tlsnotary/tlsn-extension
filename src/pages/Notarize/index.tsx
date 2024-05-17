@@ -12,7 +12,15 @@ import { useLocation, useNavigate, useParams } from 'react-router';
 import { notarizeRequest, useRequest } from '../../reducers/requests';
 import Icon from '../../components/Icon';
 import { urlify } from '../../utils/misc';
-import { get, NOTARY_API_LS_KEY, PROXY_API_LS_KEY } from '../../utils/storage';
+import {
+  get,
+  NOTARY_API_LS_KEY,
+  PROXY_API_LS_KEY,
+  getNotaryApi,
+  getProxyApi,
+  getMaxSent,
+  getMaxRecv,
+} from '../../utils/storage';
 import { useDispatch } from 'react-redux';
 
 const maxTranscriptSize = 16384;
@@ -29,9 +37,10 @@ export default function Notarize(): ReactElement {
   const notarize = useCallback(async () => {
     if (!req) return;
     const hostname = urlify(req.url)?.hostname;
-    const notaryUrl = await get(NOTARY_API_LS_KEY);
-    const websocketProxyUrl = await get(PROXY_API_LS_KEY);
-
+    const notaryUrl = await getNotaryApi();
+    const websocketProxyUrl = await getProxyApi();
+    const maxSentData = await getMaxSent();
+    const maxRecvData = await getMaxRecv();
     const headers: { [k: string]: string } = req.requestHeaders.reduce(
       (acc: any, h) => {
         acc[h.name] = h.value;
@@ -51,6 +60,8 @@ export default function Notarize(): ReactElement {
         method: req.method,
         headers,
         body: req.requestBody,
+        maxSentData,
+        maxRecvData,
         maxTranscriptSize,
         notaryUrl,
         websocketProxyUrl,

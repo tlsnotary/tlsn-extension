@@ -7,7 +7,13 @@ import {
   deleteRequestHistory,
 } from '../../reducers/history';
 import Icon from '../../components/Icon';
-import { get, NOTARY_API_LS_KEY, PROXY_API_LS_KEY } from '../../utils/storage';
+import {
+  get,
+  NOTARY_API_LS_KEY,
+  PROXY_API_LS_KEY,
+  getNotaryApi,
+  getProxyApi,
+} from '../../utils/storage';
 import { urlify, download, upload } from '../../utils/misc';
 import { BackgroundActiontype } from '../../entries/Background/rpc';
 import Modal, { ModalContent } from '../../components/Modal/Modal';
@@ -41,8 +47,8 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
   const requestUrl = urlify(request?.url || '');
 
   const onRetry = useCallback(async () => {
-    const notaryUrl = await get(NOTARY_API_LS_KEY);
-    const websocketProxyUrl = await get(PROXY_API_LS_KEY);
+    const notaryUrl = await getNotaryApi();
+    const websocketProxyUrl = await getProxyApi();
     chrome.runtime.sendMessage<any, string>({
       type: BackgroundActiontype.retry_prove_request,
       data: {
