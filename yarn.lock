@@ -1457,9 +1457,9 @@
   integrity sha512-Ys+3g2TaW7gADOJzPt83SJtCDhMjndcDMFVQ/Tj9iA1BfJzFKD9mAUXT3OenpuPHbI6P/myECxRJrofUsDx/5g==
 
 "@extism/extism@^1.0.2":
-  "integrity" "sha512-cT48pP0mOroj4Z/gcS/PceRviIUH9vWMGhkDc5H84wXcEeOHjiyfcY4l67Gc6BvNBrvNl7sYq/XlOh2f9aEs6g=="
-  "resolved" "https://registry.npmjs.org/@extism/extism/-/extism-1.0.2.tgz"
-  "version" "1.0.2"
+  version "1.0.2"
+  resolved "https://registry.npmjs.org/@extism/extism/-/extism-1.0.2.tgz"
+  integrity sha512-cT48pP0mOroj4Z/gcS/PceRviIUH9vWMGhkDc5H84wXcEeOHjiyfcY4l67Gc6BvNBrvNl7sYq/XlOh2f9aEs6g==
 
 "@fortawesome/fontawesome-free@^6.4.2":
   version "6.5.1"
