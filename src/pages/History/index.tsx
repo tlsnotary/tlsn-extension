@@ -31,13 +31,13 @@ export default function History(): ReactElement {
   return (
     <div className="flex flex-col flex-nowrap overflow-y-auto">
       {history.map((id) => {
-        return <OnRequestHistory key={id} requestId={id} />;
+        return <OneRequestHistory key={id} requestId={id} />;
       })}
     </div>
   );
 }
 
-function OnRequestHistory(props: { requestId: string }): ReactElement {
+function OneRequestHistory(props: { requestId: string }): ReactElement {
   const dispatch = useDispatch();
   const request = useRequestHistory(props.requestId);
   const [showingError, showError] = useState(false);
