@@ -108,6 +108,7 @@ export type RequestHistory = {
   };
   secretHeaders?: string[];
   secretResps?: string[];
+  cid?: string;
 };
 
 export const initRPC = () => {

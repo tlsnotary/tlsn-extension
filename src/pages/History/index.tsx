@@ -1,4 +1,4 @@
-import React, { ReactElement, useState, useCallback } from 'react';
+import React, { ReactElement, useState, useCallback, useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router';
 import {
@@ -20,6 +20,10 @@ import Modal, { ModalContent } from '../../components/Modal/Modal';
 import classNames from 'classnames';
 import copy from 'copy-to-clipboard';
 import { EXPLORER_API } from '../../utils/constants';
+import {
+  getNotaryRequest,
+  setNotaryRequestCid,
+} from '../../entries/Background/db';
 
 export default function History(): ReactElement {
   const history = useHistoryOrder();
@@ -40,11 +44,25 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
   const [uploadError, setUploadError] = useState('');
   const [showingShareConfirmation, setShowingShareConfirmation] =
     useState(false);
-  const [cid, setCid] = useState('');
+  const [cid, setCid] = useState<{ [key: string]: string }>({});
   const [uploading, setUploading] = useState(false);
   const navigate = useNavigate();
   const { status } = request || {};
   const requestUrl = urlify(request?.url || '');
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const request = await getNotaryRequest(props.requestId);
+        if (request && request.cid) {
+          setCid({ [props.requestId]: request.cid });
+        }
+      } catch (e) {
+        console.error('Error fetching data', e);
+      }
+    };
+    fetchData();
+  }, []);
 
   const onRetry = useCallback(async () => {
     const notaryUrl = await getNotaryApi();
@@ -87,13 +105,14 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
         `${request?.id}.json`,
         JSON.stringify(request?.proof),
       );
-      setCid(data);
+      setCid((prevCid) => ({ ...prevCid, [props.requestId]: data }));
+      await setNotaryRequestCid(props.requestId, data);
     } catch (e: any) {
       setUploadError(e.message);
     } finally {
       setUploading(false);
     }
-  }, []);
+  }, [props.requestId, request, cid]);
 
   return (
     <div className="flex flex-row flex-nowrap border rounded-md p-2 gap-1 hover:bg-slate-50 cursor-pointer">
@@ -221,7 +240,7 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
         onClose={closeAllModal}
       >
         <ModalContent className="flex flex-col w-full gap-4 items-center text-base justify-center">
-          {!cid ? (
+          {!cid[props.requestId] ? (
             <p className="text-slate-500 text-center">
               {uploadError ||
                 'This will make your proof publicly accessible by anyone with the CID'}
@@ -230,13 +249,13 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
             <input
               className="input w-full bg-slate-100 border border-slate-200"
               readOnly
-              value={`${EXPLORER_API}/ipfs/${cid}`}
+              value={`${EXPLORER_API}/ipfs/${cid[props.requestId]}`}
               onFocus={(e) => e.target.select()}
             />
           )}
         </ModalContent>
         <div className="flex flex-row gap-2 justify-center">
-          {!cid ? (
+          {!cid[props.requestId] ? (
             <>
               {!uploadError && (
                 <button
@@ -264,7 +283,9 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
           ) : (
             <>
               <button
-                onClick={() => copy(`${EXPLORER_API}/ipfs/${cid}`)}
+                onClick={() =>
+                  copy(`${EXPLORER_API}/ipfs/${cid[props.requestId]}`)
+                }
                 className="m-0 w-24 bg-slate-600 text-slate-200 hover:bg-slate-500 hover:text-slate-100 font-bold"
               >
                 Copy

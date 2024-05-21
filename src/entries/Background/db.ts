@@ -204,3 +204,21 @@ export async function removePluginConfig(
 
   return existing;
 }
+
+export async function setNotaryRequestCid(
+  id: string,
+  cid: string,
+): Promise<RequestHistory | null> {
+  const existing = await historyDb.get(id);
+
+  if (!existing) return null;
+
+  const newReq = {
+    ...existing,
+    cid,
+  };
+
+  await historyDb.put(id, newReq);
+
+  return newReq;
+}
