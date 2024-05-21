@@ -20,6 +20,7 @@ import Icon from '../Icon';
 import './index.scss';
 import browser from 'webextension-polyfill';
 import { ErrorModal } from '../ErrorModal';
+import Modal, { ModalHeader, ModalContent, ModalFooter } from '../Modal/Modal';
 
 export function PluginList(props: { className?: string }): ReactElement {
   const hashes = usePluginHashes();
@@ -48,6 +49,8 @@ export function Plugin(props: {
 }): ReactElement {
   const [error, showError] = useState('');
   const [config, setConfig] = useState<PluginConfig | null>(null);
+  const [pluginInfo, showPluginInfo] = useState(false);
+  const [remove, showRemove] = useState(false);
 
   const onClick = useCallback(async () => {
     if (!config) return;
@@ -81,33 +84,111 @@ export function Plugin(props: {
     (e) => {
       e.stopPropagation();
       removePlugin(props.hash);
+      showRemove(false);
     },
     [props.hash],
   );
+
+  const onConfirmRemove: MouseEventHandler = useCallback((e) => {
+    e.stopPropagation();
+    showRemove(true);
+  }, [props.hash]);
+
+  const onPluginInfo: MouseEventHandler = useCallback((e) => {
+    e.stopPropagation();
+    showPluginInfo(true);
+  }, [props.hash]);
 
   if (!config) return <></>;
 
   return (
     <button
-      className={classNames(
-        'flex flex-row border rounded border-slate-300 p-2 gap-2 plugin-box',
-        'cursor-pointer hover:bg-slate-100 hover:border-slate-400 active:bg-slate-200',
-      )}
-      onClick={onClick}
+    className={classNames(
+      'flex flex-row border rounded border-slate-300 p-2 gap-2 plugin-box',
+      'cursor-pointer hover:bg-slate-100 hover:border-slate-400 active:bg-slate-200',
+    )}
+    onClick={onClick}
     >
       {!!error && <ErrorModal onClose={() => showError('')} message={error} />}
-      <img className="w-12 h-12" src={config.icon || DefaultPluginIcon} />
-      <div className="flex flex-col w-full items-start">
-        <div className="font-bold flex flex-row h-6 items-center justify-between w-full">
-          {config.title}
-          <Icon
-            fa="fa-solid fa-xmark"
-            className="flex flex-row items-center justify-center cursor-pointer text-red-500 bg-red-200 rounded-full plugin-box__remove-icon"
-            onClick={onRemove}
-          />
+    {!remove ? (
+        <div className="flex flex-row w-full gap-2">
+          <img className="w-12 h-12" src={config.icon || DefaultPluginIcon} />
+          <div className="flex flex-col w-full items-start">
+            <div className="font-bold flex flex-row h-6 items-center justify-between w-full">
+              {config.title}
+              <div className="flex flex-row items-center justify-center">
+                <Icon
+                  fa="fa-solid fa-circle-info"
+                  className="flex flex-row items-center justify-center cursor-pointer plugin-box__remove-icon"
+                  onClick={onPluginInfo}
+                />
+                <Icon
+                  fa="fa-solid fa-xmark"
+                  className="flex flex-row items-center justify-center cursor-pointer text-red-500 bg-red-200 rounded-full plugin-box__remove-icon"
+                  onClick={onConfirmRemove}
+                />
+              </div>
+            </div>
+            <div>{config.description}</div>
+          </div>
         </div>
-        <div>{config.description}</div>
-      </div>
+      ) : (
+        <RemovePlugin onRemove={onRemove} showRemove={showRemove} config={config} />
+      )}
+      {pluginInfo && <PluginInfo showPluginInfo={showPluginInfo} config={config} />}
     </button>
   );
+};
+
+interface PluginInfoProps {
+  showPluginInfo: (show: boolean) => void;
+  config: PluginConfig;
 }
+
+
+
+const PluginInfo: React.FC<PluginInfoProps> = ({ showPluginInfo, config }) => (
+  <Modal className="w-11/12" onClose={() => showPluginInfo(false)}>
+    <ModalHeader>
+      <div className="font-bold">{config.title}</div>
+      <div>{config.description}</div>
+    </ModalHeader>
+    <ModalContent>
+      <div className="flex flex-col w-full gap-2 p-2">
+        <div>{config.hostFunctions}</div>
+        <div>{config.cookies}</div>
+        <div>{config.headers}</div>
+        <div>{config.requests[0].url}</div>
+      </div>
+    </ModalContent>
+    <ModalFooter>
+      <button className="bg-slate-500 text-white rounded p-1" onClick={() => showPluginInfo(false)}>
+        Close
+      </button>
+    </ModalFooter>
+  </Modal>
+);
+
+interface RemovePluginProps {
+  onRemove: MouseEventHandler;
+  showRemove: (show: boolean) => void;
+  config: PluginConfig;
+}
+
+
+const RemovePlugin: React.FC<RemovePluginProps> = ({ onRemove, showRemove, config }) => (
+
+
+  <div className="flex flex-col w-full gap-2">
+    <div className="font-bold">{config.title}</div>
+    <div>{config.description}</div>
+    <div className="flex flex-row gap-2">
+      <button className="flex-grow bg-red-500 text-white rounded p-1" onClick={onRemove}>
+        Remove
+      </button>
+      <button className="flex-grow bg-slate-500 text-white rounded p-1" onClick={() => showRemove(false)}>
+        Cancel
+      </button>
+    </div>
+  </div>
+);
