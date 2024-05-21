@@ -43,9 +43,7 @@ function two() {
         Cookie: `lang=en; auth_token=${cookies.auth_token}; ct0=${cookies.ct0}`,
         'Accept-Encoding': 'identity',
         Connection: 'close',
-      },
-      notaryUrl: 'http://localhost:7047',
-      websocketProxyUrl: 'ws://localhost:55688'
+      }
     }),
   );
 }

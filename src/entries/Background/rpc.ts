@@ -381,6 +381,8 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
       maxTranscriptSize,
       notaryUrl,
       websocketProxyUrl,
+      maxRecvData,
+      maxSentData,
     },
   });
 }
