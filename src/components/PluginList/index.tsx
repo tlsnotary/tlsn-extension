@@ -140,55 +140,81 @@ export function Plugin(props: {
   );
 };
 
-interface PluginInfoProps {
+
+function PluginInfo(props: {
   showPluginInfo: (show: boolean) => void;
   config: PluginConfig;
+}): ReactElement {
+  const { showPluginInfo, config } = props;
+
+
+  return (
+    <Modal className="w-11/12" onClose={() => {}}>
+      <ModalHeader>
+          <div className="font-bold">{config.title}</div>
+          <div>{config.description}</div>
+      </ModalHeader>
+      <ModalContent>
+        <div className="flex flex-col w-full gap-2 p-2">
+          <h1 className="font-bold">Host Functions Accessed</h1>
+          {config.hostFunctions!.map((hostFunction) => (
+            <div key={hostFunction} className="flex flex-col gap-2">
+              <div className="">{hostFunction}</div>
+            </div>
+          ))}
+          <h1 className="font-bold">Cookies Accessed</h1>
+          <div>{config.cookies}</div>
+          <h1 className="font-bold">Headers Accessed</h1>
+          <div>{config.headers}</div>
+          <h1 className="font-bold">Requests Accessed</h1>
+          <div>{config.requests[0].url}</div>
+        </div>
+      </ModalContent>
+      <ModalFooter>
+        <button
+          className="bg-slate-500 text-white rounded p-1"
+          onClick={() => showPluginInfo(false)}
+        >
+          Close
+        </button>
+      </ModalFooter>
+    </Modal>
+  );
 }
 
 
 
-const PluginInfo: React.FC<PluginInfoProps> = ({ showPluginInfo, config }) => (
-  <Modal className="w-11/12" onClose={() => showPluginInfo(false)}>
-    <ModalHeader>
-      <div className="font-bold">{config.title}</div>
-      <div>{config.description}</div>
-    </ModalHeader>
-    <ModalContent>
-      <div className="flex flex-col w-full gap-2 p-2">
-        <div>{config.hostFunctions}</div>
-        <div>{config.cookies}</div>
-        <div>{config.headers}</div>
-        <div>{config.requests[0].url}</div>
-      </div>
-    </ModalContent>
-    <ModalFooter>
-      <button className="bg-slate-500 text-white rounded p-1" onClick={() => showPluginInfo(false)}>
-        Close
-      </button>
-    </ModalFooter>
-  </Modal>
-);
 
-interface RemovePluginProps {
+function RemovePlugin(props: {
   onRemove: MouseEventHandler;
   showRemove: (show: boolean) => void;
   config: PluginConfig;
-}
+}): ReactElement {
+  const { onRemove, showRemove, config } = props;
 
+  const onCancel: MouseEventHandler = useCallback((e) => {
+    e.stopPropagation();
+    showRemove(false);
+  }, [])
 
-const RemovePlugin: React.FC<RemovePluginProps> = ({ onRemove, showRemove, config }) => (
-
-
-  <div className="flex flex-col w-full gap-2">
-    <div className="font-bold">{config.title}</div>
-    <div>{config.description}</div>
-    <div className="flex flex-row gap-2">
-      <button className="flex-grow bg-red-500 text-white rounded p-1" onClick={onRemove}>
-        Remove
-      </button>
-      <button className="flex-grow bg-slate-500 text-white rounded p-1" onClick={() => showRemove(false)}>
-        Cancel
-      </button>
+  return (
+    <div className="flex flex-col w-full gap-2">
+      <div className="font-bold">{config.title}</div>
+      <div>{config.description}</div>
+      <div className="flex flex-row gap-2">
+        <button
+          className="flex-grow bg-red-500 text-white rounded p-1"
+          onClick={onRemove}
+        >
+          Remove
+        </button>
+        <button
+          className="flex-grow bg-slate-500 text-white rounded p-1"
+          onClick={onCancel}
+        >
+          Cancel
+        </button>
+      </div>
     </div>
-  </div>
-);
+  );
+}
