@@ -53,7 +53,7 @@ export function Plugin(props: {
   const [remove, showRemove] = useState(false);
 
   const onClick = useCallback(async () => {
-    if (!config) return;
+    if (!config || remove) return;
 
     try {
       await runPlugin(props.hash, 'start');
@@ -72,7 +72,7 @@ export function Plugin(props: {
     } catch (e: any) {
       showError(e.message);
     }
-  }, [props.hash, config]);
+  }, [props.hash, config, remove]);
 
   useEffect(() => {
     (async function () {
@@ -86,18 +86,18 @@ export function Plugin(props: {
       removePlugin(props.hash);
       showRemove(false);
     },
-    [props.hash],
+    [props.hash, remove],
   );
 
   const onConfirmRemove: MouseEventHandler = useCallback((e) => {
     e.stopPropagation();
     showRemove(true);
-  }, [props.hash]);
+  }, [props.hash, remove]);
 
   const onPluginInfo: MouseEventHandler = useCallback((e) => {
     e.stopPropagation();
     showPluginInfo(true);
-  }, [props.hash]);
+  }, [props.hash, pluginInfo]);
 
   if (!config) return <></>;
 
@@ -156,17 +156,17 @@ function PluginInfo(props: {
       </ModalHeader>
       <ModalContent>
         <div className="flex flex-col w-full gap-2 p-2">
-          <h1 className="font-bold">Host Functions Accessed</h1>
+          <h1 className="font-bold">Host Functions Allowed</h1>
           {config.hostFunctions!.map((hostFunction) => (
             <div key={hostFunction} className="flex flex-col gap-2">
               <div className="">{hostFunction}</div>
             </div>
           ))}
-          <h1 className="font-bold">Cookies Accessed</h1>
+          <h1 className="font-bold">Cookies Allowed</h1>
           <div>{config.cookies}</div>
-          <h1 className="font-bold">Headers Accessed</h1>
+          <h1 className="font-bold">Headers Allowed</h1>
           <div>{config.headers}</div>
-          <h1 className="font-bold">Requests Accessed</h1>
+          <h1 className="font-bold">Requests Allowed</h1>
           <div>{config.requests[0].url}</div>
         </div>
       </ModalContent>
