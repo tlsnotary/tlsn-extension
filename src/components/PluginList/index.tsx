@@ -89,28 +89,34 @@ export function Plugin(props: {
     [props.hash, remove],
   );
 
-  const onConfirmRemove: MouseEventHandler = useCallback((e) => {
-    e.stopPropagation();
-    showRemove(true);
-  }, [props.hash, remove]);
+  const onConfirmRemove: MouseEventHandler = useCallback(
+    (e) => {
+      e.stopPropagation();
+      showRemove(true);
+    },
+    [props.hash, remove],
+  );
 
-  const onPluginInfo: MouseEventHandler = useCallback((e) => {
-    e.stopPropagation();
-    showPluginInfo(true);
-  }, [props.hash, pluginInfo]);
+  const onPluginInfo: MouseEventHandler = useCallback(
+    (e) => {
+      e.stopPropagation();
+      showPluginInfo(true);
+    },
+    [props.hash, pluginInfo],
+  );
 
   if (!config) return <></>;
 
   return (
     <button
-    className={classNames(
-      'flex flex-row border rounded border-slate-300 p-2 gap-2 plugin-box',
-      'cursor-pointer hover:bg-slate-100 hover:border-slate-400 active:bg-slate-200',
-    )}
-    onClick={onClick}
+      className={classNames(
+        'flex flex-row border rounded border-slate-300 p-2 gap-2 plugin-box',
+        'cursor-pointer hover:bg-slate-100 hover:border-slate-400 active:bg-slate-200',
+      )}
+      onClick={onClick}
     >
       {!!error && <ErrorModal onClose={() => showError('')} message={error} />}
-    {!remove ? (
+      {!remove ? (
         <div className="flex flex-row w-full gap-2">
           <img className="w-12 h-12" src={config.icon || DefaultPluginIcon} />
           <div className="flex flex-col w-full items-start">
@@ -133,13 +139,18 @@ export function Plugin(props: {
           </div>
         </div>
       ) : (
-        <RemovePlugin onRemove={onRemove} showRemove={showRemove} config={config} />
+        <RemovePlugin
+          onRemove={onRemove}
+          showRemove={showRemove}
+          config={config}
+        />
       )}
-      {pluginInfo && <PluginInfo showPluginInfo={showPluginInfo} config={config} />}
+      {pluginInfo && (
+        <PluginInfo showPluginInfo={showPluginInfo} config={config} />
+      )}
     </button>
   );
-};
-
+}
 
 function PluginInfo(props: {
   showPluginInfo: (show: boolean) => void;
@@ -147,27 +158,40 @@ function PluginInfo(props: {
 }): ReactElement {
   const { showPluginInfo, config } = props;
 
-
   return (
     <Modal className="w-11/12" onClose={() => {}}>
       <ModalHeader>
-          <div className="font-bold">{config.title}</div>
-          <div>{config.description}</div>
+        <div className="font-bold">{config.title}</div>
+        <div>{config.description}</div>
       </ModalHeader>
       <ModalContent>
         <div className="flex flex-col w-full gap-2 p-2">
           <h1 className="font-bold">Host Functions Allowed</h1>
-          {config.hostFunctions!.map((hostFunction) => (
-            <div key={hostFunction} className="flex flex-col gap-2">
-              <div className="">{hostFunction}</div>
-            </div>
-          ))}
+          <div className="flex flex-col input border gap-2">
+            {config.hostFunctions!.map((hostFunction, index) => (
+              <div key={index}>{hostFunction}</div>
+            ))}
+          </div>
           <h1 className="font-bold">Cookies Allowed</h1>
-          <div>{config.cookies}</div>
+          <div className="input border">
+            {config.cookies!.map((cookies, index) => (
+              <div key={index}>{cookies}</div>
+            ))}
+          </div>
           <h1 className="font-bold">Headers Allowed</h1>
-          <div>{config.headers}</div>
+          <div className="input border">
+            {config.headers!.map((headers, index) => (
+              <div key={index}>{headers}</div>
+            ))}
+          </div>
           <h1 className="font-bold">Requests Allowed</h1>
-          <div>{config.requests[0].url}</div>
+          <div className="input border">
+            {config.requests!.map((requests, index) => (
+              <div key={index}>
+                {requests.method} - {requests.url}
+              </div>
+            ))}
+          </div>
         </div>
       </ModalContent>
       <ModalFooter>
@@ -182,9 +206,6 @@ function PluginInfo(props: {
   );
 }
 
-
-
-
 function RemovePlugin(props: {
   onRemove: MouseEventHandler;
   showRemove: (show: boolean) => void;
@@ -195,7 +216,7 @@ function RemovePlugin(props: {
   const onCancel: MouseEventHandler = useCallback((e) => {
     e.stopPropagation();
     showRemove(false);
-  }, [])
+  }, []);
 
   return (
     <div className="flex flex-col w-full gap-2">
