@@ -13,11 +13,13 @@ import { useRequests } from '../../reducers/requests';
 import { makePlugin, getPluginConfig } from '../../utils/misc';
 import { addPlugin } from '../../utils/rpc';
 import { PluginList } from '../../components/PluginList';
+import PluginUploadInfo from '../../components/PluginInfo';
 import { ErrorModal } from '../../components/ErrorModal';
 
 export default function Home(): ReactElement {
   const requests = useRequests();
   const navigate = useNavigate();
+  const [pluginInfo, showPluginInfo] = useState(false);
   const [error, showError] = useState('');
 
   const onAddPlugin = useCallback(
@@ -29,6 +31,22 @@ export default function Home(): ReactElement {
         const plugin = await makePlugin(arrayBuffer);
         await getPluginConfig(plugin);
         await addPlugin(Buffer.from(arrayBuffer).toString('hex'));
+      } catch (e: any) {
+        showError(e?.message || 'Invalid Plugin');
+      }
+    },
+    [],
+  );
+
+  const onPluginInfo = useCallback(
+    async (evt: ChangeEvent<HTMLInputElement>) => {
+      if (!evt.target.files) return;
+      try {
+        const [file] = evt.target.files;
+        const arrayBuffer = await file.arrayBuffer();
+        const plugin = await makePlugin(arrayBuffer);
+        const pluginDesc = await getPluginConfig(plugin);
+        showPluginInfo(true);
       } catch (e: any) {
         showError(e?.message || 'Invalid Plugin');
       }
@@ -57,11 +75,7 @@ export default function Home(): ReactElement {
           History
         </NavButton>
         <NavButton className="relative" fa="fa-solid fa-plus">
-          <input
-            className="opacity-0 absolute top-0 right-0 h-full w-full"
-            type="file"
-            onChange={onAddPlugin}
-          />
+          <PluginUploadInfo />
           Add a plugin
         </NavButton>
         <NavButton fa="fa-solid fa-gear" onClick={() => navigate('/options')}>
@@ -72,6 +86,8 @@ export default function Home(): ReactElement {
     </div>
   );
 }
+
+function PluginInfo() {}
 
 function NavButton(props: {
   fa: string;

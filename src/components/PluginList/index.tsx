@@ -158,6 +158,12 @@ function PluginInfo(props: {
 }): ReactElement {
   const { showPluginInfo, config } = props;
 
+  interface Request {
+    url: string;
+    method: string;
+  }
+
+
   return (
     <Modal className="w-11/12" onClose={() => {}}>
       <ModalHeader>
@@ -168,25 +174,25 @@ function PluginInfo(props: {
         <div className="flex flex-col w-full gap-2 p-2">
           <h1 className="font-bold">Host Functions Allowed</h1>
           <div className="flex flex-col input border gap-2">
-            {config.hostFunctions!.map((hostFunction, index) => (
+            {config.hostFunctions!.map((hostFunction: string, index: React.Key) => (
               <div key={index}>{hostFunction}</div>
             ))}
           </div>
           <h1 className="font-bold">Cookies Allowed</h1>
           <div className="input border">
-            {config.cookies!.map((cookies, index) => (
+            {config.cookies!.map((cookies: string, index: React.Key) => (
               <div key={index}>{cookies}</div>
             ))}
           </div>
           <h1 className="font-bold">Headers Allowed</h1>
           <div className="input border">
-            {config.headers!.map((headers, index) => (
+            {config.headers!.map((headers: string, index: React.Key) => (
               <div key={index}>{headers}</div>
             ))}
           </div>
           <h1 className="font-bold">Requests Allowed</h1>
           <div className="input border">
-            {config.requests!.map((requests, index) => (
+            {config.requests!.map((requests: Request, index: React.Key) => (
               <div key={index}>
                 {requests.method} - {requests.url}
               </div>
