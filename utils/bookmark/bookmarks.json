@@ -1,7 +1,7 @@
 [
   {
-    "url": "https://api.twitter.com/1.1/account/settings.json",
-    "targetUrl": "https://www.twitter.com",
+    "url": "https://api.x.com/1.1/account/settings.json",
+    "targetUrl": "https://www.x.com",
     "method": "GET",
     "type": "xmlhttprequest",
     "title": "Twitter Profile",
