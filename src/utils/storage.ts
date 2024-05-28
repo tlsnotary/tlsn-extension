@@ -1,7 +1,10 @@
+import { LOGGING_LEVEL_INFO } from './constants';
+
 export const NOTARY_API_LS_KEY = 'notary-api';
 export const PROXY_API_LS_KEY = 'proxy-api';
 export const MAX_SENT_LS_KEY = 'max-sent';
 export const MAX_RECEIVED_LS_KEY = 'max-received';
+export const LOGGING_FILTER_KEY = 'logging-filter';
 
 export async function set(key: string, value: string) {
   return chrome.storage.sync.set({ [key]: value });
@@ -28,4 +31,8 @@ export async function getNotaryApi() {
 
 export async function getProxyApi() {
   return await get(PROXY_API_LS_KEY, 'wss://notary.pse.dev/proxy');
+}
+
+export async function getLoggingFilter() {
+  return await get(LOGGING_FILTER_KEY, LOGGING_LEVEL_INFO);
 }

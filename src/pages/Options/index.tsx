@@ -1,7 +1,12 @@
-import React, { ReactElement, useState, useEffect, useCallback } from 'react';
+import React, {
+  ReactElement,
+  useState,
+  useEffect,
+  useCallback,
+  MouseEvent,
+} from 'react';
 import {
   set,
-  get,
   NOTARY_API_LS_KEY,
   PROXY_API_LS_KEY,
   MAX_SENT_LS_KEY,
@@ -10,6 +15,8 @@ import {
   getMaxRecv,
   getNotaryApi,
   getProxyApi,
+  getLoggingFilter,
+  LOGGING_FILTER_KEY,
 } from '../../utils/storage';
 import {
   EXPLORER_API,
@@ -17,16 +24,25 @@ import {
   NOTARY_PROXY,
   MAX_RECV,
   MAX_SENT,
+  LOGGING_LEVEL_INFO,
+  LOGGING_LEVEL_NONE,
+  LOGGING_LEVEL_DEBUG,
+  LOGGING_LEVEL_TRACE,
 } from '../../utils/constants';
+import Modal, { ModalContent } from '../../components/Modal/Modal';
+import browser from 'webextension-polyfill';
 
 export default function Options(): ReactElement {
   const [notary, setNotary] = useState(NOTARY_API);
   const [proxy, setProxy] = useState(NOTARY_PROXY);
   const [maxSent, setMaxSent] = useState(MAX_SENT);
   const [maxReceived, setMaxReceived] = useState(MAX_RECV);
+  const [loggingLevel, setLoggingLevel] = useState(LOGGING_LEVEL_INFO);
 
   const [dirty, setDirty] = useState(false);
+  const [shouldReload, setShouldReload] = useState(false);
   const [advanced, setAdvanced] = useState(false);
+  const [showReloadModal, setShowReloadModal] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -34,16 +50,33 @@ export default function Options(): ReactElement {
       setProxy((await getProxyApi()) || NOTARY_PROXY);
       setMaxReceived((await getMaxRecv()) || MAX_RECV);
       setMaxSent((await getMaxSent()) || MAX_SENT);
+      setLoggingLevel((await getLoggingFilter()) || LOGGING_LEVEL_INFO);
     })();
   }, [advanced]);
 
-  const onSave = useCallback(async () => {
-    await set(NOTARY_API_LS_KEY, notary);
-    await set(PROXY_API_LS_KEY, proxy);
-    await set(MAX_SENT_LS_KEY, maxSent.toString());
-    await set(MAX_RECEIVED_LS_KEY, maxReceived.toString());
-    setDirty(false);
-  }, [notary, proxy, maxSent, maxReceived]);
+  const onSave = useCallback(
+    async (e: MouseEvent<HTMLButtonElement>, skipCheck = false) => {
+      if (!skipCheck && shouldReload) {
+        setShowReloadModal(true);
+        return;
+      }
+      await set(NOTARY_API_LS_KEY, notary);
+      await set(PROXY_API_LS_KEY, proxy);
+      await set(MAX_SENT_LS_KEY, maxSent.toString());
+      await set(MAX_RECEIVED_LS_KEY, maxReceived.toString());
+      await set(LOGGING_FILTER_KEY, loggingLevel);
+      setDirty(false);
+    },
+    [notary, proxy, maxSent, maxReceived, loggingLevel, shouldReload],
+  );
+
+  const onSaveAndReload = useCallback(
+    async (e: MouseEvent<HTMLButtonElement>) => {
+      await onSave(e, true);
+      browser.runtime.reload();
+    },
+    [onSave],
+  );
 
   const onAdvanced = useCallback(() => {
     setAdvanced(!advanced);
@@ -51,6 +84,31 @@ export default function Options(): ReactElement {
 
   return (
     <div className="flex flex-col flex-nowrap flex-grow">
+      {showReloadModal && (
+        <Modal
+          className="flex flex-col items-center text-base cursor-default justify-center !w-auto mx-4 my-[50%] p-4 gap-4"
+          onClose={() => setShowReloadModal(false)}
+        >
+          <ModalContent className="flex flex-col w-full gap-4 items-center text-base justify-center">
+            Modifying your logging your will require your extension to reload.
+            Do you want to proceed?
+          </ModalContent>
+          <div className="flex flex-row justify-end items-center gap-2 w-full">
+            <button
+              className="button"
+              onClick={() => setShowReloadModal(false)}
+            >
+              No
+            </button>
+            <button
+              className="button button--primary"
+              onClick={onSaveAndReload}
+            >
+              Yes
+            </button>
+          </div>
+        </Modal>
+      )}
       <div className="flex flex-row flex-nowrap justify-between items-between py-1 px-2 gap-2">
         <p className="font-bold text-base">Settings</p>
       </div>
@@ -82,6 +140,9 @@ export default function Options(): ReactElement {
           maxReceived={maxReceived}
           setMaxReceived={setMaxReceived}
           setDirty={setDirty}
+          loggingLevel={loggingLevel}
+          setLoggingLevel={setLoggingLevel}
+          setShouldReload={setShouldReload}
         />
       )}
       <div className="flex flex-row flex-nowrap justify-end gap-2 p-2">
@@ -116,6 +177,7 @@ function InputField(props: {
         onChange={onChange}
         value={value}
         min={min}
+        placeholder={placeholder}
       />
     </div>
   );
@@ -162,12 +224,24 @@ function NormalOptions(props: {
 
 function AdvancedOptions(props: {
   maxSent: number;
-  setMaxSent: (value: number) => void;
   maxReceived: number;
+  loggingLevel: string;
+  setShouldReload: (reload: boolean) => void;
+  setMaxSent: (value: number) => void;
   setMaxReceived: (value: number) => void;
   setDirty: (value: boolean) => void;
+  setLoggingLevel: (level: string) => void;
 }) {
-  const { maxSent, setMaxSent, maxReceived, setMaxReceived, setDirty } = props;
+  const {
+    maxSent,
+    setMaxSent,
+    maxReceived,
+    setMaxReceived,
+    setDirty,
+    setLoggingLevel,
+    loggingLevel,
+    setShouldReload,
+  } = props;
 
   return (
     <div>
@@ -191,6 +265,23 @@ function AdvancedOptions(props: {
           setDirty(true);
         }}
       />
+      <div className="flex flex-col flex-nowrap py-1 px-2 gap-2">
+        <div className="font-semibold">Logging Level</div>
+        <select
+          className="select !bg-white border !px-2 !py-1"
+          onChange={(e) => {
+            setLoggingLevel(e.target.value);
+            setDirty(true);
+            setShouldReload(true);
+          }}
+          value={loggingLevel}
+        >
+          <option value={LOGGING_LEVEL_NONE}>None</option>
+          <option value={LOGGING_LEVEL_INFO}>Info</option>
+          <option value={LOGGING_LEVEL_DEBUG}>Debug</option>
+          <option value={LOGGING_LEVEL_TRACE}>Trace</option>
+        </select>
+      </div>
       <div className="flex flex-row flex-nowrap justify-end gap-2 p-2"></div>
     </div>
   );

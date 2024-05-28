@@ -32,6 +32,7 @@ import {
   makePlugin,
 } from '../../utils/misc';
 import {
+  getLoggingFilter,
   getMaxRecv,
   getMaxSent,
   getNotaryApi,
@@ -258,6 +259,7 @@ async function handleRetryProveReqest(
       ...req,
       notaryUrl,
       websocketProxyUrl,
+      loggingFilter: await getLoggingFilter(),
     },
   });
 
@@ -321,6 +323,7 @@ async function handleProveRequestStart(
       websocketProxyUrl,
       secretHeaders,
       secretResps,
+      loggingFilter: await getLoggingFilter(),
     },
   });
 
@@ -384,6 +387,7 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
       websocketProxyUrl,
       maxRecvData,
       maxSentData,
+      loggingFilter: await getLoggingFilter(),
     },
   });
 }
