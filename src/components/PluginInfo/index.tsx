@@ -63,7 +63,7 @@ export default function PluginUploadInfo(): ReactElement {
       />
       {pluginInfo && (
         <Modal
-          onClose={() => {}}
+          onClose={onClose}
           className="custom-modal flex items-center justify-center p2"
         >
           <div className="w-full h-full flex flex-col">

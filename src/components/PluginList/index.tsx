@@ -166,7 +166,7 @@ function PluginInfo(props: {
   return (
     <Modal
       className="custom-modal flex items-center justify-center p2"
-      onClose={() => {}}
+      onClose={() => showPluginInfo(false)}
     >
       <div className="w-full h-full flex flex-col">
         <ModalHeader>
