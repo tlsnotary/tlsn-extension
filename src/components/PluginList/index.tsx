@@ -163,43 +163,61 @@ function PluginInfo(props: {
     method: string;
   }
 
-
   return (
-    <Modal className="w-11/12" onClose={() => {}}>
-      <ModalHeader>
-        <div className="font-bold">{config.title}</div>
-        <div>{config.description}</div>
-      </ModalHeader>
-      <ModalContent>
-        <div className="flex flex-col w-full gap-2 p-2">
-          <h1 className="font-bold">Host Functions Allowed</h1>
-          <div className="flex flex-col input border gap-2">
-            {config.hostFunctions!.map((hostFunction: string, index: React.Key) => (
-              <div key={index}>{hostFunction}</div>
-            ))}
+    <Modal
+      className="custom-modal flex items-center justify-center p2"
+      onClose={() => {}}
+    >
+      <div className="w-full h-full flex flex-col">
+        <ModalHeader>
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-row items-center gap-2">
+              <img className="w-5 h-5" src={config.icon} alt="Plugin Icon" />
+              <span className="text-lg font-semibold">{config.title}</span>
+            </div>
+            <div className="text-sm text-gray-600">{config.description}</div>
           </div>
-          <h1 className="font-bold">Cookies Allowed</h1>
-          <div className="input border">
-            {config.cookies!.map((cookies: string, index: React.Key) => (
-              <div key={index}>{cookies}</div>
-            ))}
+        </ModalHeader>
+        <ModalContent className="custom-modal-content p-2 space-y-2 flex-grow overflow-y-auto">
+          <div className="flex flex-col gap-2 p-2">
+            <h1 className="font-semibold">Host Functions Allowed:</h1>
+            <div className="flex flex-col border p-2 rounded-md gap-2">
+              {config.hostFunctions!.map(
+                (hostFunction: string, index: React.Key) => (
+                  <div key={index} className="text-sm">
+                    {hostFunction}
+                  </div>
+                ),
+              )}
+            </div>
+            <h1 className="font-semibold">Cookies Allowed:</h1>
+            <div className="flex flex-col border p-2 rounded-md gap-2">
+              {config.cookies!.map((cookies: string, index: React.Key) => (
+                <div key={index} className="text-sm">
+                  {cookies}
+                </div>
+              ))}
+            </div>
+            <h1 className="font-semibold">Headers Allowed:</h1>
+            <div className="flex flex-col border p-2 rounded-md gap-2">
+              {config.headers!.map((headers: string, index: React.Key) => (
+                <div key={index} className="text-sm">
+                  {headers}
+                </div>
+              ))}
+            </div>
+            <h1 className="font-semibold">Requests Allowed:</h1>
+            <div className="flex flex-col border p-2 rounded-md gap-2">
+              {config.requests!.map((requests: Request, index: React.Key) => (
+                <div key={index} className="text-sm">
+                  <span className="font-medium">{requests.method}</span> -{' '}
+                  {requests.url}
+                </div>
+              ))}
+            </div>
           </div>
-          <h1 className="font-bold">Headers Allowed</h1>
-          <div className="input border">
-            {config.headers!.map((headers: string, index: React.Key) => (
-              <div key={index}>{headers}</div>
-            ))}
-          </div>
-          <h1 className="font-bold">Requests Allowed</h1>
-          <div className="input border">
-            {config.requests!.map((requests: Request, index: React.Key) => (
-              <div key={index}>
-                {requests.method} - {requests.url}
-              </div>
-            ))}
-          </div>
-        </div>
-      </ModalContent>
+        </ModalContent>
+      </div>
       <ModalFooter>
         <button
           className="bg-slate-500 text-white rounded p-1"

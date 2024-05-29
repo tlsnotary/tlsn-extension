@@ -1,9 +1,4 @@
-import React, {
-  ChangeEvent,
-  ReactElement,
-  useCallback,
-  useState,
-} from 'react';
+import React, { ChangeEvent, ReactElement, useCallback, useState } from 'react';
 import { makePlugin, getPluginConfig } from '../../utils/misc';
 import { addPlugin } from '../../utils/rpc';
 import Modal, {
@@ -11,13 +6,13 @@ import Modal, {
   ModalContent,
   ModalFooter,
 } from '../../components/Modal/Modal';
+import './index.scss';
 
 export default function PluginUploadInfo(): ReactElement {
   const [error, showError] = useState('');
   const [pluginInfo, showPluginInfo] = useState(false);
   const [pluginBuffer, setPluginBuffer] = useState<any>(null);
   const [pluginContent, setPluginContent] = useState<any>(null);
-
 
   interface Request {
     url: string;
@@ -33,7 +28,7 @@ export default function PluginUploadInfo(): ReactElement {
         showError(e?.message || 'Invalid Plugin');
       }
     },
-    [pluginBuffer],
+    [pluginContent, pluginBuffer, pluginInfo],
   );
 
   const onPluginInfo = useCallback(
@@ -50,8 +45,14 @@ export default function PluginUploadInfo(): ReactElement {
         showError(e?.message || 'Invalid Plugin');
       }
     },
-    [pluginContent, pluginBuffer],
+    [pluginContent, pluginBuffer, pluginInfo],
   );
+
+  const onClose = useCallback(() => {
+    setPluginContent(null);
+    setPluginBuffer(null);
+    showPluginInfo(false);
+  }, [pluginContent, pluginBuffer, pluginInfo]);
 
   return (
     <>
@@ -61,52 +62,93 @@ export default function PluginUploadInfo(): ReactElement {
         onChange={onPluginInfo}
       />
       {pluginInfo && (
-        <Modal onClose={() => {}}>
-          <ModalHeader>
-            <div className="flex flex-row items-center gap-2">
-              <img className="w-3 h-3" src={pluginContent.icon}></img>
-              {pluginContent.title}
-            </div>
-            <div>{pluginContent.description}</div>
-          </ModalHeader>
-          <ModalContent className="p-2">
-            <h1 className="pb-3 pt-3"><span className="font-bold">{pluginContent.title} </span>wants to access:</h1>
-            <h1 className="font-bold">Host Functions:</h1>
-
-            <div className="flex flex-col input border gap-2">
-              {pluginContent.hostFunctions.map((hostFunction: string, index: React.Key) => (
-                <div key={index}>{hostFunction}</div>
-              ))}
-            </div>
-            <h1 className="font-bold">Cookies:</h1>
-            <div className="flex flex-col input border gap-2">
-              {pluginContent.cookies.map((cookies: string, index: React.Key) => (
-                <div key={index}>{cookies}</div>
-              ))}
-            </div>
-            <h1 className="font-bold">Headers:</h1>
-            <div className="flex flex-col input border gap-2">
-              {pluginContent.headers.map((headers: string, index: React.Key) => (
-                <div key={index}>{headers}</div>
-              ))}
-            </div>
-            <h1 className="font-bold">Requests:</h1>
-          <div className="input border">
-            {pluginContent.requests!.map((requests: Request, index: React.Key) => (
-              <div key={index}>
-                {requests.method} - {requests.url}
+        <Modal
+          onClose={() => {}}
+          className="custom-modal flex items-center justify-center p2"
+        >
+          <div className="w-full h-full flex flex-col">
+            <ModalHeader>
+              <div className="flex flex-col gap-2">
+                <div className="flex flex-row items-center gap-2">
+                  <img
+                    className="w-5 h-5"
+                    src={pluginContent.icon}
+                    alt="Plugin Icon"
+                  />
+                  <span className="text-lg font-semibold">
+                    {pluginContent.title}
+                  </span>
+                </div>
+                <div className="text-sm text-gray-600">
+                  {pluginContent.description}
+                </div>
               </div>
-            ))}
-            </div>
-          </ModalContent>
-          <ModalFooter>
-            <div className="flex flex-row gap-2">
-            <button className="button" onClick={() => showPluginInfo(false)}>
-              Cancel
-            </button>
-          <button className="button" onClick={onAddPlugin}>Accept</button>
-            </div>
-          </ModalFooter>
+            </ModalHeader>
+            <ModalContent className="custom-modal-content p-2 space-y-2 flex-grow overflow-y-auto">
+              <div>
+                <h1 className="text-lg font-semibold">
+                  {pluginContent.title} wants to access:
+                </h1>
+              </div>
+              <div>
+                <h1 className="font-semibold">Host Functions:</h1>
+                <div className="flex flex-col border p-2 rounded-md gap-2">
+                  {pluginContent.hostFunctions!.map(
+                    (hostFunction: string, index: React.Key) => (
+                      <div key={index} className="text-sm">
+                        {hostFunction}
+                      </div>
+                    ),
+                  )}
+                </div>
+              </div>
+              <div>
+                <h1 className="font-semibold">Cookies:</h1>
+                <div className="flex flex-col border p-2 rounded-md gap-2">
+                  {pluginContent.cookies!.map(
+                    (cookies: string, index: React.Key) => (
+                      <div key={index} className="text-sm">
+                        {cookies}
+                      </div>
+                    ),
+                  )}
+                </div>
+              </div>
+              <div>
+                <h1 className="font-semibold">Headers:</h1>
+                <div className="flex flex-col border p-2 rounded-md gap-2">
+                  {pluginContent.headers!.map(
+                    (headers: string, index: React.Key) => (
+                      <div key={index} className="text-sm">
+                        {headers}
+                      </div>
+                    ),
+                  )}
+                </div>
+              </div>
+              <div>
+                <h1 className="font-semibold">Requests:</h1>
+                <div className="border p-2 rounded-md">
+                  {pluginContent.requests!.map(
+                    (requests: Request, index: React.Key) => (
+                      <div key={index} className="text-sm">
+                        <span className="font-medium">{requests.method}</span> -{' '}
+                        {requests.url}
+                      </div>
+                    ),
+                  )}
+                </div>
+              </div>
+            </ModalContent>
+            <ModalFooter className="flex justify-end gap-2 p-4">
+              <button className="button" onClick={onClose}>
+                Cancel
+              </button>
+              <button className="button" onClick={onAddPlugin}>
+                Allow
+              </button>
+            </ModalFooter>
+          </div>
         </Modal>
       )}
     </>

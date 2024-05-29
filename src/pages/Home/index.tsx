@@ -19,40 +19,7 @@ import { ErrorModal } from '../../components/ErrorModal';
 export default function Home(): ReactElement {
   const requests = useRequests();
   const navigate = useNavigate();
-  const [pluginInfo, showPluginInfo] = useState(false);
   const [error, showError] = useState('');
-
-  const onAddPlugin = useCallback(
-    async (evt: ChangeEvent<HTMLInputElement>) => {
-      if (!evt.target.files) return;
-      try {
-        const [file] = evt.target.files;
-        const arrayBuffer = await file.arrayBuffer();
-        const plugin = await makePlugin(arrayBuffer);
-        await getPluginConfig(plugin);
-        await addPlugin(Buffer.from(arrayBuffer).toString('hex'));
-      } catch (e: any) {
-        showError(e?.message || 'Invalid Plugin');
-      }
-    },
-    [],
-  );
-
-  const onPluginInfo = useCallback(
-    async (evt: ChangeEvent<HTMLInputElement>) => {
-      if (!evt.target.files) return;
-      try {
-        const [file] = evt.target.files;
-        const arrayBuffer = await file.arrayBuffer();
-        const plugin = await makePlugin(arrayBuffer);
-        const pluginDesc = await getPluginConfig(plugin);
-        showPluginInfo(true);
-      } catch (e: any) {
-        showError(e?.message || 'Invalid Plugin');
-      }
-    },
-    [],
-  );
 
   return (
     <div className="flex flex-col gap-4 py-4 overflow-y-auto">
@@ -86,8 +53,6 @@ export default function Home(): ReactElement {
     </div>
   );
 }
-
-function PluginInfo() {}
 
 function NavButton(props: {
   fa: string;
