@@ -1,10 +1,9 @@
 .custom-modal {
-  width: 100vw;
-  height: 100vh;
+  height: 100%;
   max-width: 800px;
-  max-height: 90vh;
+  max-height: 100vh;
   display: flex;
-  margin: 1rem auto;
+  margin: 0 auto;
   flex-direction: column;
 }
 
