@@ -248,16 +248,16 @@ function RemovePlugin(props: {
       <div>{config.description}</div>
       <div className="flex flex-row gap-2">
         <button
-          className="flex-grow bg-red-500 text-white rounded p-1"
-          onClick={onRemove}
-        >
-          Remove
-        </button>
-        <button
           className="flex-grow bg-slate-500 text-white rounded p-1"
           onClick={onCancel}
         >
           Cancel
+        </button>
+        <button
+          className="flex-grow bg-red-500 text-white rounded p-1"
+          onClick={onRemove}
+        >
+          Remove
         </button>
       </div>
     </div>

@@ -6,29 +6,29 @@ import Modal, {
   ModalContent,
   ModalFooter,
 } from '../../components/Modal/Modal';
+import type { PluginConfig } from '../../utils/misc';
 import './index.scss';
+
+interface Request {
+  url: string;
+  method: string;
+}
 
 export default function PluginUploadInfo(): ReactElement {
   const [error, showError] = useState('');
-  const [pluginInfo, showPluginInfo] = useState(false);
-  const [pluginBuffer, setPluginBuffer] = useState<any>(null);
-  const [pluginContent, setPluginContent] = useState<any>(null);
-
-  interface Request {
-    url: string;
-    method: string;
-  }
+  const [pluginBuffer, setPluginBuffer] = useState<ArrayBuffer | any>(null);
+  const [pluginContent, setPluginContent] = useState<PluginConfig | null>(null);
 
   const onAddPlugin = useCallback(
     async (evt: React.MouseEvent<HTMLButtonElement>) => {
       try {
-        await addPlugin(Buffer.from(pluginBuffer || '').toString('hex'));
-        showPluginInfo(false);
+        await addPlugin(Buffer.from(pluginBuffer).toString('hex'));
+        setPluginContent(null);
       } catch (e: any) {
         showError(e?.message || 'Invalid Plugin');
       }
     },
-    [pluginContent, pluginBuffer, pluginInfo],
+    [pluginContent, pluginBuffer],
   );
 
   const onPluginInfo = useCallback(
@@ -40,19 +40,17 @@ export default function PluginUploadInfo(): ReactElement {
         const plugin = await makePlugin(arrayBuffer);
         setPluginContent(await getPluginConfig(plugin));
         setPluginBuffer(arrayBuffer);
-        showPluginInfo(true);
       } catch (e: any) {
         showError(e?.message || 'Invalid Plugin');
       }
     },
-    [pluginContent, pluginBuffer, pluginInfo],
+    [pluginContent, pluginBuffer],
   );
 
   const onClose = useCallback(() => {
     setPluginContent(null);
     setPluginBuffer(null);
-    showPluginInfo(false);
-  }, [pluginContent, pluginBuffer, pluginInfo]);
+  }, []);
 
   return (
     <>
@@ -61,7 +59,7 @@ export default function PluginUploadInfo(): ReactElement {
         type="file"
         onChange={onPluginInfo}
       />
-      {pluginInfo && (
+      {pluginContent && (
         <Modal
           onClose={onClose}
           className="custom-modal flex items-center justify-center p2"
@@ -72,28 +70,28 @@ export default function PluginUploadInfo(): ReactElement {
                 <div className="flex flex-row items-center gap-2">
                   <img
                     className="w-5 h-5"
-                    src={pluginContent.icon}
+                    src={pluginContent?.icon}
                     alt="Plugin Icon"
                   />
                   <span className="text-lg font-semibold">
-                    {pluginContent.title}
+                    {pluginContent?.title}
                   </span>
                 </div>
                 <div className="text-sm text-gray-600">
-                  {pluginContent.description}
+                  {pluginContent?.description}
                 </div>
               </div>
             </ModalHeader>
             <ModalContent className="custom-modal-content p-2 space-y-2 flex-grow overflow-y-auto">
               <div>
                 <h1 className="text-lg font-semibold">
-                  {pluginContent.title} wants to access:
+                  {pluginContent?.title} wants to access:
                 </h1>
               </div>
               <div>
                 <h1 className="font-semibold">Host Functions:</h1>
                 <div className="flex flex-col border p-2 rounded-md gap-2">
-                  {pluginContent.hostFunctions!.map(
+                  {pluginContent?.hostFunctions!.map(
                     (hostFunction: string, index: React.Key) => (
                       <div key={index} className="text-sm">
                         {hostFunction}
@@ -105,7 +103,7 @@ export default function PluginUploadInfo(): ReactElement {
               <div>
                 <h1 className="font-semibold">Cookies:</h1>
                 <div className="flex flex-col border p-2 rounded-md gap-2">
-                  {pluginContent.cookies!.map(
+                  {pluginContent?.cookies!.map(
                     (cookies: string, index: React.Key) => (
                       <div key={index} className="text-sm">
                         {cookies}
@@ -117,7 +115,7 @@ export default function PluginUploadInfo(): ReactElement {
               <div>
                 <h1 className="font-semibold">Headers:</h1>
                 <div className="flex flex-col border p-2 rounded-md gap-2">
-                  {pluginContent.headers!.map(
+                  {pluginContent?.headers!.map(
                     (headers: string, index: React.Key) => (
                       <div key={index} className="text-sm">
                         {headers}
@@ -129,7 +127,7 @@ export default function PluginUploadInfo(): ReactElement {
               <div>
                 <h1 className="font-semibold">Requests:</h1>
                 <div className="border p-2 rounded-md">
-                  {pluginContent.requests!.map(
+                  {pluginContent?.requests!.map(
                     (requests: Request, index: React.Key) => (
                       <div key={index} className="text-sm">
                         <span className="font-medium">{requests.method}</span> -{' '}

@@ -1,17 +1,13 @@
 import React, {
-  ChangeEvent,
   MouseEventHandler,
   ReactElement,
   ReactNode,
-  useCallback,
   useState,
 } from 'react';
 import Icon from '../../components/Icon';
 import classNames from 'classnames';
 import { useNavigate } from 'react-router';
 import { useRequests } from '../../reducers/requests';
-import { makePlugin, getPluginConfig } from '../../utils/misc';
-import { addPlugin } from '../../utils/rpc';
 import { PluginList } from '../../components/PluginList';
 import PluginUploadInfo from '../../components/PluginInfo';
 import { ErrorModal } from '../../components/ErrorModal';
