@@ -134,8 +134,14 @@ export default function RequestBuilder(props?: {
         <input
           className="input border flex-grow"
           type="text"
-          value={url ? href : _url}
+          value={_url}
           onChange={(e) => setUrl(e.target.value)}
+          onBlur={() => {
+            const formattedUrl = urlify(_url);
+            if (formattedUrl) {
+              setUrl(formattedUrl.href);
+            }
+          }}
         />
         <button className="button" disabled={!url} onClick={sendRequest}>
           Send
