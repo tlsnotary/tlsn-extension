@@ -1,62 +1,15 @@
 import classNames from 'classnames';
-import React, { ReactElement, useCallback, useEffect, useState } from 'react';
+import React, { ReactElement } from 'react';
 
 export default function ResponseDetail(props: {
-  response: Response | null;
+  responseData: {
+    json: any | null;
+    text: string | null;
+    img: string | null;
+    headers: [string, string][] | null;
+  } | null;
   className?: string;
 }): ReactElement {
-  const [json, setJSON] = useState<any | null>(null);
-  const [text, setText] = useState<string | null>(null);
-  const [img, setImg] = useState<string | null>(null);
-  const [formData, setFormData] = useState<URLSearchParams | null>(null);
-
-  useEffect(() => {
-    const resp = props.response;
-
-    if (!resp) return;
-
-    const contentType =
-      resp.headers.get('content-type') || resp.headers.get('Content-Type');
-
-    if (contentType?.includes('application/json')) {
-      resp
-        .json()
-        .then((json) => {
-          if (json) {
-            setJSON(json);
-          }
-        })
-        .catch();
-    } else if (contentType?.includes('text')) {
-      resp
-        .text()
-        .then((_text) => {
-          if (_text) {
-            setText(_text);
-          }
-        })
-        .catch();
-    } else if (contentType?.includes('image')) {
-      resp
-        .blob()
-        .then((blob) => {
-          if (blob) {
-            setImg(URL.createObjectURL(blob));
-          }
-        })
-        .catch();
-    } else {
-      resp
-        .blob()
-        .then((blob) => blob.text())
-        .then((_text) => {
-          if (_text) {
-            setText(_text);
-          }
-        })
-        .catch();
-    }
-  }, [props.response]);
 
   return (
     <div
@@ -66,7 +19,7 @@ export default function ResponseDetail(props: {
       )}
     >
       <table className="border border-slate-300 border-collapse table-fixed w-full">
-        {!!json && (
+        {!!props.responseData?.json && (
           <>
             <thead className="bg-slate-200">
               <tr>
@@ -80,13 +33,13 @@ export default function ResponseDetail(props: {
                 <textarea
                   rows={16}
                   className="w-full bg-slate-100 text-slate-600 p-2 text-xs break-all h-full outline-none font-mono"
-                  value={JSON.stringify(json, null, 2)}
+                  value={JSON.stringify(props.responseData.json, null, 2)}
                 ></textarea>
               </td>
             </tr>
           </>
         )}
-        {!!text && (
+        {!!props.responseData?.text && (
           <>
             <thead className="bg-slate-200">
               <tr>
@@ -100,13 +53,13 @@ export default function ResponseDetail(props: {
                 <textarea
                   rows={16}
                   className="w-full bg-slate-100 text-slate-600 p-2 text-xs break-all h-full outline-none font-mono"
-                  value={text}
+                  value={props.responseData.text}
                 ></textarea>
               </td>
             </tr>
           </>
         )}
-        {!!img && (
+        {!!props.responseData?.img && (
           <>
             <thead className="bg-slate-200">
               <tr>
@@ -117,12 +70,12 @@ export default function ResponseDetail(props: {
             </thead>
             <tr>
               <td className="bg-slate-100" colSpan={2}>
-                <img src={img} />
+                <img src={props.responseData.img} />
               </td>
             </tr>
           </>
         )}
-        {!!props.response?.headers && (
+        {!!props.responseData?.headers && (
           <>
             <thead className="bg-slate-200">
               <tr>
@@ -132,7 +85,7 @@ export default function ResponseDetail(props: {
               </tr>
             </thead>
             <tbody>
-              {Array.from(props.response.headers.entries()).map(
+              {props.responseData?.headers.map(
                 ([name, value]) => {
                   return (
                     <tr className="border-b border-slate-200">

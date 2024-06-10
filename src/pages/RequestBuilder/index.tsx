@@ -25,7 +25,9 @@ export default function RequestBuilder(props?: {
   headers?: [string, string, boolean?][];
   body?: string;
   method?: string;
-  response?: Response;
+  
+
+
 }): ReactElement {
   const loc = useLocation();
   const navigate = useNavigate();
@@ -40,9 +42,15 @@ export default function RequestBuilder(props?: {
   );
   const [body, setBody] = useState<string | undefined>(props?.body);
   const [method, setMethod] = useState<string>(props?.method || 'GET');
-  const [response, setResponse] = useState<Response | null>(
-    props?.response || null,
-  );
+
+  const [responseData, setResponseData] = useState<{
+    json: any | null;
+    text: string | null;
+    img: string | null;
+    headers: [string, string][] | null;
+  } | null>(null);
+
+
 
   const url = urlify(_url);
 
@@ -114,7 +122,29 @@ export default function RequestBuilder(props?: {
 
     const res = await fetch(href, opts);
 
-    setResponse(res);
+    const contentType =
+      res.headers.get('content-type') || res.headers.get('Content-Type');
+
+    let parsedResponseData = {
+      json: null,
+      text: '',
+      img: '',
+      headers: Array.from(res.headers.entries()),
+    };
+
+    if (contentType?.includes('application/json')) {
+      parsedResponseData.json = await res.json();
+    } else if (contentType?.includes('text')) {
+      parsedResponseData.text = await res.text();
+    } else if (contentType?.includes('image')) {
+      const blob = await res.blob();
+      parsedResponseData.img = URL.createObjectURL(blob);
+    } else {
+      parsedResponseData.text = await res.text();
+    }
+
+
+    setResponseData(parsedResponseData);
 
     navigate(subpath + '/response');
   }, [href, method, headers, body]);
@@ -167,7 +197,7 @@ export default function RequestBuilder(props?: {
           >
             Body
           </TabLabel>
-          {response && (
+          {responseData && (
             <TabLabel
               onClick={() => navigate(subpath + '/response')}
               active={loc.pathname.includes('response')}
@@ -212,7 +242,7 @@ export default function RequestBuilder(props?: {
           />
           <Route
             path="response"
-            element={<ResponseDetail response={response} />}
+            element={<ResponseDetail responseData={responseData}/>}
           />
           <Route path="/" element={<NavigateWithParams to="/params" />} />
         </Routes>
