@@ -117,8 +117,9 @@ function StepContent(
     if (index > 0 && !lastResponse) return;
 
     setPending(true);
+    setError('');
+
     try {
-      setError('');
       const val = await runPlugin(hash, action, JSON.stringify(lastResponse));
       if (val && prover) {
         setNotarizationId(val);

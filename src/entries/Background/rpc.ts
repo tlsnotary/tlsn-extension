@@ -335,17 +335,14 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
     url,
     method,
     headers,
+    body,
+    secretHeaders,
+    secretResps,
     notaryUrl: _notaryUrl,
     websocketProxyUrl: _websocketProxyUrl,
     maxSentData: _maxSentData,
     maxRecvData: _maxRecvData,
   } = request.data;
-
-  const resp = await fetch(url, {
-    method,
-    headers,
-  });
-  const body = await extractBodyFromResponse(resp);
   const notaryUrl = _notaryUrl || (await getNotaryApi());
   const websocketProxyUrl = _websocketProxyUrl || (await getProxyApi());
   const maxSentData = _maxSentData || (await getMaxSent());
@@ -362,6 +359,8 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
     websocketProxyUrl,
     maxRecvData,
     maxSentData,
+    secretHeaders,
+    secretResps,
   });
 
   await setNotaryRequestStatus(id, 'pending');
@@ -387,6 +386,8 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
       websocketProxyUrl,
       maxRecvData,
       maxSentData,
+      secretHeaders,
+      secretResps,
       loggingFilter: await getLoggingFilter(),
     },
   });

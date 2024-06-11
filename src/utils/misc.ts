@@ -4,7 +4,11 @@ import {
   RequestLog,
 } from '../entries/Background/rpc';
 import { EXPLORER_API } from './constants';
-import createPlugin, { CallContext, Plugin } from '@extism/extism';
+import createPlugin, {
+  CallContext,
+  ExtismPluginOptions,
+  Plugin,
+} from '@extism/extism';
 import browser from 'webextension-polyfill';
 import NodeCache from 'node-cache';
 import {
@@ -12,6 +16,7 @@ import {
   getHeaderStoreByHost,
 } from '../entries/Background/cache';
 import { getNotaryApi, getProxyApi } from './storage';
+import { runPlugin } from './rpc';
 
 const charwise = require('charwise');
 
@@ -195,13 +200,30 @@ export const makePlugin = async (
         throw new Error(`Unapproved proxy: ${params.websocketProxyUrl}`);
       }
 
-      handleExecPluginProver({
-        type: BackgroundActiontype.execute_plugin_prover,
-        data: {
-          ...params,
-          now,
-        },
-      });
+      (async () => {
+        const { url, method, headers, getSecretResponse } = params;
+        let secretResps;
+        const resp = await fetch(url, {
+          method,
+          headers,
+        });
+        const body = await extractBodyFromResponse(resp);
+
+        if (getSecretResponse) {
+          const out = await plugin.call(getSecretResponse, body);
+          secretResps = JSON.parse(out.string());
+        }
+
+        handleExecPluginProver({
+          type: BackgroundActiontype.execute_plugin_prover,
+          data: {
+            ...params,
+            body,
+            secretResps,
+            now,
+          },
+        });
+      })();
 
       return context.store(`${id}`);
     },
@@ -243,13 +265,15 @@ export const makePlugin = async (
     injectedConfig.headers = JSON.stringify(headers);
   }
 
-  const pluginConfig = {
+  const pluginConfig: ExtismPluginOptions = {
     useWasi: true,
     config: injectedConfig,
+    // allowedHosts: approvedRequests.map((r) => urlify(r.url)?.origin),
     functions: {
       'extism:host/user': funcs,
     },
   };
+
   const plugin = await createPlugin(module, pluginConfig);
   return plugin;
 };

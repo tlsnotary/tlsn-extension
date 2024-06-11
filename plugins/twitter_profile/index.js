@@ -43,9 +43,33 @@ function two() {
         Cookie: `lang=en; auth_token=${cookies.auth_token}; ct0=${cookies.ct0}`,
         'Accept-Encoding': 'identity',
         Connection: 'close',
-      }
+      },
+      secretHeaders: [
+        `x-csrf-token: ${headers['x-csrf-token']}`,
+        `cookie: lang=en; auth_token=${cookies.auth_token}; ct0=${cookies.ct0}`,
+        `authorization: ${headers.authorization}`,
+      ],
     }),
   );
+}
+
+function parseTwitterResp() {
+  const bodyString = Host.inputString();
+  const params = JSON.parse(bodyString);
+
+  if (params.screen_name) {
+    const revealed = `"screen_name":"${params.screen_name}"`;
+    const selectionStart = bodyString.indexOf(revealed);
+    const selectionEnd =
+      selectionStart + revealed.length - 1;
+    const secretResps = [
+      bodyString.substring(0, selectionStart),
+      bodyString.substring(selectionEnd, bodyString.length),
+    ];
+    Host.outputString(JSON.stringify(secretResps));
+  } else {
+    Host.outputString(JSON.stringify(false));
+  }
 }
 
 function three() {
@@ -55,7 +79,10 @@ function three() {
   if (!params) {
     Host.outputString(JSON.stringify(false));
   } else {
-    const mem = Memory.fromString(JSON.stringify(params));
+    const mem = Memory.fromString(JSON.stringify({
+      ...params,
+      getSecretResponse: 'parseTwitterResp',
+    }));
     const idOffset = notarize(mem.offset);
     const id = Memory.find(idOffset).readString();
     Host.outputString(JSON.stringify(id));
@@ -100,4 +127,4 @@ function config() {
   );
 }
 
-module.exports = { start, config, two, three };
+module.exports = { start, config, two, three, parseTwitterResp };
