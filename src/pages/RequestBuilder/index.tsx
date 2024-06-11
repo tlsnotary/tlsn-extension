@@ -11,6 +11,14 @@ import { Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import NavigateWithParams from '../../components/NavigateWithParams';
 import ResponseDetail from '../../components/ResponseDetail';
 import { urlify } from '../../utils/misc';
+import { notarizeRequest } from '../../reducers/requests';
+import {
+  getMaxRecv,
+  getMaxSent,
+  getNotaryApi,
+  getProxyApi,
+} from '../../utils/storage';
+import { useDispatch } from 'react-redux';
 
 enum TabType {
   Params = 'Params',
@@ -28,6 +36,7 @@ export default function RequestBuilder(props?: {
 }): ReactElement {
   const loc = useLocation();
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
   const subpath = props?.subpath || '/custom';
   const [_url, setUrl] = useState(props?.url || '');
@@ -62,7 +71,9 @@ export default function RequestBuilder(props?: {
   }, [_url]);
 
   useEffect(() => {
-    const updateHeaders = headers.filter(([key]) => key.toLowerCase() !== 'content-type');
+    const updateHeaders = headers.filter(
+      ([key]) => key.toLowerCase() !== 'content-type',
+    );
     switch (type) {
       case 'json':
         updateHeaders.push(['Content-Type', 'application/json']);
@@ -74,7 +85,7 @@ export default function RequestBuilder(props?: {
         break;
     }
     setHeaders(updateHeaders);
-  }, [type])
+  }, [type]);
 
   const toggleParam = useCallback(
     (i: number) => {
@@ -159,6 +170,40 @@ export default function RequestBuilder(props?: {
     navigate(subpath + '/response');
   }, [href, method, headers, body]);
 
+  const onNotarize = useCallback(async () => {
+    const maxSentData = await getMaxSent();
+    const maxRecvData = await getMaxRecv();
+
+    const notaryUrl = await getNotaryApi();
+    const websocketProxyUrl = await getProxyApi();
+
+    dispatch(
+      notarizeRequest(
+        //@ts-ignore
+        {
+          url: href || '',
+          method,
+          headers: headers.reduce((map: { [key: string]: string }, [k, v]) => {
+            if (k !== 'Cookie') {
+              map[k] = v;
+            }
+            return map;
+          }, {}),
+          body: body ? formatForRequest(body) : '',
+          maxSentData,
+          maxRecvData,
+          secretHeaders: [],
+          secretResps: [],
+          maxTranscriptSize: 0,
+          notaryUrl,
+          websocketProxyUrl,
+        },
+      ),
+    );
+
+    navigate('/history');
+  }, [href, method, headers, body]);
+
   return (
     <div className="flex flex-col w-full py-2 gap-2 flex-grow">
       <div className="flex flex-row px-2">
@@ -208,12 +253,18 @@ export default function RequestBuilder(props?: {
             Body
           </TabLabel>
           {responseData && (
-            <TabLabel
-              onClick={() => navigate(subpath + '/response')}
-              active={loc.pathname.includes('response')}
-            >
-              Response
-            </TabLabel>
+            <div className="flex flex-row justify-between w-full">
+              <TabLabel
+                onClick={() => navigate(subpath + '/response')}
+                active={loc.pathname.includes('response')}
+              >
+                Response
+              </TabLabel>
+
+              <button className="button" onClick={onNotarize}>
+                Notarize
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -408,17 +459,18 @@ function TabLabel(props: {
   );
 }
 
-
 function formatForRequest(input: string): string {
   try {
     const jsonObject = JSON.parse(input);
     return JSON.stringify(jsonObject);
   } catch (e) {
-    const lines = input.split('\n').filter(line => line.trim() !== '');
+    const lines = input.split('\n').filter((line) => line.trim() !== '');
     const jsonObject: { [key: string]: string } = {};
 
-    lines.forEach(line => {
-      const [key, value] = line.split(':').map(part => part.trim().replace(/['"]/g, ''));
+    lines.forEach((line) => {
+      const [key, value] = line
+        .split(':')
+        .map((part) => part.trim().replace(/['"]/g, ''));
       jsonObject[key] = value;
     });
 
