@@ -214,6 +214,7 @@ export const makePlugin = async (
         const resp = await fetch(url, {
           method,
           headers,
+          body: reqBody,
         });
         const body = await extractBodyFromResponse(resp);
 
