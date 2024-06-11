@@ -25,9 +25,6 @@ export default function RequestBuilder(props?: {
   headers?: [string, string, boolean?][];
   body?: string;
   method?: string;
-  
-
-
 }): ReactElement {
   const loc = useLocation();
   const navigate = useNavigate();
@@ -42,6 +39,7 @@ export default function RequestBuilder(props?: {
   );
   const [body, setBody] = useState<string | undefined>(props?.body);
   const [method, setMethod] = useState<string>(props?.method || 'GET');
+  const [type, setType] = useState<string>('text');
 
   const [responseData, setResponseData] = useState<{
     json: any | null;
@@ -49,8 +47,6 @@ export default function RequestBuilder(props?: {
     img: string | null;
     headers: [string, string][] | null;
   } | null>(null);
-
-
 
   const url = urlify(_url);
 
@@ -99,7 +95,7 @@ export default function RequestBuilder(props?: {
 
   const sendRequest = useCallback(async () => {
     if (!href) return;
-
+    setResponseData(null);
     // eslint-disable-next-line no-undef
     const opts: RequestInit = {
       method,
@@ -111,7 +107,26 @@ export default function RequestBuilder(props?: {
       }, {}),
     };
 
-    if (body) opts.body = body;
+    switch (type) {
+      case 'json':
+        if (body) opts.body = body;
+
+        break;
+      case 'text':
+        if (body) opts.body = body;
+        break;
+      case 'form':
+        const formData = new FormData();
+        body?.split('&').forEach((pair) => {
+          const [key, value] = pair.split('=');
+          formData.append(key, value);
+        });
+        opts.body = formData;
+        break;
+      default:
+        if (body) opts.body = body;
+        break;
+    }
 
     const cookie = headers.find(([key]) => key === 'Cookie');
 
@@ -125,8 +140,8 @@ export default function RequestBuilder(props?: {
     const contentType =
       res.headers.get('content-type') || res.headers.get('Content-Type');
 
-    let parsedResponseData = {
-      json: null,
+    const parsedResponseData = {
+      json: '',
       text: '',
       img: '',
       headers: Array.from(res.headers.entries()),
@@ -142,7 +157,6 @@ export default function RequestBuilder(props?: {
     } else {
       parsedResponseData.text = await res.text();
     }
-
 
     setResponseData(parsedResponseData);
 
@@ -233,16 +247,27 @@ export default function RequestBuilder(props?: {
           <Route
             path="body"
             element={
-              <textarea
-                className="textarea h-full w-full resize-none"
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-              />
+              <div className="h-full">
+                <select
+                  className="select"
+                  value={type}
+                  onChange={(e) => setType(e.target.value)}
+                >
+                  <option value="text">Text</option>
+                  <option value="json">JSON</option>
+                  <option value="form">Form</option>
+                </select>
+                <textarea
+                  className="textarea h-[90%] w-full resize-none"
+                  value={body}
+                  onChange={(e) => setBody(e.target.value)}
+                />
+              </div>
             }
           />
           <Route
             path="response"
-            element={<ResponseDetail responseData={responseData}/>}
+            element={<ResponseDetail responseData={responseData} />}
           />
           <Route path="/" element={<NavigateWithParams to="/params" />} />
         </Routes>

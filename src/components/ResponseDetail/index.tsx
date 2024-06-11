@@ -10,7 +10,6 @@ export default function ResponseDetail(props: {
   } | null;
   className?: string;
 }): ReactElement {
-
   return (
     <div
       className={classNames(
@@ -85,20 +84,18 @@ export default function ResponseDetail(props: {
               </tr>
             </thead>
             <tbody>
-              {props.responseData?.headers.map(
-                ([name, value]) => {
-                  return (
-                    <tr className="border-b border-slate-200">
-                      <td className="border border-slate-300 font-bold align-top py-1 px-2 whitespace-nowrap">
-                        {name}
-                      </td>
-                      <td className="border border-slate-300 break-all align-top py-1 px-2">
-                        {value}
-                      </td>
-                    </tr>
-                  );
-                },
-              )}
+              {props.responseData?.headers.map(([name, value]) => {
+                return (
+                  <tr className="border-b border-slate-200">
+                    <td className="border border-slate-300 font-bold align-top py-1 px-2 whitespace-nowrap">
+                      {name}
+                    </td>
+                    <td className="border border-slate-300 break-all align-top py-1 px-2">
+                      {value}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </>
         )}
