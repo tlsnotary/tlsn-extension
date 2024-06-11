@@ -201,7 +201,13 @@ export const makePlugin = async (
       }
 
       (async () => {
-        const { url, method, headers, getSecretResponse } = params;
+        const {
+          url,
+          method,
+          headers,
+          getSecretResponse,
+          body: reqBody,
+        } = params;
         let secretResps;
         const resp = await fetch(url, {
           method,
@@ -218,7 +224,7 @@ export const makePlugin = async (
           type: BackgroundActiontype.execute_plugin_prover,
           data: {
             ...params,
-            body,
+            body: reqBody,
             secretResps,
             now,
           },
