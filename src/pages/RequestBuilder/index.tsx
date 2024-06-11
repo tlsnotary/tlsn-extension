@@ -70,9 +70,6 @@ export default function RequestBuilder(props?: {
       case 'text':
         updateHeaders.push(['Content-Type', 'text/plain']);
         break;
-      case 'form':
-        updateHeaders.push(['Content-Type', 'application/x-www-form-urlencoded']);
-        break;
       default:
         break;
     }
@@ -125,7 +122,7 @@ export default function RequestBuilder(props?: {
       }, {}),
     };
 
-    if (body) opts.body = body;
+    if (body) opts.body = formatForRequest(body);
 
     const cookie = headers.find(([key]) => key === 'Cookie');
 
@@ -254,7 +251,6 @@ export default function RequestBuilder(props?: {
                 >
                   <option value="text">Text</option>
                   <option value="json">JSON</option>
-                  <option value="form">Form</option>
                 </select>
                 <textarea
                   className="textarea h-[90%] w-full resize-none"
@@ -410,4 +406,22 @@ function TabLabel(props: {
       {props.children}
     </button>
   );
+}
+
+
+function formatForRequest(input: string): string {
+  try {
+    const jsonObject = JSON.parse(input);
+    return JSON.stringify(jsonObject);
+  } catch (e) {
+    const lines = input.split('\n').filter(line => line.trim() !== '');
+    const jsonObject: { [key: string]: string } = {};
+
+    lines.forEach(line => {
+      const [key, value] = line.split(':').map(part => part.trim().replace(/['"]/g, ''));
+      jsonObject[key] = value;
+    });
+
+    return JSON.stringify(jsonObject);
+  }
 }
