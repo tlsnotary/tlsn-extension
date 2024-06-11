@@ -61,6 +61,24 @@ export default function RequestBuilder(props?: {
     setParams(Array.from(url?.searchParams || []));
   }, [_url]);
 
+  useEffect(() => {
+    const updateHeaders = headers.filter(([key]) => key.toLowerCase() !== 'content-type');
+    switch (type) {
+      case 'json':
+        updateHeaders.push(['Content-Type', 'application/json']);
+        break;
+      case 'text':
+        updateHeaders.push(['Content-Type', 'text/plain']);
+        break;
+      case 'form':
+        updateHeaders.push(['Content-Type', 'application/x-www-form-urlencoded']);
+        break;
+      default:
+        break;
+    }
+    setHeaders(updateHeaders);
+  }, [type])
+
   const toggleParam = useCallback(
     (i: number) => {
       params[i][2] = !params[i][2];
@@ -107,26 +125,7 @@ export default function RequestBuilder(props?: {
       }, {}),
     };
 
-    switch (type) {
-      case 'json':
-        if (body) opts.body = body;
-
-        break;
-      case 'text':
-        if (body) opts.body = body;
-        break;
-      case 'form':
-        const formData = new FormData();
-        body?.split('&').forEach((pair) => {
-          const [key, value] = pair.split('=');
-          formData.append(key, value);
-        });
-        opts.body = formData;
-        break;
-      default:
-        if (body) opts.body = body;
-        break;
-    }
+    if (body) opts.body = body;
 
     const cookie = headers.find(([key]) => key === 'Cookie');
 
