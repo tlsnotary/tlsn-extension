@@ -42,7 +42,7 @@ at your option.
 ```
 $ git clone https://github.com/novnc/websockify && cd websockify
 $ ./docker/build.sh
-$ docker run -it --rm -p 55688:80 novnc/websockify 80 api.twitter.com:443
+$ docker run -it --rm -p 55688:80 novnc/websockify 80 api.x.com:443
 ```
 
 ## Running Websockify Docker Image

@@ -61,7 +61,7 @@ function parseTwitterResp() {
     const revealed = `"screen_name":"${params.screen_name}"`;
     const selectionStart = bodyString.indexOf(revealed);
     const selectionEnd =
-      selectionStart + revealed.length - 1;
+      selectionStart + revealed.length;
     const secretResps = [
       bodyString.substring(0, selectionStart),
       bodyString.substring(selectionEnd, bodyString.length),
@@ -98,7 +98,7 @@ function config() {
       steps: [
         {
           title: 'Visit Twitter website',
-          cta: 'Go to twitter.com',
+          cta: 'Go to x.com',
           action: 'start',
         },
         {
