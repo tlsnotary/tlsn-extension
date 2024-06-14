@@ -9,13 +9,12 @@ import browser from 'webextension-polyfill';
 import { addRequest } from '../../reducers/requests';
 import { urlify } from '../../utils/misc';
 
-
 export const onSendHeaders = (
   details: browser.WebRequest.OnSendHeadersDetailsType,
 ) => {
   return mutex.runExclusive(async () => {
     const { method, tabId, requestId } = details;
-    console.log('DETAILS', details);
+
     if (method !== 'OPTIONS') {
       const cache = getCacheByTabId(tabId);
       const existing = cache.get<RequestLog>(requestId);
@@ -61,7 +60,6 @@ export const onBeforeRequest = (
 
     if (method === 'OPTIONS') return;
     if (requestBody) {
-
       const cache = getCacheByTabId(tabId);
       const existing = cache.get<RequestLog>(requestId);
 
@@ -96,7 +94,6 @@ export const onResponseStarted = (
 
     const cache = getCacheByTabId(tabId);
     const existing = cache.get<RequestLog>(requestId);
-    console.log('cache', existing)
     const newLog: RequestLog = {
       requestHeaders: [],
       ...existing,
