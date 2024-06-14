@@ -5,9 +5,8 @@ import React, {
   useEffect,
   useState,
 } from 'react';
-import { notarizeRequest, useRequest } from '../../reducers/requests';
+import { useRequest } from '../../reducers/requests';
 import classNames from 'classnames';
-import { useDispatch } from 'react-redux';
 import {
   Route,
   Routes,
@@ -19,14 +18,12 @@ import Icon from '../Icon';
 import NavigateWithParams from '../NavigateWithParams';
 import {
   set,
-  get,
   MAX_SENT_LS_KEY,
   MAX_RECEIVED_LS_KEY,
   getMaxRecv,
   getMaxSent,
 } from '../../utils/storage';
 import { MAX_RECV, MAX_SENT } from '../../utils/constants';
-import { urlify } from '../../utils/misc';
 
 type Props = {
   requestId: string;

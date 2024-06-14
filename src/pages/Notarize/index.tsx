@@ -52,7 +52,9 @@ export default function Notarize(): ReactElement {
     //TODO: for some reason, these needs to be override to work
     headers['Accept-Encoding'] = 'identity';
     headers['Connection'] = 'close';
-
+    if (req.requestBody) {
+      headers['Content-Length'] = req.requestBody.length.toString();
+    }
     dispatch(
       // @ts-ignore
       notarizeRequest({
