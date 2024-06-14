@@ -81,6 +81,12 @@ export default function RequestBuilder(props?: {
       case 'text':
         updateHeaders.push(['Content-Type', 'text/plain']);
         break;
+      case 'x-www-form-urlencoded':
+        updateHeaders.push([
+          'Content-Type',
+          'application/x-www-form-urlencoded',
+        ]);
+        break;
       default:
         break;
     }
@@ -133,7 +139,7 @@ export default function RequestBuilder(props?: {
       }, {}),
     };
 
-    if (body) opts.body = formatForRequest(body);
+    if (body) opts.body = formatForRequest(body, type);
 
     const cookie = headers.find(([key]) => key === 'Cookie');
 
@@ -189,7 +195,7 @@ export default function RequestBuilder(props?: {
             }
             return map;
           }, {}),
-          body: body ? formatForRequest(body) : '',
+          body: body ? formatForRequest(body, type) : '',
           maxSentData,
           maxRecvData,
           secretHeaders: [],
@@ -302,6 +308,9 @@ export default function RequestBuilder(props?: {
                 >
                   <option value="text">Text</option>
                   <option value="json">JSON</option>
+                  <option value="x-www-form-urlencoded">
+                    x-www-form-urlencoded
+                  </option>
                 </select>
                 <textarea
                   className="textarea h-[90%] w-full resize-none"
@@ -459,10 +468,23 @@ function TabLabel(props: {
   );
 }
 
-function formatForRequest(input: string): string {
+function formatForRequest(input: string, type: string): string {
   try {
-    const jsonObject = JSON.parse(input);
-    return JSON.stringify(jsonObject);
+    if (type === 'json') {
+      const jsonObject = JSON.parse(input);
+      console.log('here', jsonObject);
+      return JSON.stringify(jsonObject);
+    }
+    if (type === 'x-www-form-urlencoded') {
+      const lines = input.split('\n').filter((line) => line.trim() !== '');
+      const searchParams = new URLSearchParams();
+      lines.forEach((line) => {
+        const [key, value] = line.split('=').map((part) => part.trim());
+        searchParams.append(key, value);
+      });
+      return searchParams.toString();
+    }
+    return input;
   } catch (e) {
     const lines = input.split('\n').filter((line) => line.trim() !== '');
     const jsonObject: { [key: string]: string } = {};
