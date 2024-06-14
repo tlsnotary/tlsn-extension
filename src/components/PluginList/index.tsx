@@ -243,18 +243,17 @@ function RemovePlugin(props: {
   }, []);
 
   return (
-    <div className="flex flex-col w-full gap-2">
-      <div className="font-bold">{config.title}</div>
-      <div>{config.description}</div>
-      <div className="flex flex-row gap-2">
-        <button
-          className="flex-grow bg-slate-500 text-white rounded p-1"
-          onClick={onCancel}
-        >
+    <div className="flex flex-col w-full gap-1">
+      <div className="font-bold text-red-700">
+        {`Are you sure you want to remove "${config.title}" plugin?`}
+      </div>
+      <div className="mb-1">Warning: this cannot be undone.</div>
+      <div className="flex flex-row gap-1">
+        <button className="flex-grow button p-1" onClick={onCancel}>
           Cancel
         </button>
         <button
-          className="flex-grow bg-red-500 text-white rounded p-1"
+          className="flex-grow font-bold bg-red-500 hover:bg-red-600 text-white rounded p-1"
           onClick={onRemove}
         >
           Remove
