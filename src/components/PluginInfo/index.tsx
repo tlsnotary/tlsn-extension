@@ -9,7 +9,7 @@ import Modal, {
 import type { PluginConfig } from '../../utils/misc';
 import './index.scss';
 import logo from '../../assets/img/icon-128.png';
-import { HostFunctionsDescriptions } from '../../utils/plugins';
+import { HostFunctionsDescriptions, MultipleParts } from '../../utils/plugins';
 
 interface Request {
   url: string;
@@ -82,48 +82,32 @@ export default function PluginUploadInfo(): ReactElement {
               {`${pluginContent.title} wants access to your browser`}
             </span>
             <div className="flex flex-col border p-2 rounded-md gap-2">
-              {pluginContent.hostFunctions?.map((hostFunction: string) => (
-                <div key={hostFunction} className="text-sm">
-                  {HostFunctionsDescriptions[hostFunction]}
-                </div>
-              ))}
-            </div>
-            <div>
-              <h1 className="font-semibold">Cookies:</h1>
-              <div className="flex flex-col border p-2 rounded-md gap-2">
-                {pluginContent.cookies?.map(
-                  (cookies: string, index: React.Key) => (
-                    <div key={index} className="text-sm">
-                      {cookies}
-                    </div>
-                  ),
-                )}
-              </div>
-            </div>
-            <div>
-              <h1 className="font-semibold">Headers:</h1>
-              <div className="flex flex-col border p-2 rounded-md gap-2">
-                {pluginContent?.headers!.map(
-                  (headers: string, index: React.Key) => (
-                    <div key={index} className="text-sm">
-                      {headers}
-                    </div>
-                  ),
-                )}
-              </div>
-            </div>
-            <div>
-              <h1 className="font-semibold">Requests:</h1>
-              <div className="border p-2 rounded-md">
-                {pluginContent?.requests!.map(
-                  (requests: Request, index: React.Key) => (
-                    <div key={index} className="text-sm">
-                      <span className="font-medium">{requests.method}</span> -{' '}
-                      {requests.url}
-                    </div>
-                  ),
-                )}
-              </div>
+              {pluginContent.hostFunctions?.map((hostFunction: string) => {
+                const HFComponent = HostFunctionsDescriptions[hostFunction];
+                return <HFComponent {...pluginContent} />;
+              })}
+              {pluginContent.cookies && (
+                <span className="cursor-default">
+                  <span className="mr-1">Access cookies from</span>
+                  <MultipleParts parts={pluginContent.cookies} />
+                </span>
+              )}
+              {pluginContent.headers && (
+                <span className="cursor-default">
+                  <span className="mr-1">Access headers from</span>
+                  <MultipleParts parts={pluginContent.headers} />
+                </span>
+              )}
+              {pluginContent.requests && (
+                <span className="cursor-default">
+                  <span className="mr-1">Submit network requests to</span>
+                  <MultipleParts
+                    parts={pluginContent?.requests.map(
+                      ({ method, url }) => url,
+                    )}
+                  />
+                </span>
+              )}
             </div>
           </ModalContent>
           <ModalFooter className="flex justify-end gap-2 p-4">
