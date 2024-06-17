@@ -19,6 +19,7 @@ import {
   getProxyApi,
 } from '../../utils/storage';
 import { useDispatch } from 'react-redux';
+import { formatForRequest, InputBody, FormBodyTable } from '../../utils/requestbuilder';
 
 enum TabType {
   Params = 'Params',
@@ -49,6 +50,7 @@ export default function RequestBuilder(props?: {
   const [body, setBody] = useState<string | undefined>(props?.body);
   const [method, setMethod] = useState<string>(props?.method || 'GET');
   const [type, setType] = useState<string>('text');
+  const [formBody, setFormBody] = useState<[string, string, boolean?][]>([['', '', true]]);
 
   const [responseData, setResponseData] = useState<{
     json: any | null;
@@ -312,11 +314,19 @@ export default function RequestBuilder(props?: {
                     x-www-form-urlencoded
                   </option>
                 </select>
-                <textarea
-                  className="textarea h-[90%] w-full resize-none"
-                  value={body}
-                  onChange={(e) => setBody(e.target.value)}
-                />
+                {type === 'json' || type === 'text' ? (
+                  <InputBody
+                    value={body || ''}
+                    body={body || ''}
+                    setBody={setBody}
+                    type={type}
+                  />
+                ) : (
+                  <FormBodyTable
+                    formBody={formBody}
+                    setFormBody={setFormBody}
+                  />
+                )}
               </div>
             }
           />
@@ -466,36 +476,4 @@ function TabLabel(props: {
       {props.children}
     </button>
   );
-}
-
-function formatForRequest(input: string, type: string): string {
-  try {
-    if (type === 'json') {
-      const jsonObject = JSON.parse(input);
-      console.log('here', jsonObject);
-      return JSON.stringify(jsonObject);
-    }
-    if (type === 'x-www-form-urlencoded') {
-      const lines = input.split('\n').filter((line) => line.trim() !== '');
-      const searchParams = new URLSearchParams();
-      lines.forEach((line) => {
-        const [key, value] = line.split('=').map((part) => part.trim());
-        searchParams.append(key, value);
-      });
-      return searchParams.toString();
-    }
-    return input;
-  } catch (e) {
-    const lines = input.split('\n').filter((line) => line.trim() !== '');
-    const jsonObject: { [key: string]: string } = {};
-
-    lines.forEach((line) => {
-      const [key, value] = line
-        .split(':')
-        .map((part) => part.trim().replace(/['"]/g, ''));
-      jsonObject[key] = value;
-    });
-
-    return JSON.stringify(jsonObject);
-  }
 }
