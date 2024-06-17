@@ -19,7 +19,12 @@ import {
   getProxyApi,
 } from '../../utils/storage';
 import { useDispatch } from 'react-redux';
-import { formatForRequest, InputBody, FormBodyTable, parseResponse } from '../../utils/requestbuilder';
+import {
+  formatForRequest,
+  InputBody,
+  FormBodyTable,
+  parseResponse,
+} from '../../utils/requestbuilder';
 
 enum TabType {
   Params = 'Params',
@@ -48,9 +53,11 @@ export default function RequestBuilder(props?: {
     props?.headers || [],
   );
   const [body, setBody] = useState<string | undefined>(props?.body);
+  const [formBody, setFormBody] = useState<[string, string, boolean?][]>([
+    ['', '', true],
+  ]);
   const [method, setMethod] = useState<string>(props?.method || 'GET');
   const [type, setType] = useState<string>('text');
-  const [formBody, setFormBody] = useState<[string, string, boolean?][]>([['', '', true]]);
 
   const [responseData, setResponseData] = useState<{
     json: any | null;
@@ -167,7 +174,6 @@ export default function RequestBuilder(props?: {
 
     const contentType =
       res.headers.get('content-type') || res.headers.get('Content-Type');
-
 
     setResponseData(await parseResponse(contentType!, res));
 
@@ -300,7 +306,10 @@ export default function RequestBuilder(props?: {
             element={
               <div className="h-full">
                 <select
-                  className="select"
+                  className={c('select', {
+                    'w-[80px]': type === 'json' || type === 'text',
+                    'w-[200px]': type === 'x-www-form-urlencoded',
+                  })}
                   value={type}
                   onChange={(e) => setType(e.target.value)}
                 >
@@ -311,12 +320,7 @@ export default function RequestBuilder(props?: {
                   </option>
                 </select>
                 {type === 'json' || type === 'text' ? (
-                  <InputBody
-                    value={body || ''}
-                    body={body || ''}
-                    setBody={setBody}
-                    type={type}
-                  />
+                  <InputBody body={body!} setBody={setBody} />
                 ) : (
                   <FormBodyTable
                     formBody={formBody}
