@@ -1,40 +1,21 @@
 import React, {
-  ChangeEvent,
   MouseEventHandler,
   ReactElement,
   ReactNode,
-  useCallback,
   useState,
 } from 'react';
 import Icon from '../../components/Icon';
 import classNames from 'classnames';
 import { useNavigate } from 'react-router';
 import { useRequests } from '../../reducers/requests';
-import { makePlugin, getPluginConfig } from '../../utils/misc';
-import { addPlugin } from '../../utils/rpc';
 import { PluginList } from '../../components/PluginList';
+import PluginUploadInfo from '../../components/PluginInfo';
 import { ErrorModal } from '../../components/ErrorModal';
 
 export default function Home(): ReactElement {
   const requests = useRequests();
   const navigate = useNavigate();
   const [error, showError] = useState('');
-
-  const onAddPlugin = useCallback(
-    async (evt: ChangeEvent<HTMLInputElement>) => {
-      if (!evt.target.files) return;
-      try {
-        const [file] = evt.target.files;
-        const arrayBuffer = await file.arrayBuffer();
-        const plugin = await makePlugin(arrayBuffer);
-        await getPluginConfig(plugin);
-        await addPlugin(Buffer.from(arrayBuffer).toString('hex'));
-      } catch (e: any) {
-        showError(e?.message || 'Invalid Plugin');
-      }
-    },
-    [],
-  );
 
   return (
     <div className="flex flex-col gap-4 py-4 overflow-y-auto">
@@ -57,11 +38,7 @@ export default function Home(): ReactElement {
           History
         </NavButton>
         <NavButton className="relative" fa="fa-solid fa-plus">
-          <input
-            className="opacity-0 absolute top-0 right-0 h-full w-full"
-            type="file"
-            onChange={onAddPlugin}
-          />
+          <PluginUploadInfo />
           Add a plugin
         </NavButton>
         <NavButton fa="fa-solid fa-gear" onClick={() => navigate('/options')}>

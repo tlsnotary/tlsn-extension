@@ -6,6 +6,7 @@
     padding: 0;
     overflow: hidden;
     transition: 200ms opacity;
+
   }
 
   &:hover {
@@ -20,4 +21,25 @@
       }
     }
   }
+}
+.custom-modal {
+  width: 100vw;
+  height: 100vh;
+  max-width: 800px;
+  max-height: 90vh;
+  display: flex;
+  margin: 1rem auto;
+  flex-direction: column;
+}
+
+.custom-modal-content {
+  flex-grow: 2;
+  overflow-y: auto;
+  max-height: 90%;
+}
+
+.modal__overlay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }

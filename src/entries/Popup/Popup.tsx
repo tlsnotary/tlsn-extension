@@ -20,6 +20,7 @@ import History from '../../pages/History';
 import ProofUploader from '../../pages/ProofUploader';
 import browser from 'webextension-polyfill';
 import store from '../../utils/store';
+import PluginUploadInfo from '../../components/PluginInfo';
 
 const Popup = () => {
   const dispatch = useDispatch();
@@ -102,6 +103,7 @@ const Popup = () => {
         <Route path="/custom/*" element={<RequestBuilder />} />
         <Route path="/options" element={<Options />} />
         <Route path="/home" element={<Home />} />
+        <Route path="/plugininfo" element={<PluginUploadInfo />} />
         <Route path="*" element={<Navigate to="/home" />} />
       </Routes>
     </div>

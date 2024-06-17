@@ -37,13 +37,19 @@ export default function Modal(props: Props): ReactElement {
 }
 
 type HeaderProps = {
+  className?: string;
   onClose?: () => void;
-  children: ReactNode;
+  children?: ReactNode;
 };
 
 export function ModalHeader(props: HeaderProps): ReactElement {
   return (
-    <div className={classNames('border-b modal__header border-gray-100')}>
+    <div
+      className={classNames(
+        'border-b modal__header border-gray-100',
+        props.className,
+      )}
+    >
       <div className="modal__header__title">{props.children}</div>
       <div className="modal__header__content">
         {props.onClose && (
