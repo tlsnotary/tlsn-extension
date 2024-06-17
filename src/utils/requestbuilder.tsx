@@ -2,8 +2,6 @@ import React, { useCallback, useState } from 'react';
 import c from 'classnames'
 
 
-
-
 export function InputBody (props: {
   value: string;
   body: string;
@@ -21,7 +19,6 @@ export function InputBody (props: {
 export function FormBodyTable(props: {
   formBody: [string, string, boolean?][];
   setFormBody: (formBody: [string, string, boolean?][]) => void;
-
 }) {
 
   const toggleKV = useCallback((index: number) => {
@@ -41,7 +38,7 @@ export function FormBodyTable(props: {
   }, [props.formBody]);
 
   const last = props.formBody.length - 1;
-
+  console.log('formBody', props.formBody)
   return (
     <table className="border border-slate-300 border-collapse table-fixed w-full">
       <tbody>
@@ -89,34 +86,64 @@ export function FormBodyTable(props: {
   );
 }
 
-export function formatForRequest(input: string, type: string): string {
+export function formatForRequest(input: string | [string, string, boolean?][], type: string): string {
   try {
+    let pairs: [string, string][] = [];
+
+    if (typeof input === 'string') {
+      const lines = input.split('\n').filter((line) => line.trim() !== '');
+      pairs = lines.map((line) => {
+        const [key, value] = line.split('=').map((part) => part.trim());
+        return [key, value];
+      });
+    } else {
+      pairs = input
+        .filter(([, , silent]) => silent !== true)
+        .map(([key, value]) => [key, value]);
+    }
+    if (type === 'text') {
+      return JSON.stringify(input as string);
+    }
     if (type === 'json') {
-      const jsonObject = JSON.parse(input);
-      console.log('here', jsonObject);
+      const jsonObject = JSON.parse(input as string);
       return JSON.stringify(jsonObject);
     }
+
     if (type === 'x-www-form-urlencoded') {
-      const lines = input.split('\n').filter((line) => line.trim() !== '');
       const searchParams = new URLSearchParams();
-      lines.forEach((line) => {
-        const [key, value] = line.split('=').map((part) => part.trim());
+      pairs.forEach(([key, value]) => {
         searchParams.append(key, value);
       });
       return searchParams.toString();
     }
-    return input;
+
+    return pairs.map(([key, value]) => `${key}=${value}`).join('&');
   } catch (e) {
-    const lines = input.split('\n').filter((line) => line.trim() !== '');
-    const jsonObject: { [key: string]: string } = {};
-
-    lines.forEach((line) => {
-      const [key, value] = line
-        .split(':')
-        .map((part) => part.trim().replace(/['"]/g, ''));
-      jsonObject[key] = value;
-    });
-
-    return JSON.stringify(jsonObject);
+    console.error('Error formatting for request:', e);
+    return '';
   }
+}
+
+
+export async function parseResponse(contentType: string, res: Response) {
+
+  const parsedResponseData = {
+    json: '',
+    text: '',
+    img: '',
+    headers: Array.from(res.headers.entries()),
+  };
+
+  if (contentType?.includes('application/json')) {
+    parsedResponseData.json = await res.json();
+  } else if (contentType?.includes('text')) {
+    parsedResponseData.text = await res.text();
+  } else if (contentType?.includes('image')) {
+    const blob = await res.blob();
+    parsedResponseData.img = URL.createObjectURL(blob);
+  } else {
+    parsedResponseData.text = await res.text();
+  }
+
+  return parsedResponseData;
 }

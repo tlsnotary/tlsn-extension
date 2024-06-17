@@ -19,7 +19,7 @@ import {
   getProxyApi,
 } from '../../utils/storage';
 import { useDispatch } from 'react-redux';
-import { formatForRequest, InputBody, FormBodyTable } from '../../utils/requestbuilder';
+import { formatForRequest, InputBody, FormBodyTable, parseResponse } from '../../utils/requestbuilder';
 
 enum TabType {
   Params = 'Params',
@@ -141,7 +141,20 @@ export default function RequestBuilder(props?: {
       }, {}),
     };
 
-    if (body) opts.body = formatForRequest(body, type);
+    switch (type) {
+      case 'json':
+        opts.body = formatForRequest(body!, type);
+        break;
+      case 'text':
+        opts.body = formatForRequest(body!, type);
+        break;
+      case 'x-www-form-urlencoded':
+        opts.body = formatForRequest(formBody!, type);
+        break;
+      default:
+        opts.body = body;
+        break;
+    }
 
     const cookie = headers.find(([key]) => key === 'Cookie');
 
@@ -155,25 +168,8 @@ export default function RequestBuilder(props?: {
     const contentType =
       res.headers.get('content-type') || res.headers.get('Content-Type');
 
-    const parsedResponseData = {
-      json: '',
-      text: '',
-      img: '',
-      headers: Array.from(res.headers.entries()),
-    };
 
-    if (contentType?.includes('application/json')) {
-      parsedResponseData.json = await res.json();
-    } else if (contentType?.includes('text')) {
-      parsedResponseData.text = await res.text();
-    } else if (contentType?.includes('image')) {
-      const blob = await res.blob();
-      parsedResponseData.img = URL.createObjectURL(blob);
-    } else {
-      parsedResponseData.text = await res.text();
-    }
-
-    setResponseData(parsedResponseData);
+    setResponseData(await parseResponse(contentType!, res));
 
     navigate(subpath + '/response');
   }, [href, method, headers, body]);
