@@ -7,13 +7,7 @@ import {
   deleteRequestHistory,
 } from '../../reducers/history';
 import Icon from '../../components/Icon';
-import {
-  get,
-  NOTARY_API_LS_KEY,
-  PROXY_API_LS_KEY,
-  getNotaryApi,
-  getProxyApi,
-} from '../../utils/storage';
+import { getNotaryApi, getProxyApi } from '../../utils/storage';
 import { urlify, download, upload } from '../../utils/misc';
 import { BackgroundActiontype } from '../../entries/Background/rpc';
 import Modal, { ModalContent } from '../../components/Modal/Modal';
@@ -211,6 +205,7 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
   }
 
   function ErrorModal(): ReactElement {
+    const msg = typeof request?.error === 'string' && request?.error;
     return !showingError ? (
       <></>
     ) : (
@@ -219,7 +214,7 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
         onClose={closeAllModal}
       >
         <ModalContent className="flex justify-center items-center text-slate-500">
-          {request?.error || 'Something went wrong :('}
+          {msg || 'Something went wrong :('}
         </ModalContent>
         <button
           className="m-0 w-24 bg-red-100 text-red-300 hover:bg-red-200 hover:text-red-500"
