@@ -21,6 +21,12 @@ import './index.scss';
 import browser from 'webextension-polyfill';
 import { ErrorModal } from '../ErrorModal';
 import Modal, { ModalHeader, ModalContent, ModalFooter } from '../Modal/Modal';
+import {
+  PluginInfoModal,
+  PluginInfoModalContent,
+  PluginInfoModalHeader,
+} from '../PluginInfo';
+import logo from '../../assets/img/icon-128.png';
 
 export function PluginList(props: { className?: string }): ReactElement {
   const hashes = usePluginHashes();
@@ -108,9 +114,9 @@ export function Plugin(props: {
   if (!config) return <></>;
 
   return (
-    <button
+    <div
       className={classNames(
-        'flex flex-row border rounded border-slate-300 p-2 gap-2 plugin-box',
+        'flex flex-row justify-center border rounded border-slate-300 p-2 gap-2 plugin-box',
         'cursor-pointer hover:bg-slate-100 hover:border-slate-400 active:bg-slate-200',
       )}
       onClick={onClick}
@@ -146,87 +152,34 @@ export function Plugin(props: {
         />
       )}
       {pluginInfo && (
-        <PluginInfo showPluginInfo={showPluginInfo} config={config} />
-      )}
-    </button>
-  );
-}
-
-function PluginInfo(props: {
-  showPluginInfo: (show: boolean) => void;
-  config: PluginConfig;
-}): ReactElement {
-  const { showPluginInfo, config } = props;
-
-  interface Request {
-    url: string;
-    method: string;
-  }
-
-  return (
-    <Modal
-      className="custom-modal flex items-center justify-center p2"
-      onClose={() => showPluginInfo(false)}
-    >
-      <div className="w-full h-full flex flex-col">
-        <ModalHeader>
-          <div className="flex flex-col gap-2">
-            <div className="flex flex-row items-center gap-2">
-              <img className="w-5 h-5" src={config.icon} alt="Plugin Icon" />
-              <span className="text-lg font-semibold">{config.title}</span>
-            </div>
-            <div className="text-sm text-gray-600">{config.description}</div>
-          </div>
-        </ModalHeader>
-        <ModalContent className="custom-modal-content p-2 space-y-2 flex-grow overflow-y-auto">
-          <div className="flex flex-col gap-2 p-2">
-            <h1 className="font-semibold">Host Functions Allowed:</h1>
-            <div className="flex flex-col border p-2 rounded-md gap-2">
-              {config.hostFunctions!.map(
-                (hostFunction: string, index: React.Key) => (
-                  <div key={index} className="text-sm">
-                    {hostFunction}
-                  </div>
-                ),
-              )}
-            </div>
-            <h1 className="font-semibold">Cookies Allowed:</h1>
-            <div className="flex flex-col border p-2 rounded-md gap-2">
-              {config.cookies!.map((cookies: string, index: React.Key) => (
-                <div key={index} className="text-sm">
-                  {cookies}
-                </div>
-              ))}
-            </div>
-            <h1 className="font-semibold">Headers Allowed:</h1>
-            <div className="flex flex-col border p-2 rounded-md gap-2">
-              {config.headers!.map((headers: string, index: React.Key) => (
-                <div key={index} className="text-sm">
-                  {headers}
-                </div>
-              ))}
-            </div>
-            <h1 className="font-semibold">Requests Allowed:</h1>
-            <div className="flex flex-col border p-2 rounded-md gap-2">
-              {config.requests!.map((requests: Request, index: React.Key) => (
-                <div key={index} className="text-sm">
-                  <span className="font-medium">{requests.method}</span> -{' '}
-                  {requests.url}
-                </div>
-              ))}
-            </div>
-          </div>
-        </ModalContent>
-      </div>
-      <ModalFooter>
-        <button
-          className="bg-slate-500 text-white rounded p-1"
-          onClick={() => showPluginInfo(false)}
+        <PluginInfoModal
+          pluginContent={config}
+          onClose={() => showPluginInfo(false)}
         >
-          Close
-        </button>
-      </ModalFooter>
-    </Modal>
+          <PluginInfoModalHeader>
+            <div className="flex flex-row items-end justify-start gap-2">
+              <Icon
+                className="text-slate-500 hover:text-slate-700 cursor-pointer"
+                size={1}
+                fa="fa-solid fa-caret-left"
+                onClick={() => showPluginInfo(false)}
+              />
+            </div>
+          </PluginInfoModalHeader>
+          <PluginInfoModalContent className="flex flex-col items-center cursor-default">
+            <img
+              className="w-12 h-12 mb-2"
+              src={config.icon}
+              alt="Plugin Icon"
+            />
+            <span className="text-3xl text-blue-600 font-semibold">
+              {config.title}
+            </span>
+            <div className="text-slate-500 text-lg">{config.description}</div>
+          </PluginInfoModalContent>
+        </PluginInfoModal>
+      )}
+    </div>
   );
 }
 
@@ -243,12 +196,12 @@ function RemovePlugin(props: {
   }, []);
 
   return (
-    <div className="flex flex-col w-full gap-1">
+    <div className="flex flex-col items-center w-full gap-1">
       <div className="font-bold text-red-700">
         {`Are you sure you want to remove "${config.title}" plugin?`}
       </div>
       <div className="mb-1">Warning: this cannot be undone.</div>
-      <div className="flex flex-row gap-1">
+      <div className="flex flex-row w-full gap-1">
         <button className="flex-grow button p-1" onClick={onCancel}>
           Cancel
         </button>
