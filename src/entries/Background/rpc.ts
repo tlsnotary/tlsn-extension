@@ -27,7 +27,6 @@ import {
 import { addOnePlugin, removeOnePlugin } from '../../reducers/plugins';
 import {
   devlog,
-  extractBodyFromResponse,
   getPluginConfig,
   hexToArrayBuffer,
   makePlugin,
@@ -39,6 +38,7 @@ import {
   getNotaryApi,
   getProxyApi,
 } from '../../utils/storage';
+import { deferredPromise } from '../../utils/promise';
 
 const charwise = require('charwise');
 
@@ -65,7 +65,8 @@ export enum BackgroundActiontype {
   get_plugin_hashes = 'get_plugin_hashes',
   open_popup = 'open_popup',
   change_route = 'change_route',
-  connect = 'connect',
+  connect_request = 'connect_request',
+  connect_response = 'connect_response',
 }
 
 export type BackgroundAction = {
@@ -154,7 +155,7 @@ export const initRPC = () => {
           return handleExecPluginProver(request);
         case BackgroundActiontype.open_popup:
           return handleOpenPopup(request);
-        case BackgroundActiontype.connect:
+        case BackgroundActiontype.connect_request:
           return handleConnect(request);
         default:
           break;
@@ -187,7 +188,7 @@ async function handleGetProveRequests(
       action: addRequestHistory(req),
     });
   }
-  return sendResponse();
+  return reqs;
 }
 
 async function handleFinishProveRequest(
@@ -542,7 +543,7 @@ async function openPopup(route: string, left?: number, top?: number) {
     top: Math.round(top || 0),
   });
 
-  return popup;
+  return { popup, tab };
 }
 
 async function handleOpenPopup(request: BackgroundAction) {
@@ -554,7 +555,7 @@ async function handleOpenPopup(request: BackgroundAction) {
       url: browser.runtime.getURL('popup.html') + '#' + request.data.route,
     });
   } else {
-    const popup = await openPopup(
+    const { popup } = await openPopup(
       request.data.route,
       request.data.position.left,
       request.data.position.top,
@@ -575,19 +576,40 @@ async function handleOpenPopup(request: BackgroundAction) {
 
 async function handleConnect(request: BackgroundAction) {
   const connection = await getConnection(request.data.origin);
-  const [tab] = await browser.tabs.query({
+  const [currentTab] = await browser.tabs.query({
     active: true,
     currentWindow: true,
   });
 
-  console.log(request.data);
   if (!connection) {
-    const popup = await openPopup(
-      `connection-approval?origin=${encodeURIComponent(request.data.origin)}&favIconUrl=${encodeURIComponent(tab?.favIconUrl || '')}`,
+    const defer = deferredPromise();
+
+    const { popup, tab } = await openPopup(
+      `connection-approval?origin=${encodeURIComponent(request.data.origin)}&favIconUrl=${encodeURIComponent(currentTab?.favIconUrl || '')}`,
       request.data.position.left,
       request.data.position.top,
     );
+
+    const onMessage = (request: BackgroundAction) => {
+      if (request.type === BackgroundActiontype.connect_response) {
+        defer.resolve(request.data);
+        browser.runtime.onMessage.removeListener(onMessage);
+        browser.tabs.remove(tab.id!);
+      }
+    };
+
+    const onPopUpClose = (windowId: number) => {
+      if (windowId === popup.id) {
+        defer.resolve(false);
+        browser.windows.onRemoved.removeListener(onPopUpClose);
+      }
+    };
+
+    browser.runtime.onMessage.addListener(onMessage);
+    browser.windows.onRemoved.addListener(onPopUpClose);
+
+    return defer.promise;
   }
-  // sendResponse(true);
-  return !!connection;
+
+  return true;
 }

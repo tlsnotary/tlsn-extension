@@ -1,13 +1,15 @@
 import browser from 'webextension-polyfill';
 import { ContentScriptTypes, RPCServer } from './rpc';
-import { BackgroundActiontype } from '../Background/rpc';
+import { BackgroundActiontype, RequestHistory } from '../Background/rpc';
+const charwise = require('charwise');
 
 (async () => {
   loadScript('content.bundle.js');
   const server = new RPCServer();
+
   server.on(ContentScriptTypes.connect, async () => {
-    const response = await browser.runtime.sendMessage({
-      type: BackgroundActiontype.connect,
+    const connected = await browser.runtime.sendMessage({
+      type: BackgroundActiontype.connect_request,
       data: {
         origin: window.origin,
         position: {
@@ -16,7 +18,27 @@ import { BackgroundActiontype } from '../Background/rpc';
         },
       },
     });
-    return response;
+
+    if (!connected) throw new Error('user rejected.');
+
+    return connected;
+  });
+
+  server.on(ContentScriptTypes.get_history, async () => {
+    const response: RequestHistory[] = await browser.runtime.sendMessage({
+      type: BackgroundActiontype.get_prove_requests,
+    });
+
+    return response.map(
+      ({ id, method, url, notaryUrl, websocketProxyUrl }) => ({
+        id,
+        time: new Date(charwise.decode(id)),
+        method,
+        url,
+        notaryUrl,
+        websocketProxyUrl,
+      }),
+    );
   });
 })();
 

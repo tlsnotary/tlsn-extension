@@ -2,6 +2,7 @@ import { deferredPromise, PromiseResolvers } from '../../utils/promise';
 
 export enum ContentScriptTypes {
   connect = 'tlsn/cs/connect',
+  get_history = 'tlsn/cs/get_history',
 }
 
 export type ContentScriptRequest<params> = {
@@ -102,7 +103,7 @@ export class RPCClient {
     );
   }
 
-  async call(method: ContentScriptTypes, params?: never) {
+  async call(method: ContentScriptTypes, params?: never): Promise<RPCResponse> {
     const request = { tlsnrpc: '1.0', id: this.id, method, params };
     const defer = deferredPromise();
     this.#requests.set(request.id, defer);
