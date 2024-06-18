@@ -21,6 +21,7 @@ import ProofUploader from '../../pages/ProofUploader';
 import browser from 'webextension-polyfill';
 import store from '../../utils/store';
 import PluginUploadInfo from '../../components/PluginInfo';
+import { ConnectionApproval } from '../../pages/ConnectionApproval';
 
 const Popup = () => {
   const dispatch = useDispatch();
@@ -104,6 +105,7 @@ const Popup = () => {
         <Route path="/options" element={<Options />} />
         <Route path="/home" element={<Home />} />
         <Route path="/plugininfo" element={<PluginUploadInfo />} />
+        <Route path="/connection-approval" element={<ConnectionApproval />} />
         <Route path="*" element={<Navigate to="/home" />} />
       </Routes>
     </div>

@@ -22,6 +22,7 @@ import {
   addPluginConfig,
   getPluginConfigByHash,
   removePluginConfig,
+  getConnection,
 } from './db';
 import { addOnePlugin, removeOnePlugin } from '../../reducers/plugins';
 import {
@@ -64,6 +65,7 @@ export enum BackgroundActiontype {
   get_plugin_hashes = 'get_plugin_hashes',
   open_popup = 'open_popup',
   change_route = 'change_route',
+  connect = 'connect',
 }
 
 export type BackgroundAction = {
@@ -152,6 +154,8 @@ export const initRPC = () => {
           return handleExecPluginProver(request);
         case BackgroundActiontype.open_popup:
           return handleOpenPopup(request);
+        case BackgroundActiontype.connect:
+          return handleConnect(request);
         default:
           break;
       }
@@ -522,26 +526,40 @@ async function handleRunPlugin(
 
 let cachePopup: browser.Windows.Window | null = null;
 
+async function openPopup(route: string, left?: number, top?: number) {
+  console.log({ left, top });
+  const tab = await browser.tabs.create({
+    url: browser.runtime.getURL('popup.html') + '#' + route,
+    active: false,
+  });
+
+  const popup = await browser.windows.create({
+    tabId: tab.id,
+    type: 'popup',
+    focused: true,
+    width: 480,
+    height: 640,
+    left: Math.round(left || 0),
+    top: Math.round(top || 0),
+  });
+
+  return popup;
+}
+
 async function handleOpenPopup(request: BackgroundAction) {
   if (cachePopup) {
     browser.windows.update(cachePopup.id!, {
       focused: true,
     });
-  } else {
-    const tab = await browser.tabs.create({
+    browser.tabs.update(cachePopup.id!, {
       url: browser.runtime.getURL('popup.html') + '#' + request.data.route,
-      active: false,
     });
-
-    const popup = await browser.windows.create({
-      tabId: tab.id,
-      type: 'popup',
-      focused: true,
-      width: 480,
-      height: 640,
-      left: request.data.position.left,
-      top: request.data.position.top,
-    });
+  } else {
+    const popup = await openPopup(
+      request.data.route,
+      request.data.position.left,
+      request.data.position.top,
+    );
 
     cachePopup = popup;
 
@@ -554,4 +572,18 @@ async function handleOpenPopup(request: BackgroundAction) {
 
     browser.windows.onRemoved.addListener(onPopUpClose);
   }
+}
+
+async function handleConnect(request: BackgroundAction) {
+  const connection = await getConnection(request.data.origin);
+
+  if (!connection) {
+    const popup = await openPopup(
+      'connection-approval',
+      request.data.position.left,
+      request.data.position.top,
+    );
+  }
+  // sendResponse(true);
+  return !!connection;
 }

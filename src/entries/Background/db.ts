@@ -15,6 +15,9 @@ const pluginDb = db.sublevel<string, string>('plugin', {
 const pluginConfigDb = db.sublevel<string, PluginConfig>('pluginConfig', {
   valueEncoding: 'json',
 });
+const connectionDb = db.sublevel<string, boolean>('connections', {
+  valueEncoding: 'json',
+});
 
 export async function addNotaryRequest(
   now = Date.now(),
@@ -221,4 +224,25 @@ export async function setNotaryRequestCid(
   await historyDb.put(id, newReq);
 
   return newReq;
+}
+
+export async function setConnection(origin: string) {
+  if (await getConnection(origin)) return null;
+  await connectionDb.put(origin, true);
+  return true;
+}
+
+export async function deleteConnection(origin: string) {
+  if (await getConnection(origin)) {
+    await connectionDb.del(origin);
+  }
+}
+
+export async function getConnection(origin: string) {
+  try {
+    const existing = await connectionDb.get(origin);
+    return existing;
+  } catch (e) {
+    return null;
+  }
 }
