@@ -17,6 +17,7 @@ import {
 } from '../entries/Background/cache';
 import { getNotaryApi, getProxyApi } from './storage';
 import { runPlugin } from './rpc';
+import { minimatch } from 'minimatch';
 
 const charwise = require('charwise');
 
@@ -180,7 +181,8 @@ export const makePlugin = async (
 
       if (
         !approvedRequests.find(
-          ({ method, url }) => method === params.method && url === params.url,
+          ({ method, url }) =>
+            method === params.method && minimatch(params.url, url),
         )
       ) {
         throw new Error(`Unapproved request - ${params.method}: ${params.url}`);
