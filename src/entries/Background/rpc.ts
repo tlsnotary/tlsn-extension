@@ -527,7 +527,6 @@ async function handleRunPlugin(
 let cachePopup: browser.Windows.Window | null = null;
 
 async function openPopup(route: string, left?: number, top?: number) {
-  console.log({ left, top });
   const tab = await browser.tabs.create({
     url: browser.runtime.getURL('popup.html') + '#' + route,
     active: false,
@@ -576,10 +575,15 @@ async function handleOpenPopup(request: BackgroundAction) {
 
 async function handleConnect(request: BackgroundAction) {
   const connection = await getConnection(request.data.origin);
+  const [tab] = await browser.tabs.query({
+    active: true,
+    currentWindow: true,
+  });
 
+  console.log(request.data);
   if (!connection) {
     const popup = await openPopup(
-      'connection-approval',
+      `connection-approval?origin=${encodeURIComponent(request.data.origin)}&favIconUrl=${encodeURIComponent(tab?.favIconUrl || '')}`,
       request.data.position.left,
       request.data.position.top,
     );

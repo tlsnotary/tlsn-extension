@@ -1,27 +1,28 @@
 import React, { ReactElement } from 'react';
-import { useActiveTab, useActiveTabUrl } from '../../reducers/requests';
 import Icon from '../../components/Icon';
-import { ModalHeader } from '../../components/Modal/Modal';
 import logo from '../../assets/img/icon-128.png';
+import { useSearchParams } from 'react-router-dom';
+import { urlify } from '../../utils/misc';
 
 export function ConnectionApproval(): ReactElement {
-  const activeTab = useActiveTab();
-  const url = useActiveTabUrl();
+  const [params] = useSearchParams();
+  const origin = params.get('origin');
+  const favIconUrl = params.get('favIconUrl');
+  const hostname = urlify(origin || '')?.hostname;
+
+  console.log({ origin, favIconUrl }, window.location.hash);
+
   return (
     <div className="absolute flex flex-col items-center w-screen h-screen bg-white gap-2 overflow-y-auto cursor-default">
       <div className="w-full p-2 border-b border-gray-200 text-gray-500">
         <div className="flex flex-row items-end justify-start gap-2">
           <img className="h-5" src={logo} alt="logo" />
-          <span className="font-semibold">{`Connecting to ${url?.hostname}`}</span>
+          <span className="font-semibold">{`Connecting to ${hostname}`}</span>
         </div>
       </div>
       <div className="flex flex-col items-center gap-2 py-8">
-        {!!activeTab?.favIconUrl ? (
-          <img
-            src={activeTab?.favIconUrl}
-            className="h-16 w-16 rounded-full"
-            alt="logo"
-          />
+        {!!favIconUrl ? (
+          <img src={favIconUrl} className="h-16 w-16 rounded-full" alt="logo" />
         ) : (
           <Icon
             fa="fa-solid fa-globe"
@@ -29,7 +30,7 @@ export function ConnectionApproval(): ReactElement {
             className="h-16 w-16 rounded-full text-blue-500"
           />
         )}
-        <div className="text-sm font-semibold">{url?.hostname}</div>
+        <div className="text-sm font-semibold">{hostname}</div>
       </div>
       <div className="text-lg font-bold">Connect to this site?</div>
       <div className="text-sm px-8 text-center text-slate-500 flex-grow">
