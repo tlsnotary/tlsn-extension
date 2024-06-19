@@ -14,9 +14,10 @@ function extractConversationId(urlString) {
   const url = new URL(urlString);
   if (url.hostname === 'discord.com' && /\/channels\/@me\/(\d+)/.test(url.pathname)) {
     return url.pathname.split('/@me/')[1]
+  } else {
+    return url.pathname.split('/channels/')[1]
   }
 }
-
 
 function start() {
   if (!isValidHost(Config.get('tabUrl'))) {
@@ -27,18 +28,67 @@ function start() {
   Host.outputString(JSON.stringify(true));
 }
 
+
 function two() {
   const conversationId = extractConversationId(Config.get('tabUrl'));
   const cookies = JSON.parse(Config.get('cookies'))['discord.com'];
   const headers = JSON.parse(Config.get('headers'))['discord.com'];
 
-  console.log('COOKIES', cookies);
-  console.log('HEADERS', headers);
+  // console.log(JSON.stringify(headers));
+  // console.log(JSON.stringify(cookies));
+  // console.log(JSON.stringify(headers['Authorization']));
+
+  if (
+    !conversationId ||
+    !headers['Authorization']
+  ) {
+    Host.outputString(JSON.stringify(false));
+    return;
+  }
+
+
+
+  Host.outputString(
+    JSON.stringify({
+      url: `https://discord.com/api/v9/channels/${conversationId}/messages?limit=2`,
+      method: 'GET',
+      headers: {
+        Host: 'discord.com',
+        Cookie: `__dcfdruid=${cookies.__dcfduid}; __sdcfduid=${cookies.__sdcfduid}; __cfruid=${cookies.__cfruid}; _cfuvid=${cookies._cfuvid}`,
+        Accept: '*/*',
+        'Accept-Encoding': 'identity',
+        'User-Agent': headers['User-Agent'],
+        Authorization: headers['Authorization'],
+        Connection: 'keep-alive'
+      },
+      secretHeaders: [
+        `cookie: __dcfdruid=${cookies.__dcfduid}; __sdcfduid=${cookies.__sdcfduid}; __cfruid=${cookies.__cfruid}; _cfuvid=${cookies._cfuvid}`,
+        `Authorization: ${headers['Authorization']}`
+      ]
+    })
+  )
 }
 
+function three() {
+  const params = JSON.parse(Host.inputString());
+  const { notarize } = Host.getFunctions();
 
+  console.log(params);
+
+  if (!params) {
+    Host.outputString(JSON.stringify(false));
+  } else {
+    const mem = Memory.fromString(JSON.stringify(params));
+    const idOffset = notarize(mem.offset);
+    const id = Memory.find(idOffset).readString();
+    Host.outputString(JSON.stringify(id));
+  }
+}
 
 function config() {
+
+  let requestId = extractConversationId(Config.get('tabUrl'));
+
   Host.outputString(
     JSON.stringify({
       title: 'Discord DMs',
@@ -69,7 +119,7 @@ function config() {
       headers: ['discord.com'],
       requests: [
         {
-          url: 'https://discord.com',
+          url: `https://discord.com/api/v9/channels/${requestId || 'USERID'}/messages?limit=2`,
           method: 'GET',
         },
       ],
@@ -78,4 +128,4 @@ function config() {
 }
 
 
-module.exports = { start, two, config };
+module.exports = { start, two, three, config };

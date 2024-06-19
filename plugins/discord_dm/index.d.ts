@@ -1,6 +1,7 @@
 declare module 'main' {
   export function start(): I32;
   export function two(): I32;
+  export function three(): I32;
   export function config(): I32;
 }
 
