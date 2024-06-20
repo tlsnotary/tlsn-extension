@@ -103,7 +103,7 @@ export class RPCClient {
     );
   }
 
-  async call(method: ContentScriptTypes, params?: never): Promise<RPCResponse> {
+  async call(method: ContentScriptTypes, params?: any): Promise<RPCResponse> {
     const request = { tlsnrpc: '1.0', id: this.id, method, params };
     const defer = deferredPromise();
     this.#requests.set(request.id, defer);

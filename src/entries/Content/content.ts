@@ -3,8 +3,11 @@ import { ContentScriptTypes, RPCClient } from './rpc';
 const client = new RPCClient();
 
 class TLSN {
-  async getHistory() {
-    const resp = await client.call(ContentScriptTypes.get_history);
+  async getHistory(method: string, url: string) {
+    const resp = await client.call(ContentScriptTypes.get_history, {
+      method,
+      url,
+    });
     return resp.result;
   }
 }

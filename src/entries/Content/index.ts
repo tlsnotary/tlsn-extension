@@ -1,6 +1,8 @@
 import browser from 'webextension-polyfill';
-import { ContentScriptTypes, RPCServer } from './rpc';
+import { ContentScriptRequest, ContentScriptTypes, RPCServer } from './rpc';
 import { BackgroundActiontype, RequestHistory } from '../Background/rpc';
+import { minimatch } from 'minimatch';
+import { urlify } from '../../utils/misc';
 const charwise = require('charwise');
 
 (async () => {
@@ -11,11 +13,7 @@ const charwise = require('charwise');
     const connected = await browser.runtime.sendMessage({
       type: BackgroundActiontype.connect_request,
       data: {
-        origin: window.origin,
-        position: {
-          left: window.screen.width / 2 - 240,
-          top: window.screen.height / 2 - 300,
-        },
+        ...getPopupData(),
       },
     });
 
@@ -24,22 +22,26 @@ const charwise = require('charwise');
     return connected;
   });
 
-  server.on(ContentScriptTypes.get_history, async () => {
-    const response: RequestHistory[] = await browser.runtime.sendMessage({
-      type: BackgroundActiontype.get_prove_requests,
-    });
+  server.on(
+    ContentScriptTypes.get_history,
+    async (request: ContentScriptRequest<{ method: string; url: string }>) => {
+      const { method: filterMethod, url: filterUrl } = request.params || {};
 
-    return response.map(
-      ({ id, method, url, notaryUrl, websocketProxyUrl }) => ({
-        id,
-        time: new Date(charwise.decode(id)),
-        method,
-        url,
-        notaryUrl,
-        websocketProxyUrl,
-      }),
-    );
-  });
+      if (!filterMethod || !filterUrl)
+        throw new Error('params must include method and url.');
+
+      const response: RequestHistory[] = await browser.runtime.sendMessage({
+        type: BackgroundActiontype.get_history_request,
+        data: {
+          ...getPopupData(),
+          method: filterMethod,
+          url: filterUrl,
+        },
+      });
+
+      return response;
+    },
+  );
 })();
 
 function loadScript(filename: string) {
@@ -48,4 +50,14 @@ function loadScript(filename: string) {
   script.setAttribute('type', 'text/javascript');
   script.setAttribute('src', url);
   document.body.appendChild(script);
+}
+
+function getPopupData() {
+  return {
+    origin: window.origin,
+    position: {
+      left: window.screen.width / 2 - 240,
+      top: window.screen.height / 2 - 300,
+    },
+  };
 }

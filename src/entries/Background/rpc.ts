@@ -23,6 +23,8 @@ import {
   getPluginConfigByHash,
   removePluginConfig,
   getConnection,
+  setConnection,
+  deleteConnection,
 } from './db';
 import { addOnePlugin, removeOnePlugin } from '../../reducers/plugins';
 import {
@@ -39,6 +41,7 @@ import {
   getProxyApi,
 } from '../../utils/storage';
 import { deferredPromise } from '../../utils/promise';
+import { minimatch } from 'minimatch';
 
 const charwise = require('charwise');
 
@@ -67,6 +70,8 @@ export enum BackgroundActiontype {
   change_route = 'change_route',
   connect_request = 'connect_request',
   connect_response = 'connect_response',
+  get_history_request = 'get_history_request',
+  get_history_response = 'get_history_response',
 }
 
 export type BackgroundAction = {
@@ -125,7 +130,7 @@ export const initRPC = () => {
           clearCache();
           return sendResponse();
         case BackgroundActiontype.get_prove_requests:
-          return handleGetProveRequests(request, sendResponse);
+          return handleGetProveRequests();
         case BackgroundActiontype.finish_prove_request:
           return handleFinishProveRequest(request, sendResponse);
         case BackgroundActiontype.delete_prove_request:
@@ -157,6 +162,8 @@ export const initRPC = () => {
           return handleOpenPopup(request);
         case BackgroundActiontype.connect_request:
           return handleConnect(request);
+        case BackgroundActiontype.get_history_request:
+          return handleGetHistory(request);
         default:
           break;
       }
@@ -174,10 +181,7 @@ function handleGetRequests(
   return data;
 }
 
-async function handleGetProveRequests(
-  request: BackgroundAction,
-  sendResponse: (data?: any) => void,
-) {
+async function handleGetProveRequests() {
   const reqs = await getNotaryRequests();
   for (const req of reqs) {
     await browser.runtime.sendMessage({
@@ -590,9 +594,14 @@ async function handleConnect(request: BackgroundAction) {
       request.data.position.top,
     );
 
-    const onMessage = (request: BackgroundAction) => {
-      if (request.type === BackgroundActiontype.connect_response) {
-        defer.resolve(request.data);
+    const onMessage = async (req: BackgroundAction) => {
+      if (req.type === BackgroundActiontype.connect_response) {
+        defer.resolve(req.data);
+        if (req.data) {
+          await setConnection(request.data.origin);
+        } else {
+          await deleteConnection(request.data.origin);
+        }
         browser.runtime.onMessage.removeListener(onMessage);
         browser.tabs.remove(tab.id!);
       }
@@ -612,4 +621,68 @@ async function handleConnect(request: BackgroundAction) {
   }
 
   return true;
+}
+
+async function handleGetHistory(request: BackgroundAction) {
+  const [currentTab] = await browser.tabs.query({
+    active: true,
+    currentWindow: true,
+  });
+
+  const defer = deferredPromise();
+  const {
+    origin,
+    position,
+    method: filterMethod,
+    url: filterUrl,
+  } = request.data;
+
+  const { popup, tab } = await openPopup(
+    `get-history-approval?method=${filterMethod}&url=${filterUrl}&origin=${encodeURIComponent(origin)}&favIconUrl=${encodeURIComponent(currentTab?.favIconUrl || '')}`,
+    position.left,
+    position.top,
+  );
+
+  const onMessage = async (req: BackgroundAction) => {
+    if (req.type === BackgroundActiontype.get_history_response) {
+      if (req.data) {
+        const response: RequestHistory[] = await handleGetProveRequests();
+
+        const result = response
+          .map(({ id, method, url, notaryUrl, websocketProxyUrl }) => ({
+            id,
+            time: new Date(charwise.decode(id)),
+            method,
+            url,
+            notaryUrl,
+            websocketProxyUrl,
+          }))
+          .filter(({ method, url }) => {
+            return (
+              minimatch(method, filterMethod, { nocase: true }) &&
+              minimatch(url, filterUrl)
+            );
+          });
+
+        defer.resolve(result);
+      } else {
+        defer.reject(new Error('user rejected.'));
+      }
+
+      browser.runtime.onMessage.removeListener(onMessage);
+      browser.tabs.remove(tab.id!);
+    }
+  };
+
+  const onPopUpClose = (windowId: number) => {
+    if (windowId === popup.id) {
+      defer.reject(new Error('user rejected.'));
+      browser.windows.onRemoved.removeListener(onPopUpClose);
+    }
+  };
+
+  browser.runtime.onMessage.addListener(onMessage);
+  browser.windows.onRemoved.addListener(onPopUpClose);
+
+  return defer.promise;
 }
