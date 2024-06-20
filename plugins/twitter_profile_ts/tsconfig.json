@@ -1,0 +1,12 @@
+{
+    "compilerOptions": {
+        "lib": [],
+        "types": [
+            "@extism/js-pdk"
+        ],
+        "noEmit": true
+    },
+    "include": [
+        "src/**/*"
+    ]
+}
