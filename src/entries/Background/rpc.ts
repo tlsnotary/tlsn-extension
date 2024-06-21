@@ -122,7 +122,7 @@ export type RequestHistory = {
 
 export const initRPC = () => {
   browser.runtime.onMessage.addListener(
-    async (request, sender, sendResponse) => {
+    (request, sender, sendResponse): any => {
       switch (request.type) {
         case BackgroundActiontype.get_requests:
           return handleGetRequests(request, sendResponse);
@@ -130,12 +130,11 @@ export const initRPC = () => {
           clearCache();
           return sendResponse();
         case BackgroundActiontype.get_prove_requests:
-          return handleGetProveRequests();
+          return handleGetProveRequests(request, sendResponse);
         case BackgroundActiontype.finish_prove_request:
           return handleFinishProveRequest(request, sendResponse);
         case BackgroundActiontype.delete_prove_request:
-          await removeNotaryRequest(request.data);
-          return sendResponse();
+          return removeNotaryRequest(request.data);
         case BackgroundActiontype.retry_prove_request:
           return handleRetryProveReqest(request, sendResponse);
         case BackgroundActiontype.prove_request_start:
@@ -174,25 +173,32 @@ export const initRPC = () => {
 function handleGetRequests(
   request: BackgroundAction,
   sendResponse: (data?: any) => void,
-) {
+): boolean {
   const cache = getCacheByTabId(request.data);
   const keys = cache.keys() || [];
   const data = keys.map((key) => cache.get(key));
-  return data;
+  sendResponse(data);
+  return true;
 }
 
-async function handleGetProveRequests() {
-  const reqs = await getNotaryRequests();
-  for (const req of reqs) {
-    await browser.runtime.sendMessage({
-      type: BackgroundActiontype.push_action,
-      data: {
-        tabId: 'background',
-      },
-      action: addRequestHistory(req),
-    });
-  }
-  return reqs;
+function handleGetProveRequests(
+  request: BackgroundAction,
+  sendResponse: (data?: any) => void,
+): boolean {
+  getNotaryRequests().then(async (reqs) => {
+    for (const req of reqs) {
+      await browser.runtime.sendMessage({
+        type: BackgroundActiontype.push_action,
+        data: {
+          tabId: 'background',
+        },
+        action: addRequestHistory(req),
+      });
+    }
+    sendResponse(reqs);
+  });
+
+  return true;
 }
 
 async function handleFinishProveRequest(
@@ -412,27 +418,29 @@ export async function handleExecPluginProver(request: BackgroundAction) {
 function handleGetCookiesByHostname(
   request: BackgroundAction,
   sendResponse: (data?: any) => void,
-) {
+): boolean {
   const cache = getCookieStoreByHost(request.data);
   const keys = cache.keys() || [];
   const data = keys.reduce((acc: { [k: string]: string }, key) => {
     acc[key] = cache.get(key) || '';
     return acc;
   }, {});
-  return data;
+  sendResponse(data);
+  return true;
 }
 
 function handleGetHeadersByHostname(
   request: BackgroundAction,
   sendResponse: (data?: any) => void,
-) {
+): boolean {
   const cache = getHeaderStoreByHost(request.data);
   const keys = cache.keys() || [];
   const data = keys.reduce((acc: { [k: string]: string }, key) => {
     acc[key] = cache.get(key) || '';
     return acc;
   }, {});
-  return data;
+  sendResponse(data);
+  return true;
 }
 
 async function handleAddPlugin(
@@ -646,7 +654,7 @@ async function handleGetHistory(request: BackgroundAction) {
   const onMessage = async (req: BackgroundAction) => {
     if (req.type === BackgroundActiontype.get_history_response) {
       if (req.data) {
-        const response: RequestHistory[] = await handleGetProveRequests();
+        const response = await getNotaryRequests();
 
         const result = response
           .map(({ id, method, url, notaryUrl, websocketProxyUrl }) => ({

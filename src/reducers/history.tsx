@@ -94,6 +94,12 @@ export const useHistoryOrder = (): string[] => {
   }, deepEqual);
 };
 
+export const useAllProofHistory = (): RequestHistory[] => {
+  return useSelector((state: AppRootState) => {
+    return state.history.order.map((id) => state.history.map[id]);
+  }, deepEqual);
+};
+
 export const useRequestHistory = (id?: string): RequestHistory | undefined => {
   return useSelector((state: AppRootState) => {
     if (!id) return undefined;
