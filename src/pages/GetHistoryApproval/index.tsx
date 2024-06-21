@@ -3,10 +3,7 @@ import Icon from '../../components/Icon';
 import { useSearchParams } from 'react-router-dom';
 import { urlify } from '../../utils/misc';
 import browser from 'webextension-polyfill';
-import {
-  BackgroundActiontype,
-  RequestHistory,
-} from '../../entries/Background/rpc';
+import { BackgroundActiontype } from '../../entries/Background/rpc';
 import { BaseApproval } from '../BaseApproval';
 import { minimatch } from 'minimatch';
 import { useAllProofHistory } from '../../reducers/history';

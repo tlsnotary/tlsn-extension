@@ -3,6 +3,7 @@ import { deferredPromise, PromiseResolvers } from '../../utils/promise';
 export enum ContentScriptTypes {
   connect = 'tlsn/cs/connect',
   get_history = 'tlsn/cs/get_history',
+  get_proof = 'tlsn/cs/get_proof',
 }
 
 export type ContentScriptRequest<params> = {
@@ -92,10 +93,10 @@ export class RPCClient {
 
         if (promise) {
           if (typeof data.result !== 'undefined') {
-            promise.resolve(data);
+            promise.resolve(data.result);
             this.#requests.delete(data.id);
           } else if (typeof data.error !== 'undefined') {
-            promise.reject(data);
+            promise.reject(data.error);
             this.#requests.delete(data.id);
           }
         }
@@ -103,7 +104,7 @@ export class RPCClient {
     );
   }
 
-  async call(method: ContentScriptTypes, params?: any): Promise<RPCResponse> {
+  async call(method: ContentScriptTypes, params?: any): Promise<never> {
     const request = { tlsnrpc: '1.0', id: this.id, method, params };
     const defer = deferredPromise();
     this.#requests.set(request.id, defer);

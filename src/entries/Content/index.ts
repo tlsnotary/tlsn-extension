@@ -1,8 +1,7 @@
 import browser from 'webextension-polyfill';
 import { ContentScriptRequest, ContentScriptTypes, RPCServer } from './rpc';
 import { BackgroundActiontype, RequestHistory } from '../Background/rpc';
-import { minimatch } from 'minimatch';
-import { urlify } from '../../utils/misc';
+
 const charwise = require('charwise');
 
 (async () => {
@@ -40,6 +39,25 @@ const charwise = require('charwise');
       });
 
       return response;
+    },
+  );
+
+  server.on(
+    ContentScriptTypes.get_proof,
+    async (request: ContentScriptRequest<{ id: string }>) => {
+      const { id } = request.params || {};
+
+      if (!id) throw new Error('params must include id.');
+
+      const proof = await browser.runtime.sendMessage({
+        type: BackgroundActiontype.get_proof_request,
+        data: {
+          ...getPopupData(),
+          id,
+        },
+      });
+
+      return proof;
     },
   );
 })();

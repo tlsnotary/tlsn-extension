@@ -23,6 +23,7 @@ import store from '../../utils/store';
 import PluginUploadInfo from '../../components/PluginInfo';
 import { ConnectionApproval } from '../../pages/ConnectionApproval';
 import { GetHistoryApproval } from '../../pages/GetHistoryApproval';
+import { GetProofApproval } from '../../pages/GetProofApproval';
 
 const Popup = () => {
   const dispatch = useDispatch();
@@ -108,6 +109,7 @@ const Popup = () => {
         <Route path="/plugininfo" element={<PluginUploadInfo />} />
         <Route path="/connection-approval" element={<ConnectionApproval />} />
         <Route path="/get-history-approval" element={<GetHistoryApproval />} />
+        <Route path="/get-proof-approval" element={<GetProofApproval />} />
         <Route path="*" element={<Navigate to="/home" />} />
       </Routes>
     </div>

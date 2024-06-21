@@ -72,6 +72,8 @@ export enum BackgroundActiontype {
   connect_response = 'connect_response',
   get_history_request = 'get_history_request',
   get_history_response = 'get_history_response',
+  get_proof_request = 'get_proof_request',
+  get_proof_response = 'get_proof_response',
 }
 
 export type BackgroundAction = {
@@ -163,6 +165,8 @@ export const initRPC = () => {
           return handleConnect(request);
         case BackgroundActiontype.get_history_request:
           return handleGetHistory(request);
+        case BackgroundActiontype.get_proof_request:
+          return handleGetProof(request);
         default:
           break;
       }
@@ -673,6 +677,48 @@ async function handleGetHistory(request: BackgroundAction) {
           });
 
         defer.resolve(result);
+      } else {
+        defer.reject(new Error('user rejected.'));
+      }
+
+      browser.runtime.onMessage.removeListener(onMessage);
+      browser.tabs.remove(tab.id!);
+    }
+  };
+
+  const onPopUpClose = (windowId: number) => {
+    if (windowId === popup.id) {
+      defer.reject(new Error('user rejected.'));
+      browser.windows.onRemoved.removeListener(onPopUpClose);
+    }
+  };
+
+  browser.runtime.onMessage.addListener(onMessage);
+  browser.windows.onRemoved.addListener(onPopUpClose);
+
+  return defer.promise;
+}
+
+async function handleGetProof(request: BackgroundAction) {
+  const [currentTab] = await browser.tabs.query({
+    active: true,
+    currentWindow: true,
+  });
+
+  const defer = deferredPromise();
+  const { origin, position, id } = request.data;
+
+  const { popup, tab } = await openPopup(
+    `get-proof-approval?id=${id}&origin=${encodeURIComponent(origin)}&favIconUrl=${encodeURIComponent(currentTab?.favIconUrl || '')}`,
+    position.left,
+    position.top,
+  );
+
+  const onMessage = async (req: BackgroundAction) => {
+    if (req.type === BackgroundActiontype.get_proof_response) {
+      if (req.data) {
+        const response = await getNotaryRequest(id);
+        defer.resolve(response?.proof || null);
       } else {
         defer.reject(new Error('user rejected.'));
       }
