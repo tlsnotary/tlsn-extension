@@ -2,6 +2,8 @@ const esbuild = require('esbuild');
 const fs = require('fs');
 const path = require('path');
 const { promisify } = require('util');
+const { name } = require('./package.json');
+const { execSync } = require('child_process');
 
 // Promisify fs.readFile and fs.stat for convenience
 const readFileAsync = promisify(fs.readFile);
@@ -45,19 +47,35 @@ export const iconBase64 = "${base64Icon}";\n`;
   }
 }
 
+const outputDir = 'dist';
+const entryFile = 'src/index.ts';
+const outputFile = path.join(outputDir, 'index.js');
+const outputWasm = path.join(outputDir, `${name}.tlsn.wasm`);
+
 async function build() {
   await generateBase64Icon();
 
-  esbuild
-    .build({
-      entryPoints: ['src/index.ts'],
-      outdir: 'dist',
+  try {
+    await esbuild.build({
+      entryPoints: [entryFile],
       bundle: true,
+      outdir: outputDir, // Use outdir for directory output
       sourcemap: true,
       minify: false, // might want to use true for production build
       format: 'cjs', // needs to be CJS for now
-      target: ['es2020'] // don't go over es2020 because quickjs doesn't support it
-    }).catch(() => process.exit(1));
+      target: ['es2020'], // don't go over es2020 because quickjs doesn't support it
+    });
+
+    console.log('esbuild completed successfully.');
+
+    // Run extism-js to generate the wasm file
+    const extismCommand = `extism-js ${outputFile} -i src/index.d.ts -o ${outputWasm}`;
+    execSync(extismCommand, { stdio: 'inherit' });
+    console.log('extism-js completed successfully.');
+  } catch (error) {
+    console.error('Build process failed:', error);
+    process.exit(1);
+  }
 }
 
 build();
