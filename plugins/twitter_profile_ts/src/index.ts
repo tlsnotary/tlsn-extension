@@ -1,6 +1,6 @@
 import { iconBase64 } from './iconBase64';
 
-function isValidHost(urlString) {
+function isValidHost(urlString: string) {
   const url = new URL(urlString);
   return url.hostname === 'twitter.com' || url.hostname === 'x.com';
 }
