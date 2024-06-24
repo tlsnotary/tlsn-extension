@@ -82,7 +82,7 @@ export default function RequestBuilder(props?: {
   useEffect(() => {
     if (method === 'GET' || method === 'HEAD') {
       updateContentType('');
-      return
+      return;
     } else {
       updateContentType(type);
     }
@@ -93,26 +93,13 @@ export default function RequestBuilder(props?: {
       const updateHeaders = headers.filter(
         ([key]) => key.toLowerCase() !== 'content-type',
       );
-      switch (type) {
-        case 'json':
-          updateHeaders.push(['Content-Type', 'application/json']);
-          break;
-        case 'text':
-          updateHeaders.push(['Content-Type', 'text/plain']);
-          break;
-        case 'x-www-form-urlencoded':
-          updateHeaders.push([
-            'Content-Type',
-            'application/x-www-form-urlencoded',
-          ]);
-          break;
-        default:
-          updateHeaders.push(['Content-Type', '']);
-          break;
-      }
+
+      type && updateHeaders.push(['Content-Type', type]);
+
       setHeaders(updateHeaders);
-    }, [type]
-  )
+    },
+    [type],
+  );
 
   const toggleParam = useCallback(
     (i: number) => {
@@ -160,19 +147,7 @@ export default function RequestBuilder(props?: {
       }, {}),
     };
 
-    switch (type) {
-      case 'json':
-        opts.body = formatForRequest(body!, type);
-        break;
-      case 'text':
-        opts.body = formatForRequest(body!, type);
-        break;
-      case 'x-www-form-urlencoded':
-        opts.body = formatForRequest(formBody!, type);
-        break;
-      default:
-        break;
-    }
+    opts.body = formatForRequest(body!, type);
 
     const cookie = headers.find(([key]) => key === 'Cookie');
 
@@ -318,15 +293,16 @@ export default function RequestBuilder(props?: {
               <div className="h-full">
                 <select
                   className={c('select', {
-                    'w-[80px]': type === 'json' || type === 'text',
-                    'w-[200px]': type === 'x-www-form-urlencoded',
+                    'w-[80px]':
+                      type === 'application/json' || type === 'text/plain',
+                    'w-[200px]': type === 'application/x-www-form-urlencoded',
                   })}
                   value={type}
                   onChange={(e) => setType(e.target.value)}
                 >
-                  <option value="text">Text</option>
-                  <option value="json">JSON</option>
-                  <option value="x-www-form-urlencoded">
+                  <option value="text/plain">Text</option>
+                  <option value="application/json">JSON</option>
+                  <option value="application/x-www-form-urlencoded">
                     x-www-form-urlencoded
                   </option>
                 </select>

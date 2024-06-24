@@ -108,15 +108,15 @@ export function formatForRequest(
         .filter(([, , silent]) => silent !== true)
         .map(([key, value]) => [key, value]);
     }
-    if (type === 'text') {
+    if (type === 'text/plain') {
       return JSON.stringify(input as string);
     }
-    if (type === 'json') {
+    if (type === 'application/json') {
       const jsonObject = JSON.parse(input as string);
       return JSON.stringify(jsonObject);
     }
 
-    if (type === 'x-www-form-urlencoded') {
+    if (type === 'application/x-www-form-urlencoded') {
       const searchParams = new URLSearchParams();
       pairs.forEach(([key, value]) => {
         searchParams.append(key, value);
