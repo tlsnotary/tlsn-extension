@@ -57,7 +57,7 @@ export default function RequestBuilder(props?: {
     ['', '', true],
   ]);
   const [method, setMethod] = useState<string>(props?.method || 'GET');
-  const [type, setType] = useState<string>('text');
+  const [type, setType] = useState<string>('');
 
   const [responseData, setResponseData] = useState<{
     json: any | null;
@@ -80,27 +80,39 @@ export default function RequestBuilder(props?: {
   }, [_url]);
 
   useEffect(() => {
-    const updateHeaders = headers.filter(
-      ([key]) => key.toLowerCase() !== 'content-type',
-    );
-    switch (type) {
-      case 'json':
-        updateHeaders.push(['Content-Type', 'application/json']);
-        break;
-      case 'text':
-        updateHeaders.push(['Content-Type', 'text/plain']);
-        break;
-      case 'x-www-form-urlencoded':
-        updateHeaders.push([
-          'Content-Type',
-          'application/x-www-form-urlencoded',
-        ]);
-        break;
-      default:
-        break;
+    if (method === 'GET' || method === 'HEAD') {
+      updateContentType('');
+      return
+    } else {
+      updateContentType(type);
     }
-    setHeaders(updateHeaders);
-  }, [type]);
+  }, [type, method]);
+
+  const updateContentType = useCallback(
+    (type: string) => {
+      const updateHeaders = headers.filter(
+        ([key]) => key.toLowerCase() !== 'content-type',
+      );
+      switch (type) {
+        case 'json':
+          updateHeaders.push(['Content-Type', 'application/json']);
+          break;
+        case 'text':
+          updateHeaders.push(['Content-Type', 'text/plain']);
+          break;
+        case 'x-www-form-urlencoded':
+          updateHeaders.push([
+            'Content-Type',
+            'application/x-www-form-urlencoded',
+          ]);
+          break;
+        default:
+          updateHeaders.push(['Content-Type', '']);
+          break;
+      }
+      setHeaders(updateHeaders);
+    }, [type]
+  )
 
   const toggleParam = useCallback(
     (i: number) => {
@@ -159,7 +171,6 @@ export default function RequestBuilder(props?: {
         opts.body = formatForRequest(formBody!, type);
         break;
       default:
-        opts.body = body;
         break;
     }
 
