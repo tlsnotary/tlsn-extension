@@ -4,7 +4,9 @@
         "types": [
             "@extism/js-pdk"
         ],
-        "noEmit": true
+        "noEmit": true,
+        "resolveJsonModule": true,
+        "esModuleInterop": true,
     },
     "include": [
         "src/**/*"

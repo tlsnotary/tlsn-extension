@@ -1,5 +1,5 @@
-import { iconBase64 } from './iconBase64';
-
+import { icon } from '../dist/assets/icon';
+import config_json from '../config.json';
 /**
  * Plugin configuration
  * This configurations defines the plugin, most importantly:
@@ -10,37 +10,8 @@ import { iconBase64 } from './iconBase64';
 export function config() {
   Host.outputString(
     JSON.stringify({
-      title: 'Twitter Profile',
-      description: 'Notarize ownership of a twitter profile',
-      icon: iconBase64,
-      steps: [
-        {
-          title: 'Visit Twitter website',
-          cta: 'Go to x.com',
-          action: 'start',
-        },
-        {
-          title: 'Collect credentials',
-          description: "Login to your account if you haven't already",
-          cta: 'Check cookies',
-          action: 'two',
-        },
-        {
-          title: 'Notarize twitter profile',
-          cta: 'Notarize',
-          action: 'three',
-          prover: true,
-        },
-      ],
-      hostFunctions: ['redirect', 'notarize'],
-      cookies: ['api.x.com'],
-      headers: ['api.x.com'],
-      requests: [
-        {
-          url: 'https://api.x.com/1.1/account/settings.json',
-          method: 'GET',
-        },
-      ],
+      ...config_json,
+      icon: icon
     }),
   );
 }
