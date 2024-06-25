@@ -98,7 +98,7 @@ export default function RequestBuilder(props?: {
 
       setHeaders(updateHeaders);
     },
-    [type],
+    [type, headers],
   );
 
   const toggleParam = useCallback(
@@ -164,7 +164,7 @@ export default function RequestBuilder(props?: {
     setResponseData(await parseResponse(contentType!, res));
 
     navigate(subpath + '/response');
-  }, [href, method, headers, body]);
+  }, [href, method, headers, body, type]);
 
   const onNotarize = useCallback(async () => {
     const maxSentData = await getMaxSent();
@@ -198,7 +198,7 @@ export default function RequestBuilder(props?: {
     );
 
     navigate('/history');
-  }, [href, method, headers, body]);
+  }, [href, method, headers, body, type]);
 
   return (
     <div className="flex flex-col w-full py-2 gap-2 flex-grow">
@@ -294,7 +294,7 @@ export default function RequestBuilder(props?: {
                 <select
                   className={c('select', {
                     'w-[80px]':
-                      type === 'application/json' || type === 'text/plain',
+                      type === 'application/json' || type === 'text/plain' || type === '',
                     'w-[200px]': type === 'application/x-www-form-urlencoded',
                   })}
                   value={type}
@@ -306,7 +306,7 @@ export default function RequestBuilder(props?: {
                     x-www-form-urlencoded
                   </option>
                 </select>
-                {type === 'json' || type === 'text' ? (
+                {type === 'application/json' || type === 'text/plain' ? (
                   <InputBody body={body!} setBody={setBody} />
                 ) : (
                   <FormBodyTable
