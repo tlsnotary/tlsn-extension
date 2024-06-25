@@ -130,7 +130,7 @@ export async function getNotaryRequests(): Promise<RequestHistory[]> {
 export async function getNotaryRequest(
   id: string,
 ): Promise<RequestHistory | null> {
-  return historyDb.get(id);
+  return historyDb.get(id).catch(() => null);
 }
 
 export async function getPluginHashes(): Promise<string[]> {

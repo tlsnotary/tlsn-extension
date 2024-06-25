@@ -708,6 +708,13 @@ async function handleGetProof(request: BackgroundAction) {
   const defer = deferredPromise();
   const { origin, position, id } = request.data;
 
+  const response = await getNotaryRequest(id);
+
+  if (!response) {
+    defer.reject(new Error('proof id not found.'));
+    return defer.promise;
+  }
+
   const { popup, tab } = await openPopup(
     `get-proof-approval?id=${id}&origin=${encodeURIComponent(origin)}&favIconUrl=${encodeURIComponent(currentTab?.favIconUrl || '')}`,
     position.left,
@@ -717,7 +724,6 @@ async function handleGetProof(request: BackgroundAction) {
   const onMessage = async (req: BackgroundAction) => {
     if (req.type === BackgroundActiontype.get_proof_response) {
       if (req.data) {
-        const response = await getNotaryRequest(id);
         defer.resolve(response?.proof || null);
       } else {
         defer.reject(new Error('user rejected.'));
