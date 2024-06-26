@@ -74,6 +74,8 @@ export enum BackgroundActiontype {
   get_history_response = 'get_history_response',
   get_proof_request = 'get_proof_request',
   get_proof_response = 'get_proof_response',
+  notarize_request = 'notarize_request',
+  notarize_response = 'notarize_response',
 }
 
 export type BackgroundAction = {
@@ -120,6 +122,9 @@ export type RequestHistory = {
   secretHeaders?: string[];
   secretResps?: string[];
   cid?: string;
+  metadata?: {
+    [k: string]: string;
+  };
 };
 
 export const initRPC = () => {
@@ -167,6 +172,8 @@ export const initRPC = () => {
           return handleGetHistory(request);
         case BackgroundActiontype.get_proof_request:
           return handleGetProof(request);
+        case BackgroundActiontype.notarize_request:
+          return handleNotarizeRequest(request);
         default:
           break;
       }
@@ -327,7 +334,7 @@ async function handleProveRequestStart(
     action: addRequestHistory(await getNotaryRequest(id)),
   });
 
-  await browser.runtime.sendMessage({
+  browser.runtime.sendMessage({
     type: BackgroundActiontype.process_prove_request,
     data: {
       id,
@@ -725,6 +732,96 @@ async function handleGetProof(request: BackgroundAction) {
     if (req.type === BackgroundActiontype.get_proof_response) {
       if (req.data) {
         defer.resolve(response?.proof || null);
+      } else {
+        defer.reject(new Error('user rejected.'));
+      }
+
+      browser.runtime.onMessage.removeListener(onMessage);
+      browser.tabs.remove(tab.id!);
+    }
+  };
+
+  const onPopUpClose = (windowId: number) => {
+    if (windowId === popup.id) {
+      defer.reject(new Error('user rejected.'));
+      browser.windows.onRemoved.removeListener(onPopUpClose);
+    }
+  };
+
+  browser.runtime.onMessage.addListener(onMessage);
+  browser.windows.onRemoved.addListener(onPopUpClose);
+
+  return defer.promise;
+}
+
+async function handleNotarizeRequest(request: BackgroundAction) {
+  const [currentTab] = await browser.tabs.query({
+    active: true,
+    currentWindow: true,
+  });
+
+  const defer = deferredPromise();
+  const {
+    url,
+    method = 'GET',
+    headers,
+    body,
+    maxSentData = await getMaxSent(),
+    maxRecvData = await getMaxRecv(),
+    maxTranscriptSize,
+    notaryUrl = await getNotaryApi(),
+    websocketProxyUrl = await getProxyApi(),
+    origin,
+    position,
+  } = request.data;
+
+  const config = JSON.stringify({
+    url,
+    method,
+    headers,
+    body,
+    maxSentData,
+    maxRecvData,
+    maxTranscriptSize,
+    notaryUrl,
+    websocketProxyUrl,
+  });
+
+  const { popup, tab } = await openPopup(
+    `notarize-approval?config=${encodeURIComponent(config)}&origin=${encodeURIComponent(origin)}&favIconUrl=${encodeURIComponent(currentTab?.favIconUrl || '')}`,
+    position.left,
+    position.top,
+  );
+
+  const onMessage = async (req: BackgroundAction) => {
+    if (req.type === BackgroundActiontype.notarize_response) {
+      if (req.data) {
+        try {
+          const { secretHeaders, secretResps } = req.data;
+          const { id } = await addNotaryRequest(Date.now(), req.data);
+          await setNotaryRequestStatus(id, 'pending');
+          const result = await browser.runtime.sendMessage({
+            type: BackgroundActiontype.process_prove_request,
+            data: {
+              id,
+              url,
+              method,
+              headers,
+              body,
+              maxTranscriptSize,
+              maxSentData,
+              maxRecvData,
+              notaryUrl,
+              websocketProxyUrl,
+              secretHeaders,
+              secretResps,
+              loggingFilter: await getLoggingFilter(),
+            },
+          });
+          defer.resolve(result);
+        } catch (e) {
+          defer.reject(e);
+        }
       } else {
         defer.reject(new Error('user rejected.'));
       }

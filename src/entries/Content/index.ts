@@ -1,6 +1,7 @@
 import browser from 'webextension-polyfill';
 import { ContentScriptRequest, ContentScriptTypes, RPCServer } from './rpc';
 import { BackgroundActiontype, RequestHistory } from '../Background/rpc';
+import { urlify } from '../../utils/misc';
 
 const charwise = require('charwise');
 
@@ -54,6 +55,61 @@ const charwise = require('charwise');
         data: {
           ...getPopupData(),
           id,
+        },
+      });
+
+      return proof;
+    },
+  );
+
+  server.on(
+    ContentScriptTypes.notarize,
+    async (
+      request: ContentScriptRequest<{
+        url: string;
+        method?: string;
+        headers?: { [key: string]: string };
+        body?: string;
+        notaryUrl?: string;
+        websocketProxyUrl?: string;
+        maxSentData?: number;
+        maxRecvData?: number;
+        maxTranscriptSize?: number;
+        secretHeaders?: string[];
+        secretResps?: string[];
+      }>,
+    ) => {
+      const {
+        url,
+        method,
+        headers,
+        body,
+        maxSentData,
+        maxRecvData,
+        maxTranscriptSize,
+        notaryUrl,
+        websocketProxyUrl,
+        secretHeaders,
+        secretResps,
+      } = request.params || {};
+
+      if (!url || !urlify(url)) throw new Error('invalid url.');
+
+      const proof = await browser.runtime.sendMessage({
+        type: BackgroundActiontype.notarize_request,
+        data: {
+          ...getPopupData(),
+          url,
+          method,
+          headers,
+          body,
+          maxSentData,
+          maxRecvData,
+          maxTranscriptSize,
+          notaryUrl,
+          websocketProxyUrl,
+          secretHeaders,
+          secretResps,
         },
       });
 

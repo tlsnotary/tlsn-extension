@@ -52,9 +52,12 @@ const Offscreen = () => {
                   proof,
                 },
               });
+
+              sendResponse({
+                id,
+                proof,
+              });
             } catch (error) {
-              console.log('i caught an error');
-              console.error(error);
               browser.runtime.sendMessage({
                 type: BackgroundActiontype.finish_prove_request,
                 data: {
@@ -62,10 +65,11 @@ const Offscreen = () => {
                   error,
                 },
               });
+              throw error;
             }
           })();
 
-          break;
+          return true;
         }
         case BackgroundActiontype.verify_proof: {
           (async () => {

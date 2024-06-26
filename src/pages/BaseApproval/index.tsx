@@ -1,10 +1,5 @@
-import React, { ReactElement, ReactNode, useCallback } from 'react';
-import Icon from '../../components/Icon';
+import React, { ReactElement, ReactNode } from 'react';
 import logo from '../../assets/img/icon-128.png';
-import { useSearchParams } from 'react-router-dom';
-import { urlify } from '../../utils/misc';
-import browser from 'webextension-polyfill';
-import { BackgroundActiontype } from '../../entries/Background/rpc';
 
 export function BaseApproval({
   onSecondaryClick,
@@ -29,7 +24,7 @@ export function BaseApproval({
           <span className="font-semibold">{header}</span>
         </div>
       </div>
-      <div className="flex flex-col flex-grow gap-2 overflow-y-auto">
+      <div className="flex flex-col flex-grow gap-2 overflow-y-auto w-full">
         {children}
       </div>
       <div className="flex flex-row w-full gap-2 justify-end border-t p-4">
