@@ -42,6 +42,7 @@ import {
 } from '../../utils/storage';
 import { deferredPromise } from '../../utils/promise';
 import { minimatch } from 'minimatch';
+import { OffscreenActionTypes } from '../Offscreen/types';
 
 const charwise = require('charwise');
 
@@ -793,15 +794,32 @@ async function handleNotarizeRequest(request: BackgroundAction) {
     position.top,
   );
 
+  const now = Date.now();
+  const id = charwise.encode(now).toString('hex');
+  let isUserReject = true;
+
+  const onNotarizationResponse = async (req: any) => {
+    if (req.type !== OffscreenActionTypes.notarization_response) return;
+    if (req.data.id !== id) return;
+
+    if (req.data.error) defer.reject(req.data.error);
+    if (req.data.proof) defer.resolve(req.data.proof);
+
+    browser.runtime.onMessage.removeListener(onNotarizationResponse);
+  };
+
   const onMessage = async (req: BackgroundAction) => {
     if (req.type === BackgroundActiontype.notarize_response) {
+      console.log(req);
       if (req.data) {
         try {
           const { secretHeaders, secretResps } = req.data;
-          const { id } = await addNotaryRequest(Date.now(), req.data);
+          await addNotaryRequest(now, req.data);
           await setNotaryRequestStatus(id, 'pending');
-          const result = await browser.runtime.sendMessage({
-            type: BackgroundActiontype.process_prove_request,
+
+          browser.runtime.onMessage.addListener(onNotarizationResponse);
+          browser.runtime.sendMessage({
+            type: OffscreenActionTypes.notarization_request,
             data: {
               id,
               url,
@@ -818,7 +836,6 @@ async function handleNotarizeRequest(request: BackgroundAction) {
               loggingFilter: await getLoggingFilter(),
             },
           });
-          defer.resolve(result);
         } catch (e) {
           defer.reject(e);
         }
@@ -827,12 +844,13 @@ async function handleNotarizeRequest(request: BackgroundAction) {
       }
 
       browser.runtime.onMessage.removeListener(onMessage);
+      isUserReject = false;
       browser.tabs.remove(tab.id!);
     }
   };
 
   const onPopUpClose = (windowId: number) => {
-    if (windowId === popup.id) {
+    if (isUserReject && windowId === popup.id) {
       defer.reject(new Error('user rejected.'));
       browser.windows.onRemoved.removeListener(onPopUpClose);
     }
