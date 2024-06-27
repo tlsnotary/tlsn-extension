@@ -3,6 +3,7 @@ import React, {
   MouseEventHandler,
   ReactElement,
   ReactNode,
+  SelectHTMLAttributes,
   useCallback,
   useEffect,
   useState,
@@ -81,6 +82,7 @@ export default function RequestBuilder(props?: {
 
   useEffect(() => {
     if (method === 'GET' || method === 'HEAD') {
+      setType('');
       updateContentType('');
       return;
     } else {
@@ -147,7 +149,7 @@ export default function RequestBuilder(props?: {
       }, {}),
     };
 
-    opts.body = formatForRequest(body!, type);
+    type ? (opts.body = formatForRequest(body!, type)) : null;
 
     const cookie = headers.find(([key]) => key === 'Cookie');
 
@@ -294,7 +296,9 @@ export default function RequestBuilder(props?: {
                 <select
                   className={c('select', {
                     'w-[80px]':
-                      type === 'application/json' || type === 'text/plain' || type === '',
+                      type === 'application/json' ||
+                      type === 'text/plain' ||
+                      type === '',
                     'w-[200px]': type === 'application/x-www-form-urlencoded',
                   })}
                   value={type}
