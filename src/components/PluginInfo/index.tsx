@@ -117,7 +117,7 @@ export function PluginInfoModal(props: {
   return (
     <Modal
       onClose={onClose}
-      className="custom-modal !rounded-none flex items-center justify-center gap-4"
+      className="custom-modal !rounded-none flex items-center justify-center gap-4 cursor-default"
     >
       <ModalHeader className="w-full p-2 border-gray-200 text-gray-500">
         {header || (

@@ -48,6 +48,7 @@ var options = {
     popup: path.join(__dirname, "src", "entries", "Popup", "index.tsx"),
     background: path.join(__dirname, "src", "entries", "Background", "index.ts"),
     contentScript: path.join(__dirname, "src", "entries", "Content", "index.ts"),
+    content: path.join(__dirname, "src", "entries", "Content", "content.ts"),
     offscreen: path.join(__dirname, "src", "entries", "Offscreen", "index.tsx"),
     sidePanel: path.join(__dirname, "src", "entries", "SidePanel", "index.tsx"),
   },

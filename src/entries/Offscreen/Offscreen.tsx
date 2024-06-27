@@ -3,14 +3,85 @@ import { BackgroundActiontype } from '../Background/rpc';
 import { prove, set_logging_filter, verify } from 'tlsn-js';
 import { urlify } from '../../utils/misc';
 import browser from 'webextension-polyfill';
-import { getLoggingFilter } from '../../utils/storage';
 import { LOGGING_LEVEL_INFO } from '../../utils/constants';
+import { OffscreenActionTypes } from './types';
 
 const Offscreen = () => {
   useEffect(() => {
     // @ts-ignore
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       switch (request.type) {
+        case OffscreenActionTypes.notarization_request: {
+          const {
+            url,
+            method,
+            headers,
+            body = '',
+            maxSentData,
+            maxRecvData,
+            maxTranscriptSize,
+            notaryUrl,
+            websocketProxyUrl,
+            id,
+            secretHeaders,
+            secretResps,
+            loggingFilter = LOGGING_LEVEL_INFO,
+          } = request.data;
+
+          (async () => {
+            try {
+              const token = urlify(url)?.hostname || '';
+              await set_logging_filter(loggingFilter);
+              const proof = await prove(url, {
+                method,
+                headers,
+                body,
+                maxSentData,
+                maxRecvData,
+                maxTranscriptSize,
+                notaryUrl,
+                websocketProxyUrl: websocketProxyUrl + `?token=${token}`,
+                secretHeaders,
+                secretResps,
+              });
+
+              browser.runtime.sendMessage({
+                type: BackgroundActiontype.finish_prove_request,
+                data: {
+                  id,
+                  proof,
+                },
+              });
+
+              browser.runtime.sendMessage({
+                type: OffscreenActionTypes.notarization_response,
+                data: {
+                  id,
+                  proof,
+                },
+              });
+            } catch (error) {
+              console.error(error);
+              browser.runtime.sendMessage({
+                type: BackgroundActiontype.finish_prove_request,
+                data: {
+                  id,
+                  error,
+                },
+              });
+
+              browser.runtime.sendMessage({
+                type: OffscreenActionTypes.notarization_response,
+                data: {
+                  id,
+                  error,
+                },
+              });
+            }
+          })();
+
+          break;
+        }
         case BackgroundActiontype.process_prove_request: {
           const {
             url,
@@ -53,8 +124,6 @@ const Offscreen = () => {
                 },
               });
             } catch (error) {
-              console.log('i caught an error');
-              console.error(error);
               browser.runtime.sendMessage({
                 type: BackgroundActiontype.finish_prove_request,
                 data: {

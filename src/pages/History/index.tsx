@@ -31,7 +31,12 @@ export default function History(): ReactElement {
   );
 }
 
-function OneRequestHistory(props: { requestId: string }): ReactElement {
+export function OneRequestHistory(props: {
+  requestId: string;
+  className?: string;
+  hideActions?: string[];
+}): ReactElement {
+  const { hideActions = [] } = props;
   const dispatch = useDispatch();
   const request = useRequestHistory(props.requestId);
   const [showingError, showError] = useState(false);
@@ -109,7 +114,12 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
   }, [props.requestId, request, cid]);
 
   return (
-    <div className="flex flex-row flex-nowrap border rounded-md p-2 gap-1 hover:bg-slate-50 cursor-pointer">
+    <div
+      className={classNames(
+        'flex flex-row flex-nowrap border rounded-md p-2 gap-1 hover:bg-slate-50 cursor-pointer',
+        props.className,
+      )}
+    >
       <ShareConfirmationModal />
       <ErrorModal />
       <div className="flex flex-col flex-nowrap flex-grow flex-shrink w-0">
@@ -144,6 +154,7 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
               onClick={onView}
               fa="fa-solid fa-receipt"
               ctaText="View Proof"
+              hidden={hideActions.includes('view')}
             />
             <ActionButton
               className="bg-slate-100 text-slate-300 hover:bg-slate-200 hover:text-slate-500"
@@ -152,35 +163,42 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
               }
               fa="fa-solid fa-download"
               ctaText="Download"
+              hidden={hideActions.includes('download')}
             />
             <ActionButton
               className="flex flex-row flex-grow-0 gap-2 self-end items-center justify-end px-2 py-1 bg-slate-100 text-slate-300 hover:bg-slate-200 hover:text-slate-500 hover:font-bold"
               onClick={() => setShowingShareConfirmation(true)}
               fa="fa-solid fa-upload"
               ctaText="Share"
+              hidden={hideActions.includes('share')}
             />
           </>
         )}
-        {status === 'error' && !!request?.error && <ErrorButton />}
-        {(!status || status === 'error') && <RetryButton />}
+        {status === 'error' && !!request?.error && (
+          <ErrorButton hidden={hideActions.includes('error')} />
+        )}
+        {(!status || status === 'error') && (
+          <RetryButton hidden={hideActions.includes('retry')} />
+        )}
         {status === 'pending' && (
           <button className="flex flex-row flex-grow-0 gap-2 self-end items-center justify-end px-2 py-1 bg-slate-100 text-slate-300 font-bold">
             <Icon className="animate-spin" fa="fa-solid fa-spinner" size={1} />
             <span className="text-xs font-bold">Pending</span>
           </button>
         )}
-        <button
+        <ActionButton
           className="flex flex-row flex-grow-0 gap-2 self-end items-center justify-end px-2 py-1 bg-slate-100 text-slate-300 hover:bg-red-100 hover:text-red-500 hover:font-bold"
           onClick={onDelete}
-        >
-          <Icon className="" fa="fa-solid fa-trash" size={1} />
-          <span className="text-xs font-bold">Delete</span>
-        </button>
+          fa="fa-solid fa-trash"
+          ctaText="Delete"
+          hidden={hideActions.includes('delete')}
+        />
       </div>
     </div>
   );
 
-  function RetryButton(): ReactElement {
+  function RetryButton(p: { hidden?: boolean }): ReactElement {
+    if (p.hidden) return <></>;
     return (
       <button
         className="flex flex-row flex-grow-0 gap-2 self-end items-center justify-end px-2 py-1 bg-slate-100 text-slate-300 hover:bg-slate-200 hover:text-slate-500 hover:font-bold"
@@ -192,7 +210,8 @@ function OneRequestHistory(props: { requestId: string }): ReactElement {
     );
   }
 
-  function ErrorButton(): ReactElement {
+  function ErrorButton(p: { hidden?: boolean }): ReactElement {
+    if (p.hidden) return <></>;
     return (
       <button
         className="flex flex-row flex-grow-0 gap-2 self-end items-center justify-end px-2 py-1 bg-red-100 text-red-300 hover:bg-red-200 hover:text-red-500 hover:font-bold"
@@ -304,7 +323,10 @@ function ActionButton(props: {
   fa: string;
   ctaText: string;
   className?: string;
+  hidden?: boolean;
 }): ReactElement {
+  if (props.hidden) return <></>;
+
   return (
     <button
       className={classNames(

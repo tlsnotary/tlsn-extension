@@ -5,7 +5,6 @@ import Popup from './Popup';
 import './index.scss';
 import { Provider } from 'react-redux';
 import store from '../../utils/store';
-import { BackgroundActiontype } from '../Background/rpc';
 
 const container = document.getElementById('app-container');
 const root = createRoot(container!); // createRoot(container!) if you use TypeScript
