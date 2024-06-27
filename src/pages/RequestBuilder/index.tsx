@@ -82,7 +82,6 @@ export default function RequestBuilder(props?: {
 
   useEffect(() => {
     if (method === 'GET' || method === 'HEAD') {
-      setType('');
       updateContentType('');
       return;
     } else {
@@ -202,10 +201,23 @@ export default function RequestBuilder(props?: {
     navigate('/history');
   }, [href, method, headers, body, type]);
 
+  const onMethod = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const value = e.target.value;
+      if (value === 'GET' || value === 'HEAD') {
+        setType('');
+        setMethod(value);
+      } else {
+        setMethod(value);
+      }
+    },
+    [method, type],
+  );
+
   return (
     <div className="flex flex-col w-full py-2 gap-2 flex-grow">
       <div className="flex flex-row px-2">
-        <select className="select" onChange={(e) => setMethod(e.target.value)}>
+        <select className="select" onChange={(e) => onMethod(e)}>
           <option value="GET">GET</option>
           <option value="POST">POST</option>
           <option value="PUT">PUT</option>
@@ -310,13 +322,13 @@ export default function RequestBuilder(props?: {
                     x-www-form-urlencoded
                   </option>
                 </select>
-                {type === 'application/json' || type === 'text/plain' ? (
-                  <InputBody body={body!} setBody={setBody} />
-                ) : (
+                {type === 'x-www-form-urlencoded' ? (
                   <FormBodyTable
                     formBody={formBody}
                     setFormBody={setFormBody}
                   />
+                ) : (
+                  <InputBody body={body!} setBody={setBody} />
                 )}
               </div>
             }
