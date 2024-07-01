@@ -1,6 +1,5 @@
 import classNames from 'classnames';
 import React, {
-  ReactNode,
   ReactElement,
   useState,
   useCallback,
@@ -8,14 +7,11 @@ import React, {
   useEffect,
   useRef,
 } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router';
+import { useNavigate, useParams } from 'react-router';
 import { notarizeRequest, useRequest } from '../../reducers/requests';
 import Icon from '../../components/Icon';
 import { urlify } from '../../utils/misc';
 import {
-  get,
-  NOTARY_API_LS_KEY,
-  PROXY_API_LS_KEY,
   getNotaryApi,
   getProxyApi,
   getMaxSent,
