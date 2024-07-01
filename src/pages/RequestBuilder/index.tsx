@@ -3,7 +3,6 @@ import React, {
   MouseEventHandler,
   ReactElement,
   ReactNode,
-  SelectHTMLAttributes,
   useCallback,
   useEffect,
   useState,
@@ -50,15 +49,15 @@ export default function RequestBuilder(props?: {
   const [params, setParams] = useState<[string, string, boolean?][]>(
     props?.params || [],
   );
-  const [headers, setHeaders] = useState<[string, string, boolean?][]>(
-    props?.headers || [],
-  );
   const [body, setBody] = useState<string | undefined>(props?.body);
   const [formBody, setFormBody] = useState<[string, string, boolean?][]>([
     ['', '', true],
   ]);
   const [method, setMethod] = useState<string>(props?.method || 'GET');
-  const [type, setType] = useState<string>('');
+  const [type, setType] = useState<string>('text/plain');
+  const [headers, setHeaders] = useState<[string, string, boolean?][]>(
+    props?.headers || [['Content-Type', type, true]],
+  );
 
   const [responseData, setResponseData] = useState<{
     json: any | null;
@@ -81,12 +80,7 @@ export default function RequestBuilder(props?: {
   }, [_url]);
 
   useEffect(() => {
-    if (method === 'GET' || method === 'HEAD') {
-      updateContentType('');
-      return;
-    } else {
-      updateContentType(type);
-    }
+    updateContentType(type);
   }, [type, method]);
 
   const updateContentType = useCallback(
@@ -94,12 +88,15 @@ export default function RequestBuilder(props?: {
       const updateHeaders = headers.filter(
         ([key]) => key.toLowerCase() !== 'content-type',
       );
-
-      type && updateHeaders.push(['Content-Type', type]);
+      if (method === 'GET' || method === 'HEAD') {
+        updateHeaders.push(['Content-Type', type, true]);
+      } else {
+        updateHeaders.push(['Content-Type', type, false]);
+      }
 
       setHeaders(updateHeaders);
     },
-    [type, headers],
+    [method, type, headers],
   );
 
   const toggleParam = useCallback(
@@ -153,7 +150,7 @@ export default function RequestBuilder(props?: {
       } else {
         opts.body = formatForRequest(body!, type);
       }
-  }
+    }
     const cookie = headers.find(([key]) => key === 'Cookie');
 
     if (cookie) {
