@@ -147,9 +147,13 @@ export default function RequestBuilder(props?: {
         return map;
       }, {}),
     };
-
-    type ? (opts.body = formatForRequest(body!, type)) : null;
-
+    if (method !== 'GET' && method !== 'HEAD') {
+      if (type === 'application/x-www-form-urlencoded') {
+        opts.body = formatForRequest(formBody, type);
+      } else {
+        opts.body = formatForRequest(body!, type);
+      }
+  }
     const cookie = headers.find(([key]) => key === 'Cookie');
 
     if (cookie) {
@@ -322,7 +326,7 @@ export default function RequestBuilder(props?: {
                     x-www-form-urlencoded
                   </option>
                 </select>
-                {type === 'x-www-form-urlencoded' ? (
+                {type === 'application/x-www-form-urlencoded' ? (
                   <FormBodyTable
                     formBody={formBody}
                     setFormBody={setFormBody}

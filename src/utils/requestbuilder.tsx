@@ -118,12 +118,14 @@ export function formatForRequest(
 
     if (type === 'application/x-www-form-urlencoded') {
       const searchParams = new URLSearchParams();
+      console.log(pairs);
       pairs.forEach(([key, value]) => {
         searchParams.append(key, value);
       });
+      console.log(searchParams.toString());
       return searchParams.toString();
     }
-
+    console.log('pairs', pairs.map(([key, value]) => `${key}=${value}`).join('&'))
     return pairs.map(([key, value]) => `${key}=${value}`).join('&');
   } catch (e) {
     console.error('Error formatting for request:', e);
