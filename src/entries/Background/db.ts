@@ -1,6 +1,11 @@
 import { Level } from 'level';
 import type { RequestHistory } from './rpc';
-import { PluginConfig, PluginMetadata, sha256 } from '../../utils/misc';
+import {
+  getPluginConfig,
+  PluginConfig,
+  PluginMetadata,
+  sha256,
+} from '../../utils/misc';
 const charwise = require('charwise');
 
 const db = new Level('./ext-db', {
@@ -139,8 +144,6 @@ export async function getNotaryRequest(
 export async function getPluginHashes(): Promise<string[]> {
   const retVal: string[] = [];
   for await (const [key] of pluginDb.iterator()) {
-    // pluginDb.del(key);
-    // pluginConfigDb.del(key);
     retVal.push(key);
   }
   return retVal;
@@ -209,6 +212,28 @@ export async function removePluginConfig(
   await pluginConfigDb.del(hash);
 
   return existing;
+}
+
+export async function getPlugins(): Promise<
+  (PluginConfig & { hash: string; metadata: PluginMetadata })[]
+> {
+  const hashes = await getPluginHashes();
+  const ret: (PluginConfig & { hash: string; metadata: PluginMetadata })[] = [];
+  for (const hash of hashes) {
+    const config = await getPluginConfigByHash(hash);
+    const metadata = await getPluginMetadataByHash(hash);
+    if (config) {
+      ret.push({
+        ...config,
+        hash,
+        metadata: metadata || {
+          filePath: '',
+          origin: '',
+        },
+      });
+    }
+  }
+  return ret;
 }
 
 export async function getPluginMetadataByHash(

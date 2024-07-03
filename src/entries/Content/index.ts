@@ -147,6 +147,37 @@ import { urlify } from '../../utils/misc';
       return response;
     },
   );
+
+  server.on(
+    ContentScriptTypes.get_plugins,
+    async (
+      request: ContentScriptRequest<{
+        url: string;
+        origin?: string;
+        metadata?: { [k: string]: string };
+      }>,
+    ) => {
+      const {
+        url: filterUrl,
+        origin: filterOrigin,
+        metadata,
+      } = request.params || {};
+
+      if (!filterUrl) throw new Error('params must include url.');
+
+      const response: RequestHistory[] = await browser.runtime.sendMessage({
+        type: BackgroundActiontype.get_plugins_request,
+        data: {
+          ...getPopupData(),
+          url: filterUrl,
+          origin: filterOrigin,
+          metadata,
+        },
+      });
+
+      return response;
+    },
+  );
 })();
 
 function loadScript(filename: string) {

@@ -26,6 +26,7 @@ import {
   setConnection,
   deleteConnection,
   addPluginMetadata,
+  getPlugins,
 } from './db';
 import { addOnePlugin, removeOnePlugin } from '../../reducers/plugins';
 import {
@@ -45,7 +46,6 @@ import {
 import { deferredPromise } from '../../utils/promise';
 import { minimatch } from 'minimatch';
 import { OffscreenActionTypes } from '../Offscreen/types';
-import { meta } from 'eslint-plugin-prettier';
 
 const charwise = require('charwise');
 
@@ -82,6 +82,8 @@ export enum BackgroundActiontype {
   notarize_response = 'notarize_response',
   install_plugin_request = 'install_plugin_request',
   install_plugin_response = 'install_plugin_response',
+  get_plugins_request = 'get_plugins_request',
+  get_plugins_response = 'get_plugins_response',
 }
 
 export type BackgroundAction = {
@@ -182,6 +184,8 @@ export const initRPC = () => {
           return handleNotarizeRequest(request);
         case BackgroundActiontype.install_plugin_request:
           return handleInstallPluginRequest(request);
+        case BackgroundActiontype.get_plugins_request:
+          return handleGetPluginsRequest(request);
         default:
           break;
       }
@@ -929,6 +933,75 @@ async function handleInstallPluginRequest(request: BackgroundAction) {
         } catch (e) {
           defer.reject(e);
         }
+      } else {
+        defer.reject(new Error('user rejected.'));
+      }
+
+      browser.runtime.onMessage.removeListener(onMessage);
+      browser.tabs.remove(tab.id!);
+    }
+  };
+
+  const onPopUpClose = (windowId: number) => {
+    if (windowId === popup.id) {
+      defer.reject(new Error('user rejected.'));
+      browser.windows.onRemoved.removeListener(onPopUpClose);
+    }
+  };
+
+  browser.runtime.onMessage.addListener(onMessage);
+  browser.windows.onRemoved.addListener(onPopUpClose);
+
+  return defer.promise;
+}
+
+async function handleGetPluginsRequest(request: BackgroundAction) {
+  const [currentTab] = await browser.tabs.query({
+    active: true,
+    currentWindow: true,
+  });
+
+  const defer = deferredPromise();
+  const {
+    origin,
+    position,
+    origin: filterOrigin,
+    url: filterUrl,
+    metadata: filterMetadata,
+  } = request.data;
+
+  const { popup, tab } = await openPopup(
+    `get-plugins-approval?${filterMetadata ? `metadata=${JSON.stringify(filterMetadata)}&` : ''}&filterOrigin=${filterOrigin}&url=${filterUrl}&origin=${encodeURIComponent(origin)}&favIconUrl=${encodeURIComponent(currentTab?.favIconUrl || '')}`,
+    position.left,
+    position.top,
+  );
+
+  const onMessage = async (req: BackgroundAction) => {
+    if (req.type === BackgroundActiontype.get_plugins_response) {
+      if (req.data) {
+        const response = await getPlugins();
+
+        const result = response.filter(({ metadata }) => {
+          let matchedMetadata = true;
+          if (filterMetadata) {
+            matchedMetadata = Object.entries(
+              filterMetadata as { [k: string]: string },
+            ).reduce((bool, [k, v]) => {
+              try {
+                return bool && minimatch(metadata![k], v);
+              } catch (e) {
+                return false;
+              }
+            }, matchedMetadata);
+          }
+          return (
+            minimatch(metadata.filePath, filterUrl) &&
+            minimatch(metadata.origin, filterOrigin || '**') &&
+            matchedMetadata
+          );
+        });
+
+        defer.resolve(result);
       } else {
         defer.reject(new Error('user rejected.'));
       }
