@@ -1,7 +1,7 @@
 import React, { ReactElement, useCallback, useEffect } from 'react';
 import Icon from '../../components/Icon';
 import { useSearchParams } from 'react-router-dom';
-import { urlify } from '../../utils/misc';
+import { safeParseJSON, urlify } from '../../utils/misc';
 import browser from 'webextension-polyfill';
 import { BackgroundActiontype } from '../../entries/Background/rpc';
 import { BaseApproval } from '../BaseApproval';
@@ -15,6 +15,8 @@ export function GetHistoryApproval(): ReactElement {
   const favIconUrl = params.get('favIconUrl');
   const method = params.get('method');
   const url = params.get('url');
+  const rawMetadata = params.get('metadata');
+  const metadata = safeParseJSON(rawMetadata);
   const hostname = urlify(origin || '')?.hostname;
   const proofs = useAllProofHistory();
 
@@ -39,9 +41,23 @@ export function GetHistoryApproval(): ReactElement {
   }, []);
 
   const result = proofs.filter((proof) => {
+    let matchedMetadata = true;
+    if (metadata) {
+      matchedMetadata = Object.entries(
+        metadata as { [k: string]: string },
+      ).reduce((bool, [k, v]) => {
+        try {
+          return bool && minimatch(proof.metadata![k], v);
+        } catch (e) {
+          return false;
+        }
+      }, matchedMetadata);
+    }
+
     return (
       minimatch(proof.method, method!, { nocase: true }) &&
-      minimatch(proof.url, url!)
+      minimatch(proof.url, url!) &&
+      matchedMetadata
     );
   });
 
@@ -77,21 +93,31 @@ export function GetHistoryApproval(): ReactElement {
         <table className="border border-collapse table-auto rounded text-xs w-full">
           <tbody>
             <tr>
-              <td className="px-2 py-1 border border-slate-300 bg-slate-100 text-slate-500 align-top">
-                Method:
+              <td className="px-2 py-1 border border-slate-300 bg-slate-100 text-slate-500 align-top w-16 text-left">
+                Method
               </td>
               <td className="px-2 py-1 border border-slate-300 font-semibold text-black font-mono text-left">
                 {method?.toUpperCase()}
               </td>
             </tr>
             <tr className="">
-              <td className="px-2 py-1 border border-slate-300 bg-slate-100 text-slate-500 align-top">
-                URL:
+              <td className="px-2 py-1 border border-slate-300 bg-slate-100 text-slate-500 align-top w-16 text-left">
+                URL
               </td>
               <td className="px-2 py-1 border border-slate-300 font-semibold text-black font-mono break-all text-left">
                 {url}
               </td>
             </tr>
+            {rawMetadata && (
+              <tr className="">
+                <td className="px-2 py-1 border border-slate-300 bg-slate-100 text-slate-500 align-top w-16 text-left">
+                  Metadata
+                </td>
+                <td className="px-2 py-1 border border-slate-300 font-semibold text-black font-mono break-all text-left">
+                  {rawMetadata}
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
         <div

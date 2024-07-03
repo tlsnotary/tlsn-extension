@@ -88,16 +88,22 @@ export function NotarizeApproval(): ReactElement {
             </div>
           </div>
           <div className="flex flex-col items-center gap-4 text-sm px-8 text-center flex-grow break-all">
-            <div className="flex flex-row items-center w-full">
-              <div className="flex flex-row items-center border border-slate-300 bg-slate-100 px-2 rounded-l text-slate-500 font-semibold h-8">
-                {config.method?.toUpperCase()}
-              </div>
-              <input
-                className="outline-0 border border-slate-300 bg-slate-50 px-2 border-l-0 rounded-r flex-grow cursor-default h-8 text-slate-800"
-                type="text"
-                value={config.url}
-              />
-            </div>
+            <table className="border border-collapse table-auto rounded text-xs w-full">
+              <tbody>
+                <TableRow label="Method" value={config.method?.toUpperCase()} />
+                <TableRow label="Request URL" value={config.url} />
+                <TableRow label="Notary URL" value={config.notaryUrl} />
+                <TableRow label="Proxy URL" value={config.websocketProxyUrl} />
+                <TableRow label="Max Sent" value={config.maxSentData} />
+                <TableRow label="Max Recv" value={config.maxRecvData} />
+                {config.metadata && (
+                  <TableRow
+                    label="Metadata"
+                    value={JSON.stringify(config.metadata)}
+                  />
+                )}
+              </tbody>
+            </table>
           </div>
           <div className="text-xs px-8 pb-2 text-center text-slate-500">
             You will be able to review and redact headers and response body.
@@ -151,5 +157,22 @@ export function NotarizeApproval(): ReactElement {
     >
       {body}
     </BaseApproval>
+  );
+}
+
+function TableRow({ label, value }: { label: string; value: string }) {
+  return (
+    <tr>
+      <td className="px-2 py-1 border border-slate-300 bg-slate-100 text-slate-500 align-top text-left w-24">
+        {label}
+      </td>
+      <td className="px-2 py-1 border border-slate-300 font-semibold text-slate-800 text-left">
+        <input
+          className="outline-0 flex-grow cursor-default w-full"
+          type="text"
+          value={value}
+        />
+      </td>
+    </tr>
   );
 }

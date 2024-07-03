@@ -43,6 +43,7 @@ import {
 import { deferredPromise } from '../../utils/promise';
 import { minimatch } from 'minimatch';
 import { OffscreenActionTypes } from '../Offscreen/types';
+import { meta } from 'eslint-plugin-prettier';
 
 const charwise = require('charwise');
 
@@ -655,10 +656,11 @@ async function handleGetHistory(request: BackgroundAction) {
     position,
     method: filterMethod,
     url: filterUrl,
+    metadata: filterMetadata,
   } = request.data;
 
   const { popup, tab } = await openPopup(
-    `get-history-approval?method=${filterMethod}&url=${filterUrl}&origin=${encodeURIComponent(origin)}&favIconUrl=${encodeURIComponent(currentTab?.favIconUrl || '')}`,
+    `get-history-approval?${filterMetadata ? `metadata=${JSON.stringify(filterMetadata)}&` : ''}method=${filterMethod}&url=${filterUrl}&origin=${encodeURIComponent(origin)}&favIconUrl=${encodeURIComponent(currentTab?.favIconUrl || '')}`,
     position.left,
     position.top,
   );
@@ -669,18 +671,34 @@ async function handleGetHistory(request: BackgroundAction) {
         const response = await getNotaryRequests();
 
         const result = response
-          .map(({ id, method, url, notaryUrl, websocketProxyUrl }) => ({
-            id,
-            time: new Date(charwise.decode(id)),
-            method,
-            url,
-            notaryUrl,
-            websocketProxyUrl,
-          }))
-          .filter(({ method, url }) => {
+          .map(
+            ({ id, method, url, notaryUrl, websocketProxyUrl, metadata }) => ({
+              id,
+              time: new Date(charwise.decode(id)),
+              method,
+              url,
+              notaryUrl,
+              websocketProxyUrl,
+              metadata,
+            }),
+          )
+          .filter(({ method, url, metadata }) => {
+            let matchedMetadata = true;
+            if (filterMetadata) {
+              matchedMetadata = Object.entries(
+                filterMetadata as { [k: string]: string },
+              ).reduce((bool, [k, v]) => {
+                try {
+                  return bool && minimatch(metadata![k], v);
+                } catch (e) {
+                  return false;
+                }
+              }, matchedMetadata);
+            }
             return (
               minimatch(method, filterMethod, { nocase: true }) &&
-              minimatch(url, filterUrl)
+              minimatch(url, filterUrl) &&
+              matchedMetadata
             );
           });
 
@@ -774,6 +792,7 @@ async function handleNotarizeRequest(request: BackgroundAction) {
     websocketProxyUrl = await getProxyApi(),
     origin,
     position,
+    metadata,
   } = request.data;
 
   const config = JSON.stringify({
@@ -786,6 +805,7 @@ async function handleNotarizeRequest(request: BackgroundAction) {
     maxTranscriptSize,
     notaryUrl,
     websocketProxyUrl,
+    metadata,
   });
 
   const { popup, tab } = await openPopup(
@@ -796,7 +816,7 @@ async function handleNotarizeRequest(request: BackgroundAction) {
 
   const now = Date.now();
   const id = charwise.encode(now).toString('hex');
-  let isUserReject = true;
+  let isUserClose = true;
 
   const onNotarizationResponse = async (req: any) => {
     if (req.type !== OffscreenActionTypes.notarization_response) return;
@@ -810,7 +830,6 @@ async function handleNotarizeRequest(request: BackgroundAction) {
 
   const onMessage = async (req: BackgroundAction) => {
     if (req.type === BackgroundActiontype.notarize_response) {
-      console.log(req);
       if (req.data) {
         try {
           const { secretHeaders, secretResps } = req.data;
@@ -844,13 +863,13 @@ async function handleNotarizeRequest(request: BackgroundAction) {
       }
 
       browser.runtime.onMessage.removeListener(onMessage);
-      isUserReject = false;
+      isUserClose = false;
       browser.tabs.remove(tab.id!);
     }
   };
 
   const onPopUpClose = (windowId: number) => {
-    if (isUserReject && windowId === popup.id) {
+    if (isUserClose && windowId === popup.id) {
       defer.reject(new Error('user rejected.'));
       browser.windows.onRemoved.removeListener(onPopUpClose);
     }

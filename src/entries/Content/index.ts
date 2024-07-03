@@ -3,8 +3,6 @@ import { ContentScriptRequest, ContentScriptTypes, RPCServer } from './rpc';
 import { BackgroundActiontype, RequestHistory } from '../Background/rpc';
 import { urlify } from '../../utils/misc';
 
-const charwise = require('charwise');
-
 (async () => {
   loadScript('content.bundle.js');
   const server = new RPCServer();
@@ -24,8 +22,18 @@ const charwise = require('charwise');
 
   server.on(
     ContentScriptTypes.get_history,
-    async (request: ContentScriptRequest<{ method: string; url: string }>) => {
-      const { method: filterMethod, url: filterUrl } = request.params || {};
+    async (
+      request: ContentScriptRequest<{
+        method: string;
+        url: string;
+        metadata?: { [k: string]: string };
+      }>,
+    ) => {
+      const {
+        method: filterMethod,
+        url: filterUrl,
+        metadata,
+      } = request.params || {};
 
       if (!filterMethod || !filterUrl)
         throw new Error('params must include method and url.');
@@ -36,6 +44,7 @@ const charwise = require('charwise');
           ...getPopupData(),
           method: filterMethod,
           url: filterUrl,
+          metadata,
         },
       });
 
@@ -69,14 +78,13 @@ const charwise = require('charwise');
         url: string;
         method?: string;
         headers?: { [key: string]: string };
+        metadata?: { [key: string]: string };
         body?: string;
         notaryUrl?: string;
         websocketProxyUrl?: string;
         maxSentData?: number;
         maxRecvData?: number;
         maxTranscriptSize?: number;
-        secretHeaders?: string[];
-        secretResps?: string[];
       }>,
     ) => {
       const {
@@ -89,8 +97,7 @@ const charwise = require('charwise');
         maxTranscriptSize,
         notaryUrl,
         websocketProxyUrl,
-        secretHeaders,
-        secretResps,
+        metadata,
       } = request.params || {};
 
       if (!url || !urlify(url)) throw new Error('invalid url.');
@@ -108,8 +115,7 @@ const charwise = require('charwise');
           maxTranscriptSize,
           notaryUrl,
           websocketProxyUrl,
-          secretHeaders,
-          secretResps,
+          metadata,
         },
       });
 

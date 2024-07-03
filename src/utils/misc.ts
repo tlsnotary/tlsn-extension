@@ -380,3 +380,11 @@ export const cacheToMap = (cache: NodeCache) => {
     return acc;
   }, {});
 };
+
+export function safeParseJSON(data?: string | null) {
+  try {
+    return JSON.parse(data!);
+  } catch (e) {
+    return null;
+  }
+}

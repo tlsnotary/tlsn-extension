@@ -8,6 +8,9 @@ class TLSN {
   async getHistory(
     method: string,
     url: string,
+    metadata?: {
+      [key: string]: string;
+    },
   ): Promise<
     (Pick<
       RequestHistory,
@@ -17,6 +20,7 @@ class TLSN {
     const resp = await client.call(ContentScriptTypes.get_history, {
       method,
       url,
+      metadata,
     });
 
     return resp || [];

@@ -409,6 +409,7 @@ export function RedactBodyTextarea(props: {
 }) {
   const { className, onChange, request } = props;
 
+  const [loading, setLoading] = useState(false);
   const [responseText, setResponseText] = useState('');
   const [start, setStart] = useState(0);
   const [end, setEnd] = useState(0);
@@ -446,7 +447,11 @@ export function RedactBodyTextarea(props: {
       options.body = formData.toString();
     }
 
-    replay(request.url, options).then((resp) => setResponseText(resp));
+    setLoading(true);
+    replay(request.url, options).then((resp) => {
+      setResponseText(resp);
+      setLoading(false);
+    });
   }, [request]);
 
   useEffect(() => {
@@ -470,6 +475,18 @@ export function RedactBodyTextarea(props: {
           .fill('*')
           .join(''),
       );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center !pt-4 flex-grow textarea bg-slate-100">
+        <Icon
+          className="animate-spin w-fit text-slate-500"
+          fa="fa-solid fa-spinner"
+          size={1}
+        />
+      </div>
+    );
   }
 
   return (
