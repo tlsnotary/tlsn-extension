@@ -7,6 +7,7 @@ export enum ContentScriptTypes {
   notarize = 'tlsn/cs/notarize',
   install_plugin = 'tlsn/cs/install_plugin',
   get_plugins = 'tlsn/cs/get_plugins',
+  run_plugin = 'tlsn/cs/run_plugin',
 }
 
 export type ContentScriptRequest<params> = {

@@ -165,13 +165,32 @@ import { urlify } from '../../utils/misc';
 
       if (!filterUrl) throw new Error('params must include url.');
 
-      const response: RequestHistory[] = await browser.runtime.sendMessage({
+      const response = await browser.runtime.sendMessage({
         type: BackgroundActiontype.get_plugins_request,
         data: {
           ...getPopupData(),
           url: filterUrl,
           origin: filterOrigin,
           metadata,
+        },
+      });
+
+      return response;
+    },
+  );
+
+  server.on(
+    ContentScriptTypes.run_plugin,
+    async (request: ContentScriptRequest<{ hash: string }>) => {
+      const { hash } = request.params || {};
+
+      if (!hash) throw new Error('params must include hash');
+
+      const response = await browser.runtime.sendMessage({
+        type: BackgroundActiontype.run_plugin_request,
+        data: {
+          ...getPopupData(),
+          hash,
         },
       });
 

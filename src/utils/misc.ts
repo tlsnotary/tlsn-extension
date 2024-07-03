@@ -11,12 +11,10 @@ import createPlugin, {
 } from '@extism/extism';
 import browser from 'webextension-polyfill';
 import NodeCache from 'node-cache';
-import {
-  getCookieStoreByHost,
-  getHeaderStoreByHost,
-} from '../entries/Background/cache';
+import { getHeaderStoreByHost } from '../entries/Background/cache';
 import { getNotaryApi, getProxyApi } from './storage';
 import { minimatch } from 'minimatch';
+import { getCookiesByHost, getHeadersByHost } from '../entries/Background/db';
 
 const charwise = require('charwise');
 
@@ -156,7 +154,7 @@ export const makePlugin = async (
   const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
 
   const injectedConfig = {
-    tabUrl: tab?.url,
+    tabUrl: tab?.url || 'x://x',
     tabId: tab?.id,
   };
 
@@ -255,8 +253,8 @@ export const makePlugin = async (
   if (config?.cookies) {
     const cookies: { [hostname: string]: { [key: string]: string } } = {};
     for (const host of config.cookies) {
-      const cache = getCookieStoreByHost(host);
-      cookies[host] = cacheToMap(cache);
+      const cache = await getCookiesByHost(host);
+      cookies[host] = cache;
     }
     // @ts-ignore
     injectedConfig.cookies = JSON.stringify(cookies);
@@ -265,8 +263,8 @@ export const makePlugin = async (
   if (config?.headers) {
     const headers: { [hostname: string]: { [key: string]: string } } = {};
     for (const host of config.headers) {
-      const cache = getHeaderStoreByHost(host);
-      headers[host] = cacheToMap(cache);
+      const cache = await getHeadersByHost(host);
+      headers[host] = cache;
     }
     // @ts-ignore
     injectedConfig.headers = JSON.stringify(headers);

@@ -1,6 +1,7 @@
 import { ContentScriptTypes, RPCClient } from './rpc';
 import { RequestHistory } from '../Background/rpc';
 import { Proof } from 'tlsn-js/build/types';
+import { PluginConfig, PluginMetadata } from '../../utils/misc';
 
 const client = new RPCClient();
 
@@ -86,11 +87,19 @@ class TLSN {
     metadata?: {
       [key: string]: string;
     },
-  ) {
+  ): Promise<(PluginConfig & { hash: string; metadata: PluginMetadata })[]> {
     const resp = await client.call(ContentScriptTypes.get_plugins, {
       url,
       origin,
       metadata,
+    });
+
+    return resp;
+  }
+
+  async runPlugin(hash: string) {
+    const resp = await client.call(ContentScriptTypes.run_plugin, {
+      hash,
     });
 
     return resp;

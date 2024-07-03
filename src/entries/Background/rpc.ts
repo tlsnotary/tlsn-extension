@@ -1,10 +1,5 @@
 import browser from 'webextension-polyfill';
-import {
-  clearCache,
-  getCacheByTabId,
-  getCookieStoreByHost,
-  getHeaderStoreByHost,
-} from './cache';
+import { clearCache, getCacheByTabId, getHeaderStoreByHost } from './cache';
 import { addRequestHistory } from '../../reducers/history';
 import {
   addNotaryRequest,
@@ -27,6 +22,8 @@ import {
   deleteConnection,
   addPluginMetadata,
   getPlugins,
+  getCookiesByHost,
+  getHeadersByHost,
 } from './db';
 import { addOnePlugin, removeOnePlugin } from '../../reducers/plugins';
 import {
@@ -46,6 +43,7 @@ import {
 import { deferredPromise } from '../../utils/promise';
 import { minimatch } from 'minimatch';
 import { OffscreenActionTypes } from '../Offscreen/types';
+import { SidePanelActionTypes } from '../SidePanel/types';
 
 const charwise = require('charwise');
 
@@ -84,6 +82,8 @@ export enum BackgroundActiontype {
   install_plugin_response = 'install_plugin_response',
   get_plugins_request = 'get_plugins_request',
   get_plugins_response = 'get_plugins_response',
+  run_plugin_request = 'run_plugin_request',
+  run_plugin_response = 'run_plugin_response',
 }
 
 export type BackgroundAction = {
@@ -186,6 +186,8 @@ export const initRPC = () => {
           return handleInstallPluginRequest(request);
         case BackgroundActiontype.get_plugins_request:
           return handleGetPluginsRequest(request);
+        case BackgroundActiontype.run_plugin_request:
+          return handleRunPluginCSRequest(request);
         default:
           break;
       }
@@ -442,13 +444,10 @@ function handleGetCookiesByHostname(
   request: BackgroundAction,
   sendResponse: (data?: any) => void,
 ): boolean {
-  const cache = getCookieStoreByHost(request.data);
-  const keys = cache.keys() || [];
-  const data = keys.reduce((acc: { [k: string]: string }, key) => {
-    acc[key] = cache.get(key) || '';
-    return acc;
-  }, {});
-  sendResponse(data);
+  (async () => {
+    const store = await getCookiesByHost(request.data);
+    sendResponse(store);
+  })();
   return true;
 }
 
@@ -456,13 +455,10 @@ function handleGetHeadersByHostname(
   request: BackgroundAction,
   sendResponse: (data?: any) => void,
 ): boolean {
-  const cache = getHeaderStoreByHost(request.data);
-  const keys = cache.keys() || [];
-  const data = keys.reduce((acc: { [k: string]: string }, key) => {
-    acc[key] = cache.get(key) || '';
-    return acc;
-  }, {});
-  sendResponse(data);
+  (async () => {
+    const cache = await getHeadersByHost(request.data);
+    sendResponse(cache);
+  })();
   return true;
 }
 
@@ -545,19 +541,23 @@ async function handleGetPluginConfigByHash(
   return config;
 }
 
-async function handleRunPlugin(
+function handleRunPlugin(
   request: BackgroundAction,
   sendResponse: (data?: any) => void,
 ) {
-  const { hash, method, params } = request.data;
-  const hex = await getPluginByHash(hash);
-  const arrayBuffer = hexToArrayBuffer(hex!);
-  const config = await getPluginConfig(arrayBuffer);
-  const plugin = await makePlugin(arrayBuffer, config);
-  devlog(`plugin::${method}`, params);
-  const out = await plugin.call(method, params);
-  devlog(`plugin response: `, out.string());
-  return JSON.parse(out.string());
+  (async () => {
+    const { hash, method, params } = request.data;
+    const hex = await getPluginByHash(hash);
+    const arrayBuffer = hexToArrayBuffer(hex!);
+    const config = await getPluginConfig(arrayBuffer);
+    const plugin = await makePlugin(arrayBuffer, config);
+    devlog(`plugin::${method}`, params);
+    const out = await plugin.call(method, params);
+    devlog(`plugin response: `, out.string());
+    sendResponse(JSON.parse(out.string()));
+  })();
+
+  return true;
 }
 
 let cachePopup: browser.Windows.Window | null = null;
@@ -1013,6 +1013,68 @@ async function handleGetPluginsRequest(request: BackgroundAction) {
 
   const onPopUpClose = (windowId: number) => {
     if (windowId === popup.id) {
+      defer.reject(new Error('user rejected.'));
+      browser.windows.onRemoved.removeListener(onPopUpClose);
+    }
+  };
+
+  browser.runtime.onMessage.addListener(onMessage);
+  browser.windows.onRemoved.addListener(onPopUpClose);
+
+  return defer.promise;
+}
+
+async function handleRunPluginCSRequest(request: BackgroundAction) {
+  const [currentTab] = await browser.tabs.query({
+    active: true,
+    currentWindow: true,
+  });
+
+  const defer = deferredPromise();
+  const { origin, position, hash } = request.data;
+
+  const plugin = await getPluginByHash(hash);
+  const config = await getPluginConfigByHash(hash);
+  let isUserClose = true;
+
+  if (!plugin || !config) {
+    defer.reject(new Error('plugin not found.'));
+    return defer.promise;
+  }
+
+  const { popup, tab } = await openPopup(
+    `run-plugin-approval?hash=${hash}&origin=${encodeURIComponent(origin)}&favIconUrl=${encodeURIComponent(currentTab?.favIconUrl || '')}`,
+    position.left,
+    position.top,
+  );
+
+  const onPluginRequest = async (req: any) => {
+    console.log(req);
+    if (req.type !== SidePanelActionTypes.execute_plugin_response) return;
+    if (req.data.hash !== hash) return;
+
+    if (req.data.error) defer.reject(req.data.error);
+    if (req.data.proof) defer.resolve(req.data.proof);
+
+    browser.runtime.onMessage.removeListener(onPluginRequest);
+  };
+
+  const onMessage = async (req: BackgroundAction) => {
+    if (req.type === BackgroundActiontype.run_plugin_response) {
+      if (req.data) {
+        browser.runtime.onMessage.addListener(onPluginRequest);
+      } else {
+        defer.reject(new Error('user rejected.'));
+      }
+
+      browser.runtime.onMessage.removeListener(onMessage);
+      isUserClose = false;
+      browser.tabs.remove(tab.id!);
+    }
+  };
+
+  const onPopUpClose = (windowId: number) => {
+    if (isUserClose && windowId === popup.id) {
       defer.reject(new Error('user rejected.'));
       browser.windows.onRemoved.removeListener(onPopUpClose);
     }

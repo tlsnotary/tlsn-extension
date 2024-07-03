@@ -1,14 +1,10 @@
 import { Level } from 'level';
 import type { RequestHistory } from './rpc';
-import {
-  getPluginConfig,
-  PluginConfig,
-  PluginMetadata,
-  sha256,
-} from '../../utils/misc';
+import { PluginConfig, PluginMetadata, sha256 } from '../../utils/misc';
+import mutex from './mutex';
 const charwise = require('charwise');
 
-const db = new Level('./ext-db', {
+export const db = new Level('./ext-db', {
   valueEncoding: 'json',
 });
 const historyDb = db.sublevel<string, RequestHistory>('history', {
@@ -24,6 +20,12 @@ const pluginMetadataDb = db.sublevel<string, PluginMetadata>('pluginMetadata', {
   valueEncoding: 'json',
 });
 const connectionDb = db.sublevel<string, boolean>('connections', {
+  valueEncoding: 'json',
+});
+const cookiesDb = db.sublevel<string, boolean>('cookies', {
+  valueEncoding: 'json',
+});
+const headersDb = db.sublevel<string, boolean>('headers', {
   valueEncoding: 'json',
 });
 
@@ -295,10 +297,44 @@ export async function setConnection(origin: string) {
   return true;
 }
 
-export async function deleteConnection(origin: string) {
-  if (await getConnection(origin)) {
-    await connectionDb.del(origin);
+export async function setCookies(host: string, name: string, value: string) {
+  return mutex.runExclusive(async () => {
+    if (await getCookies(host, name)) return null;
+    await cookiesDb.sublevel(host).put(name, value);
+    return true;
+  });
+}
+
+export async function clearCookies(host: string) {
+  return mutex.runExclusive(async () => {
+    await cookiesDb.sublevel(host).clear();
+    return true;
+  });
+}
+
+export async function getCookies(host: string, name: string) {
+  try {
+    const existing = await cookiesDb.sublevel(host).get(name);
+    return existing;
+  } catch (e) {
+    return null;
   }
+}
+
+export async function getCookiesByHost(host: string) {
+  const ret: { [key: string]: string } = {};
+  for await (const [key, value] of cookiesDb.sublevel(host).iterator()) {
+    ret[key] = value;
+  }
+  return ret;
+}
+
+export async function deleteConnection(origin: string) {
+  return mutex.runExclusive(async () => {
+    if (await getConnection(origin)) {
+      await connectionDb.del(origin);
+    }
+  });
 }
 
 export async function getConnection(origin: string) {
@@ -308,4 +344,37 @@ export async function getConnection(origin: string) {
   } catch (e) {
     return null;
   }
+}
+
+export async function setHeaders(host: string, name: string, value?: string) {
+  if (!value) return null;
+  return mutex.runExclusive(async () => {
+    if (await getHeaders(host, name)) return null;
+    await headersDb.sublevel(host).put(name, value);
+    return true;
+  });
+}
+
+export async function clearHeaders(host: string) {
+  return mutex.runExclusive(async () => {
+    await headersDb.sublevel(host).clear();
+    return true;
+  });
+}
+
+export async function getHeaders(host: string, name: string) {
+  try {
+    const existing = await headersDb.sublevel(host).get(name);
+    return existing;
+  } catch (e) {
+    return null;
+  }
+}
+
+export async function getHeadersByHost(host: string) {
+  const ret: { [key: string]: string } = {};
+  for await (const [key, value] of headersDb.sublevel(host).iterator()) {
+    ret[key] = value;
+  }
+  return ret;
 }

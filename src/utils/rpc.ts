@@ -2,20 +2,6 @@ import browser from 'webextension-polyfill';
 import { BackgroundActiontype } from '../entries/Background/rpc';
 import { PluginConfig } from './misc';
 
-export async function getCookiesByHost(hostname: string) {
-  return browser.runtime.sendMessage({
-    type: BackgroundActiontype.get_cookies_by_hostname,
-    data: hostname,
-  });
-}
-
-export async function getHeadersByHost(hostname: string) {
-  return browser.runtime.sendMessage({
-    type: BackgroundActiontype.get_headers_by_hostname,
-    data: hostname,
-  });
-}
-
 export async function addPlugin(hex: string) {
   return browser.runtime.sendMessage({
     type: BackgroundActiontype.add_plugin,

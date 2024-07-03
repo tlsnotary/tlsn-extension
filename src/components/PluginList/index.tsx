@@ -24,6 +24,7 @@ import {
   PluginInfoModalContent,
   PluginInfoModalHeader,
 } from '../PluginInfo';
+import { getPluginConfigByHash } from '../../entries/Background/db';
 
 export function PluginList(props: { className?: string }): ReactElement {
   const hashes = usePluginHashes();
@@ -81,7 +82,7 @@ export function Plugin(props: {
 
   useEffect(() => {
     (async function () {
-      setConfig(await fetchPluginConfigByHash(props.hash));
+      setConfig(await getPluginConfigByHash(props.hash));
     })();
   }, [props.hash]);
 
