@@ -16,7 +16,6 @@ import {
   getHeaderStoreByHost,
 } from '../entries/Background/cache';
 import { getNotaryApi, getProxyApi } from './storage';
-import { runPlugin } from './rpc';
 import { minimatch } from 'minimatch';
 
 const charwise = require('charwise');
@@ -306,6 +305,11 @@ export type PluginConfig = {
   notaryUrls?: string[];
   proxyUrls?: string[];
 };
+
+export type PluginMetadata = {
+  origin: string;
+  filePath: string;
+} & { [k: string]: string };
 
 export const getPluginConfig = async (
   data: Plugin | ArrayBuffer,

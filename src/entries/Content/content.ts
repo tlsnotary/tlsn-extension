@@ -67,6 +67,15 @@ class TLSN {
 
     return resp;
   }
+
+  async installPlugin(url: string, metadata?: { [k: string]: string }) {
+    const resp = await client.call(ContentScriptTypes.install_plugin, {
+      url,
+      metadata,
+    });
+
+    return resp;
+  }
 }
 
 const connect = async () => {

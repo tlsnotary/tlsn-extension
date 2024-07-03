@@ -25,6 +25,7 @@ import { ConnectionApproval } from '../../pages/ConnectionApproval';
 import { GetHistoryApproval } from '../../pages/GetHistoryApproval';
 import { GetProofApproval } from '../../pages/GetProofApproval';
 import { NotarizeApproval } from '../../pages/NotarizeApproval';
+import { InstallPluginApproval } from '../../pages/InstallPluginApproval';
 
 const Popup = () => {
   const dispatch = useDispatch();
@@ -112,6 +113,10 @@ const Popup = () => {
         <Route path="/get-history-approval" element={<GetHistoryApproval />} />
         <Route path="/get-proof-approval" element={<GetProofApproval />} />
         <Route path="/notarize-approval" element={<NotarizeApproval />} />
+        <Route
+          path="/install-plugin-approval"
+          element={<InstallPluginApproval />}
+        />
         <Route path="*" element={<Navigate to="/home" />} />
       </Routes>
     </div>

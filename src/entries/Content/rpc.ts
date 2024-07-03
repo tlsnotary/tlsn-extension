@@ -5,6 +5,7 @@ export enum ContentScriptTypes {
   get_history = 'tlsn/cs/get_history',
   get_proof = 'tlsn/cs/get_proof',
   notarize = 'tlsn/cs/notarize',
+  install_plugin = 'tlsn/cs/install_plugin',
 }
 
 export type ContentScriptRequest<params> = {

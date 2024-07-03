@@ -25,6 +25,7 @@ import {
   getConnection,
   setConnection,
   deleteConnection,
+  addPluginMetadata,
 } from './db';
 import { addOnePlugin, removeOnePlugin } from '../../reducers/plugins';
 import {
@@ -32,6 +33,7 @@ import {
   getPluginConfig,
   hexToArrayBuffer,
   makePlugin,
+  PluginConfig,
 } from '../../utils/misc';
 import {
   getLoggingFilter,
@@ -78,6 +80,8 @@ export enum BackgroundActiontype {
   get_proof_response = 'get_proof_response',
   notarize_request = 'notarize_request',
   notarize_response = 'notarize_response',
+  install_plugin_request = 'install_plugin_request',
+  install_plugin_response = 'install_plugin_response',
 }
 
 export type BackgroundAction = {
@@ -176,6 +180,8 @@ export const initRPC = () => {
           return handleGetProof(request);
         case BackgroundActiontype.notarize_request:
           return handleNotarizeRequest(request);
+        case BackgroundActiontype.install_plugin_request:
+          return handleInstallPluginRequest(request);
         default:
           break;
       }
@@ -870,6 +876,70 @@ async function handleNotarizeRequest(request: BackgroundAction) {
 
   const onPopUpClose = (windowId: number) => {
     if (isUserClose && windowId === popup.id) {
+      defer.reject(new Error('user rejected.'));
+      browser.windows.onRemoved.removeListener(onPopUpClose);
+    }
+  };
+
+  browser.runtime.onMessage.addListener(onMessage);
+  browser.windows.onRemoved.addListener(onPopUpClose);
+
+  return defer.promise;
+}
+
+async function handleInstallPluginRequest(request: BackgroundAction) {
+  const [currentTab] = await browser.tabs.query({
+    active: true,
+    currentWindow: true,
+  });
+
+  const defer = deferredPromise();
+  const { origin, position, url, metadata } = request.data;
+
+  let arrayBuffer: ArrayBuffer, config: PluginConfig;
+
+  try {
+    const resp = await fetch(url);
+    arrayBuffer = await resp.arrayBuffer();
+    config = await getPluginConfig(arrayBuffer);
+  } catch (e) {
+    defer.reject(e);
+    return defer.promise;
+  }
+
+  const { popup, tab } = await openPopup(
+    `install-plugin-approval?${metadata ? `metadata=${JSON.stringify(metadata)}&` : ''}url=${url}&origin=${encodeURIComponent(origin)}&favIconUrl=${encodeURIComponent(currentTab?.favIconUrl || '')}`,
+    position.left,
+    position.top,
+  );
+
+  const onMessage = async (req: BackgroundAction) => {
+    if (req.type === BackgroundActiontype.install_plugin_response) {
+      if (req.data) {
+        try {
+          const hex = Buffer.from(arrayBuffer).toString('hex');
+          const hash = await addPlugin(hex);
+          await addPluginConfig(hash!, config);
+          await addPluginMetadata(hash!, {
+            ...metadata,
+            origin,
+            filePath: url,
+          });
+          defer.resolve(hash);
+        } catch (e) {
+          defer.reject(e);
+        }
+      } else {
+        defer.reject(new Error('user rejected.'));
+      }
+
+      browser.runtime.onMessage.removeListener(onMessage);
+      browser.tabs.remove(tab.id!);
+    }
+  };
+
+  const onPopUpClose = (windowId: number) => {
+    if (windowId === popup.id) {
       defer.reject(new Error('user rejected.'));
       browser.windows.onRemoved.removeListener(onPopUpClose);
     }

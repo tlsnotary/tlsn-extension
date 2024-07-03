@@ -122,6 +122,31 @@ import { urlify } from '../../utils/misc';
       return proof;
     },
   );
+
+  server.on(
+    ContentScriptTypes.install_plugin,
+    async (
+      request: ContentScriptRequest<{
+        url: string;
+        metadata?: { [k: string]: string };
+      }>,
+    ) => {
+      const { url, metadata } = request.params || {};
+
+      if (!url) throw new Error('params must include url.');
+
+      const response: RequestHistory[] = await browser.runtime.sendMessage({
+        type: BackgroundActiontype.install_plugin_request,
+        data: {
+          ...getPopupData(),
+          url,
+          metadata,
+        },
+      });
+
+      return response;
+    },
+  );
 })();
 
 function loadScript(filename: string) {

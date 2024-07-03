@@ -1,6 +1,6 @@
 import { Level } from 'level';
 import type { RequestHistory } from './rpc';
-import { PluginConfig, sha256 } from '../../utils/misc';
+import { PluginConfig, PluginMetadata, sha256 } from '../../utils/misc';
 const charwise = require('charwise');
 
 const db = new Level('./ext-db', {
@@ -13,6 +13,9 @@ const pluginDb = db.sublevel<string, string>('plugin', {
   valueEncoding: 'hex',
 });
 const pluginConfigDb = db.sublevel<string, PluginConfig>('pluginConfig', {
+  valueEncoding: 'json',
+});
+const pluginMetadataDb = db.sublevel<string, PluginMetadata>('pluginMetadata', {
   valueEncoding: 'json',
 });
 const connectionDb = db.sublevel<string, boolean>('connections', {
@@ -204,6 +207,41 @@ export async function removePluginConfig(
   if (!existing) return null;
 
   await pluginConfigDb.del(hash);
+
+  return existing;
+}
+
+export async function getPluginMetadataByHash(
+  hash: string,
+): Promise<PluginMetadata | null> {
+  try {
+    const metadata = await pluginMetadataDb.get(hash);
+    return metadata;
+  } catch (e) {
+    return null;
+  }
+}
+
+export async function addPluginMetadata(
+  hash: string,
+  metadata: PluginMetadata,
+): Promise<PluginMetadata | null> {
+  if (await getPluginMetadataByHash(hash)) {
+    return null;
+  }
+
+  await pluginMetadataDb.put(hash, metadata);
+  return metadata;
+}
+
+export async function removePluginMetadata(
+  hash: string,
+): Promise<PluginMetadata | null> {
+  const existing = await pluginMetadataDb.get(hash);
+
+  if (!existing) return null;
+
+  await pluginMetadataDb.del(hash);
 
   return existing;
 }
