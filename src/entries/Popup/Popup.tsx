@@ -21,6 +21,13 @@ import ProofUploader from '../../pages/ProofUploader';
 import browser from 'webextension-polyfill';
 import store from '../../utils/store';
 import PluginUploadInfo from '../../components/PluginInfo';
+import { ConnectionApproval } from '../../pages/ConnectionApproval';
+import { GetHistoryApproval } from '../../pages/GetHistoryApproval';
+import { GetProofApproval } from '../../pages/GetProofApproval';
+import { NotarizeApproval } from '../../pages/NotarizeApproval';
+import { InstallPluginApproval } from '../../pages/InstallPluginApproval';
+import { GetPluginsApproval } from '../../pages/GetPluginsApproval';
+import { RunPluginApproval } from '../../pages/RunPluginApproval';
 
 const Popup = () => {
   const dispatch = useDispatch();
@@ -104,6 +111,16 @@ const Popup = () => {
         <Route path="/options" element={<Options />} />
         <Route path="/home" element={<Home />} />
         <Route path="/plugininfo" element={<PluginUploadInfo />} />
+        <Route path="/connection-approval" element={<ConnectionApproval />} />
+        <Route path="/get-history-approval" element={<GetHistoryApproval />} />
+        <Route path="/get-proof-approval" element={<GetProofApproval />} />
+        <Route path="/notarize-approval" element={<NotarizeApproval />} />
+        <Route path="/get-plugins-approval" element={<GetPluginsApproval />} />
+        <Route path="/run-plugin-approval" element={<RunPluginApproval />} />
+        <Route
+          path="/install-plugin-approval"
+          element={<InstallPluginApproval />}
+        />
         <Route path="*" element={<Navigate to="/home" />} />
       </Routes>
     </div>

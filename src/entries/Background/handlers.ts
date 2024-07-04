@@ -1,13 +1,10 @@
-import {
-  getCacheByTabId,
-  getCookieStoreByHost,
-  getHeaderStoreByHost,
-} from './cache';
+import { getCacheByTabId } from './cache';
 import { BackgroundActiontype, RequestLog } from './rpc';
 import mutex from './mutex';
 import browser from 'webextension-polyfill';
 import { addRequest } from '../../reducers/requests';
 import { urlify } from '../../utils/misc';
+import { setCookies, setHeaders } from './db';
 
 export const onSendHeaders = (
   details: browser.WebRequest.OnSendHeadersDetailsType,
@@ -21,20 +18,17 @@ export const onSendHeaders = (
       const { hostname } = urlify(details.url) || {};
 
       if (hostname && details.requestHeaders) {
-        const headerStore = getHeaderStoreByHost(hostname);
-
         details.requestHeaders.forEach((header) => {
           const { name, value } = header;
           if (/^cookie$/i.test(name) && value) {
-            const cookieStore = getCookieStoreByHost(hostname);
             value
               .split(';')
               .map((v) => v.split('='))
               .forEach((cookie) => {
-                cookieStore.set(cookie[0].trim(), cookie[1]);
+                setCookies(hostname, cookie[0].trim(), cookie[1]);
               });
           } else {
-            headerStore.set(name, value);
+            setHeaders(hostname, name, value);
           }
         });
       }

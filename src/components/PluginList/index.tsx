@@ -1,5 +1,4 @@
 import React, {
-  ChangeEvent,
   MouseEventHandler,
   ReactElement,
   useCallback,
@@ -20,13 +19,12 @@ import Icon from '../Icon';
 import './index.scss';
 import browser from 'webextension-polyfill';
 import { ErrorModal } from '../ErrorModal';
-import Modal, { ModalHeader, ModalContent, ModalFooter } from '../Modal/Modal';
 import {
   PluginInfoModal,
   PluginInfoModalContent,
   PluginInfoModalHeader,
 } from '../PluginInfo';
-import logo from '../../assets/img/icon-128.png';
+import { getPluginConfigByHash } from '../../entries/Background/db';
 
 export function PluginList(props: { className?: string }): ReactElement {
   const hashes = usePluginHashes();
@@ -36,7 +34,9 @@ export function PluginList(props: { className?: string }): ReactElement {
   }, []);
 
   return (
-    <div className={classNames('flex flex-col flex-nowrap', props.className)}>
+    <div
+      className={classNames('flex flex-col flex-nowrap gap-1', props.className)}
+    >
       {!hashes.length && (
         <div className="flex flex-col items-center justify-center text-slate-400 cursor-default select-none">
           <div>No available plugins</div>
@@ -82,7 +82,7 @@ export function Plugin(props: {
 
   useEffect(() => {
     (async function () {
-      setConfig(await fetchPluginConfigByHash(props.hash));
+      setConfig(await getPluginConfigByHash(props.hash));
     })();
   }, [props.hash]);
 

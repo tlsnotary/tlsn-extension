@@ -2,7 +2,13 @@ import React, { ReactElement, useCallback, useEffect, useState } from 'react';
 import './sidePanel.scss';
 import browser from 'webextension-polyfill';
 import { fetchPluginConfigByHash, runPlugin } from '../../utils/rpc';
-import { PluginConfig, StepConfig } from '../../utils/misc';
+import {
+  getPluginConfig,
+  hexToArrayBuffer,
+  makePlugin,
+  PluginConfig,
+  StepConfig,
+} from '../../utils/misc';
 import { PluginList } from '../../components/PluginList';
 import DefaultPluginIcon from '../../assets/img/default-plugin-icon.png';
 import logo from '../../assets/img/icon-128.png';
@@ -10,6 +16,10 @@ import classNames from 'classnames';
 import Icon from '../../components/Icon';
 import { useRequestHistory } from '../../reducers/history';
 import { BackgroundActiontype } from '../Background/rpc';
+import { getPluginByHash, getPluginConfigByHash } from '../Background/db';
+import type { Plugin } from '@extism/extism';
+import { OffscreenActionTypes } from '../Offscreen/types';
+import { SidePanelActionTypes } from './types';
 
 export default function SidePanel(): ReactElement {
   const [config, setConfig] = useState<PluginConfig | null>(null);
@@ -19,7 +29,7 @@ export default function SidePanel(): ReactElement {
     (async function () {
       const result = await browser.storage.local.get('plugin_hash');
       const { plugin_hash } = result;
-      const config = await fetchPluginConfigByHash(plugin_hash);
+      const config = await getPluginConfigByHash(plugin_hash);
       setHash(plugin_hash);
       setConfig(config);
       // await browser.storage.local.set({ plugin_hash: '' });
@@ -50,15 +60,40 @@ function PluginBody(props: {
   const { hash } = props;
   const { title, description, icon, steps } = props.config;
   const [responses, setResponses] = useState<any[]>([]);
+  const [notarizationId, setNotarizationId] = useState('');
+  const notaryRequest = useRequestHistory(notarizationId);
 
   const setResponse = useCallback(
     (response: any, i: number) => {
       const result = responses.concat();
       result[i] = response;
       setResponses(result);
+      if (i === steps!.length - 1 && !!response) {
+        setNotarizationId(response);
+      }
     },
-    [responses],
+    [hash, responses],
   );
+
+  useEffect(() => {
+    if (notaryRequest?.status === 'success') {
+      browser.runtime.sendMessage({
+        type: SidePanelActionTypes.execute_plugin_response,
+        data: {
+          hash,
+          proof: notaryRequest.proof,
+        },
+      });
+    } else if (notaryRequest?.status === 'error') {
+      browser.runtime.sendMessage({
+        type: SidePanelActionTypes.execute_plugin_response,
+        data: {
+          hash,
+          error: notaryRequest.error,
+        },
+      });
+    }
+  }, [hash, notaryRequest?.status]);
 
   return (
     <div className="flex flex-col p-4">
@@ -102,10 +137,10 @@ function StepContent(
     description,
     cta,
     action,
-    hash,
     setResponse,
     lastResponse,
     prover,
+    hash,
   } = props;
   const [completed, setCompleted] = useState(false);
   const [pending, setPending] = useState(false);
@@ -113,27 +148,37 @@ function StepContent(
   const [notarizationId, setNotarizationId] = useState('');
   const notaryRequest = useRequestHistory(notarizationId);
 
+  const getPlugin = useCallback(async () => {
+    const hex = await getPluginByHash(hash);
+    const config = await getPluginConfigByHash(hash);
+    const arrayBuffer = hexToArrayBuffer(hex!);
+    return makePlugin(arrayBuffer, config!);
+  }, [hash]);
+
   const processStep = useCallback(async () => {
+    const plugin = await getPlugin();
+    if (!plugin) return;
     if (index > 0 && !lastResponse) return;
 
     setPending(true);
     setError('');
 
     try {
-      const val = await runPlugin(hash, action, JSON.stringify(lastResponse));
+      const out = await plugin.call(action, JSON.stringify(lastResponse));
+      const val = JSON.parse(out.string());
       if (val && prover) {
         setNotarizationId(val);
       } else {
         setCompleted(!!val);
-        setResponse(val, index);
       }
+      setResponse(val, index);
     } catch (e: any) {
       console.error(e);
       setError(e?.message || 'Unkonwn error');
     } finally {
       setPending(false);
     }
-  }, [hash, action, index, lastResponse, prover]);
+  }, [action, index, lastResponse, prover, getPlugin]);
 
   const onClick = useCallback(() => {
     if (
