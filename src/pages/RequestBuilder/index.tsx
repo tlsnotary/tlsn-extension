@@ -11,6 +11,20 @@ import { Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import NavigateWithParams from '../../components/NavigateWithParams';
 import ResponseDetail from '../../components/ResponseDetail';
 import { urlify } from '../../utils/misc';
+import { notarizeRequest } from '../../reducers/requests';
+import {
+  getMaxRecv,
+  getMaxSent,
+  getNotaryApi,
+  getProxyApi,
+} from '../../utils/storage';
+import { useDispatch } from 'react-redux';
+import {
+  formatForRequest,
+  InputBody,
+  FormBodyTable,
+  parseResponse,
+} from '../../utils/requestbuilder';
 
 enum TabType {
   Params = 'Params',
@@ -25,24 +39,32 @@ export default function RequestBuilder(props?: {
   headers?: [string, string, boolean?][];
   body?: string;
   method?: string;
-  response?: Response;
 }): ReactElement {
   const loc = useLocation();
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
   const subpath = props?.subpath || '/custom';
   const [_url, setUrl] = useState(props?.url || '');
   const [params, setParams] = useState<[string, string, boolean?][]>(
     props?.params || [],
   );
-  const [headers, setHeaders] = useState<[string, string, boolean?][]>(
-    props?.headers || [],
-  );
   const [body, setBody] = useState<string | undefined>(props?.body);
+  const [formBody, setFormBody] = useState<[string, string, boolean?][]>([
+    ['', '', true],
+  ]);
   const [method, setMethod] = useState<string>(props?.method || 'GET');
-  const [response, setResponse] = useState<Response | null>(
-    props?.response || null,
+  const [type, setType] = useState<string>('text/plain');
+  const [headers, setHeaders] = useState<[string, string, boolean?][]>(
+    props?.headers || [['Content-Type', type, true]],
   );
+
+  const [responseData, setResponseData] = useState<{
+    json: any | null;
+    text: string | null;
+    img: string | null;
+    headers: [string, string][] | null;
+  } | null>(null);
 
   const url = urlify(_url);
 
@@ -56,6 +78,26 @@ export default function RequestBuilder(props?: {
   useEffect(() => {
     setParams(Array.from(url?.searchParams || []));
   }, [_url]);
+
+  useEffect(() => {
+    updateContentType(type);
+  }, [type, method]);
+
+  const updateContentType = useCallback(
+    (type: string) => {
+      const updateHeaders = headers.filter(
+        ([key]) => key.toLowerCase() !== 'content-type',
+      );
+      if (method === 'GET' || method === 'HEAD') {
+        updateHeaders.push(['Content-Type', type, true]);
+      } else {
+        updateHeaders.push(['Content-Type', type, false]);
+      }
+
+      setHeaders(updateHeaders);
+    },
+    [method, type, headers],
+  );
 
   const toggleParam = useCallback(
     (i: number) => {
@@ -91,7 +133,7 @@ export default function RequestBuilder(props?: {
 
   const sendRequest = useCallback(async () => {
     if (!href) return;
-
+    setResponseData(null);
     // eslint-disable-next-line no-undef
     const opts: RequestInit = {
       method,
@@ -102,9 +144,13 @@ export default function RequestBuilder(props?: {
         return map;
       }, {}),
     };
-
-    if (body) opts.body = body;
-
+    if (method !== 'GET' && method !== 'HEAD') {
+      if (type === 'application/x-www-form-urlencoded') {
+        opts.body = formatForRequest(formBody, type);
+      } else {
+        opts.body = formatForRequest(body!, type);
+      }
+    }
     const cookie = headers.find(([key]) => key === 'Cookie');
 
     if (cookie) {
@@ -114,15 +160,65 @@ export default function RequestBuilder(props?: {
 
     const res = await fetch(href, opts);
 
-    setResponse(res);
+    const contentType =
+      res.headers.get('content-type') || res.headers.get('Content-Type');
+
+    setResponseData(await parseResponse(contentType!, res));
 
     navigate(subpath + '/response');
-  }, [href, method, headers, body]);
+  }, [href, method, headers, body, type]);
+
+  const onNotarize = useCallback(async () => {
+    const maxSentData = await getMaxSent();
+    const maxRecvData = await getMaxRecv();
+
+    const notaryUrl = await getNotaryApi();
+    const websocketProxyUrl = await getProxyApi();
+
+    dispatch(
+      notarizeRequest(
+        //@ts-ignore
+        {
+          url: href || '',
+          method,
+          headers: headers.reduce((map: { [key: string]: string }, [k, v]) => {
+            if (k !== 'Cookie') {
+              map[k] = v;
+            }
+            return map;
+          }, {}),
+          body: body ? formatForRequest(body, type) : '',
+          maxSentData,
+          maxRecvData,
+          secretHeaders: [],
+          secretResps: [],
+          maxTranscriptSize: 0,
+          notaryUrl,
+          websocketProxyUrl,
+        },
+      ),
+    );
+
+    navigate('/history');
+  }, [href, method, headers, body, type]);
+
+  const onMethod = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const value = e.target.value;
+      if (value === 'GET' || value === 'HEAD') {
+        setType('');
+        setMethod(value);
+      } else {
+        setMethod(value);
+      }
+    },
+    [method, type],
+  );
 
   return (
     <div className="flex flex-col w-full py-2 gap-2 flex-grow">
       <div className="flex flex-row px-2">
-        <select className="select" onChange={(e) => setMethod(e.target.value)}>
+        <select className="select" onChange={(e) => onMethod(e)}>
           <option value="GET">GET</option>
           <option value="POST">POST</option>
           <option value="PUT">PUT</option>
@@ -134,8 +230,14 @@ export default function RequestBuilder(props?: {
         <input
           className="input border flex-grow"
           type="text"
-          value={url ? href : _url}
+          value={_url}
           onChange={(e) => setUrl(e.target.value)}
+          onBlur={() => {
+            const formattedUrl = urlify(_url);
+            if (formattedUrl) {
+              setUrl(formattedUrl.href);
+            }
+          }}
         />
         <button className="button" disabled={!url} onClick={sendRequest}>
           Send
@@ -161,13 +263,19 @@ export default function RequestBuilder(props?: {
           >
             Body
           </TabLabel>
-          {response && (
-            <TabLabel
-              onClick={() => navigate(subpath + '/response')}
-              active={loc.pathname.includes('response')}
-            >
-              Response
-            </TabLabel>
+          {responseData && (
+            <div className="flex flex-row justify-between w-full">
+              <TabLabel
+                onClick={() => navigate(subpath + '/response')}
+                active={loc.pathname.includes('response')}
+              >
+                Response
+              </TabLabel>
+
+              <button className="button" onClick={onNotarize}>
+                Notarize
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -197,16 +305,38 @@ export default function RequestBuilder(props?: {
           <Route
             path="body"
             element={
-              <textarea
-                className="textarea h-full w-full resize-none"
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-              />
+              <div className="h-full">
+                <select
+                  className={c('select', {
+                    'w-[80px]':
+                      type === 'application/json' ||
+                      type === 'text/plain' ||
+                      type === '',
+                    'w-[200px]': type === 'application/x-www-form-urlencoded',
+                  })}
+                  value={type}
+                  onChange={(e) => setType(e.target.value)}
+                >
+                  <option value="text/plain">Text</option>
+                  <option value="application/json">JSON</option>
+                  <option value="application/x-www-form-urlencoded">
+                    x-www-form-urlencoded
+                  </option>
+                </select>
+                {type === 'application/x-www-form-urlencoded' ? (
+                  <FormBodyTable
+                    formBody={formBody}
+                    setFormBody={setFormBody}
+                  />
+                ) : (
+                  <InputBody body={body!} setBody={setBody} />
+                )}
+              </div>
             }
           />
           <Route
             path="response"
-            element={<ResponseDetail response={response} />}
+            element={<ResponseDetail responseData={responseData} />}
           />
           <Route path="/" element={<NavigateWithParams to="/params" />} />
         </Routes>
