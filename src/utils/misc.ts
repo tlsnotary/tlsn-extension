@@ -11,7 +11,6 @@ import createPlugin, {
 } from '@extism/extism';
 import browser from 'webextension-polyfill';
 import NodeCache from 'node-cache';
-import { getHeaderStoreByHost } from '../entries/Background/cache';
 import { getNotaryApi, getProxyApi } from './storage';
 import { minimatch } from 'minimatch';
 import { getCookiesByHost, getHeadersByHost } from '../entries/Background/db';

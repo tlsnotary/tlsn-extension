@@ -1,5 +1,5 @@
 import browser from 'webextension-polyfill';
-import { clearCache, getCacheByTabId, getHeaderStoreByHost } from './cache';
+import { clearCache, getCacheByTabId } from './cache';
 import { addRequestHistory } from '../../reducers/history';
 import {
   addNotaryRequest,

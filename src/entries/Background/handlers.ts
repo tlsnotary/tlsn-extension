@@ -1,4 +1,4 @@
-import { getCacheByTabId, getHeaderStoreByHost } from './cache';
+import { getCacheByTabId } from './cache';
 import { BackgroundActiontype, RequestLog } from './rpc';
 import mutex from './mutex';
 import browser from 'webextension-polyfill';

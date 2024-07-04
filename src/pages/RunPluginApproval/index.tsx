@@ -98,17 +98,17 @@ export function RunPluginApproval(): ReactElement {
         </div>
       )}
       {pluginContent && (
-        <div className="flex flex-col gap-4 border border-slate-300 p-8 mx-8 rounded bg-slate-100">
+        <div className="flex flex-col gap-4 border border-slate-300 p-4 mx-8 rounded bg-slate-100">
           <div className="flex flex-col items-center">
             <img
               className="w-12 h-12 mb-2"
               src={pluginContent.icon}
               alt="Plugin Icon"
             />
-            <span className="text-3xl text-blue-600 font-semibold">
+            <span className="text-2xl text-blue-600 font-semibold">
               {pluginContent.title}
             </span>
-            <div className="text-slate-500 text-lg">
+            <div className="text-slate-500 text-base">
               {pluginContent.description}
             </div>
           </div>
