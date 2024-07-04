@@ -253,10 +253,6 @@ export async function addPluginMetadata(
   hash: string,
   metadata: PluginMetadata,
 ): Promise<PluginMetadata | null> {
-  if (await getPluginMetadataByHash(hash)) {
-    return null;
-  }
-
   await pluginMetadataDb.put(hash, metadata);
   return metadata;
 }
