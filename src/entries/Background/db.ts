@@ -295,7 +295,6 @@ export async function setConnection(origin: string) {
 
 export async function setCookies(host: string, name: string, value: string) {
   return mutex.runExclusive(async () => {
-    if (await getCookies(host, name)) return null;
     await cookiesDb.sublevel(host).put(name, value);
     return true;
   });
@@ -345,7 +344,6 @@ export async function getConnection(origin: string) {
 export async function setHeaders(host: string, name: string, value?: string) {
   if (!value) return null;
   return mutex.runExclusive(async () => {
-    if (await getHeaders(host, name)) return null;
     await headersDb.sublevel(host).put(name, value);
     return true;
   });
