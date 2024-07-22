@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useNavigate } from 'react-router';
 import { useDispatch } from 'react-redux';
 import {
@@ -28,12 +28,20 @@ import { NotarizeApproval } from '../../pages/NotarizeApproval';
 import { InstallPluginApproval } from '../../pages/InstallPluginApproval';
 import { GetPluginsApproval } from '../../pages/GetPluginsApproval';
 import { RunPluginApproval } from '../../pages/RunPluginApproval';
+import Modal, {
+  ModalHeader,
+  ModalContent,
+  ModalFooter,
+} from '../../components/Modal/Modal';
+import { deleteConnection, getConnection } from '../Background/db';
 
 const Popup = () => {
   const dispatch = useDispatch();
   const activeTab = useActiveTab();
   const url = useActiveTabUrl();
   const navigate = useNavigate();
+
+  const [showConnectionDetails, setShowConnectionDetails] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -89,7 +97,10 @@ const Popup = () => {
           alt="logo"
           onClick={() => navigate('/')}
         />
-        <div className="absolute right-2 flex flex-nowrap flex-row items-center gap-1 justify-center w-fit">
+        <div
+          className="absolute right-2 flex flex-nowrap flex-row items-center gap-1 justify-center w-fit"
+          onClick={() => setShowConnectionDetails(true)}
+        >
           {!!activeTab?.favIconUrl && (
             <img
               src={activeTab?.favIconUrl}
@@ -99,6 +110,12 @@ const Popup = () => {
           )}
           <div className="text-xs">{url?.hostname}</div>
         </div>
+        {showConnectionDetails && (
+          <ConnectionDetails
+            showConnectionDetails={showConnectionDetails}
+            setShowConnectionDetails={setShowConnectionDetails}
+          />
+        )}
       </div>
       <Routes>
         <Route path="/requests/:requestId/*" element={<Request />} />
@@ -127,4 +144,72 @@ const Popup = () => {
   );
 };
 
+const ConnectionDetails = (props: {
+  showConnectionDetails: boolean;
+  setShowConnectionDetails: any;
+}) => {
+  const activeTab = useActiveTab();
+  const activeTabOrigin = useActiveTabUrl();
+
+  const [connected, setConnected] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      if (activeTabOrigin) {
+        console.log(activeTabOrigin);
+        const isConnected: boolean | null = await getConnection(
+          activeTabOrigin?.origin,
+        );
+        isConnected ? setConnected(true) : setConnected(false);
+      }
+    })();
+  }, []);
+
+  const handleDisconnect = async () => {
+    await deleteConnection(activeTabOrigin?.origin as string);
+    setConnected(false);
+  };
+
+  return (
+    <Modal
+      onClose={() => props.setShowConnectionDetails(false)}
+      className="w-full h-[50%]"
+    >
+      <ModalHeader className="w-full">
+        <div className="flex flex-row items-center justify-center gap-2">
+          {!!activeTab?.favIconUrl && (
+            <img
+              src={activeTab?.favIconUrl}
+              className="h-5 rounded-full"
+              alt="logo"
+            />
+          )}
+          <span>{activeTabOrigin?.host}</span>
+        </div>
+      </ModalHeader>
+      <ModalContent className="w-full flex flex-row">
+        <div className="flex flex-row gap-2 p-4">
+          {!!activeTab?.favIconUrl && (
+            <img
+              src={activeTab?.favIconUrl}
+              className="h-5 rounded-full"
+              alt="logo"
+            />
+          )}
+          <span>{activeTabOrigin?.host}</span>
+        </div>
+        <div className="w-full flex justify-end p-4">
+          <button className="button" disabled={!connected} onClick={() => handleDisconnect()}>
+            Disconnect
+          </button>
+        </div>
+      </ModalContent>
+      <ModalFooter className="flex justify-end gap-2 p-4">
+        <button className="button" onClick={() => props.setShowConnectionDetails(false)}>
+          Exit
+        </button>
+      </ModalFooter>
+    </Modal>
+  );
+};
 export default Popup;
