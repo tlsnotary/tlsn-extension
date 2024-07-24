@@ -156,7 +156,6 @@ const ConnectionDetails = (props: {
   useEffect(() => {
     (async () => {
       if (activeTabOrigin) {
-        console.log(activeTabOrigin);
         const isConnected: boolean | null = await getConnection(
           activeTabOrigin?.origin,
         );
@@ -173,21 +172,14 @@ const ConnectionDetails = (props: {
   return (
     <Modal
       onClose={() => props.setShowConnectionDetails(false)}
-      className="w-full max-w-lg mx-auto rounded-lg shadow-lg"
+      className="w-full h-[40%] max-w-lg mx-auto rounded-lg shadow-lg flex flex-col"
     >
       <ModalHeader className="w-full p-4 rounded-t-lg">
         <div className="flex flex-row items-center justify-center gap-2">
-          {!!activeTab?.favIconUrl && (
-            <img
-              src={activeTab?.favIconUrl}
-              className="h-5 rounded-full"
-              alt="logo"
-            />
-          )}
-          <span className="text-lg font-semibold">{activeTabOrigin?.host}</span>
+          <span className="text-lg font-semibold">Connections</span>
         </div>
       </ModalHeader>
-      <ModalContent className="w-full flex flex-row p-4">
+      <ModalContent className="w-full flex-grow p-4 flex flex-row items-center justify-between">
         <div className="flex flex-row gap-2 items-center">
           {!!activeTab?.favIconUrl && (
             <img
@@ -198,9 +190,9 @@ const ConnectionDetails = (props: {
           )}
           <span className="text-gray-700">{activeTabOrigin?.host}</span>
         </div>
-        <div className="w-full flex justify-end mt-4">
+        <div className="flex justify-end">
           <button
-            className="px-2 py-2 bg-red-500 text-white font-bold rounded-lg disabled:opacity-50"
+            className="button px-2 py-2 disabled:opacity-50"
             disabled={!connected}
             onClick={() => handleDisconnect()}
           >
