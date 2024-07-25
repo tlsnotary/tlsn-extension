@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useNavigate } from 'react-router';
 import { useDispatch } from 'react-redux';
 import {
@@ -21,6 +21,7 @@ import ProofUploader from '../../pages/ProofUploader';
 import browser from 'webextension-polyfill';
 import store from '../../utils/store';
 import PluginUploadInfo from '../../components/PluginInfo';
+import ConnectionDetailsModal from '../../components/ConnectionDetailsModal';
 import { ConnectionApproval } from '../../pages/ConnectionApproval';
 import { GetHistoryApproval } from '../../pages/GetHistoryApproval';
 import { GetProofApproval } from '../../pages/GetProofApproval';
@@ -34,6 +35,8 @@ const Popup = () => {
   const activeTab = useActiveTab();
   const url = useActiveTabUrl();
   const navigate = useNavigate();
+
+  const [showConnectionDetails, setShowConnectionDetails] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -89,7 +92,10 @@ const Popup = () => {
           alt="logo"
           onClick={() => navigate('/')}
         />
-        <div className="absolute right-2 flex flex-nowrap flex-row items-center gap-1 justify-center w-fit">
+        <div
+          className="absolute right-2 flex flex-nowrap flex-row items-center gap-1 justify-center w-fit"
+          onClick={() => setShowConnectionDetails(true)}
+        >
           {!!activeTab?.favIconUrl && (
             <img
               src={activeTab?.favIconUrl}
@@ -99,6 +105,12 @@ const Popup = () => {
           )}
           <div className="text-xs">{url?.hostname}</div>
         </div>
+        {showConnectionDetails && (
+          <ConnectionDetailsModal
+            showConnectionDetails={showConnectionDetails}
+            setShowConnectionDetails={setShowConnectionDetails}
+          />
+        )}
       </div>
       <Routes>
         <Route path="/requests/:requestId/*" element={<Request />} />
