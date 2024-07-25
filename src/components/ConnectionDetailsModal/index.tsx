@@ -1,16 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import {
-  useActiveTab,
-  useActiveTabUrl,
-} from '../../reducers/requests';
+import { useActiveTab, useActiveTabUrl } from '../../reducers/requests';
 import Modal, {
   ModalHeader,
   ModalContent,
   ModalFooter,
 } from '../../components/Modal/Modal';
 import { deleteConnection, getConnection } from '../../entries/Background/db';
-
-
 
 const ConnectionDetailsModal = (props: {
   showConnectionDetails: boolean;
