@@ -3,8 +3,8 @@
   "name": "TLSN Extension",
   "description": "A chrome extension for TLSN",
   "options_page": "options.html",
-  "background": { "service_worker": "background.bundle.js",
-    "persistent": true
+  "background": {
+    "service_worker": "background.bundle.js"
   },
   "action": {
     "default_popup": "popup.html",
