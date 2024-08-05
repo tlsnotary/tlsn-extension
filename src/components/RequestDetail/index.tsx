@@ -26,7 +26,7 @@ import {
   getMaxSent,
 } from '../../utils/storage';
 import { MAX_RECV, MAX_SENT } from '../../utils/constants';
-import { urlify } from '../../utils/misc';
+
 
 type Props = {
   requestId: string;

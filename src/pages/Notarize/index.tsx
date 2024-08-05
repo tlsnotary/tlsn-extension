@@ -277,6 +277,10 @@ export function RevealHeaderTable(props: {
     </table>
   );
 }
+type Selection = {
+  start: number;
+  end: number;
+};
 
 function HideResponseStep(props: {
   onNext: () => void;
@@ -286,25 +290,31 @@ function HideResponseStep(props: {
   const params = useParams<{ requestId: string }>();
   const req = useRequest(params.requestId);
   const [responseText, setResponseText] = useState('');
-  const [start, setStart] = useState(0);
-  const [end, setEnd] = useState(0);
+  const [selections, setSelections] = useState<Selection[]>([]);
   const taRef = useRef<HTMLTextAreaElement | null>(null);
 
-  const onSelectionChange: ReactEventHandler<HTMLTextAreaElement> = useCallback(
+  const onSelectionChange: React.ChangeEventHandler<HTMLTextAreaElement> = useCallback(
     (e) => {
       const ta = e.currentTarget;
       if (ta.selectionEnd > ta.selectionStart) {
-        setStart(ta.selectionStart);
-        setEnd(ta.selectionEnd);
-        props.setSecretResps(
-          [
-            responseText.substring(0, ta.selectionStart),
-            responseText.substring(ta.selectionEnd, responseText.length),
-          ].filter((d) => !!d),
-        );
+        const newSelection: Selection = {
+          start: ta.selectionStart,
+          end: ta.selectionEnd,
+        };
+
+        setSelections((prevSelections) => {
+          const updatedSelections = [...prevSelections, newSelection];
+          // Extract and set secret responses based on updated selections
+          const secretResps = updatedSelections.map(({ start, end }) =>
+            responseText.substring(start, end)
+          ).filter((d) => !!d);
+          props.setSecretResps(secretResps);
+
+          return updatedSelections;
+        });
       }
     },
-    [responseText],
+    [responseText, props]
   );
 
   useEffect(() => {
@@ -341,24 +351,21 @@ function HideResponseStep(props: {
 
     if (current) {
       current.focus();
-      current.setSelectionRange(start, end);
     }
-  }, [taRef, start, end]);
+  }, [taRef]);
 
   if (!req) return <></>;
 
-  let shieldedText = '';
+  let shieldedText = responseText;
 
-  if (end > start) {
-    shieldedText = Array(start)
-      .fill('*')
-      .join('')
-      .concat(responseText.substring(start, end))
-      .concat(
-        Array(responseText.length - end)
-          .fill('*')
-          .join(''),
-      );
+  if (selections.length > 0) {
+    let result = responseText.split('');
+    selections.forEach(({ start, end }) => {
+      for (let i = start; i < end; i++) {
+        result[i] = '*';
+      }
+    });
+    shieldedText = result.join('');
   }
 
   return (
@@ -370,7 +377,7 @@ function HideResponseStep(props: {
         <textarea
           ref={taRef}
           className="flex-grow textarea bg-slate-100 font-mono"
-          value={shieldedText || responseText}
+          value={shieldedText}
           onSelect={onSelectionChange}
         />
       </div>
