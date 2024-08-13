@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useNavigate } from 'react-router';
 import { useDispatch } from 'react-redux';
 import {
@@ -21,6 +21,7 @@ import ProofUploader from '../../pages/ProofUploader';
 import browser from 'webextension-polyfill';
 import store from '../../utils/store';
 import PluginUploadInfo from '../../components/PluginInfo';
+import ConnectionDetailsModal from '../../components/ConnectionDetailsModal';
 import { ConnectionApproval } from '../../pages/ConnectionApproval';
 import { GetHistoryApproval } from '../../pages/GetHistoryApproval';
 import { GetProofApproval } from '../../pages/GetProofApproval';
@@ -28,12 +29,17 @@ import { NotarizeApproval } from '../../pages/NotarizeApproval';
 import { InstallPluginApproval } from '../../pages/InstallPluginApproval';
 import { GetPluginsApproval } from '../../pages/GetPluginsApproval';
 import { RunPluginApproval } from '../../pages/RunPluginApproval';
+import Icon from '../../components/Icon';
+import classNames from 'classnames';
+import { getConnection } from '../Background/db';
 
 const Popup = () => {
   const dispatch = useDispatch();
   const activeTab = useActiveTab();
   const url = useActiveTabUrl();
   const navigate = useNavigate();
+
+  const [showConnectionDetails, setShowConnectionDetails] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -89,16 +95,7 @@ const Popup = () => {
           alt="logo"
           onClick={() => navigate('/')}
         />
-        <div className="absolute right-2 flex flex-nowrap flex-row items-center gap-1 justify-center w-fit">
-          {!!activeTab?.favIconUrl && (
-            <img
-              src={activeTab?.favIconUrl}
-              className="h-5 rounded-full"
-              alt="logo"
-            />
-          )}
-          <div className="text-xs">{url?.hostname}</div>
-        </div>
+        <AppConnectionLogo />
       </div>
       <Routes>
         <Route path="/requests/:requestId/*" element={<Request />} />
@@ -128,3 +125,55 @@ const Popup = () => {
 };
 
 export default Popup;
+
+function AppConnectionLogo() {
+  const activeTab = useActiveTab();
+  const url = useActiveTabUrl();
+  const [showConnectionDetails, setShowConnectionDetails] = useState(false);
+  const [connected, setConnected] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      if (url) {
+        const isConnected: boolean | null = await getConnection(url?.origin);
+        isConnected ? setConnected(true) : setConnected(false);
+      }
+    })();
+  }, [url]);
+
+  return (
+    <div
+      className="absolute right-2 flex flex-nowrap flex-row items-center gap-1 justify-center w-fit cursor-pointer"
+      onClick={() => setShowConnectionDetails(true)}
+    >
+      <div className="flex flex-row relative bg-slate-500 border-[1px] border-black rounded-full">
+        {!!activeTab?.favIconUrl ? (
+          <img
+            src={activeTab?.favIconUrl}
+            className="h-5 rounded-full"
+            alt="logo"
+          />
+        ) : (
+          <Icon fa="fa-solid fa-globe" size={1.25} />
+        )}
+        <div
+          className={classNames(
+            'absolute right-[-2px] bottom-[-2px] rounded-full',
+            {
+              'bg-green-500 h-[10px] w-[10px] border-[2px]':
+                activeTab?.favIconUrl,
+              'bg-green-500': connected,
+              'bg-slate-500': !connected,
+            },
+          )}
+        />
+      </div>
+      {showConnectionDetails && (
+        <ConnectionDetailsModal
+          showConnectionDetails={showConnectionDetails}
+          setShowConnectionDetails={setShowConnectionDetails}
+        />
+      )}
+    </div>
+  );
+}
