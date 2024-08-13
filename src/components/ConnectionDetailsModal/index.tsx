@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useActiveTab, useActiveTabUrl } from '../../reducers/requests';
 import Modal, {
   ModalHeader,
@@ -6,12 +6,13 @@ import Modal, {
   ModalFooter,
 } from '../../components/Modal/Modal';
 import { deleteConnection, getConnection } from '../../entries/Background/db';
+import { urlify } from '../../utils/misc';
+import Icon from '../Icon';
 
 const ConnectionDetailsModal = (props: {
   showConnectionDetails: boolean;
   setShowConnectionDetails: any;
 }) => {
-  const activeTab = useActiveTab();
   const activeTabOrigin = useActiveTabUrl();
 
   const [connected, setConnected] = useState(false);
@@ -27,50 +28,41 @@ const ConnectionDetailsModal = (props: {
     })();
   }, []);
 
-  const handleDisconnect = async () => {
+  const handleDisconnect = useCallback(async () => {
     await deleteConnection(activeTabOrigin?.origin as string);
+    props.setShowConnectionDetails(false);
     setConnected(false);
-  };
+  }, [props.setShowConnectionDetails]);
 
   return (
     <Modal
       onClose={() => props.setShowConnectionDetails(false)}
-      className="w-full h-[40%] max-w-lg mx-auto rounded-lg shadow-lg flex flex-col"
+      className="flex flex-col gap-2 items-center text-base cursor-default justify-center mx-4 min-h-24"
     >
-      <ModalHeader className="w-full p-4 rounded-t-lg">
-        <div className="flex flex-row items-center justify-center gap-2">
-          <span className="text-lg font-semibold">Connections</span>
-        </div>
+      <ModalHeader
+        className="w-full rounded-t-lg pb-0 border-b-0"
+        onClose={() => props.setShowConnectionDetails(false)}
+      >
+        <span className="text-lg font-semibold">
+          {activeTabOrigin?.hostname || 'Connections'}
+        </span>
       </ModalHeader>
-      <ModalContent className="w-full flex-grow p-4 flex flex-row items-center justify-between">
-        <div className="flex flex-row gap-2 items-center">
-          {!!activeTab?.favIconUrl && (
-            <img
-              src={activeTab?.favIconUrl}
-              className="h-5 rounded-full"
-              alt="logo"
-            />
-          )}
-          <span className="text-gray-700">{activeTabOrigin?.host}</span>
+      <ModalContent className="w-full gap-2 flex-grow flex flex-col items-center justify-between px-4 pt-0 pb-4">
+        <div className="flex flex-row gap-2 items-start w-full text-xs font-semibold text-slate-800">
+          {connected
+            ? 'TLSN Extension is connected to this site.'
+            : 'TLSN Extension is not connected to this site. To connect to this site, find and click the connect button.'}
         </div>
-        <div className="flex justify-end">
+        {connected && (
           <button
-            className="button px-2 py-2 disabled:opacity-50"
+            className="button disabled:opacity-50 self-end"
             disabled={!connected}
             onClick={() => handleDisconnect()}
           >
             Disconnect
           </button>
-        </div>
+        )}
       </ModalContent>
-      <ModalFooter className="flex justify-end gap-2 p-4 rounded-b-lg">
-        <button
-          className="button"
-          onClick={() => props.setShowConnectionDetails(false)}
-        >
-          Exit
-        </button>
-      </ModalFooter>
     </Modal>
   );
 };
