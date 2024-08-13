@@ -1,7 +1,7 @@
 import { ContentScriptTypes, RPCClient } from './rpc';
 import { RequestHistory } from '../Background/rpc';
-import { Proof } from 'tlsn-js/build/types';
 import { PluginConfig, PluginMetadata } from '../../utils/misc';
+import { Proof } from '../../utils/types';
 
 const client = new RPCClient();
 
