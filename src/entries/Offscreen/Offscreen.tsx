@@ -13,6 +13,7 @@ import { urlify } from '../../utils/misc';
 import { BackgroundActiontype } from '../Background/rpc';
 import browser from 'webextension-polyfill';
 import { Proof, ProofV1 } from '../../utils/types';
+import { Method } from 'tlsn-js/wasm/pkg';
 
 const { init, Prover, NotarizedSession, TlsProof }: any = Comlink.wrap(
   new Worker(new URL('./worker.ts', import.meta.url)),
@@ -21,7 +22,10 @@ const { init, Prover, NotarizedSession, TlsProof }: any = Comlink.wrap(
 const Offscreen = () => {
   useEffect(() => {
     (async () => {
-      await init({ loggingLevel: 'Info' });
+      const loggingLevel = await browser.runtime.sendMessage({
+        type: BackgroundActiontype.get_logging_level,
+      });
+      await init({ loggingLevel });
       // @ts-ignore
       chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         switch (request.type) {
@@ -99,9 +103,8 @@ const Offscreen = () => {
           }
           case BackgroundActiontype.verify_proof: {
             (async () => {
-              console.log('verify_proof', request.data);
-              // const result = await verify(request.data);
-              // sendResponse(result);
+              const result = await verifyProof(request.data);
+              sendResponse(result);
             })();
 
             return true;
@@ -181,8 +184,8 @@ async function createProof(options: {
   url: string;
   notaryUrl: string;
   websocketProxyUrl: string;
-  method?: string;
-  headers: {
+  method?: Method;
+  headers?: {
     [name: string]: string;
   };
   body?: any;
@@ -194,8 +197,8 @@ async function createProof(options: {
 }): Promise<ProofV1> {
   const {
     url,
-    method,
-    headers,
+    method = 'GET',
+    headers = {},
     body,
     maxSentData,
     maxRecvData,

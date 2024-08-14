@@ -35,11 +35,7 @@ import { getConnection } from '../Background/db';
 
 const Popup = () => {
   const dispatch = useDispatch();
-  const activeTab = useActiveTab();
-  const url = useActiveTabUrl();
   const navigate = useNavigate();
-
-  const [showConnectionDetails, setShowConnectionDetails] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -146,7 +142,7 @@ function AppConnectionLogo() {
       className="absolute right-2 flex flex-nowrap flex-row items-center gap-1 justify-center w-fit cursor-pointer"
       onClick={() => setShowConnectionDetails(true)}
     >
-      <div className="flex flex-row relative bg-slate-500 border-[1px] border-black rounded-full">
+      <div className="flex flex-row relative bg-black border-[1px] border-black rounded-full">
         {!!activeTab?.favIconUrl ? (
           <img
             src={activeTab?.favIconUrl}
@@ -154,14 +150,16 @@ function AppConnectionLogo() {
             alt="logo"
           />
         ) : (
-          <Icon fa="fa-solid fa-globe" size={1.25} />
+          <Icon
+            fa="fa-solid fa-globe"
+            className="bg-white text-slate-400 rounded-full"
+            size={1.25}
+          />
         )}
         <div
           className={classNames(
-            'absolute right-[-2px] bottom-[-2px] rounded-full',
+            'absolute right-[-2px] bottom-[-2px] rounded-full h-[10px] w-[10px] border-[2px]',
             {
-              'bg-green-500 h-[10px] w-[10px] border-[2px]':
-                activeTab?.favIconUrl,
               'bg-green-500': connected,
               'bg-slate-500': !connected,
             },

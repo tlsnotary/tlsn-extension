@@ -13,6 +13,7 @@ export default function ProofUploader(): ReactElement {
     recv: string;
     sent: string;
   } | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const onFileUpload: ChangeEventHandler<HTMLInputElement> = useCallback(
     async (e) => {
@@ -25,16 +26,21 @@ export default function ProofUploader(): ReactElement {
           const result = event.target?.result;
           if (result) {
             const proof = JSON.parse(result as string);
-            const res = await chrome.runtime.sendMessage<
-              any,
-              { recv: string; sent: string }
-            >({
-              type: BackgroundActiontype.verify_proof,
-              data: proof,
-            });
-            setProof(res);
+            const res = await chrome.runtime
+              .sendMessage<any, { recv: string; sent: string }>({
+                type: BackgroundActiontype.verify_proof,
+                data: proof,
+              })
+              .catch(() => null);
+
+            if (proof) {
+              setUploading(false);
+              setProof(res);
+            }
           }
         });
+
+        setUploading(true);
         reader.readAsText(file);
       }
     },
@@ -53,16 +59,23 @@ export default function ProofUploader(): ReactElement {
           className="absolute w-full h-full top-0 left-0 opacity-0 z-10"
           onChange={onFileUpload}
           accept=".json"
+          disabled={uploading}
         />
-        <Icon className="mb-4" fa="fa-solid fa-upload" size={2} />
-        <div className="text-lg">Drop your proof here to continue</div>
-        <div className="text-sm">or</div>
-        <button
-          className="button !bg-primary/[.8] !hover:bg-primary/[.7] !active:bg-primary !text-white cursor-pointer"
-          onClick={() => null}
-        >
-          Browse Files
-        </button>
+        {uploading ? (
+          <Icon className="animate-spin" fa="fa-solid fa-spinner" size={2} />
+        ) : (
+          <>
+            <Icon className="mb-4" fa="fa-solid fa-upload" size={2} />
+            <div className="text-lg">Drop your proof here to continue</div>
+            <div className="text-sm">or</div>
+            <button
+              className="button !bg-primary/[.8] !hover:bg-primary/[.7] !active:bg-primary !text-white cursor-pointer"
+              onClick={() => null}
+            >
+              Browse Files
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

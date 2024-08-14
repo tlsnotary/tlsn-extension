@@ -1,10 +1,10 @@
-import { LOGGING_LEVEL_INFO } from './constants';
+import { LoggingLevel } from 'tlsn-js';
 
 export const NOTARY_API_LS_KEY = 'notary-api';
 export const PROXY_API_LS_KEY = 'proxy-api';
 export const MAX_SENT_LS_KEY = 'max-sent';
 export const MAX_RECEIVED_LS_KEY = 'max-received';
-export const LOGGING_FILTER_KEY = 'logging-filter';
+export const LOGGING_FILTER_KEY = 'logging-filter-2';
 
 export async function set(key: string, value: string) {
   return chrome.storage.sync.set({ [key]: value });
@@ -14,7 +14,7 @@ export async function get(key: string, defaultValue?: string) {
   return chrome.storage.sync
     .get(key)
     .then((json: any) => json[key] || defaultValue)
-    .catch(() => '');
+    .catch(() => defaultValue);
 }
 
 export async function getMaxSent() {
@@ -26,13 +26,13 @@ export async function getMaxRecv() {
 }
 
 export async function getNotaryApi() {
-  return await get(NOTARY_API_LS_KEY, 'https://notary.pse.dev/v0.1.0-alpha.5');
+  return await get(NOTARY_API_LS_KEY, 'https://notary.pse.dev/v0.1.0-alpha.6');
 }
 
 export async function getProxyApi() {
   return await get(PROXY_API_LS_KEY, 'wss://notary.pse.dev/proxy');
 }
 
-export async function getLoggingFilter() {
-  return await get(LOGGING_FILTER_KEY, LOGGING_LEVEL_INFO);
+export async function getLoggingFilter(): Promise<LoggingLevel> {
+  return await get(LOGGING_FILTER_KEY, 'Info');
 }
