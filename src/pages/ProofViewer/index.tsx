@@ -57,12 +57,14 @@ export default function ProofViewer(props?: {
           <textarea
             className="w-full resize-none bg-slate-100 text-slate-800 border p-2 text-[10px] break-all h-full outline-none font-mono"
             value={props?.sent || request?.verification?.sent}
+            readOnly
           ></textarea>
         )}
         {tab === 'recv' && (
           <textarea
             className="w-full resize-none bg-slate-100 text-slate-800 border p-2 text-[10px] break-all h-full outline-none font-mono"
             value={props?.recv || request?.verification?.recv}
+            readOnly
           ></textarea>
         )}
       </div>

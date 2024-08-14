@@ -24,20 +24,18 @@ import {
   NOTARY_PROXY,
   MAX_RECV,
   MAX_SENT,
-  LOGGING_LEVEL_INFO,
-  LOGGING_LEVEL_NONE,
-  LOGGING_LEVEL_DEBUG,
-  LOGGING_LEVEL_TRACE,
 } from '../../utils/constants';
 import Modal, { ModalContent } from '../../components/Modal/Modal';
 import browser from 'webextension-polyfill';
+import { LoggingLevel } from 'tlsn-js';
+import { version } from '../../../package.json';
 
 export default function Options(): ReactElement {
   const [notary, setNotary] = useState(NOTARY_API);
   const [proxy, setProxy] = useState(NOTARY_PROXY);
   const [maxSent, setMaxSent] = useState(MAX_SENT);
   const [maxReceived, setMaxReceived] = useState(MAX_RECV);
-  const [loggingLevel, setLoggingLevel] = useState(LOGGING_LEVEL_INFO);
+  const [loggingLevel, setLoggingLevel] = useState<LoggingLevel>('Info');
 
   const [dirty, setDirty] = useState(false);
   const [shouldReload, setShouldReload] = useState(false);
@@ -50,7 +48,7 @@ export default function Options(): ReactElement {
       setProxy((await getProxyApi()) || NOTARY_PROXY);
       setMaxReceived((await getMaxRecv()) || MAX_RECV);
       setMaxSent((await getMaxSent()) || MAX_SENT);
-      setLoggingLevel((await getLoggingFilter()) || LOGGING_LEVEL_INFO);
+      setLoggingLevel((await getLoggingFilter()) || 'Info');
     })();
   }, [advanced]);
 
@@ -170,7 +168,7 @@ function InputField(props: {
 
   return (
     <div className="flex flex-col flex-nowrap py-1 px-2 gap-2">
-      <div className="font-semibold">{label}</div>
+      <div className="font-semibold cursor-default">{label}</div>
       <input
         type={type}
         className="input border"
@@ -194,6 +192,10 @@ function NormalOptions(props: {
 
   return (
     <div>
+      <div className="flex flex-col flex-nowrap py-1 px-2 gap-2 cursor-default">
+        <div className="font-semibold">Version</div>
+        <div className="input border bg-slate-100">{version}</div>
+      </div>
       <InputField
         label="Notary API"
         placeholder="https://api.tlsnotary.org"
@@ -214,9 +216,9 @@ function NormalOptions(props: {
           setDirty(true);
         }}
       />
-      <div className="flex flex-col flex-nowrap py-1 px-2 gap-2">
+      <div className="flex flex-col flex-nowrap py-1 px-2 gap-2 cursor-default">
         <div className="font-semibold">Explorer URL</div>
-        <div className="input border">{EXPLORER_API}</div>
+        <div className="input border bg-slate-100">{EXPLORER_API}</div>
       </div>
     </div>
   );
@@ -225,12 +227,12 @@ function NormalOptions(props: {
 function AdvancedOptions(props: {
   maxSent: number;
   maxReceived: number;
-  loggingLevel: string;
+  loggingLevel: LoggingLevel;
   setShouldReload: (reload: boolean) => void;
   setMaxSent: (value: number) => void;
   setMaxReceived: (value: number) => void;
   setDirty: (value: boolean) => void;
-  setLoggingLevel: (level: string) => void;
+  setLoggingLevel: (level: LoggingLevel) => void;
 }) {
   const {
     maxSent,
@@ -270,16 +272,17 @@ function AdvancedOptions(props: {
         <select
           className="select !bg-white border !px-2 !py-1"
           onChange={(e) => {
-            setLoggingLevel(e.target.value);
+            setLoggingLevel(e.target.value as LoggingLevel);
             setDirty(true);
             setShouldReload(true);
           }}
           value={loggingLevel}
         >
-          <option value={LOGGING_LEVEL_NONE}>None</option>
-          <option value={LOGGING_LEVEL_INFO}>Info</option>
-          <option value={LOGGING_LEVEL_DEBUG}>Debug</option>
-          <option value={LOGGING_LEVEL_TRACE}>Trace</option>
+          <option value="Error">Error</option>
+          <option value="Warn">Warn</option>
+          <option value="Info">Info</option>
+          <option value="Debug">Debug</option>
+          <option value="Trace">Trace</option>
         </select>
       </div>
       <div className="flex flex-row flex-nowrap justify-end gap-2 p-2"></div>

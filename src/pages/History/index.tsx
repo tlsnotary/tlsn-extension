@@ -18,6 +18,7 @@ import {
   getNotaryRequest,
   setNotaryRequestCid,
 } from '../../entries/Background/db';
+const charwise = require('charwise');
 
 export default function History(): ReactElement {
   const history = useHistoryOrder();
@@ -132,6 +133,12 @@ export function OneRequestHistory(props: {
           </div>
         </div>
         <div className="flex flex-row">
+          <div className="font-bold text-slate-400">Time:</div>
+          <div className="ml-2 text-slate-800">
+            {new Date(charwise.decode(props.requestId, 'hex')).toISOString()}
+          </div>
+        </div>
+        <div className="flex flex-row">
           <div className="font-bold text-slate-400">Host:</div>
           <div className="ml-2 text-slate-800">{requestUrl?.host}</div>
         </div>
@@ -140,7 +147,7 @@ export function OneRequestHistory(props: {
           <div className="ml-2 text-slate-800">{request?.notaryUrl}</div>
         </div>
         <div className="flex flex-row">
-          <div className="font-bold text-slate-400">TLS Proxy API: </div>
+          <div className="font-bold text-slate-400">TLS Proxy API:</div>
           <div className="ml-2 text-slate-800">
             {request?.websocketProxyUrl}
           </div>

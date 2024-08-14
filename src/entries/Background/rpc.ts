@@ -84,6 +84,7 @@ export enum BackgroundActiontype {
   get_plugins_response = 'get_plugins_response',
   run_plugin_request = 'run_plugin_request',
   run_plugin_response = 'run_plugin_response',
+  get_logging_level = 'get_logging_level',
 }
 
 export type BackgroundAction = {
@@ -188,6 +189,9 @@ export const initRPC = () => {
           return handleGetPluginsRequest(request);
         case BackgroundActiontype.run_plugin_request:
           return handleRunPluginCSRequest(request);
+        case BackgroundActiontype.get_logging_level:
+          getLoggingFilter().then(sendResponse);
+          return true;
         default:
           break;
       }
@@ -299,7 +303,6 @@ async function handleRetryProveReqest(
       ...req,
       notaryUrl,
       websocketProxyUrl,
-      loggingFilter: await getLoggingFilter(),
     },
   });
 
@@ -363,7 +366,6 @@ async function handleProveRequestStart(
       websocketProxyUrl,
       secretHeaders,
       secretResps,
-      loggingFilter: await getLoggingFilter(),
     },
   });
 
@@ -428,7 +430,6 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
       maxSentData,
       secretHeaders,
       secretResps,
-      loggingFilter: await getLoggingFilter(),
     },
   });
 }
@@ -862,7 +863,6 @@ async function handleNotarizeRequest(request: BackgroundAction) {
               websocketProxyUrl,
               secretHeaders,
               secretResps,
-              loggingFilter: await getLoggingFilter(),
             },
           });
         } catch (e) {
