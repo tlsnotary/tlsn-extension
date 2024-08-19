@@ -27,7 +27,6 @@ import {
 } from '../../utils/storage';
 import { MAX_RECV, MAX_SENT } from '../../utils/constants';
 
-
 type Props = {
   requestId: string;
 };
