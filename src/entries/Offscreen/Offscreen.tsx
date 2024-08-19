@@ -4,8 +4,6 @@ import { OffscreenActionTypes } from './types';
 import {
   NotaryServer,
   Prover as _Prover,
-  NotarizedSession as _NotarizedSession,
-  TlsProof as _TlsProof,
 } from 'tlsn-js';
 import { verify } from 'tlsn-jsV5.3';
 
@@ -227,51 +225,15 @@ async function createProof(options: {
     body,
   });
 
-  const transcript = await prover.transcript();
+  await prover.notarize()
 
-  const commit = {
-    sent: subtractRanges(
-      transcript.ranges.sent.all,
-      secretHeaders
-        .map((secret: string) => {
-          const index = transcript.sent.indexOf(secret);
-          return index > -1
-            ? {
-                start: index,
-                end: index + secret.length,
-              }
-            : null;
-        })
-        .filter((data: any) => !!data) as { start: number; end: number }[],
-    ),
-    recv: subtractRanges(
-      transcript.ranges.recv.all,
-      secretResps
-        .map((secret: string) => {
-          const index = transcript.recv.indexOf(secret);
-          return index > -1
-            ? {
-                start: index,
-                end: index + secret.length,
-              }
-            : null;
-        })
-        .filter((data: any) => !!data) as { start: number; end: number }[],
-    ),
-  };
-
-  const session: _NotarizedSession = await new NotarizedSession(
-    await prover.notarize(commit),
-  );
-
-  const proofHex = await session.proof(commit);
   const proof: ProofV1 = {
     version: '1.0',
     meta: {
       notaryUrl,
       websocketProxyUrl,
     },
-    data: proofHex,
+    data: '0x',
   };
   return proof;
 }
@@ -279,22 +241,20 @@ async function createProof(options: {
 async function verifyProof(
   proof: Proof,
 ): Promise<{ sent: string; recv: string }> {
-  let result: { sent: string; recv: string };
+  return { sent: '', recv: '' };
 
-  switch (proof.version) {
-    case undefined: {
-      result = await verify(proof);
-      break;
-    }
-    case '1.0': {
-      const tlsProof: _TlsProof = await new TlsProof(proof.data);
-      result = await tlsProof.verify({
-        typ: 'P256',
-        key: await NotaryServer.from(proof.meta.notaryUrl).publicKey(),
-      });
-      break;
-    }
-  }
-
-  return result;
+  // switch (proof.version) {
+  //   case undefined: {
+  //     result = await verify(proof);
+  //     break;
+  //   }
+  //   case '1.0': {
+  //     const tlsProof: _TlsProof = await new TlsProof(proof.data);
+  //     result = await tlsProof.verify({
+  //       typ: 'P256',
+  //       key: await NotaryServer.from(proof.meta.notaryUrl).publicKey(),
+  //     });
+  //     break;
+  //   }
+  // }
 }
