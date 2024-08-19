@@ -18,6 +18,7 @@ enum ActionType {
   '/requests/setRequests' = '/requests/setRequests',
   '/requests/addRequest' = '/requests/addRequest',
   '/requests/setActiveTab' = '/requests/setActiveTab',
+  '/requests/isConnected' = '/requests/isConnected',
 }
 
 type Action<payload> = {
@@ -32,11 +33,22 @@ type State = {
     [requestId: string]: RequestLog;
   };
   activeTab: chrome.tabs.Tab | null;
+  isConnected: boolean;
 };
 
 const initialState: State = {
   map: {},
   activeTab: null,
+  isConnected: false,
+};
+
+export const setConnection = (isConnected: boolean): Action<boolean> => ({
+  type: ActionType['/requests/isConnected'],
+  payload: isConnected,
+});
+
+export const isConnected = (isConnected: boolean) => async () => {
+  return isConnected;
 };
 
 export const setRequests = (requests: RequestLog[]): Action<RequestLog[]> => ({
@@ -113,6 +125,11 @@ export default function requests(
           [action.payload.requestId]: action.payload,
         },
       };
+    case ActionType['/requests/isConnected']:
+      return {
+        ...state,
+        isConnected: action.payload,
+      };
     default:
       return state;
   }
@@ -141,4 +158,8 @@ export const useActiveTabUrl = (): URL | null => {
     const activeTab = state.requests.activeTab;
     return activeTab?.url ? new URL(activeTab.url) : null;
   }, deepEqual);
+};
+
+export const useIsConnected = (): boolean => {
+  return useSelector((state: AppRootState) => state.requests.isConnected);
 };

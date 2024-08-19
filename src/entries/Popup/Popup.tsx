@@ -32,6 +32,7 @@ import { RunPluginApproval } from '../../pages/RunPluginApproval';
 import Icon from '../../components/Icon';
 import classNames from 'classnames';
 import { getConnection } from '../Background/db';
+import { useIsConnected, setConnection } from '../../reducers/requests';
 
 const Popup = () => {
   const dispatch = useDispatch();
@@ -123,16 +124,17 @@ const Popup = () => {
 export default Popup;
 
 function AppConnectionLogo() {
+  const dispatch = useDispatch();
   const activeTab = useActiveTab();
   const url = useActiveTabUrl();
   const [showConnectionDetails, setShowConnectionDetails] = useState(false);
-  const [connected, setConnected] = useState(false);
+  const connected = useIsConnected();
 
   useEffect(() => {
     (async () => {
       if (url) {
         const isConnected: boolean | null = await getConnection(url?.origin);
-        isConnected ? setConnected(true) : setConnected(false);
+        dispatch(setConnection(!!isConnected));
       }
     })();
   }, [url]);
