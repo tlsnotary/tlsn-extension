@@ -40,7 +40,8 @@ var options = {
   mode: process.env.NODE_ENV || "development",
   ignoreWarnings: [
     /Circular dependency between chunks with runtime/,
-    /ResizeObserver loop completed with undelivered notifications/
+    /ResizeObserver loop completed with undelivered notifications/,
+    /Should not import the named export/,
   ],
 
   entry: {
