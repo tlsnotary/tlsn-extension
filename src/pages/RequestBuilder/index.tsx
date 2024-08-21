@@ -187,7 +187,7 @@ export default function RequestBuilder(props?: {
             }
             return map;
           }, {}),
-          body: body ? formatForRequest(body, type) : '',
+          body: body ? formatForRequest(body, type) : undefined,
           maxSentData,
           maxRecvData,
           secretHeaders: [],
