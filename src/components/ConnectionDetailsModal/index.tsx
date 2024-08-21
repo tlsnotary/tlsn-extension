@@ -1,38 +1,39 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { useActiveTab, useActiveTabUrl } from '../../reducers/requests';
-import Modal, {
-  ModalHeader,
-  ModalContent,
-  ModalFooter,
-} from '../../components/Modal/Modal';
+import React, { useCallback, useEffect } from 'react';
+import { useDispatch } from 'react-redux';
+import {
+  useActiveTabUrl,
+  setConnection,
+  useIsConnected,
+} from '../../reducers/requests';
+import Modal, { ModalHeader, ModalContent } from '../../components/Modal/Modal';
 import { deleteConnection, getConnection } from '../../entries/Background/db';
-import { urlify } from '../../utils/misc';
-import Icon from '../Icon';
 
 const ConnectionDetailsModal = (props: {
   showConnectionDetails: boolean;
-  setShowConnectionDetails: any;
+  setShowConnectionDetails: (show: boolean) => void;
 }) => {
+  const dispatch = useDispatch();
   const activeTabOrigin = useActiveTabUrl();
-
-  const [connected, setConnected] = useState(false);
+  const connected = useIsConnected();
 
   useEffect(() => {
     (async () => {
       if (activeTabOrigin) {
         const isConnected: boolean | null = await getConnection(
-          activeTabOrigin?.origin,
+          activeTabOrigin.origin,
         );
-        isConnected ? setConnected(true) : setConnected(false);
+        dispatch(setConnection(!!isConnected));
       }
     })();
-  }, []);
+  }, [activeTabOrigin, dispatch]);
 
   const handleDisconnect = useCallback(async () => {
-    await deleteConnection(activeTabOrigin?.origin as string);
-    props.setShowConnectionDetails(false);
-    setConnected(false);
-  }, [props.setShowConnectionDetails]);
+    if (activeTabOrigin?.origin) {
+      await deleteConnection(activeTabOrigin.origin);
+      props.setShowConnectionDetails(false);
+      dispatch(setConnection(false));
+    }
+  }, [activeTabOrigin?.origin, dispatch, props]);
 
   return (
     <Modal
@@ -56,8 +57,7 @@ const ConnectionDetailsModal = (props: {
         {connected && (
           <button
             className="button disabled:opacity-50 self-end"
-            disabled={!connected}
-            onClick={() => handleDisconnect()}
+            onClick={handleDisconnect}
           >
             Disconnect
           </button>
