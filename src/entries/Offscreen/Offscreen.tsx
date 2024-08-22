@@ -205,8 +205,8 @@ async function createProof(options: {
     notaryUrl,
     websocketProxyUrl,
     id,
-    secretHeaders,
-    secretResps,
+    secretHeaders = [],
+    secretResps = [],
   } = options;
 
   const hostname = urlify(url)?.hostname || '';
