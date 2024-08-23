@@ -56,7 +56,15 @@ export default function RequestBuilder(props?: {
   const [method, setMethod] = useState<string>(props?.method || 'GET');
   const [type, setType] = useState<string>('text/plain');
   const [headers, setHeaders] = useState<[string, string, boolean?][]>(
-    props?.headers || [['Content-Type', type, true]],
+    props?.headers || [
+      ['Content-Type', type, true],
+      ['Accept', '*/*', false],
+      ['Host', '', false],
+      ['Connection', 'keep-alive', false],
+      ['Accept-Encoding', 'gzip, deflate, br', false],
+      ['Accept-Language', 'en-US,en;q=0.9', false],
+      ['User-Agent', window.navigator.userAgent, false],
+    ],
   );
 
   const [responseData, setResponseData] = useState<{
@@ -184,6 +192,9 @@ export default function RequestBuilder(props?: {
           headers: headers.reduce((map: { [key: string]: string }, [k, v]) => {
             if (k !== 'Cookie') {
               map[k] = v;
+            }
+            if (k === 'Host') {
+              map[k] ? map[k] : (map[k] = url?.host || '');
             }
             return map;
           }, {}),
@@ -412,10 +423,11 @@ function HeaderTable(props: {
 }): ReactElement {
   const headers: [string, string, boolean?][] = [
     ...props.headers,
-    ['', '', true],
+    ['', ' ', true],
   ];
   const last = props.headers.length;
 
+  console.log(last);
   return (
     <table className="border border-slate-300 border-collapse table-fixed w-full">
       <tbody>
@@ -450,7 +462,7 @@ function HeaderTable(props: {
               <input
                 className="input py-1 px-2 w-full py-1 px-2"
                 type="text"
-                value={value}
+                value={value ? value : 'Calculated when request is sent'}
                 placeholder="Value"
                 onChange={(e) => {
                   props.setHeader(i, key, e.target.value);
