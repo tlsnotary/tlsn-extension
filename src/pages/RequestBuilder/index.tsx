@@ -217,7 +217,7 @@ export default function RequestBuilder(props?: {
     (e: React.ChangeEvent<HTMLSelectElement>) => {
       const value = e.target.value;
       if (value === 'GET' || value === 'HEAD') {
-        setType('');
+        // setType('');  Leaving this here for now - I feel like I did this for a specific reason but I can't remember why
         setMethod(value);
       } else {
         setMethod(value);
@@ -427,7 +427,6 @@ function HeaderTable(props: {
   ];
   const last = props.headers.length;
 
-  console.log(last);
   return (
     <table className="border border-slate-300 border-collapse table-fixed w-full">
       <tbody>
