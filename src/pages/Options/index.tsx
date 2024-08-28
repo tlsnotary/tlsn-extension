@@ -28,7 +28,7 @@ import {
 import Modal, { ModalContent } from '../../components/Modal/Modal';
 import browser from 'webextension-polyfill';
 import { LoggingLevel } from 'tlsn-js';
-import { version } from '../../../package.json';
+const version = require('../../../package.json').version;
 
 export default function Options(): ReactElement {
   const [notary, setNotary] = useState(NOTARY_API);
