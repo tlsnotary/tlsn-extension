@@ -7,7 +7,7 @@ import {
   NotarizedSession as _NotarizedSession,
   TlsProof as _TlsProof,
 } from 'tlsn-js';
-import { verify } from 'tlsn-jsV5.3';
+import { verify } from 'tlsn-js-v5';
 
 import { urlify } from '../../utils/misc';
 import { BackgroundActiontype } from '../Background/rpc';

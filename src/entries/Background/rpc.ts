@@ -24,6 +24,8 @@ import {
   getPlugins,
   getCookiesByHost,
   getHeadersByHost,
+  getAppState,
+  setDefaultPluginsInstalled,
 } from './db';
 import { addOnePlugin, removeOnePlugin } from '../../reducers/plugins';
 import {
@@ -85,6 +87,8 @@ export enum BackgroundActiontype {
   run_plugin_request = 'run_plugin_request',
   run_plugin_response = 'run_plugin_response',
   get_logging_level = 'get_logging_level',
+  get_app_state = 'get_app_state',
+  set_default_plugins_installed = 'set_default_plugins_installed',
 }
 
 export type BackgroundAction = {
@@ -191,6 +195,12 @@ export const initRPC = () => {
           return handleRunPluginCSRequest(request);
         case BackgroundActiontype.get_logging_level:
           getLoggingFilter().then(sendResponse);
+          return true;
+        case BackgroundActiontype.get_app_state:
+          getAppState().then(sendResponse);
+          return true;
+        case BackgroundActiontype.set_default_plugins_installed:
+          setDefaultPluginsInstalled(request.data).then(sendResponse);
           return true;
         default:
           break;

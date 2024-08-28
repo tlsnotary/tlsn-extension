@@ -1,1 +1,0 @@
-You can find example plugins at https://github.com/tlsnotary/tlsn-plugin-boilerplate/tree/main/examples
