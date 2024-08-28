@@ -24,7 +24,7 @@ import {
   InputBody,
   FormBodyTable,
   parseResponse,
-} from '../../utils/requestbuilder';
+} from '../../components/RequestBuilder';
 
 enum TabType {
   Params = 'Params',
