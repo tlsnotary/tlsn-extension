@@ -1,6 +1,8 @@
 import { onBeforeRequest, onResponseStarted, onSendHeaders } from './handlers';
 import { deleteCacheByTabId } from './cache';
 import browser from 'webextension-polyfill';
+import { getAppState, setDefaultPluginsInstalled } from './db';
+import { installPlugin } from './plugins/utils';
 
 (async () => {
   browser.webRequest.onSendHeaders.addListener(
@@ -30,6 +32,19 @@ import browser from 'webextension-polyfill';
   browser.tabs.onRemoved.addListener((tabId) => {
     deleteCacheByTabId(tabId);
   });
+
+  const { defaultPluginsInstalled } = await getAppState();
+
+  if (!defaultPluginsInstalled) {
+    try {
+      const twitterProfileUrl = browser.runtime.getURL('twitter_profile.wasm');
+      const discordDmUrl = browser.runtime.getURL('discord_dm.wasm');
+      await installPlugin(twitterProfileUrl);
+      await installPlugin(discordDmUrl);
+    } finally {
+      await setDefaultPluginsInstalled(true);
+    }
+  }
 
   const { initRPC } = await import('./rpc');
   await createOffscreenDocument();

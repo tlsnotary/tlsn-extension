@@ -169,7 +169,7 @@ export function Plugin(props: {
           <PluginInfoModalContent className="flex flex-col items-center cursor-default">
             <img
               className="w-12 h-12 mb-2"
-              src={config.icon}
+              src={config.icon || DefaultPluginIcon}
               alt="Plugin Icon"
             />
             <span className="text-3xl text-blue-600 font-semibold">

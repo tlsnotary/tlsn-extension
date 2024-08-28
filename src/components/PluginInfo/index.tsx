@@ -24,6 +24,7 @@ import {
 } from '../../utils/plugins';
 import { ErrorModal } from '../ErrorModal';
 import classNames from 'classnames';
+import DefaultPluginIcon from '../../assets/img/default-plugin-icon.png';
 
 export default function PluginUploadInfo(): ReactElement {
   const [error, showError] = useState('');
@@ -122,7 +123,7 @@ export function PluginInfoModal(props: {
       <ModalHeader className="w-full p-2 border-gray-200 text-gray-500">
         {header || (
           <div className="flex flex-row items-end justify-start gap-2">
-            <img className="h-5" src={logo} alt="logo" />
+            <img className="h-5" src={logo || DefaultPluginIcon} alt="logo" />
             <span className="font-semibold">{`Installing ${pluginContent.title}`}</span>
           </div>
         )}
@@ -132,7 +133,7 @@ export function PluginInfoModal(props: {
           <>
             <img
               className="w-12 h-12"
-              src={pluginContent.icon}
+              src={pluginContent.icon || DefaultPluginIcon}
               alt="Plugin Icon"
             />
             <span className="text-3xl text-center">

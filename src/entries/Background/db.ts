@@ -28,6 +28,12 @@ const cookiesDb = db.sublevel<string, boolean>('cookies', {
 const headersDb = db.sublevel<string, boolean>('headers', {
   valueEncoding: 'json',
 });
+const appDb = db.sublevel<string, any>('app', {
+  valueEncoding: 'json',
+});
+enum AppDatabaseKey {
+  DefaultPluginsInstalled = 'DefaultPluginsInstalled',
+}
 
 export async function addNotaryRequest(
   now = Date.now(),
@@ -371,4 +377,20 @@ export async function getHeadersByHost(host: string) {
     ret[key] = value;
   }
   return ret;
+}
+
+async function getDefaultPluginsInstalled(): Promise<boolean> {
+  return appDb.get(AppDatabaseKey.DefaultPluginsInstalled).catch(() => false);
+}
+
+export async function setDefaultPluginsInstalled(installed = false) {
+  return mutex.runExclusive(async () => {
+    await appDb.put(AppDatabaseKey.DefaultPluginsInstalled, installed);
+  });
+}
+
+export async function getAppState() {
+  return {
+    defaultPluginsInstalled: await getDefaultPluginsInstalled(),
+  };
 }

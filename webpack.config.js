@@ -200,28 +200,18 @@ var options = {
     }),
     new CopyWebpackPlugin({
       patterns: [
-        // {
-        //   from: "node_modules/tlsn-js/build/7.js",
-        //   to: path.join(__dirname, "build"),
-        //   force: true,
-        // },
-        // {
-        //   from: "node_modules/tlsn-js/build/250.js",
-        //   to: path.join(__dirname, "build"),
-        //   force: true,
-        // },
-        // {
-        //   from: "node_modules/tlsn-js/build/278.js",
-        //   to: path.join(__dirname, "build"),
-        //   force: true,
-        // },
-        // {
-        //   from: "node_modules/tlsn-js/build/349.js",
-        //   to: path.join(__dirname, "build"),
-        //   force: true,
-        // },
         {
           from: "node_modules/tlsn-js/build",
+          to: path.join(__dirname, "build"),
+          force: true,
+        },
+        {
+          from: "src/assets/plugins/discord_dm.wasm",
+          to: path.join(__dirname, "build"),
+          force: true,
+        },
+        {
+          from: "src/assets/plugins/twitter_profile.wasm",
           to: path.join(__dirname, "build"),
           force: true,
         },
