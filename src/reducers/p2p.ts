@@ -8,9 +8,12 @@ import { BackgroundActiontype } from '../entries/Background/rpc';
 enum ActionType {
   '/p2p/setConnected' = '/p2p/setConnected',
   '/p2p/setClientId' = '/p2p/setClientId',
-  '/p2p/setSocket' = '/p2p/setSocket',
   '/p2p/setPairing' = '/p2p/setPairing',
-  '/p2p/appendPairingRequest' = '/p2p/appendPairingRequest',
+  '/p2p/setError' = '/p2p/setError',
+  '/p2p/appendIncomingPairingRequest' = '/p2p/appendIncomingPairingRequest',
+  '/p2p/appendOutgoingPairingRequest' = '/p2p/appendOutgoingPairingRequest',
+  '/p2p/setIncomingPairingRequest' = '/p2p/setIncomingPairingRequest',
+  '/p2p/setOutgoingPairingRequest' = '/p2p/setOutgoingPairingRequest',
 }
 
 type Action<payload> = {
@@ -24,7 +27,9 @@ type State = {
   clientId: string;
   pairing: string;
   connected: boolean;
+  error: string;
   incomingPairingRequests: string[];
+  outgoingPairingRequests: string[];
 };
 
 export type RequestProofMessage = {
@@ -37,8 +42,10 @@ export type RequestProofMessage = {
 const initialState: State = {
   clientId: '',
   pairing: '',
+  error: '',
   connected: false,
   incomingPairingRequests: [],
+  outgoingPairingRequests: [],
 };
 
 export const fetchP2PState = async () => {
@@ -74,9 +81,29 @@ export const setPairing = (clientId: string) => ({
   payload: clientId,
 });
 
-export const appendPairingRequests = (peerId: string) => ({
-  type: ActionType['/p2p/appendPairingRequest'],
+export const appendIncomingPairingRequests = (peerId: string) => ({
+  type: ActionType['/p2p/appendIncomingPairingRequest'],
   payload: peerId,
+});
+
+export const appendOutgoingPairingRequests = (peerId: string) => ({
+  type: ActionType['/p2p/appendOutgoingPairingRequest'],
+  payload: peerId,
+});
+
+export const setIncomingPairingRequest = (peerIds: string[]) => ({
+  type: ActionType['/p2p/setIncomingPairingRequest'],
+  payload: peerIds,
+});
+
+export const setOutgoingPairingRequest = (peerIds: string[]) => ({
+  type: ActionType['/p2p/setOutgoingPairingRequest'],
+  payload: peerIds,
+});
+
+export const setP2PError = (error: string) => ({
+  type: ActionType['/p2p/setError'],
+  payload: error,
 });
 
 export const requestProof =
@@ -108,6 +135,27 @@ export const sendPairRequest = async (targetId: string) => {
     data: targetId,
   });
 };
+
+export const cancelPairRequest = async (targetId: string) => {
+  return browser.runtime.sendMessage({
+    type: BackgroundActiontype.cancel_pair_request,
+    data: targetId,
+  });
+};
+
+export const acceptPairRequest = async (targetId: string) => {
+  return browser.runtime.sendMessage({
+    type: BackgroundActiontype.accept_pair_request,
+    data: targetId,
+  });
+};
+
+export const rejectPairRequest = async (targetId: string) => {
+  return browser.runtime.sendMessage({
+    type: BackgroundActiontype.reject_pair_request,
+    data: targetId,
+  });
+};
 export const confirmPairRequest =
   (target: string) => (dispatch: Dispatch, getState: () => AppRootState) => {
     // const {
@@ -131,7 +179,7 @@ export const confirmPairRequest =
     // }
   };
 
-export default function p2p(state = initialState, action: Action<any>) {
+export default function p2p(state = initialState, action: Action<any>): State {
   switch (action.type) {
     case ActionType['/p2p/setConnected']:
       return {
@@ -148,12 +196,34 @@ export default function p2p(state = initialState, action: Action<any>) {
         ...state,
         pairing: action.payload,
       };
-    case ActionType['/p2p/appendPairingRequest']:
+    case ActionType['/p2p/appendIncomingPairingRequest']:
       return {
         ...state,
         incomingPairingRequests: [
           ...new Set(state.incomingPairingRequests.concat(action.payload)),
         ],
+      };
+    case ActionType['/p2p/appendOutgoingPairingRequest']:
+      return {
+        ...state,
+        outgoingPairingRequests: [
+          ...new Set(state.outgoingPairingRequests.concat(action.payload)),
+        ],
+      };
+    case ActionType['/p2p/setIncomingPairingRequest']:
+      return {
+        ...state,
+        incomingPairingRequests: action.payload,
+      };
+    case ActionType['/p2p/setOutgoingPairingRequest']:
+      return {
+        ...state,
+        outgoingPairingRequests: action.payload,
+      };
+    case ActionType['/p2p/setError']:
+      return {
+        ...state,
+        error: action.payload,
       };
     default:
       return state;
@@ -172,12 +242,6 @@ export function useConnected() {
   }, deepEqual);
 }
 
-// export function useChatMessages(): (Chat | RequestProofMessage)[] {
-//   return useSelector((state: AppRootState) => {
-//     return state.p2p.messages;
-//   }, deepEqual);
-// }
-
 export function usePairId(): string {
   return useSelector((state: AppRootState) => {
     return state.p2p.pairing;
@@ -190,6 +254,14 @@ export function useIncomingPairingRequests(): string[] {
   }, deepEqual);
 }
 
-function bufferify(data: any): Buffer {
-  return Buffer.from(JSON.stringify(data));
+export function useOutgoingPairingRequests(): string[] {
+  return useSelector((state: AppRootState) => {
+    return state.p2p.outgoingPairingRequests;
+  }, deepEqual);
+}
+
+export function useP2PError(): string {
+  return useSelector((state: AppRootState) => {
+    return state.p2p.error;
+  }, deepEqual);
 }

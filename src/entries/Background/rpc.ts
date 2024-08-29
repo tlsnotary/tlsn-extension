@@ -48,9 +48,12 @@ import { OffscreenActionTypes } from '../Offscreen/types';
 import { SidePanelActionTypes } from '../SidePanel/types';
 import { pushToRedux } from '../utils';
 import {
+  acceptPairRequest,
+  cancelPairRequest,
   connectSession,
   disconnectSession,
   getP2PState,
+  rejectPairRequest,
   sendPairRequest,
 } from './ws';
 
@@ -99,6 +102,9 @@ export enum BackgroundActiontype {
   connect_rendezvous = 'connect_rendezvous',
   disconnect_rendezvous = 'disconnect_rendezvous',
   send_pair_request = 'send_pair_request',
+  cancel_pair_request = 'cancel_pair_request',
+  accept_pair_request = 'accept_pair_request',
+  reject_pair_request = 'reject_pair_request',
   get_p2p_state = 'get_p2p_state',
 }
 
@@ -221,6 +227,15 @@ export const initRPC = () => {
           return;
         case BackgroundActiontype.send_pair_request:
           sendPairRequest(request.data).then(sendResponse);
+          return;
+        case BackgroundActiontype.cancel_pair_request:
+          cancelPairRequest(request.data).then(sendResponse);
+          return;
+        case BackgroundActiontype.accept_pair_request:
+          acceptPairRequest(request.data).then(sendResponse);
+          return;
+        case BackgroundActiontype.reject_pair_request:
+          rejectPairRequest(request.data).then(sendResponse);
           return;
         case BackgroundActiontype.get_p2p_state:
           getP2PState().then(sendResponse);
