@@ -46,6 +46,13 @@ import { deferredPromise } from '../../utils/promise';
 import { minimatch } from 'minimatch';
 import { OffscreenActionTypes } from '../Offscreen/types';
 import { SidePanelActionTypes } from '../SidePanel/types';
+import { pushToRedux } from '../utils';
+import {
+  connectSession,
+  disconnectSession,
+  getP2PState,
+  sendPairRequest,
+} from './ws';
 
 const charwise = require('charwise');
 
@@ -89,6 +96,10 @@ export enum BackgroundActiontype {
   get_logging_level = 'get_logging_level',
   get_app_state = 'get_app_state',
   set_default_plugins_installed = 'set_default_plugins_installed',
+  connect_rendezvous = 'connect_rendezvous',
+  disconnect_rendezvous = 'disconnect_rendezvous',
+  send_pair_request = 'send_pair_request',
+  get_p2p_state = 'get_p2p_state',
 }
 
 export type BackgroundAction = {
@@ -202,6 +213,18 @@ export const initRPC = () => {
         case BackgroundActiontype.set_default_plugins_installed:
           setDefaultPluginsInstalled(request.data).then(sendResponse);
           return true;
+        case BackgroundActiontype.connect_rendezvous:
+          connectSession().then(sendResponse);
+          return;
+        case BackgroundActiontype.disconnect_rendezvous:
+          disconnectSession().then(sendResponse);
+          return;
+        case BackgroundActiontype.send_pair_request:
+          sendPairRequest(request.data).then(sendResponse);
+          return;
+        case BackgroundActiontype.get_p2p_state:
+          getP2PState().then(sendResponse);
+          return;
         default:
           break;
       }
@@ -226,13 +249,7 @@ function handleGetProveRequests(
 ): boolean {
   getNotaryRequests().then(async (reqs) => {
     for (const req of reqs) {
-      await browser.runtime.sendMessage({
-        type: BackgroundActiontype.push_action,
-        data: {
-          tabId: 'background',
-        },
-        action: addRequestHistory(req),
-      });
+      await pushToRedux(addRequestHistory(req));
     }
     sendResponse(reqs);
   });
@@ -250,39 +267,21 @@ async function handleFinishProveRequest(
     const newReq = await addNotaryRequestProofs(id, proof);
     if (!newReq) return;
 
-    await browser.runtime.sendMessage({
-      type: BackgroundActiontype.push_action,
-      data: {
-        tabId: 'background',
-      },
-      action: addRequestHistory(await getNotaryRequest(id)),
-    });
+    await pushToRedux(addRequestHistory(await getNotaryRequest(id)));
   }
 
   if (error) {
     const newReq = await setNotaryRequestError(id, error);
     if (!newReq) return;
 
-    await browser.runtime.sendMessage({
-      type: BackgroundActiontype.push_action,
-      data: {
-        tabId: 'background',
-      },
-      action: addRequestHistory(await getNotaryRequest(id)),
-    });
+    await pushToRedux(addRequestHistory(await getNotaryRequest(id)));
   }
 
   if (verification) {
     const newReq = await setNotaryRequestVerification(id, verification);
     if (!newReq) return;
 
-    await browser.runtime.sendMessage({
-      type: BackgroundActiontype.push_action,
-      data: {
-        tabId: 'background',
-      },
-      action: addRequestHistory(await getNotaryRequest(id)),
-    });
+    await pushToRedux(addRequestHistory(await getNotaryRequest(id)));
   }
 
   return sendResponse();
@@ -299,13 +298,7 @@ async function handleRetryProveReqest(
 
   const req = await getNotaryRequest(id);
 
-  await browser.runtime.sendMessage({
-    type: BackgroundActiontype.push_action,
-    data: {
-      tabId: 'background',
-    },
-    action: addRequestHistory(req),
-  });
+  await pushToRedux(addRequestHistory(req));
 
   await browser.runtime.sendMessage({
     type: BackgroundActiontype.process_prove_request,
@@ -353,13 +346,7 @@ async function handleProveRequestStart(
 
   await setNotaryRequestStatus(id, 'pending');
 
-  await browser.runtime.sendMessage({
-    type: BackgroundActiontype.push_action,
-    data: {
-      tabId: 'background',
-    },
-    action: addRequestHistory(await getNotaryRequest(id)),
-  });
+  await pushToRedux(addRequestHistory(await getNotaryRequest(id)));
 
   browser.runtime.sendMessage({
     type: BackgroundActiontype.process_prove_request,
@@ -417,13 +404,7 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
 
   await setNotaryRequestStatus(id, 'pending');
 
-  await browser.runtime.sendMessage({
-    type: BackgroundActiontype.push_action,
-    data: {
-      tabId: 'background',
-    },
-    action: addRequestHistory(await getNotaryRequest(id)),
-  });
+  await pushToRedux(addRequestHistory(await getNotaryRequest(id)));
 
   await browser.runtime.sendMessage({
     type: BackgroundActiontype.process_prove_request,
@@ -486,13 +467,7 @@ async function handleAddPlugin(
       if (hash) {
         await addPluginConfig(hash, config);
 
-        await browser.runtime.sendMessage({
-          type: BackgroundActiontype.push_action,
-          data: {
-            tabId: 'background',
-          },
-          action: addOnePlugin(hash),
-        });
+        await pushToRedux(addOnePlugin(hash));
       }
     }
   } finally {
@@ -506,13 +481,7 @@ async function handleRemovePlugin(
 ) {
   await removePlugin(request.data);
   await removePluginConfig(request.data);
-  await browser.runtime.sendMessage({
-    type: BackgroundActiontype.push_action,
-    data: {
-      tabId: 'background',
-    },
-    action: removeOnePlugin(request.data),
-  });
+  await pushToRedux(removeOnePlugin(request.data));
 
   return sendResponse();
 }
@@ -523,13 +492,7 @@ async function handleGetPluginHashes(
 ) {
   const hashes = await getPluginHashes();
   for (const hash of hashes) {
-    await browser.runtime.sendMessage({
-      type: BackgroundActiontype.push_action,
-      data: {
-        tabId: 'background',
-      },
-      action: addOnePlugin(hash),
-    });
+    await pushToRedux(addOnePlugin(hash));
   }
   return sendResponse();
 }

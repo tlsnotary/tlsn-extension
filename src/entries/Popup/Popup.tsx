@@ -33,10 +33,16 @@ import Icon from '../../components/Icon';
 import classNames from 'classnames';
 import { getConnection } from '../Background/db';
 import { useIsConnected, setConnection } from '../../reducers/requests';
+import { P2PHome } from '../../pages/PeerToPeer';
+import { fetchP2PState } from '../../reducers/p2p';
 
 const Popup = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchP2PState();
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -111,6 +117,7 @@ const Popup = () => {
         <Route path="/notarize-approval" element={<NotarizeApproval />} />
         <Route path="/get-plugins-approval" element={<GetPluginsApproval />} />
         <Route path="/run-plugin-approval" element={<RunPluginApproval />} />
+        <Route path="/p2p" element={<P2PHome />} />
         <Route
           path="/install-plugin-approval"
           element={<InstallPluginApproval />}

@@ -11,11 +11,13 @@ import { useRequests } from '../../reducers/requests';
 import { PluginList } from '../../components/PluginList';
 import PluginUploadInfo from '../../components/PluginInfo';
 import { ErrorModal } from '../../components/ErrorModal';
+import { useClientId } from '../../reducers/p2p';
 
 export default function Home(): ReactElement {
   const requests = useRequests();
   const navigate = useNavigate();
   const [error, showError] = useState('');
+  const clientId = useClientId();
 
   return (
     <div className="flex flex-col gap-4 py-4 overflow-y-auto">
@@ -41,6 +43,17 @@ export default function Home(): ReactElement {
           <PluginUploadInfo />
           Add a plugin
         </NavButton>
+        <NavButton
+          className={'relative'}
+          fa="fa-solid fa-circle"
+          iconSize={0.5}
+          iconClassName={classNames({
+            '!text-green-500': clientId,
+          })}
+          onClick={() => navigate('/p2p')}
+        >
+          P2P
+        </NavButton>
         <NavButton fa="fa-solid fa-gear" onClick={() => navigate('/options')}>
           Options
         </NavButton>
@@ -55,12 +68,14 @@ function NavButton(props: {
   children?: ReactNode;
   onClick?: MouseEventHandler;
   className?: string;
+  iconClassName?: string;
   disabled?: boolean;
+  iconSize?: number;
 }): ReactElement {
   return (
     <button
       className={classNames(
-        'flex flex-row flex-nowrap items-center justify-center',
+        'flex flex-row flex-nowrap items-center justify-center relative',
         'text-white rounded px-2 py-1 gap-1',
         {
           'bg-primary/[.8] hover:bg-primary/[.7] active:bg-primary':
@@ -72,8 +87,15 @@ function NavButton(props: {
       onClick={props.onClick}
       disabled={props.disabled}
     >
-      <Icon className="flex-grow-0 flex-shrink-0" fa={props.fa} size={1} />
-      <span className="flex-grow flex-shrink w-0 flex-grow font-bold">
+      <Icon
+        className={classNames(
+          'absolute w-6 justify-center left-2',
+          props.iconClassName,
+        )}
+        fa={props.fa}
+        size={props.iconSize || 1}
+      />
+      <span className="flex-grow flex-shrink w-0 font-bold">
         {props.children}
       </span>
     </button>
