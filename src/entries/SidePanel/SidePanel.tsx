@@ -1,9 +1,7 @@
 import React, { ReactElement, useCallback, useEffect, useState } from 'react';
 import './sidePanel.scss';
 import browser from 'webextension-polyfill';
-import { fetchPluginConfigByHash, runPlugin } from '../../utils/rpc';
 import {
-  getPluginConfig,
   hexToArrayBuffer,
   makePlugin,
   PluginConfig,
@@ -17,8 +15,6 @@ import Icon from '../../components/Icon';
 import { useRequestHistory } from '../../reducers/history';
 import { BackgroundActiontype } from '../Background/rpc';
 import { getPluginByHash, getPluginConfigByHash } from '../Background/db';
-import type { Plugin } from '@extism/extism';
-import { OffscreenActionTypes } from '../Offscreen/types';
 import { SidePanelActionTypes } from './types';
 
 export default function SidePanel(): ReactElement {
@@ -38,7 +34,7 @@ export default function SidePanel(): ReactElement {
 
   return (
     <div className="flex flex-col bg-slate-100 w-screen h-screen">
-      <div className="relative flex flex-nowrap flex-shrink-0 flex-row items-center relative gap-2 h-9 p-2 cursor-default justify-center bg-slate-300 w-full">
+      <div className="relative flex flex-nowrap flex-shrink-0 flex-row items-center gap-2 h-9 p-2 cursor-default justify-center bg-slate-300 w-full">
         <img className="h-5" src={logo} alt="logo" />
         <button
           className="button absolute right-2"

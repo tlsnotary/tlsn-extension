@@ -22,6 +22,7 @@ import {
 } from '../../reducers/plugins';
 import { fetchPluginHashes } from '../../utils/rpc';
 import DefaultPluginIcon from '../../assets/img/default-plugin-icon.png';
+import { useClientId } from '../../reducers/p2p';
 
 export default function Home(props: {
   tab?: 'history' | 'network';
@@ -110,6 +111,7 @@ function ActionPanel({
 }) {
   const pluginHashes = usePluginHashes();
   const navigate = useNavigate();
+  const clientId = useClientId();
   const container = useRef<HTMLDivElement | null>(null);
   const [isOverflow, setOverflow] = useState(false);
   const [expanded, setExpand] = useState(false);
@@ -172,6 +174,17 @@ function ActionPanel({
         title="Visualize an attestation"
       >
         Verify
+      </NavButton>
+      <NavButton
+        className={'relative'}
+        fa="fa-solid fa-circle"
+        iconSize={0.5}
+        iconClassName={classNames({
+          '!text-green-500': clientId,
+        })}
+        onClick={() => navigate('/p2p')}
+      >
+        P2P
       </NavButton>
       {pluginHashes.map((hash) => (
         <PluginIcon hash={hash} />
@@ -261,13 +274,20 @@ function NavButton(props: {
   onClick?: MouseEventHandler;
   className?: string;
   title?: string;
+  iconClassName?: string;
   disabled?: boolean;
+  iconSize?: number;
 }): ReactElement {
   return (
     <button
       className={classNames(
         'flex flex-col flex-nowrap items-center justify-center',
         'text-white px-2 py-1 gap-1 opacity-90 hover:opacity-100',
+        // {
+        //   'bg-primary/[.8] hover:bg-primary/[.7] active:bg-primary':
+        //     !props.disabled,
+        //   'bg-primary/[.5]': props.disabled,
+        // },
         props.className,
       )}
       onClick={props.onClick}
