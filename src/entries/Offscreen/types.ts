@@ -5,4 +5,5 @@ export enum OffscreenActionTypes {
   create_prover_response = 'offscreen/create_prover_response',
   create_presentation_request = 'offscreen/create_presentation_request',
   create_presentation_response = 'offscreen/create_presentation_response',
+  start_p2p_verifier = 'offscreen/start_p2p_verifier',
 }

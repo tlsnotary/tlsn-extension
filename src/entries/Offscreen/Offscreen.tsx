@@ -4,6 +4,7 @@ import { OffscreenActionTypes } from './types';
 import {
   NotaryServer,
   Prover as TProver,
+  Verifier as TVerifier,
   Presentation as TPresentation,
   Transcript,
 } from 'tlsn-js';
@@ -17,8 +18,9 @@ import { PresentationJSON as PresentationJSONa7 } from 'tlsn-js/build/types';
 import { Commit, Method } from 'tlsn-wasm';
 import { subtractRanges } from './utils';
 import { mapSecretsToRange } from '../Background/plugins/utils';
+import { getRendezvousApi } from '../../utils/storage';
 
-const { init, Prover, Presentation }: any = Comlink.wrap(
+const { init, Prover, Presentation, Verifier }: any = Comlink.wrap(
   new Worker(new URL('./worker.ts', import.meta.url)),
 );
 
@@ -200,6 +202,28 @@ const Offscreen = () => {
                   },
                 },
               });
+            })();
+            break;
+          }
+          case OffscreenActionTypes.start_p2p_verifier: {
+            (async () => {
+              const {
+                pluginHash,
+                maxSentData,
+                maxRecvData,
+                verifierUrl,
+                peerId,
+              } = request.data;
+              const verifier: TVerifier = await new Verifier({
+                id: pluginHash,
+                max_sent_data: maxSentData,
+                max_recv_data: maxRecvData,
+              });
+              console.log(verifier, verifierUrl);
+              await verifier.connect(verifierUrl);
+              console.log('connected');
+              const res = await verifier.verify();
+              console.log(res);
             })();
             break;
           }

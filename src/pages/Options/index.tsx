@@ -17,6 +17,8 @@ import {
   getProxyApi,
   getLoggingFilter,
   LOGGING_FILTER_KEY,
+  getRendezvousApi,
+  RENDEZVOUS_API_LS_KEY,
 } from '../../utils/storage';
 import {
   EXPLORER_API,
@@ -24,6 +26,7 @@ import {
   NOTARY_PROXY,
   MAX_RECV,
   MAX_SENT,
+  RENDEZVOUS_API,
 } from '../../utils/constants';
 import Modal, { ModalContent } from '../../components/Modal/Modal';
 import browser from 'webextension-polyfill';
@@ -36,6 +39,7 @@ export default function Options(): ReactElement {
   const [maxSent, setMaxSent] = useState(MAX_SENT);
   const [maxReceived, setMaxReceived] = useState(MAX_RECV);
   const [loggingLevel, setLoggingLevel] = useState<LoggingLevel>('Info');
+  const [rendezvous, setRendezvous] = useState(RENDEZVOUS_API);
 
   const [dirty, setDirty] = useState(false);
   const [shouldReload, setShouldReload] = useState(false);
@@ -44,11 +48,17 @@ export default function Options(): ReactElement {
 
   useEffect(() => {
     (async () => {
-      setNotary((await getNotaryApi()) || NOTARY_API);
-      setProxy((await getProxyApi()) || NOTARY_PROXY);
+      setNotary(await getNotaryApi());
+      setProxy(await getProxyApi());
+    })();
+  }, []);
+
+  useEffect(() => {
+    (async () => {
       setMaxReceived((await getMaxRecv()) || MAX_RECV);
       setMaxSent((await getMaxSent()) || MAX_SENT);
       setLoggingLevel((await getLoggingFilter()) || 'Info');
+      setRendezvous((await getRendezvousApi()) || RENDEZVOUS_API);
     })();
   }, [advanced]);
 
@@ -63,9 +73,18 @@ export default function Options(): ReactElement {
       await set(MAX_SENT_LS_KEY, maxSent.toString());
       await set(MAX_RECEIVED_LS_KEY, maxReceived.toString());
       await set(LOGGING_FILTER_KEY, loggingLevel);
+      await set(RENDEZVOUS_API_LS_KEY, rendezvous);
       setDirty(false);
     },
-    [notary, proxy, maxSent, maxReceived, loggingLevel, shouldReload],
+    [
+      notary,
+      proxy,
+      maxSent,
+      maxReceived,
+      loggingLevel,
+      rendezvous,
+      shouldReload,
+    ],
   );
 
   const onSaveAndReload = useCallback(
@@ -85,7 +104,7 @@ export default function Options(): ReactElement {
   }, []);
 
   return (
-    <div className="flex flex-col flex-nowrap flex-grow">
+    <div className="flex flex-col flex-nowrap flex-grow overflow-y-auto">
       {showReloadModal && (
         <Modal
           className="flex flex-col items-center text-base cursor-default justify-center !w-auto mx-4 my-[50%] p-4 gap-4"
@@ -145,6 +164,8 @@ export default function Options(): ReactElement {
           loggingLevel={loggingLevel}
           setLoggingLevel={setLoggingLevel}
           setShouldReload={setShouldReload}
+          rendezvous={rendezvous}
+          setRendezvous={setRendezvous}
         />
       )}
       <div className="flex flex-row flex-nowrap justify-end gap-2 p-2">
@@ -248,11 +269,13 @@ function AdvancedOptions(props: {
   maxSent: number;
   maxReceived: number;
   loggingLevel: LoggingLevel;
+  rendezvous: string;
   setShouldReload: (reload: boolean) => void;
   setMaxSent: (value: number) => void;
   setMaxReceived: (value: number) => void;
   setDirty: (value: boolean) => void;
   setLoggingLevel: (level: LoggingLevel) => void;
+  setRendezvous: (api: string) => void;
 }) {
   const {
     maxSent,
@@ -263,6 +286,8 @@ function AdvancedOptions(props: {
     setLoggingLevel,
     loggingLevel,
     setShouldReload,
+    rendezvous,
+    setRendezvous,
   } = props;
 
   return (
@@ -284,6 +309,15 @@ function AdvancedOptions(props: {
         min={0}
         onChange={(e) => {
           setMaxSent(parseInt(e.target.value));
+          setDirty(true);
+        }}
+      />
+      <InputField
+        label="Rendezvous API (for P2P)"
+        value={rendezvous}
+        type="text"
+        onChange={(e) => {
+          setRendezvous(e.target.value);
           setDirty(true);
         }}
       />
