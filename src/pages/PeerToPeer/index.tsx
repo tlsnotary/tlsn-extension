@@ -21,10 +21,20 @@ import {
   acceptPairRequest,
   rejectPairRequest,
   usePairId,
+  requestProof,
+  useIncomingProofRequests,
+  requestProofByHash,
+  useOutgoingProofRequests,
+  acceptProofRequest,
+  rejectProofRequest,
+  cancelProofRequest,
 } from '../../reducers/p2p';
 import { useDispatch } from 'react-redux';
 import Modal, { ModalHeader } from '../../components/Modal/Modal';
-import { PluginList } from '../../components/PluginList';
+import { Plugin, PluginList } from '../../components/PluginList';
+import browser from 'webextension-polyfill';
+import { BackgroundActiontype } from '../../entries/Background/rpc';
+import { sha256 } from '../../utils/misc';
 
 export function P2PHome(): ReactElement {
   const clientId = useClientId();
@@ -115,30 +125,100 @@ function ClientStatus() {
 
 function Paired() {
   const pairId = usePairId();
+  const [incomingProofRequest] = useIncomingProofRequests();
+  const [outgoingPluginHash] = useOutgoingProofRequests();
+  const [incomingPluginHash, setIncomingPluginHash] = useState('');
   const [showingModal, showModal] = useState(false);
 
+  useEffect(() => {
+    (async () => {
+      if (!incomingProofRequest) {
+        setIncomingPluginHash('');
+        return;
+      }
+      const hash = await sha256(incomingProofRequest);
+      setIncomingPluginHash(hash);
+    })();
+  }, [incomingProofRequest]);
+
+  useEffect(() => {
+    showModal(false);
+  }, [outgoingPluginHash]);
+
+  const accept = useCallback(() => {
+    if (incomingPluginHash) acceptProofRequest(incomingPluginHash);
+  }, [incomingPluginHash]);
+
+  const reject = useCallback(() => {
+    if (incomingPluginHash) rejectProofRequest(incomingPluginHash);
+  }, [incomingPluginHash]);
+
+  const cancel = useCallback(() => {
+    if (outgoingPluginHash) cancelProofRequest(outgoingPluginHash);
+  }, [outgoingPluginHash]);
+
   return (
-    <div className="flex flex-col items-center gap-2">
+    <div className="flex flex-col items-center gap-2 px-4 w-full">
       {showingModal && <PluginListModal onClose={() => showModal(false)} />}
       <div>
         <span>Paired with </span>
         <span className="font-semibold text-blue-500">{pairId}</span>
       </div>
-      <button
-        className="button button--primary"
-        onClick={() => showModal(true)}
-      >
-        Request Proof
-      </button>
+      {incomingPluginHash ? (
+        <>
+          <div className="font-semibold text-orange-500">
+            Your peer is requesting the following proof:
+          </div>
+          <Plugin
+            className="w-full bg-white !cursor-default hover:!bg-white active:!bg-white hover:!border-slate-300"
+            hash={incomingPluginHash}
+            hex={incomingProofRequest}
+            unremovable
+          />
+          <div className="flex flex-row gap-2">
+            <button className="button" onClick={reject}>
+              Decline
+            </button>
+            <button className="button button--primary" onClick={accept}>
+              Accept
+            </button>
+          </div>
+        </>
+      ) : outgoingPluginHash ? (
+        <>
+          <div className="font-semibold text-orange-500">
+            Sent request for following proof:
+          </div>
+          <Plugin
+            className="w-full bg-white !cursor-default hover:!bg-white active:!bg-white hover:!border-slate-300"
+            hash={outgoingPluginHash}
+            onClick={() => null}
+            unremovable
+          />
+          <button className="button" onClick={cancel}>
+            Cancel
+          </button>
+        </>
+      ) : (
+        <button
+          className="button button--primary"
+          onClick={() => showModal(true)}
+        >
+          Request Proof
+        </button>
+      )}
     </div>
   );
 }
 
 function PluginListModal({ onClose }: { onClose: () => void }) {
+  const onRequestProof = useCallback(async (hash: string) => {
+    requestProofByHash(hash);
+  }, []);
   return (
     <Modal className="mx-4" onClose={onClose}>
       <ModalHeader onClose={onClose}>Choose a plugin to continue</ModalHeader>
-      <PluginList className="m-2" />
+      <PluginList className="m-2" onClick={onRequestProof} unremovable />
     </Modal>
   );
 }
