@@ -15,6 +15,9 @@ import {
 } from '../../reducers/p2p';
 import { pushToRedux } from '../utils';
 import { getPluginByHash } from './db';
+import browser from 'webextension-polyfill';
+import { OffscreenActionTypes } from '../Offscreen/types';
+import { getMaxRecv, getMaxSent, getRendezvousApi } from '../../utils/storage';
 
 const state: {
   clientId: string;
@@ -177,6 +180,20 @@ export const connectSession = async () => {
           ...new Set(state.outgoingProofRequests.concat(pluginHash)),
         ];
         pushToRedux(appendOutgoingProofRequest(pluginHash));
+        const maxSentData = await getMaxSent();
+        const maxRecvData = await getMaxRecv();
+        const rendezvousApi = await getRendezvousApi();
+        browser.runtime.sendMessage({
+          type: OffscreenActionTypes.start_p2p_verifier,
+          data: {
+            pluginHash,
+            maxSentData,
+            maxRecvData,
+            verifierUrl:
+              rendezvousApi + '?clientId=' + state.clientId + ':proof',
+            peerId: state.pairing,
+          },
+        });
         break;
       }
 

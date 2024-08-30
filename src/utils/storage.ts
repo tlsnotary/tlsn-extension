@@ -1,10 +1,12 @@
 import { LoggingLevel } from 'tlsn-js';
+import { RENDEZVOUS_API } from './constants';
 
 export const NOTARY_API_LS_KEY = 'notary-api';
 export const PROXY_API_LS_KEY = 'proxy-api';
 export const MAX_SENT_LS_KEY = 'max-sent';
 export const MAX_RECEIVED_LS_KEY = 'max-received';
 export const LOGGING_FILTER_KEY = 'logging-filter-2';
+export const RENDEZVOUS_API_LS_KEY = 'rendezvous-api';
 
 export async function set(key: string, value: string) {
   return chrome.storage.sync.set({ [key]: value });
@@ -35,4 +37,8 @@ export async function getProxyApi() {
 
 export async function getLoggingFilter(): Promise<LoggingLevel> {
   return await get(LOGGING_FILTER_KEY, 'Info');
+}
+
+export async function getRendezvousApi(): Promise<string> {
+  return await get(RENDEZVOUS_API_LS_KEY, RENDEZVOUS_API);
 }

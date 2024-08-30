@@ -4,6 +4,7 @@ import { OffscreenActionTypes } from './types';
 import {
   NotaryServer,
   Prover as _Prover,
+  Verifier as _Verifier,
   NotarizedSession as _NotarizedSession,
   TlsProof as _TlsProof,
 } from 'tlsn-js';
@@ -14,10 +15,10 @@ import { BackgroundActiontype } from '../Background/rpc';
 import browser from 'webextension-polyfill';
 import { Proof, ProofV1 } from '../../utils/types';
 import { Method } from 'tlsn-js/wasm/pkg';
+import { getRendezvousApi } from '../../utils/storage';
 
-const { init, Prover, NotarizedSession, TlsProof }: any = Comlink.wrap(
-  new Worker(new URL('./worker.ts', import.meta.url)),
-);
+const { init, Prover, NotarizedSession, TlsProof, Verifier }: any =
+  Comlink.wrap(new Worker(new URL('./worker.ts', import.meta.url)));
 
 const Offscreen = () => {
   useEffect(() => {
@@ -125,6 +126,28 @@ const Offscreen = () => {
                   },
                 },
               });
+            })();
+            break;
+          }
+          case OffscreenActionTypes.start_p2p_verifier: {
+            (async () => {
+              const {
+                pluginHash,
+                maxSentData,
+                maxRecvData,
+                verifierUrl,
+                peerId,
+              } = request.data;
+              const verifier: _Verifier = await new Verifier({
+                id: pluginHash,
+                max_sent_data: maxSentData,
+                max_recv_data: maxRecvData,
+              });
+              console.log(verifier, verifierUrl);
+              await verifier.connect(verifierUrl);
+              console.log('connected');
+              const res = await verifier.verify();
+              console.log(res);
             })();
             break;
           }
