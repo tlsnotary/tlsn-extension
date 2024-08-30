@@ -1,15 +1,20 @@
-import { devlog, safeParseJSON } from '../../utils/misc';
+import { devlog, safeParseJSON, sha256 } from '../../utils/misc';
 import {
   appendIncomingPairingRequests,
+  appendIncomingProofRequests,
   appendOutgoingPairingRequests,
+  appendOutgoingProofRequest,
   setClientId,
   setConnected,
   setIncomingPairingRequest,
+  setIncomingProofRequest,
   setOutgoingPairingRequest,
+  setOutgoingProofRequest,
   setP2PError,
   setPairing,
 } from '../../reducers/p2p';
 import { pushToRedux } from '../utils';
+import { getPluginByHash } from './db';
 
 const state: {
   clientId: string;
@@ -19,6 +24,8 @@ const state: {
   reqId: number;
   incomingPairingRequests: string[];
   outgoingPairingRequests: string[];
+  incomingProofRequests: string[];
+  outgoingProofRequests: string[];
 } = {
   clientId: '',
   pairing: '',
@@ -27,6 +34,8 @@ const state: {
   reqId: 0,
   incomingPairingRequests: [],
   outgoingPairingRequests: [],
+  incomingProofRequests: [],
+  outgoingProofRequests: [],
 };
 
 export const getP2PState = async () => {
@@ -35,13 +44,8 @@ export const getP2PState = async () => {
   pushToRedux(setClientId(state.clientId));
   pushToRedux(setIncomingPairingRequest(state.incomingPairingRequests));
   pushToRedux(setOutgoingPairingRequest(state.outgoingPairingRequests));
-  return {
-    clientId: state.clientId,
-    pairing: state.pairing,
-    connected: state.connected,
-    incomingPairingRequests: state.incomingPairingRequests.concat(),
-    outgoingPairingRequests: state.outgoingPairingRequests.concat(),
-  };
+  pushToRedux(setIncomingProofRequest(state.incomingProofRequests));
+  pushToRedux(setOutgoingProofRequest(state.outgoingProofRequests));
 };
 
 export const connectSession = async () => {
@@ -139,6 +143,69 @@ export const connectSession = async () => {
         pushToRedux(setIncomingPairingRequest(state.incomingPairingRequests));
         break;
       }
+      case 'request_proof': {
+        const { plugin, pluginHash } = message.params;
+        state.incomingProofRequests = [
+          ...new Set(state.incomingProofRequests.concat(plugin)),
+        ];
+        pushToRedux(appendIncomingProofRequests(plugin));
+        handleProofRequestReceived(pluginHash);
+        break;
+      }
+      case 'request_proof_by_hash': {
+        const { pluginHash } = message.params;
+        const plugin = await getPluginByHash(pluginHash);
+        if (plugin) {
+          state.incomingProofRequests = [
+            ...new Set(state.incomingProofRequests.concat(plugin)),
+          ];
+          pushToRedux(appendIncomingProofRequests(plugin));
+          handleProofRequestReceived(pluginHash);
+        } else {
+          handleNoPluginHash(pluginHash);
+        }
+        break;
+      }
+      case 'request_proof_by_hash_failed': {
+        const { pluginHash } = message.params;
+        requestProof(pluginHash);
+        break;
+      }
+      case 'proof_request_received': {
+        const { pluginHash } = message.params;
+        state.outgoingProofRequests = [
+          ...new Set(state.outgoingProofRequests.concat(pluginHash)),
+        ];
+        pushToRedux(appendOutgoingProofRequest(pluginHash));
+        break;
+      }
+
+      case 'proof_request_cancelled':
+      case 'proof_request_reject': {
+        const { pluginHash } = message.params;
+        state.outgoingProofRequests = state.outgoingProofRequests.filter(
+          (hash) => hash !== pluginHash,
+        );
+        pushToRedux(setOutgoingProofRequest(state.outgoingProofRequests));
+        break;
+      }
+      case 'proof_request_cancel':
+      case 'proof_request_rejected': {
+        const { pluginHash } = message.params;
+        const plugin = await getPluginByHash(pluginHash);
+        state.incomingProofRequests = state.incomingProofRequests.filter(
+          (hex) => hex !== plugin,
+        );
+        pushToRedux(setIncomingProofRequest(state.incomingProofRequests));
+        break;
+      }
+      case 'proof_request_accept': {
+        const { pluginHash, from } = message.params;
+        break;
+      }
+      case 'proof_request_accepted': {
+        break;
+      }
       default:
         console.warn(`Unknown message type "${message.method}"`);
         break;
@@ -159,11 +226,15 @@ export const disconnectSession = async () => {
   state.connected = false;
   state.incomingPairingRequests = [];
   state.outgoingPairingRequests = [];
+  state.incomingProofRequests = [];
+  state.outgoingProofRequests = [];
   pushToRedux(setPairing(''));
   pushToRedux(setConnected(false));
   pushToRedux(setClientId(''));
   pushToRedux(setIncomingPairingRequest([]));
   pushToRedux(setOutgoingPairingRequest([]));
+  pushToRedux(setIncomingProofRequest([]));
+  pushToRedux(setOutgoingProofRequest([]));
 };
 
 export const sendPairRequest = async (target: string) => {
@@ -235,6 +306,127 @@ export const rejectPairRequest = async (target: string) => {
         params: {
           from: clientId,
           to: target,
+          id: state.reqId++,
+        },
+      }),
+    );
+  }
+};
+
+export const requestProof = async (pluginHash: string) => {
+  const { socket, clientId, pairing } = state;
+  const pluginHex = await getPluginByHash(pluginHash);
+  if (socket && clientId && pairing) {
+    socket.send(
+      bufferify({
+        method: 'request_proof',
+        params: {
+          from: clientId,
+          to: pairing,
+          plugin: pluginHex,
+          pluginHash,
+          id: state.reqId++,
+        },
+      }),
+    );
+  }
+};
+
+export const requestProofByHash = async (pluginHash: string) => {
+  const { socket, clientId, pairing } = state;
+  if (socket && clientId && pairing) {
+    socket.send(
+      bufferify({
+        method: 'request_proof_by_hash',
+        params: {
+          from: clientId,
+          to: pairing,
+          pluginHash,
+          id: state.reqId++,
+        },
+      }),
+    );
+  }
+};
+
+export const cancelProofRequest = async (pluginHash: string) => {
+  const { socket, clientId, pairing } = state;
+  if (socket && clientId && pairing) {
+    socket.send(
+      bufferify({
+        method: 'proof_request_cancel',
+        params: {
+          from: clientId,
+          to: pairing,
+          pluginHash,
+          id: state.reqId++,
+        },
+      }),
+    );
+  }
+};
+
+export const acceptProofRequest = async (pluginHash: string) => {
+  const { socket, clientId, pairing } = state;
+  if (socket && clientId && pairing) {
+    socket.send(
+      bufferify({
+        method: 'proof_request_accept',
+        params: {
+          from: clientId,
+          to: pairing,
+          pluginHash,
+          id: state.reqId++,
+        },
+      }),
+    );
+  }
+};
+
+export const rejectProofRequest = async (pluginHash: string) => {
+  const { socket, clientId, pairing } = state;
+  if (socket && clientId && pairing) {
+    socket.send(
+      bufferify({
+        method: 'proof_request_reject',
+        params: {
+          from: clientId,
+          to: pairing,
+          pluginHash,
+          id: state.reqId++,
+        },
+      }),
+    );
+  }
+};
+
+export const handleNoPluginHash = async (pluginHash: string) => {
+  const { socket, clientId, pairing } = state;
+  if (socket && clientId && pairing) {
+    socket.send(
+      bufferify({
+        method: 'request_proof_by_hash_failed',
+        params: {
+          from: clientId,
+          to: pairing,
+          pluginHash,
+          id: state.reqId++,
+        },
+      }),
+    );
+  }
+};
+
+export const handleProofRequestReceived = async (pluginHash: string) => {
+  const { socket, clientId, pairing } = state;
+  if (socket && clientId && pairing) {
+    socket.send(
+      bufferify({
+        method: 'proof_request_received',
+        params: {
+          from: clientId,
+          to: pairing,
+          pluginHash,
           id: state.reqId++,
         },
       }),

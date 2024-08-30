@@ -14,6 +14,10 @@ enum ActionType {
   '/p2p/appendOutgoingPairingRequest' = '/p2p/appendOutgoingPairingRequest',
   '/p2p/setIncomingPairingRequest' = '/p2p/setIncomingPairingRequest',
   '/p2p/setOutgoingPairingRequest' = '/p2p/setOutgoingPairingRequest',
+  '/p2p/appendIncomingProofRequest' = '/p2p/appendIncomingProofRequest',
+  '/p2p/appendOutgoingProofRequest' = '/p2p/appendOutgoingProofRequest',
+  '/p2p/setIncomingProofRequest' = '/p2p/setIncomingProofRequest',
+  '/p2p/setOutgoingProofRequest' = '/p2p/setOutgoingProofRequest',
 }
 
 type Action<payload> = {
@@ -30,6 +34,8 @@ type State = {
   error: string;
   incomingPairingRequests: string[];
   outgoingPairingRequests: string[];
+  incomingProofRequests: string[];
+  outgoingProofRequests: string[];
 };
 
 export type RequestProofMessage = {
@@ -46,6 +52,8 @@ const initialState: State = {
   connected: false,
   incomingPairingRequests: [],
   outgoingPairingRequests: [],
+  incomingProofRequests: [],
+  outgoingProofRequests: [],
 };
 
 export const fetchP2PState = async () => {
@@ -86,8 +94,18 @@ export const appendIncomingPairingRequests = (peerId: string) => ({
   payload: peerId,
 });
 
+export const appendIncomingProofRequests = (peerId: string) => ({
+  type: ActionType['/p2p/appendIncomingProofRequest'],
+  payload: peerId,
+});
+
 export const appendOutgoingPairingRequests = (peerId: string) => ({
   type: ActionType['/p2p/appendOutgoingPairingRequest'],
+  payload: peerId,
+});
+
+export const appendOutgoingProofRequest = (peerId: string) => ({
+  type: ActionType['/p2p/appendOutgoingProofRequest'],
   payload: peerId,
 });
 
@@ -101,33 +119,34 @@ export const setOutgoingPairingRequest = (peerIds: string[]) => ({
   payload: peerIds,
 });
 
+export const setIncomingProofRequest = (peerIds: string[]) => ({
+  type: ActionType['/p2p/setIncomingProofRequest'],
+  payload: peerIds,
+});
+
+export const setOutgoingProofRequest = (peerIds: string[]) => ({
+  type: ActionType['/p2p/setOutgoingProofRequest'],
+  payload: peerIds,
+});
+
 export const setP2PError = (error: string) => ({
   type: ActionType['/p2p/setError'],
   payload: error,
 });
 
-export const requestProof =
-  (message: Omit<RequestProofMessage, 'id'>) =>
-  async (dispatch: Dispatch, getState: () => AppRootState) => {
-    // const {
-    //   p2p: { socket },
-    // } = getState();
-    // const reqId = id++;
-    // const params = {
-    //   ...message,
-    //   id: reqId,
-    // };
-    //
-    // if (socket) {
-    //   socket.send(
-    //     bufferify({
-    //       method: 'request_proof',
-    //       params,
-    //     }),
-    //   );
-    //   dispatch(appendMessage(params));
-    // }
-  };
+export const requestProof = (pluginHash: string) => {
+  return browser.runtime.sendMessage({
+    type: BackgroundActiontype.request_p2p_proof,
+    data: pluginHash,
+  });
+};
+
+export const requestProofByHash = (pluginHash: string) => {
+  return browser.runtime.sendMessage({
+    type: BackgroundActiontype.request_p2p_proof_by_hash,
+    data: pluginHash,
+  });
+};
 
 export const sendPairRequest = async (targetId: string) => {
   return browser.runtime.sendMessage({
@@ -156,28 +175,27 @@ export const rejectPairRequest = async (targetId: string) => {
     data: targetId,
   });
 };
-export const confirmPairRequest =
-  (target: string) => (dispatch: Dispatch, getState: () => AppRootState) => {
-    // const {
-    //   p2p: { socket, clientId },
-    // } = getState();
-    //
-    // const reqId = id++;
-    //
-    // if (socket && clientId) {
-    //   socket.send(
-    //     bufferify({
-    //       method: 'pair_request_success',
-    //       params: {
-    //         from: clientId,
-    //         to: target,
-    //         id: reqId,
-    //       },
-    //     }),
-    //   );
-    //   dispatch(setPairing(target));
-    // }
-  };
+
+export const cancelProofRequest = async (plughinHash: string) => {
+  return browser.runtime.sendMessage({
+    type: BackgroundActiontype.cancel_proof_request,
+    data: plughinHash,
+  });
+};
+
+export const acceptProofRequest = async (plughinHash: string) => {
+  return browser.runtime.sendMessage({
+    type: BackgroundActiontype.accept_proof_request,
+    data: plughinHash,
+  });
+};
+
+export const rejectProofRequest = async (plughinHash: string) => {
+  return browser.runtime.sendMessage({
+    type: BackgroundActiontype.reject_proof_request,
+    data: plughinHash,
+  });
+};
 
 export default function p2p(state = initialState, action: Action<any>): State {
   switch (action.type) {
@@ -220,6 +238,30 @@ export default function p2p(state = initialState, action: Action<any>): State {
         ...state,
         outgoingPairingRequests: action.payload,
       };
+    case ActionType['/p2p/appendIncomingProofRequest']:
+      return {
+        ...state,
+        incomingProofRequests: [
+          ...new Set(state.incomingProofRequests.concat(action.payload)),
+        ],
+      };
+    case ActionType['/p2p/appendOutgoingProofRequest']:
+      return {
+        ...state,
+        outgoingProofRequests: [
+          ...new Set(state.outgoingProofRequests.concat(action.payload)),
+        ],
+      };
+    case ActionType['/p2p/setIncomingProofRequest']:
+      return {
+        ...state,
+        incomingProofRequests: action.payload,
+      };
+    case ActionType['/p2p/setOutgoingProofRequest']:
+      return {
+        ...state,
+        outgoingProofRequests: action.payload,
+      };
     case ActionType['/p2p/setError']:
       return {
         ...state,
@@ -257,6 +299,18 @@ export function useIncomingPairingRequests(): string[] {
 export function useOutgoingPairingRequests(): string[] {
   return useSelector((state: AppRootState) => {
     return state.p2p.outgoingPairingRequests;
+  }, deepEqual);
+}
+
+export function useIncomingProofRequests(): string[] {
+  return useSelector((state: AppRootState) => {
+    return state.p2p.incomingProofRequests;
+  }, deepEqual);
+}
+
+export function useOutgoingProofRequests(): string[] {
+  return useSelector((state: AppRootState) => {
+    return state.p2p.outgoingProofRequests;
   }, deepEqual);
 }
 

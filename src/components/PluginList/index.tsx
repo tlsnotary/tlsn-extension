@@ -12,7 +12,11 @@ import {
   runPlugin,
 } from '../../utils/rpc';
 import { usePluginHashes } from '../../reducers/plugins';
-import { PluginConfig } from '../../utils/misc';
+import {
+  getPluginConfig,
+  hexToArrayBuffer,
+  PluginConfig,
+} from '../../utils/misc';
 import DefaultPluginIcon from '../../assets/img/default-plugin-icon.png';
 import classNames from 'classnames';
 import Icon from '../Icon';
@@ -26,7 +30,15 @@ import {
 } from '../PluginInfo';
 import { getPluginConfigByHash } from '../../entries/Background/db';
 
-export function PluginList(props: { className?: string }): ReactElement {
+export function PluginList({
+  className,
+  unremovable,
+  onClick,
+}: {
+  className?: string;
+  unremovable?: boolean;
+  onClick?: (hash: string) => void;
+}): ReactElement {
   const hashes = usePluginHashes();
 
   useEffect(() => {
@@ -34,42 +46,59 @@ export function PluginList(props: { className?: string }): ReactElement {
   }, []);
 
   return (
-    <div
-      className={classNames('flex flex-col flex-nowrap gap-1', props.className)}
-    >
+    <div className={classNames('flex flex-col flex-nowrap gap-1', className)}>
       {!hashes.length && (
         <div className="flex flex-col items-center justify-center text-slate-400 cursor-default select-none">
           <div>No available plugins</div>
         </div>
       )}
       {hashes.map((hash) => (
-        <Plugin key={hash} hash={hash} />
+        <Plugin
+          key={hash}
+          hash={hash}
+          unremovable={unremovable}
+          onClick={onClick}
+        />
       ))}
     </div>
   );
 }
 
-export function Plugin(props: {
+export function Plugin({
+  hash,
+  hex,
+  unremovable,
+  onClick,
+  className,
+}: {
   hash: string;
-  onClick?: () => void;
+  hex?: string;
+  className?: string;
+  onClick?: (hash: string) => void;
+  unremovable?: boolean;
 }): ReactElement {
   const [error, showError] = useState('');
   const [config, setConfig] = useState<PluginConfig | null>(null);
   const [pluginInfo, showPluginInfo] = useState(false);
   const [remove, showRemove] = useState(false);
 
-  const onClick = useCallback(async () => {
+  const onRunPlugin = useCallback(async () => {
     if (!config || remove) return;
 
+    if (onClick) {
+      onClick(hash);
+      return;
+    }
+
     try {
-      await runPlugin(props.hash, 'start');
+      await runPlugin(hash, 'start');
 
       const [tab] = await browser.tabs.query({
         active: true,
         currentWindow: true,
       });
 
-      await browser.storage.local.set({ plugin_hash: props.hash });
+      await browser.storage.local.set({ plugin_hash: hash });
 
       // @ts-ignore
       if (chrome.sidePanel) await chrome.sidePanel.open({ tabId: tab.id });
@@ -78,21 +107,25 @@ export function Plugin(props: {
     } catch (e: any) {
       showError(e.message);
     }
-  }, [props.hash, config, remove]);
+  }, [hash, config, remove, onClick]);
 
   useEffect(() => {
     (async function () {
-      setConfig(await getPluginConfigByHash(props.hash));
+      if (hex) {
+        setConfig(await getPluginConfig(hexToArrayBuffer(hex)));
+      } else {
+        setConfig(await getPluginConfigByHash(hash));
+      }
     })();
-  }, [props.hash]);
+  }, [hash, hex]);
 
   const onRemove: MouseEventHandler = useCallback(
     (e) => {
       e.stopPropagation();
-      removePlugin(props.hash);
+      removePlugin(hash);
       showRemove(false);
     },
-    [props.hash, remove],
+    [hash, remove],
   );
 
   const onConfirmRemove: MouseEventHandler = useCallback(
@@ -100,7 +133,7 @@ export function Plugin(props: {
       e.stopPropagation();
       showRemove(true);
     },
-    [props.hash, remove],
+    [hash, remove],
   );
 
   const onPluginInfo: MouseEventHandler = useCallback(
@@ -108,7 +141,7 @@ export function Plugin(props: {
       e.stopPropagation();
       showPluginInfo(true);
     },
-    [props.hash, pluginInfo],
+    [hash, pluginInfo],
   );
 
   if (!config) return <></>;
@@ -118,8 +151,9 @@ export function Plugin(props: {
       className={classNames(
         'flex flex-row justify-center border rounded border-slate-300 p-2 gap-2 plugin-box',
         'cursor-pointer hover:bg-slate-100 hover:border-slate-400 active:bg-slate-200',
+        className,
       )}
-      onClick={onClick}
+      onClick={onRunPlugin}
     >
       {!!error && <ErrorModal onClose={() => showError('')} message={error} />}
       {!remove ? (
@@ -134,11 +168,13 @@ export function Plugin(props: {
                   className="flex flex-row items-center justify-center cursor-pointer plugin-box__remove-icon"
                   onClick={onPluginInfo}
                 />
-                <Icon
-                  fa="fa-solid fa-xmark"
-                  className="flex flex-row items-center justify-center cursor-pointer text-red-500 bg-red-200 rounded-full plugin-box__remove-icon"
-                  onClick={onConfirmRemove}
-                />
+                {!unremovable && (
+                  <Icon
+                    fa="fa-solid fa-xmark"
+                    className="flex flex-row items-center justify-center cursor-pointer text-red-500 bg-red-200 rounded-full plugin-box__remove-icon"
+                    onClick={onConfirmRemove}
+                  />
+                )}
               </div>
             </div>
             <div>{config.description}</div>

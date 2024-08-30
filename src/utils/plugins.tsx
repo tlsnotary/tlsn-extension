@@ -13,7 +13,7 @@ export const HostFunctionsDescriptions: {
     );
   },
   notarize: ({ notaryUrls, proxyUrls }) => {
-    const notaries = ['default notary'].concat(notaryUrls || []);
+    const notaries = ['default notary', 'your peer'].concat(notaryUrls || []);
     const proxies = ['default proxy'].concat(proxyUrls || []);
 
     return (

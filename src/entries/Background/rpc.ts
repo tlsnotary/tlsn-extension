@@ -54,7 +54,12 @@ import {
   disconnectSession,
   getP2PState,
   rejectPairRequest,
+  requestProofByHash,
+  requestProof,
   sendPairRequest,
+  cancelProofRequest,
+  acceptProofRequest,
+  rejectProofRequest,
 } from './ws';
 
 const charwise = require('charwise');
@@ -77,6 +82,7 @@ export enum BackgroundActiontype {
   add_plugin = 'add_plugin',
   remove_plugin = 'remove_plugin',
   get_plugin_by_hash = 'get_plugin_by_hash',
+  read_plugin_config = 'read_plugin_config',
   get_plugin_config_by_hash = 'get_plugin_config_by_hash',
   run_plugin = 'run_plugin',
   get_plugin_hashes = 'get_plugin_hashes',
@@ -105,7 +111,12 @@ export enum BackgroundActiontype {
   cancel_pair_request = 'cancel_pair_request',
   accept_pair_request = 'accept_pair_request',
   reject_pair_request = 'reject_pair_request',
+  cancel_proof_request = 'cancel_proof_request',
+  accept_proof_request = 'accept_proof_request',
+  reject_proof_request = 'reject_proof_request',
   get_p2p_state = 'get_p2p_state',
+  request_p2p_proof = 'request_p2p_proof',
+  request_p2p_proof_by_hash = 'request_p2p_proof_by_hash',
 }
 
 export type BackgroundAction = {
@@ -188,6 +199,9 @@ export const initRPC = () => {
           return handleGetPluginHashes(request, sendResponse);
         case BackgroundActiontype.get_plugin_by_hash:
           return handleGetPluginByHash(request, sendResponse);
+        case BackgroundActiontype.read_plugin_config:
+          getPluginConfig(request.data).then(sendResponse);
+          return true;
         case BackgroundActiontype.get_plugin_config_by_hash:
           return handleGetPluginConfigByHash(request, sendResponse);
         case BackgroundActiontype.run_plugin:
@@ -237,8 +251,23 @@ export const initRPC = () => {
         case BackgroundActiontype.reject_pair_request:
           rejectPairRequest(request.data).then(sendResponse);
           return;
+        case BackgroundActiontype.cancel_proof_request:
+          cancelProofRequest(request.data).then(sendResponse);
+          return;
+        case BackgroundActiontype.accept_proof_request:
+          acceptProofRequest(request.data).then(sendResponse);
+          return;
+        case BackgroundActiontype.reject_proof_request:
+          rejectProofRequest(request.data).then(sendResponse);
+          return;
+        case BackgroundActiontype.request_p2p_proof:
+          requestProof(request.data).then(sendResponse);
+          return;
+        case BackgroundActiontype.request_p2p_proof_by_hash:
+          requestProofByHash(request.data).then(sendResponse);
+          return;
         case BackgroundActiontype.get_p2p_state:
-          getP2PState().then(sendResponse);
+          getP2PState();
           return;
         default:
           break;
