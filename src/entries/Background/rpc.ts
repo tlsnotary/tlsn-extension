@@ -41,6 +41,7 @@ import {
   getMaxSent,
   getNotaryApi,
   getProxyApi,
+  getRendezvousApi,
 } from '../../utils/storage';
 import { deferredPromise } from '../../utils/promise';
 import { minimatch } from 'minimatch';
@@ -60,6 +61,7 @@ import {
   cancelProofRequest,
   acceptProofRequest,
   rejectProofRequest,
+  startProofRequest,
 } from './ws';
 
 const charwise = require('charwise');
@@ -69,6 +71,7 @@ export enum BackgroundActiontype {
   clear_requests = 'clear_requests',
   push_action = 'push_action',
   execute_plugin_prover = 'execute_plugin_prover',
+  execute_p2p_plugin_prover = 'execute_p2p_plugin_prover',
   get_prove_requests = 'get_prove_requests',
   prove_request_start = 'prove_request_start',
   process_prove_request = 'process_prove_request',
@@ -79,6 +82,7 @@ export enum BackgroundActiontype {
   retry_prove_request = 'retry_prove_request',
   get_cookies_by_hostname = 'get_cookies_by_hostname',
   get_headers_by_hostname = 'get_headers_by_hostname',
+  // Plugins
   add_plugin = 'add_plugin',
   remove_plugin = 'remove_plugin',
   get_plugin_by_hash = 'get_plugin_by_hash',
@@ -86,6 +90,7 @@ export enum BackgroundActiontype {
   get_plugin_config_by_hash = 'get_plugin_config_by_hash',
   run_plugin = 'run_plugin',
   get_plugin_hashes = 'get_plugin_hashes',
+  // Content Script
   open_popup = 'open_popup',
   change_route = 'change_route',
   connect_request = 'connect_request',
@@ -102,9 +107,11 @@ export enum BackgroundActiontype {
   get_plugins_response = 'get_plugins_response',
   run_plugin_request = 'run_plugin_request',
   run_plugin_response = 'run_plugin_response',
+  // App State
   get_logging_level = 'get_logging_level',
   get_app_state = 'get_app_state',
   set_default_plugins_installed = 'set_default_plugins_installed',
+  // P2P
   connect_rendezvous = 'connect_rendezvous',
   disconnect_rendezvous = 'disconnect_rendezvous',
   send_pair_request = 'send_pair_request',
@@ -114,6 +121,7 @@ export enum BackgroundActiontype {
   cancel_proof_request = 'cancel_proof_request',
   accept_proof_request = 'accept_proof_request',
   reject_proof_request = 'reject_proof_request',
+  start_proof_request = 'start_proof_request',
   get_p2p_state = 'get_p2p_state',
   request_p2p_proof = 'request_p2p_proof',
   request_p2p_proof_by_hash = 'request_p2p_proof_by_hash',
@@ -208,6 +216,8 @@ export const initRPC = () => {
           return handleRunPlugin(request, sendResponse);
         case BackgroundActiontype.execute_plugin_prover:
           return handleExecPluginProver(request);
+        case BackgroundActiontype.execute_p2p_plugin_prover:
+          return handleExecP2PPluginProver(request);
         case BackgroundActiontype.open_popup:
           return handleOpenPopup(request);
         case BackgroundActiontype.connect_request:
@@ -259,6 +269,9 @@ export const initRPC = () => {
           return;
         case BackgroundActiontype.reject_proof_request:
           rejectProofRequest(request.data).then(sendResponse);
+          return;
+        case BackgroundActiontype.start_proof_request:
+          startProofRequest(request.data).then(sendResponse);
           return;
         case BackgroundActiontype.request_p2p_proof:
           requestProof(request.data).then(sendResponse);
@@ -469,10 +482,55 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
   });
 }
 
+async function runP2PPluginProver(request: BackgroundAction, now = Date.now()) {
+  const {
+    pluginHash,
+    url,
+    method,
+    headers,
+    body,
+    secretHeaders,
+    secretResps,
+    websocketProxyUrl: _websocketProxyUrl,
+    maxSentData: _maxSentData,
+    maxRecvData: _maxRecvData,
+    clientId,
+  } = request.data;
+  const rendezvousApi = await getRendezvousApi();
+  const proverUrl = `${rendezvousApi}?clientId=${clientId}:proof`;
+  const websocketProxyUrl = _websocketProxyUrl || (await getProxyApi());
+  const maxSentData = _maxSentData || (await getMaxSent());
+  const maxRecvData = _maxRecvData || (await getMaxRecv());
+
+  await browser.runtime.sendMessage({
+    type: OffscreenActionTypes.start_p2p_prover,
+    data: {
+      pluginHash,
+      url,
+      method,
+      headers,
+      body,
+      proverUrl,
+      websocketProxyUrl,
+      maxRecvData,
+      maxSentData,
+      secretHeaders,
+      secretResps,
+    },
+  });
+}
+
 export async function handleExecPluginProver(request: BackgroundAction) {
   const now = request.data.now;
   const id = charwise.encode(now).toString('hex');
   runPluginProver(request, now);
+  return id;
+}
+
+export async function handleExecP2PPluginProver(request: BackgroundAction) {
+  const now = request.data.now;
+  const id = charwise.encode(now).toString('hex');
+  runP2PPluginProver(request, now);
   return id;
 }
 
@@ -564,11 +622,11 @@ function handleRunPlugin(
   sendResponse: (data?: any) => void,
 ) {
   (async () => {
-    const { hash, method, params } = request.data;
+    const { hash, method, params, meta } = request.data;
     const hex = await getPluginByHash(hash);
     const arrayBuffer = hexToArrayBuffer(hex!);
     const config = await getPluginConfig(arrayBuffer);
-    const plugin = await makePlugin(arrayBuffer, config);
+    const plugin = await makePlugin(arrayBuffer, config, meta?.p2p);
     devlog(`plugin::${method}`, params);
     const out = await plugin.call(method, params);
     devlog(`plugin response: `, out.string());
