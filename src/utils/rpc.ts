@@ -38,7 +38,12 @@ export async function fetchPluginConfigByHash(
   });
 }
 
-export async function runPlugin(hash: string, method: string, params?: string) {
+export async function runPlugin(
+  hash: string,
+  method: string,
+  params?: string,
+  meta?: any,
+) {
   return browser.runtime.sendMessage({
     type: BackgroundActiontype.run_plugin,
     data: {
@@ -46,5 +51,6 @@ export async function runPlugin(hash: string, method: string, params?: string) {
       method,
       params,
     },
+    meta,
   });
 }

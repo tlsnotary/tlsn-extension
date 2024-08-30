@@ -21,7 +21,6 @@ import {
   acceptPairRequest,
   rejectPairRequest,
   usePairId,
-  requestProof,
   useIncomingProofRequests,
   requestProofByHash,
   useOutgoingProofRequests,
@@ -33,7 +32,6 @@ import { useDispatch } from 'react-redux';
 import Modal, { ModalHeader } from '../../components/Modal/Modal';
 import { Plugin, PluginList } from '../../components/PluginList';
 import browser from 'webextension-polyfill';
-import { BackgroundActiontype } from '../../entries/Background/rpc';
 import { sha256 } from '../../utils/misc';
 
 export function P2PHome(): ReactElement {
@@ -125,6 +123,7 @@ function ClientStatus() {
 
 function Paired() {
   const pairId = usePairId();
+  const clientId = useClientId();
   const [incomingProofRequest] = useIncomingProofRequests();
   const [outgoingPluginHash] = useOutgoingProofRequests();
   const [incomingPluginHash, setIncomingPluginHash] = useState('');
@@ -145,9 +144,31 @@ function Paired() {
     showModal(false);
   }, [outgoingPluginHash]);
 
-  const accept = useCallback(() => {
-    if (incomingPluginHash) acceptProofRequest(incomingPluginHash);
-  }, [incomingPluginHash]);
+  const accept = useCallback(async () => {
+    if (incomingPluginHash) {
+      acceptProofRequest(incomingPluginHash);
+
+      const [tab] = await browser.tabs.query({
+        active: true,
+        currentWindow: true,
+      });
+
+      await browser.storage.local.set({
+        plugin_hash: incomingPluginHash,
+        plugin: incomingProofRequest,
+        p2p: true,
+        client_id: clientId,
+      });
+
+      // @ts-ignore
+      if (chrome.sidePanel) {
+        // @ts-ignore
+        await chrome.sidePanel.open({ tabId: tab.id });
+      }
+
+      window.close();
+    }
+  }, [incomingPluginHash, incomingProofRequest, clientId]);
 
   const reject = useCallback(() => {
     if (incomingPluginHash) rejectProofRequest(incomingPluginHash);

@@ -2,9 +2,11 @@ import React, { ReactElement, useCallback, useEffect, useState } from 'react';
 import './sidePanel.scss';
 import browser from 'webextension-polyfill';
 import {
+  getPluginConfig,
   hexToArrayBuffer,
   makePlugin,
   PluginConfig,
+  sha256,
   StepConfig,
 } from '../../utils/misc';
 import { PluginList } from '../../components/PluginList';
@@ -20,15 +22,35 @@ import { SidePanelActionTypes } from './types';
 export default function SidePanel(): ReactElement {
   const [config, setConfig] = useState<PluginConfig | null>(null);
   const [hash, setHash] = useState('');
+  const [hex, setHex] = useState('');
+  const [p2p, setP2P] = useState(false);
+  const [clientId, setClientId] = useState('');
 
   useEffect(() => {
     (async function () {
-      const result = await browser.storage.local.get('plugin_hash');
-      const { plugin_hash } = result;
-      const config = await getPluginConfigByHash(plugin_hash);
-      setHash(plugin_hash);
-      setConfig(config);
-      // await browser.storage.local.set({ plugin_hash: '' });
+      const { plugin_hash } = await browser.storage.local.get('plugin_hash');
+      const { plugin } = await browser.storage.local.get('plugin');
+      const { p2p } = await browser.storage.local.get('p2p');
+      const { client_id } = await browser.storage.local.get('client_id');
+
+      if (plugin_hash) {
+        const config =
+          (await getPluginConfigByHash(plugin_hash)) ||
+          (await getPluginConfig(hexToArrayBuffer(plugin)));
+
+        setHash(plugin_hash);
+        setConfig(config);
+        setP2P(p2p);
+        setClientId(client_id);
+        if (plugin) setHex(plugin);
+      }
+
+      await browser.storage.local.set({
+        plugin_hash: '',
+        plugin: '',
+        client_id: '',
+        p2p: null,
+      });
     })();
   }, []);
 
@@ -44,7 +66,15 @@ export default function SidePanel(): ReactElement {
         </button>
       </div>
       {!config && <PluginList />}
-      {config && <PluginBody hash={hash} config={config} />}
+      {config && (
+        <PluginBody
+          hash={hash}
+          hex={hex}
+          config={config}
+          p2p={p2p}
+          clientId={clientId}
+        />
+      )}
     </div>
   );
 }
@@ -52,9 +82,12 @@ export default function SidePanel(): ReactElement {
 function PluginBody(props: {
   config: PluginConfig;
   hash: string;
+  hex?: string;
+  clientId?: string;
+  p2p?: boolean;
 }): ReactElement {
-  const { hash } = props;
-  const { title, description, icon, steps } = props.config;
+  const { hash, hex, config, p2p, clientId } = props;
+  const { title, description, icon, steps } = config;
   const [responses, setResponses] = useState<any[]>([]);
   const [notarizationId, setNotarizationId] = useState('');
   const notaryRequest = useRequestHistory(notarizationId);
@@ -107,10 +140,14 @@ function PluginBody(props: {
           <StepContent
             key={i}
             hash={hash}
+            config={config}
+            hex={hex}
             index={i}
             setResponse={setResponse}
             lastResponse={i > 0 ? responses[i - 1] : undefined}
             responses={responses}
+            p2p={p2p}
+            clientId={clientId}
             {...step}
           />
         ))}
@@ -122,10 +159,14 @@ function PluginBody(props: {
 function StepContent(
   props: StepConfig & {
     hash: string;
+    hex?: string;
+    clientId?: string;
     index: number;
     setResponse: (resp: any, i: number) => void;
     responses: any[];
     lastResponse?: any;
+    config: PluginConfig;
+    p2p?: boolean;
   },
 ): ReactElement {
   const {
@@ -138,6 +179,10 @@ function StepContent(
     lastResponse,
     prover,
     hash,
+    hex: _hex,
+    config,
+    p2p = false,
+    clientId = '',
   } = props;
   const [completed, setCompleted] = useState(false);
   const [pending, setPending] = useState(false);
@@ -146,11 +191,10 @@ function StepContent(
   const notaryRequest = useRequestHistory(notarizationId);
 
   const getPlugin = useCallback(async () => {
-    const hex = await getPluginByHash(hash);
-    const config = await getPluginConfigByHash(hash);
+    const hex = (await getPluginByHash(hash)) || _hex;
     const arrayBuffer = hexToArrayBuffer(hex!);
-    return makePlugin(arrayBuffer, config!);
-  }, [hash]);
+    return makePlugin(arrayBuffer, config, { p2p, clientId });
+  }, [hash, _hex, config, p2p, clientId]);
 
   const processStep = useCallback(async () => {
     const plugin = await getPlugin();

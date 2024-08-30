@@ -222,8 +222,105 @@ const Offscreen = () => {
               console.log(verifier, verifierUrl);
               await verifier.connect(verifierUrl);
               console.log('connected');
-              const res = await verifier.verify();
-              console.log(res);
+              verifier.verify().then((res) => {
+                console.log(res);
+              });
+              browser.runtime.sendMessage({
+                type: BackgroundActiontype.start_proof_request,
+                data: {
+                  pluginHash,
+                },
+              });
+            })();
+            break;
+          }
+          case OffscreenActionTypes.start_p2p_prover: {
+            (async () => {
+              const {
+                pluginHash,
+                url,
+                method,
+                headers,
+                body,
+                proverUrl,
+                websocketProxyUrl,
+                maxRecvData,
+                maxSentData,
+                secretHeaders,
+                secretResps,
+              } = request.data;
+
+              console.log('offscreen', request);
+
+              const hostname = urlify(url)?.hostname || '';
+              const prover: TProver = await new Prover({
+                id: pluginHash,
+                serverDns: hostname,
+                maxSentData,
+                maxRecvData,
+              });
+
+              await prover.setup(proverUrl);
+
+              await prover.sendRequest(
+                websocketProxyUrl + `?token=${hostname}`,
+                {
+                  url,
+                  method,
+                  headers,
+                  body,
+                },
+              );
+
+              const transcript = await prover.transcript();
+
+              const commit = {
+                sent: subtractRanges(
+                  transcript.ranges.sent.all,
+                  secretHeaders
+                    .map((secret: string) => {
+                      const index = transcript.sent.indexOf(secret);
+                      return index > -1
+                        ? {
+                            start: index,
+                            end: index + secret.length,
+                          }
+                        : null;
+                    })
+                    .filter((data: any) => !!data) as {
+                    start: number;
+                    end: number;
+                  }[],
+                ),
+                recv: subtractRanges(
+                  transcript.ranges.recv.all,
+                  secretResps
+                    .map((secret: string) => {
+                      const index = transcript.recv.indexOf(secret);
+                      return index > -1
+                        ? {
+                            start: index,
+                            end: index + secret.length,
+                          }
+                        : null;
+                    })
+                    .filter((data: any) => !!data) as {
+                    start: number;
+                    end: number;
+                  }[],
+                ),
+              };
+
+              await prover.reveal(commit);
+
+              // const prover: _Prover = await new Prover({
+              //   id: pluginHash,
+              //   // serverDns: hostname,
+              //   maxSentData,
+              //   maxRecvData,
+              // });
+              //
+              // await prover.setup(proverUrl);
             })();
             break;
           }
