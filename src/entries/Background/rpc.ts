@@ -65,6 +65,8 @@ import {
   acceptProofRequest,
   rejectProofRequest,
   startProofRequest,
+  startedVerifier,
+  startedProver,
 } from './ws';
 
 const charwise = require('charwise');
@@ -125,6 +127,8 @@ export enum BackgroundActiontype {
   accept_proof_request = 'accept_proof_request',
   reject_proof_request = 'reject_proof_request',
   start_proof_request = 'start_proof_request',
+  verifier_started = 'verifier_started',
+  prover_started = 'prover_started',
   get_p2p_state = 'get_p2p_state',
   request_p2p_proof = 'request_p2p_proof',
   request_p2p_proof_by_hash = 'request_p2p_proof_by_hash',
@@ -273,7 +277,13 @@ export const initRPC = () => {
           rejectProofRequest(request.data).then(sendResponse);
           return;
         case BackgroundActiontype.start_proof_request:
-          startProofRequest(request.data).then(sendResponse);
+          startProofRequest(request.data.pluginHash).then(sendResponse);
+          return;
+        case BackgroundActiontype.verifier_started:
+          startedVerifier(request.data.pluginHash).then(sendResponse);
+          return;
+        case BackgroundActiontype.prover_started:
+          startedProver(request.data.pluginHash).then(sendResponse);
           return;
         case BackgroundActiontype.request_p2p_proof:
           requestProof(request.data).then(sendResponse);
@@ -1196,7 +1206,6 @@ async function handleRunPluginCSRequest(request: BackgroundAction) {
   );
 
   const onPluginRequest = async (req: any) => {
-    console.log(req);
     if (req.type !== SidePanelActionTypes.execute_plugin_response) return;
     if (req.data.hash !== hash) return;
 
