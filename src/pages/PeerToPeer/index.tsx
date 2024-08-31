@@ -33,6 +33,8 @@ import Modal, { ModalHeader } from '../../components/Modal/Modal';
 import { Plugin, PluginList } from '../../components/PluginList';
 import browser from 'webextension-polyfill';
 import { sha256 } from '../../utils/misc';
+import { openSidePanel } from '../../entries/utils';
+import { SidePanelActionTypes } from '../../entries/SidePanel/types';
 
 export function P2PHome(): ReactElement {
   const clientId = useClientId();
@@ -146,25 +148,17 @@ function Paired() {
 
   const accept = useCallback(async () => {
     if (incomingPluginHash) {
+      await openSidePanel();
+
+      browser.runtime.sendMessage({
+        type: SidePanelActionTypes.run_p2p_plugin_request,
+        data: {
+          pluginHash: incomingPluginHash,
+          plugin: incomingProofRequest,
+        },
+      });
+
       acceptProofRequest(incomingPluginHash);
-
-      const [tab] = await browser.tabs.query({
-        active: true,
-        currentWindow: true,
-      });
-
-      await browser.storage.local.set({
-        plugin_hash: incomingPluginHash,
-        plugin: incomingProofRequest,
-        p2p: true,
-        client_id: clientId,
-      });
-
-      // @ts-ignore
-      if (chrome.sidePanel) {
-        // @ts-ignore
-        await chrome.sidePanel.open({ tabId: tab.id });
-      }
 
       window.close();
     }

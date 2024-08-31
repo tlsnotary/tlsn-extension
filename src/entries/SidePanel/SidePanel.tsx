@@ -18,40 +18,56 @@ import { useRequestHistory } from '../../reducers/history';
 import { BackgroundActiontype } from '../Background/rpc';
 import { getPluginByHash, getPluginConfigByHash } from '../Background/db';
 import { SidePanelActionTypes } from './types';
+import {
+  fetchP2PState,
+  useClientId,
+  useIncomingProofRequests,
+} from '../../reducers/p2p';
 
 export default function SidePanel(): ReactElement {
   const [config, setConfig] = useState<PluginConfig | null>(null);
   const [hash, setHash] = useState('');
   const [hex, setHex] = useState('');
   const [p2p, setP2P] = useState(false);
-  const [clientId, setClientId] = useState('');
+  const [started, setStarted] = useState(false);
+  const clientId = useClientId();
 
   useEffect(() => {
-    (async function () {
-      const { plugin_hash } = await browser.storage.local.get('plugin_hash');
-      const { plugin } = await browser.storage.local.get('plugin');
-      const { p2p } = await browser.storage.local.get('p2p');
-      const { client_id } = await browser.storage.local.get('client_id');
+    fetchP2PState();
+    browser.runtime.sendMessage({
+      type: SidePanelActionTypes.panel_opened,
+    });
+  }, []);
 
-      if (plugin_hash) {
-        const config =
-          (await getPluginConfigByHash(plugin_hash)) ||
-          (await getPluginConfig(hexToArrayBuffer(plugin)));
+  useEffect(() => {
+    browser.runtime.onMessage.addListener(async (request) => {
+      const { type, data } = request;
 
-        setHash(plugin_hash);
-        setConfig(config);
-        setP2P(p2p);
-        setClientId(client_id);
-        if (plugin) setHex(plugin);
+      switch (type) {
+        case SidePanelActionTypes.execute_plugin_request: {
+          setConfig(await getPluginConfigByHash(data.pluginHash));
+          setHash(data.pluginHash);
+          setStarted(true);
+          break;
+        }
+        case SidePanelActionTypes.run_p2p_plugin_request: {
+          const { pluginHash, plugin } = data;
+          const config =
+            (await getPluginConfigByHash(pluginHash)) ||
+            (await getPluginConfig(hexToArrayBuffer(plugin)));
+
+          setHash(pluginHash);
+          setHex(plugin);
+          setP2P(true);
+          setConfig(config);
+          break;
+        }
+        case SidePanelActionTypes.start_p2p_plugin: {
+          setStarted(true);
+          break;
+        }
       }
-
-      await browser.storage.local.set({
-        plugin_hash: '',
-        plugin: '',
-        client_id: '',
-        p2p: null,
-      });
-    })();
+    });
   }, []);
 
   return (
@@ -65,8 +81,8 @@ export default function SidePanel(): ReactElement {
           Close
         </button>
       </div>
-      {!config && <PluginList />}
-      {config && (
+      {/*{!config && <PluginList />}*/}
+      {started && config && (
         <PluginBody
           hash={hash}
           hex={hex}

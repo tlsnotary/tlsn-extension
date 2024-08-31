@@ -29,6 +29,9 @@ import {
   PluginInfoModalHeader,
 } from '../PluginInfo';
 import { getPluginConfigByHash } from '../../entries/Background/db';
+import { OffscreenActionTypes } from '../../entries/Offscreen/types';
+import { SidePanelActionTypes } from '../../entries/SidePanel/types';
+import { openSidePanel } from '../../entries/utils';
 
 export function PluginList({
   className,
@@ -91,17 +94,16 @@ export function Plugin({
     }
 
     try {
-      await runPlugin(hash, 'start');
+      await openSidePanel();
 
-      const [tab] = await browser.tabs.query({
-        active: true,
-        currentWindow: true,
+      browser.runtime.sendMessage({
+        type: SidePanelActionTypes.execute_plugin_request,
+        data: {
+          pluginHash: hash,
+        },
       });
 
-      await browser.storage.local.set({ plugin_hash: hash });
-
-      // @ts-ignore
-      if (chrome.sidePanel) await chrome.sidePanel.open({ tabId: tab.id });
+      await runPlugin(hash, 'start');
 
       window.close();
     } catch (e: any) {

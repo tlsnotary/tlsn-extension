@@ -18,6 +18,7 @@ import { getPluginByHash } from './db';
 import browser from 'webextension-polyfill';
 import { OffscreenActionTypes } from '../Offscreen/types';
 import { getMaxRecv, getMaxSent, getRendezvousApi } from '../../utils/storage';
+import { SidePanelActionTypes } from '../SidePanel/types';
 
 const state: {
   clientId: string;
@@ -211,19 +212,12 @@ export const connectSession = async () => {
       }
       case 'proof_request_start': {
         const { pluginHash, from } = message.params;
-        const maxSentData = await getMaxSent();
-        const maxRecvData = await getMaxRecv();
-        const rendezvousApi = await getRendezvousApi();
-        // browser.runtime.sendMessage({
-        //   type: OffscreenActionTypes.start_p2p_prover,
-        //   data: {
-        //     pluginHash,
-        //     maxSentData,
-        //     maxRecvData,
-        //     proverUrl: rendezvousApi + '?clientId=' + state.clientId + ':proof',
-        //     peerId: state.pairing,
-        //   },
-        // });
+        browser.runtime.sendMessage({
+          type: SidePanelActionTypes.start_p2p_plugin,
+          data: {
+            pluginHash: pluginHash,
+          },
+        });
         break;
       }
       default:
@@ -454,6 +448,40 @@ export const rejectProofRequest = async (pluginHash: string) => {
     socket.send(
       bufferify({
         method: 'proof_request_reject',
+        params: {
+          from: clientId,
+          to: pairing,
+          pluginHash,
+          id: state.reqId++,
+        },
+      }),
+    );
+  }
+};
+
+export const startedVerifier = async (pluginHash: string) => {
+  const { socket, clientId, pairing } = state;
+  if (socket && clientId && pairing) {
+    socket.send(
+      bufferify({
+        method: 'verifier_started',
+        params: {
+          from: clientId,
+          to: pairing,
+          pluginHash,
+          id: state.reqId++,
+        },
+      }),
+    );
+  }
+};
+
+export const startedProver = async (pluginHash: string) => {
+  const { socket, clientId, pairing } = state;
+  if (socket && clientId && pairing) {
+    socket.send(
+      bufferify({
+        method: 'prover_started',
         params: {
           from: clientId,
           to: pairing,
