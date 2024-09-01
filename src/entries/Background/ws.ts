@@ -210,12 +210,43 @@ export const connectSession = async () => {
         });
         break;
       }
-      case 'proof_request_start': {
-        const { pluginHash, from } = message.params;
+      case 'verifier_started': {
+        const { pluginHash } = message.params;
         browser.runtime.sendMessage({
           type: SidePanelActionTypes.start_p2p_plugin,
           data: {
             pluginHash: pluginHash,
+          },
+        });
+        break;
+      }
+      case 'prover_started': {
+        const { pluginHash } = message.params;
+        browser.runtime.sendMessage({
+          type: OffscreenActionTypes.prover_started,
+          data: {
+            pluginHash: pluginHash,
+          },
+        });
+        break;
+      }
+      case 'proof_request_start': {
+        const { pluginHash, from } = message.params;
+        browser.runtime.sendMessage({
+          type: OffscreenActionTypes.start_p2p_proof_request,
+          data: {
+            pluginHash: pluginHash,
+          },
+        });
+        break;
+      }
+      case 'proof_request_end': {
+        const { pluginHash, proof } = message.params;
+        browser.runtime.sendMessage({
+          type: OffscreenActionTypes.end_p2p_proof_request,
+          data: {
+            pluginHash: pluginHash,
+            proof: proof,
           },
         });
         break;
@@ -435,6 +466,27 @@ export const startProofRequest = async (pluginHash: string) => {
           from: clientId,
           to: pairing,
           pluginHash,
+          id: state.reqId++,
+        },
+      }),
+    );
+  }
+};
+
+export const endProofRequest = async (data: {
+  pluginHash: string;
+  proof: any;
+}) => {
+  const { socket, clientId, pairing } = state;
+  if (socket && clientId && pairing) {
+    socket.send(
+      bufferify({
+        method: 'proof_request_end',
+        params: {
+          from: clientId,
+          to: pairing,
+          pluginHash: data.pluginHash,
+          proof: data.proof,
           id: state.reqId++,
         },
       }),

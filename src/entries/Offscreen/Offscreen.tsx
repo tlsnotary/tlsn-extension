@@ -15,10 +15,11 @@ import { BackgroundActiontype } from '../Background/rpc';
 import browser from 'webextension-polyfill';
 import { PresentationJSON } from '../../utils/types';
 import { PresentationJSON as PresentationJSONa7 } from 'tlsn-js/build/types';
-import { Commit, Method } from 'tlsn-wasm';
+import { Method } from 'tlsn-wasm';
 import { subtractRanges } from './utils';
 import { mapSecretsToRange } from '../Background/plugins/utils';
-import { getRendezvousApi } from '../../utils/storage';
+import { waitForEvent } from '../utils';
+import type { ParsedTranscriptData } from 'tlsn-js/src/types';
 
 const { init, Prover, Presentation, Verifier }: any = Comlink.wrap(
   new Worker(new URL('./worker.ts', import.meta.url)),
@@ -52,7 +53,7 @@ const Offscreen = () => {
     (async () => {
       const loggingLevel = await browser.runtime.sendMessage({
         type: BackgroundActiontype.get_logging_level,
-        hardwareConcurrency: 2,
+        hardwareConcurrency: 1,
       });
       await init({ loggingLevel });
       // @ts-ignore
@@ -241,19 +242,39 @@ const Offscreen = () => {
                 max_sent_data: maxSentData,
                 max_recv_data: maxRecvData,
               });
-              // P2PVerifier.set(pluginHash, verifier);
-              console.log(verifier, verifierUrl);
+
               await verifier.connect(verifierUrl);
-              console.log('connected');
+              // await new Promise((r) => setTimeout(r, 10000));
+              const proverStarted = waitForEvent(
+                OffscreenActionTypes.prover_started,
+              );
+
+              verifier.verify().then((res) => {
+                console.log(res);
+
+                browser.runtime.sendMessage({
+                  type: BackgroundActiontype.proof_request_end,
+                  data: {
+                    pluginHash,
+                    proof: res,
+                  },
+                });
+              });
+
+              browser.runtime.sendMessage({
+                type: BackgroundActiontype.verifier_started,
+                data: {
+                  pluginHash,
+                },
+              });
+
+              await proverStarted;
+
               browser.runtime.sendMessage({
                 type: BackgroundActiontype.start_proof_request,
                 data: {
                   pluginHash,
                 },
-              });
-              await new Promise((r) => setTimeout(r, 5000));
-              verifier.verify().then((res) => {
-                console.log(res);
               });
             })();
             break;
@@ -274,8 +295,6 @@ const Offscreen = () => {
                 secretResps,
               } = request.data;
 
-              console.log('offscreen', request);
-
               const hostname = urlify(url)?.hostname || '';
               const prover: TProver = await new Prover({
                 id: pluginHash,
@@ -284,35 +303,21 @@ const Offscreen = () => {
                 maxRecvData,
               });
 
-              // P2PProvers.set(pluginHash, {
-              //   prover,
-              //   params: {
-              //     pluginHash,
-              //     url,
-              //     method,
-              //     headers,
-              //     body,
-              //     proverUrl,
-              //     websocketProxyUrl,
-              //     maxRecvData,
-              //     maxSentData,
-              //     secretHeaders,
-              //     secretResps,
-              //   },
-              // });
-              console.log('setting up prover', proverUrl);
+              const proofRequestStart = waitForEvent(
+                OffscreenActionTypes.start_p2p_proof_request,
+              );
 
-              await prover.setup(proverUrl);
+              const proverSetup = prover.setup(proverUrl);
+              // await new Promise((r) => setTimeout(r, 10000));
 
-              console.log('finished set up prover');
-
-              await new Promise((resolve) => setTimeout(resolve, 10000));
+              await proverSetup;
               browser.runtime.sendMessage({
                 type: BackgroundActiontype.prover_started,
                 data: {
                   pluginHash,
                 },
               });
+              await proofRequestStart;
 
               await prover.sendRequest(
                 websocketProxyUrl + `?token=${hostname}`,
@@ -363,54 +368,14 @@ const Offscreen = () => {
                 ),
               };
 
+              const endRequest = waitForEvent(
+                OffscreenActionTypes.end_p2p_proof_request,
+              );
               await prover.reveal(commit);
+              console.log(await endRequest);
             })();
             break;
           }
-          // case OffscreenActionTypes.begin_verification: {
-          //   const { pluginHash } = request.data;
-          //   const verifier = P2PVerifier.get(pluginHash);
-          //
-          //   console.log('start verification', verifier);
-          //
-          //   if (verifier) {
-          //     browser.runtime.sendMessage({
-          //       type: BackgroundActiontype.start_proof_request,
-          //       data: {
-          //         pluginHash,
-          //       },
-          //     });
-          //     verifier.verify().then((res) => {
-          //       console.log(res);
-          //     });
-          //   }
-          //
-          //   break;
-          // }
-          // case OffscreenActionTypes.begin_send_request: {
-          //   (async () => {
-          //     console.log('send request');
-          //     const { pluginHash } = request.data;
-          //     const { prover, params } = P2PProvers.get(pluginHash) || {};
-          //
-          //     if (prover && params) {
-          //       const {
-          //         url,
-          //         method,
-          //         headers,
-          //         body,
-          //         websocketProxyUrl,
-          //         secretHeaders,
-          //         secretResps,
-          //       } = params;
-          //
-          //       const hostname = urlify(url)?.hostname || '';
-          //
-          //     }
-          //   })();
-          //
-          //   break;
-          // }
           default:
             break;
         }
@@ -540,6 +505,55 @@ async function createProver(options: {
   });
 
   return prover;
+}
+
+function getCommitFromTranscript(
+  transcript: {
+    sent: string;
+    recv: string;
+    ranges: { recv: ParsedTranscriptData; sent: ParsedTranscriptData };
+  },
+  secretHeaders: string[],
+  secretResps: string[],
+) {
+  const commit = {
+    sent: subtractRanges(
+      transcript.ranges.sent.all,
+      secretHeaders
+        .map((secret: string) => {
+          const index = transcript.sent.indexOf(secret);
+          return index > -1
+            ? {
+                start: index,
+                end: index + secret.length,
+              }
+            : null;
+        })
+        .filter((data: any) => !!data) as {
+        start: number;
+        end: number;
+      }[],
+    ),
+    recv: subtractRanges(
+      transcript.ranges.recv.all,
+      secretResps
+        .map((secret: string) => {
+          const index = transcript.recv.indexOf(secret);
+          return index > -1
+            ? {
+                start: index,
+                end: index + secret.length,
+              }
+            : null;
+        })
+        .filter((data: any) => !!data) as {
+        start: number;
+        end: number;
+      }[],
+    ),
+  };
+
+  return commit;
 }
 
 async function verifyProof(

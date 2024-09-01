@@ -7,6 +7,7 @@ export enum OffscreenActionTypes {
   create_presentation_response = 'offscreen/create_presentation_response',
   start_p2p_verifier = 'offscreen/start_p2p_verifier',
   start_p2p_prover = 'offscreen/start_p2p_prover',
-  begin_verification = 'offscreen/begin_verification',
-  begin_send_request = 'offscreen/begin_send_request',
+  prover_started = 'offscreen/prover_started',
+  start_p2p_proof_request = 'offscreen/start_p2p_proof_request',
+  end_p2p_proof_request = 'offscreen/end_p2p_proof_request',
 }
