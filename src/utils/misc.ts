@@ -284,24 +284,24 @@ export const makePlugin = async (
 };
 
 export type StepConfig = {
-  title: string;
-  description?: string;
-  cta: string;
-  action: string;
-  prover?: boolean;
+  title: string;         // Text for the step's title
+  description?: string;  // Text for the step's description (optional)
+  cta: string;           // Text for the step's call-to-action button
+  action: string;        // The function name that this step will execute
+  prover?: boolean;      // Boolean indicating if this step outputs a notarization (optional)
 };
 
 export type PluginConfig = {
-  title: string;
-  description: string;
-  icon?: string;
-  steps?: StepConfig[];
-  hostFunctions?: string[];
-  cookies?: string[];
-  headers?: string[];
-  requests: { method: string; url: string }[];
-  notaryUrls?: string[];
-  proxyUrls?: string[];
+  title: string; // The name of the plugin
+  description: string; // A description of the plugin's purpose
+  icon?: string;// A base64-encoded image string representing the plugin's icon (optional)
+  steps?: StepConfig[];// An array describing the UI steps and behavior (see Step UI below) (optional)
+  hostFunctions?: string[];// Host functions that the plugin will have access to
+  cookies?: string[];// Cookies the plugin will have access to, cached by the extension from specified hosts (optional)
+  headers?: string[];// Headers the plugin will have access to, cached by the extension from specified hosts (optional)
+  requests: { method: string; url: string }[];// List of requests that the plugin is allowed to make
+  notaryUrls?: string[];// List of notary services that the plugin is allowed to use (optional)
+  proxyUrls?: string[];// List of websocket proxies that the plugin is allowed to use (optional)
 };
 
 export type PluginMetadata = {
