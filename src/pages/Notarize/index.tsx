@@ -6,6 +6,7 @@ import React, {
   ReactEventHandler,
   useEffect,
   useRef,
+  useMemo
 } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { notarizeRequest, useRequest } from '../../reducers/requests';
@@ -277,45 +278,74 @@ export function RevealHeaderTable(props: {
     </table>
   );
 }
-type Selection = {
-  start: number;
-  end: number;
-};
 
-function HideResponseStep(props: {
+export function HideResponseStep(props: {
   onNext: () => void;
   onCancel: () => void;
   setSecretResps: (secrets: string[]) => void;
-}): ReactElement {
+}): React.ReactElement {
   const params = useParams<{ requestId: string }>();
   const req = useRequest(params.requestId);
   const [responseText, setResponseText] = useState('');
-  const [selections, setSelections] = useState<Selection[]>([]);
+  const [redactedRanges, setRedactedRanges] = useState<{start: number, end: number}[]>([]);
+  const [isRedactMode, setIsRedactMode] = useState(true);
   const taRef = useRef<HTMLTextAreaElement | null>(null);
 
-  const onSelectionChange: React.ChangeEventHandler<HTMLTextAreaElement> = useCallback(
+  const onSelectionChange: React.MouseEventHandler<HTMLTextAreaElement> = useCallback(
     (e) => {
       const ta = e.currentTarget;
-      if (ta.selectionEnd > ta.selectionStart) {
-        const newSelection: Selection = {
+
+      if (isRedactMode && ta.selectionEnd > ta.selectionStart) {
+        const newRange: {start: number, end: number} = {
           start: ta.selectionStart,
           end: ta.selectionEnd,
         };
 
-        setSelections((prevSelections) => {
-          const updatedSelections = [...prevSelections, newSelection];
-          // Extract and set secret responses based on updated selections
-          const secretResps = updatedSelections.map(({ start, end }) =>
-            responseText.substring(start, end)
-          ).filter((d) => !!d);
+        setRedactedRanges((prevRanges) => {
+          let updatedRanges = [...prevRanges, newRange].sort((a, b) => a.start - b.start);
+          updatedRanges = mergeRanges(updatedRanges);
+
+          const secretResps = updatedRanges
+            .map(({ start, end }) => responseText.substring(start, end))
+            .filter((d) => !!d);
           props.setSecretResps(secretResps);
 
-          return updatedSelections;
+          return updatedRanges;
+        });
+      } else if (!isRedactMode) {
+        const clickPosition = ta.selectionStart;
+        setRedactedRanges((prevRanges) => {
+          const updatedRanges = prevRanges.filter(
+            ({ start, end }) => clickPosition < start || clickPosition > end
+          );
+
+          const secretResps = updatedRanges
+            .map(({ start, end }) => responseText.substring(start, end))
+            .filter((d) => !!d);
+          props.setSecretResps(secretResps);
+
+          return updatedRanges;
         });
       }
     },
-    [responseText, props]
+    [responseText, props, isRedactMode]
   );
+
+  const mergeRanges = (ranges: {start: number, end: number}[]): {start: number, end: number}[] => {
+    if (ranges.length === 0) return [];
+    const mergedRanges: {start: number, end: number}[] = [ranges[0]];
+
+    for (let i = 1; i < ranges.length; i++) {
+      const lastRange = mergedRanges[mergedRanges.length - 1];
+      if (ranges[i].start <= lastRange.end) {
+        lastRange.end = Math.max(lastRange.end, ranges[i].end);
+      } else {
+        mergedRanges.push(ranges[i]);
+      }
+    }
+
+    return mergedRanges;
+  };
 
   useEffect(() => {
     if (!req) return;
@@ -330,7 +360,7 @@ function HideResponseStep(props: {
           }
           return acc;
         },
-        {},
+        {}
       ),
       body: req.requestBody,
     };
@@ -356,29 +386,38 @@ function HideResponseStep(props: {
 
   if (!req) return <></>;
 
-  let shieldedText = responseText;
-
-  if (selections.length > 0) {
-    let result = responseText.split('');
-    selections.forEach(({ start, end }) => {
-      for (let i = start; i < end; i++) {
-        result[i] = '*';
-      }
-    });
-    shieldedText = result.join('');
-  }
+  let shieldedText = responseText.split('');
+  redactedRanges.forEach(({ start, end }) => {
+    for (let i = start; i < end; i++) {
+      shieldedText[i] = '*';
+    }
+  });
 
   return (
     <div className="flex flex-col flex-nowrap flex-shrink flex-grow h-0">
       <div className="border bg-primary/[0.9] text-white border-slate-300 py-1 px-2 font-semibold">
-        Step 2 of 2: Highlight text to show only selected text from response
+        Step 2 of 2: {isRedactMode ? 'Highlight text to redact selected portions' : 'Click redacted text to unredact'}
+      </div>
+      <div className="flex flex-row justify-end p-0.5 gap-2 border-t">
+      <button
+          className={`bg-${isRedactMode ? 'red-500' : 'green-500'} text-white font-bold hover:bg-${isRedactMode ? 'red-400' : 'green-400'} px-2 py-0.5 active:bg-${isRedactMode ? 'red-600' : 'green-600'}`}
+          onClick={() => setIsRedactMode(!isRedactMode)}
+        >
+          {isRedactMode ? 'Unredact Text' : 'Redact Text'}
+        </button>
+        <button
+          className="bg-gray-500 text-white font-bold hover:bg-gray-400 px-2 py-0.5 active:bg-gray-600"
+          onClick={() => setRedactedRanges([])}
+        >
+          Unredact All
+        </button>
       </div>
       <div className="flex flex-col flex-grow flex-shrink h-0 overflow-y-auto p-2">
         <textarea
           ref={taRef}
           className="flex-grow textarea bg-slate-100 font-mono"
-          value={shieldedText}
-          onSelect={onSelectionChange}
+          value={shieldedText.join('')}
+          onMouseUp={onSelectionChange}
         />
       </div>
       <div className="flex flex-row justify-end p-2 gap-2 border-t">
@@ -395,6 +434,7 @@ function HideResponseStep(props: {
     </div>
   );
 }
+
 
 export function RedactBodyTextarea(props: {
   className?: string;
