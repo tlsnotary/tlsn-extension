@@ -76,6 +76,18 @@ export default function Options(): ReactElement {
     [onSave],
   );
 
+  const openExtensionDetails = () => {
+    browser.tabs.create({
+      url: `chrome://extensions/?id=${chrome.runtime.id}`,
+    });
+  };
+
+  const openExtensionInPage = () => {
+    browser.tabs.create({
+      url: `chrome-extension://${chrome.runtime.id}/popup.html`,
+    });
+  };
+
   const onAdvanced = useCallback(() => {
     setAdvanced(!advanced);
   }, [advanced]);
@@ -150,6 +162,14 @@ export default function Options(): ReactElement {
           onClick={onSave}
         >
           Save
+        </button>
+      </div>
+      <div className="flex flex-row justify-start gap-2 p-2">
+        <button onClick={openExtensionDetails} className="button">
+          View Extension Details
+        </button>
+        <button onClick={openExtensionInPage} className="button">
+          Open Extension in Browser Page
         </button>
       </div>
     </div>
