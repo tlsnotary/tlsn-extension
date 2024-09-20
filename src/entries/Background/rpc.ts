@@ -46,7 +46,7 @@ import { OffscreenActionTypes } from '../Offscreen/types';
 import { SidePanelActionTypes } from '../SidePanel/types';
 
 const charwise = require('charwise');
-
+import { AttrAttestation } from '../../utils/types';
 export enum BackgroundActiontype {
   get_requests = 'get_requests',
   clear_requests = 'clear_requests',
@@ -110,6 +110,7 @@ export type RequestLog = {
 };
 
 export type RequestHistory = {
+  timestamp: number;
   id: string;
   url: string;
   method: string;
@@ -122,7 +123,7 @@ export type RequestHistory = {
   websocketProxyUrl: string;
   status: '' | 'pending' | 'success' | 'error';
   error?: any;
-  proof?: { session: any; substrings: any };
+  proof?: AttrAttestation;
   requestBody?: any;
   verification?: {
     sent: string;
@@ -134,6 +135,7 @@ export type RequestHistory = {
   metadata?: {
     [k: string]: string;
   };
+  type?: string;
 };
 
 export const initRPC = () => {
@@ -245,6 +247,7 @@ async function handleFinishProveRequest(
       data: {
         tabId: 'background',
       },
+
       action: addRequestHistory(await getNotaryRequest(id)),
     });
   }
@@ -309,11 +312,13 @@ async function handleRetryProveReqest(
   return sendResponse();
 }
 
-async function handleProveRequestStart(
+export async function handleProveRequestStart(
   request: BackgroundAction,
   sendResponse: (data?: any) => void,
 ) {
   const {
+    cid,
+    type,
     url,
     method,
     headers,
@@ -328,6 +333,8 @@ async function handleProveRequestStart(
   } = request.data;
 
   const { id } = await addNotaryRequest(Date.now(), {
+    cid,
+    type,
     url,
     method,
     headers,
@@ -339,6 +346,7 @@ async function handleProveRequestStart(
     websocketProxyUrl,
     secretHeaders,
     secretResps,
+    timestamp: Date.now(),
   });
 
   await setNotaryRequestStatus(id, 'pending');
@@ -403,6 +411,7 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
     maxSentData,
     secretHeaders,
     secretResps,
+    timestamp: now,
   });
 
   await setNotaryRequestStatus(id, 'pending');
@@ -554,8 +563,8 @@ function handleRunPlugin(
     const plugin = await makePlugin(arrayBuffer, config);
     devlog(`plugin::${method}`, params);
     const out = await plugin.call(method, params);
-    devlog(`plugin response: `, out.string());
-    sendResponse(JSON.parse(out.string()));
+    devlog(`plugin response: `, out?.string());
+    sendResponse(JSON.parse(out?.string() || '{}'));
   })();
 
   return true;
@@ -1049,7 +1058,6 @@ async function handleRunPluginCSRequest(request: BackgroundAction) {
   );
 
   const onPluginRequest = async (req: any) => {
-    console.log(req);
     if (req.type !== SidePanelActionTypes.execute_plugin_response) return;
     if (req.data.hash !== hash) return;
 

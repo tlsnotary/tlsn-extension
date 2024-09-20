@@ -13,7 +13,7 @@ import {
 } from '../utils/storage';
 import { BackgroundActiontype } from '../entries/Background/rpc';
 import browser from 'webextension-polyfill';
-
+import { useState, useEffect } from 'react';
 enum ActionType {
   '/requests/setRequests' = '/requests/setRequests',
   '/requests/addRequest' = '/requests/addRequest',
@@ -39,12 +39,15 @@ const initialState: State = {
   activeTab: null,
 };
 
+const rejected_types = ['script', 'websocket', 'image', 'font'];
+
 export const setRequests = (requests: RequestLog[]): Action<RequestLog[]> => ({
   type: ActionType['/requests/setRequests'],
   payload: requests,
 });
 
 export const notarizeRequest = (options: RequestHistory) => async () => {
+  console.log('notarizeRequest', options);
   const notaryUrl = await getNotaryApi();
   const websocketProxyUrl = await getProxyApi();
   const maxSentData = await getMaxSent();
@@ -64,6 +67,7 @@ export const notarizeRequest = (options: RequestHistory) => async () => {
       secretResps: options.secretResps,
       notaryUrl,
       websocketProxyUrl,
+      type: options.type,
     },
   });
 };
@@ -124,6 +128,29 @@ export const useRequests = (): RequestLog[] => {
   }, deepEqual);
 };
 
+export const useUniqueRequests = (): RequestLog[] => {
+  const requests = useRequests();
+  const [uniqueRequests, setUniqueRequests] = useState<RequestLog[]>([]);
+
+  useEffect(() => {
+    async function fetchHistory() {
+      if (!history) return;
+
+      const requestsSet = new Map<string, RequestLog>();
+
+      requests.forEach(async (request) => {
+        if (rejected_types.includes(request.type)) return;
+        requestsSet.set(request.url, request);
+      });
+
+      setUniqueRequests(Array.from(requestsSet.values()).reverse());
+    }
+    fetchHistory();
+  }, [history, requests]);
+
+  return uniqueRequests;
+};
+
 export const useRequest = (requestId?: string): RequestLog | null => {
   return useSelector((state: AppRootState) => {
     return requestId ? state.requests.map[requestId] : null;
@@ -141,4 +168,16 @@ export const useActiveTabUrl = (): URL | null => {
     const activeTab = state.requests.activeTab;
     return activeTab?.url ? new URL(activeTab.url) : null;
   }, deepEqual);
+};
+
+export const useExtensionEnabled = (): boolean => {
+  const [isEnabled, setIsEnabled] = useState(false);
+  useEffect(() => {
+    (async () => {
+      const storage = await chrome.storage.sync.get('enable-extension');
+      const isEnabled = storage['enable-extension'];
+      setIsEnabled(isEnabled);
+    })();
+  }, []);
+  return isEnabled;
 };

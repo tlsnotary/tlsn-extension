@@ -19,16 +19,19 @@ import {
   LOGGING_FILTER_KEY,
 } from '../../utils/storage';
 import {
-  EXPLORER_API,
   NOTARY_API,
   NOTARY_PROXY,
+  NOTARY_API_LOCAL,
+  NOTARY_PROXY_LOCAL,
   MAX_RECV,
   MAX_SENT,
+  MODE,
+  Mode,
 } from '../../utils/constants';
 import Modal, { ModalContent } from '../../components/Modal/Modal';
 import browser from 'webextension-polyfill';
 import { LoggingLevel } from 'tlsn-js';
-import { version } from '../../../package.json';
+// import { version } from '../../../package.json';
 
 export default function Options(): ReactElement {
   const [notary, setNotary] = useState(NOTARY_API);
@@ -193,9 +196,34 @@ function NormalOptions(props: {
   return (
     <div>
       <div className="flex flex-col flex-nowrap py-1 px-2 gap-2 cursor-default">
-        <div className="font-semibold">Version</div>
-        <div className="input border bg-slate-100">{version}</div>
+        {/* <div className="font-semibold">Version</div>
+        <div className="input border bg-slate-100">{version}</div> */}
       </div>
+
+      {MODE === Mode.Development && (
+        <div className="flex items-center py-1 px-2 gap-2">
+          <input
+            type="checkbox"
+            id="localhost"
+            className="input border"
+            onChange={(e) => {
+              if (e.target.checked) {
+                setNotary(NOTARY_API_LOCAL);
+                setProxy(NOTARY_PROXY_LOCAL);
+              } else {
+                setNotary(NOTARY_API);
+                setProxy(NOTARY_PROXY);
+              }
+              setDirty(true);
+            }}
+          />
+
+          <label htmlFor="localhost" className="font-semibold cursor-pointer">
+            Use localhost notary
+          </label>
+        </div>
+      )}
+
       <InputField
         label="Notary API"
         placeholder="https://api.tlsnotary.org"
@@ -216,10 +244,10 @@ function NormalOptions(props: {
           setDirty(true);
         }}
       />
-      <div className="flex flex-col flex-nowrap py-1 px-2 gap-2 cursor-default">
+      {/* <div className="flex flex-col flex-nowrap py-1 px-2 gap-2 cursor-default">
         <div className="font-semibold">Explorer URL</div>
         <div className="input border bg-slate-100">{EXPLORER_API}</div>
-      </div>
+      </div> */}
     </div>
   );
 }
@@ -247,7 +275,7 @@ function AdvancedOptions(props: {
 
   return (
     <div>
-      <InputField
+      {/* <InputField
         label="Set Max Received Data"
         value={maxReceived.toString()}
         type="number"
@@ -266,7 +294,7 @@ function AdvancedOptions(props: {
           setMaxSent(parseInt(e.target.value));
           setDirty(true);
         }}
-      />
+      /> */}
       <div className="flex flex-col flex-nowrap py-1 px-2 gap-2">
         <div className="font-semibold">Logging Level</div>
         <select

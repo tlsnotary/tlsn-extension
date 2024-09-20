@@ -2,45 +2,62 @@ name: build
 
 on:
   push:
-    branches: [ main ]
+    branches: [main, tee-tls]
   pull_request:
-    branches: [ main ]
+    branches: [main, tee-tls]
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout current project
         uses: actions/checkout@v3
+
+      - name: Checkout tlsn-js
+        uses: actions/checkout@v3
+        with:
+          repository: eternisai/tlsn-js
+          token: ${{ secrets.GITHUB_TOKEN }}
+          path: tlsn-js
+          ref: remote-attestation
 
       - name: Install Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 16
+          node-version: 20
 
-      - uses: pnpm/action-setup@v2
-        name: Install pnpm
+      - name: Cache node modules
+        uses: actions/cache@v3
+        env:
+          cache-name: cache-node-modules
         with:
-          version: 8
-          run_install: false
-
-      - name: Get pnpm store directory
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
-      - uses: actions/cache@v3
-        name: Setup pnpm cache
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          path: |
+            ~/.npm
+            ./node_modules
+            ./tlsn-js/node_modules
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-pnpm-store-
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
+
+      - name: Display directory structure
+        run: tree -L 2 && npm --version
 
       - name: Install dependencies
-        run: pnpm install
+        run: |
+          cd ./tlsn-js && npm i && cd -
+          npm i
 
-      - name: Build
+      - name: Build tlsn-js
+        run: cd ./tlsn-js && npm run build && cd -
+
+      - name: Build current project
         run: npm run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-output
+          path: ./zip

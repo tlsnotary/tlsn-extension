@@ -1,4 +1,4 @@
-export type Proof = ProofV0 | ProofV1;
+export type Proof = ProofV0 | AttrAttestation;
 
 export type ProofV0 = {
   version?: undefined;
@@ -7,12 +7,15 @@ export type ProofV0 = {
   notaryUrl: string;
 };
 
-export type ProofV1 = {
+export type AttrAttestation = {
   version: '1.0';
-  data: string;
   meta: {
     notaryUrl: string;
     websocketProxyUrl: string;
     pluginUrl?: string;
   };
+  signature: string;
+  signedSession: string;
+  applicationData: string;
+  attestations: string;
 };

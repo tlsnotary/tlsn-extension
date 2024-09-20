@@ -25,7 +25,7 @@ This command compiles the TypeScript code in index.js into a WebAssembly module,
 ### Running the Twitter Plugin Example:
 
 1.	Build the `twitter_profile` plugin as explained above.
-2.	Build and install the `tlsn-extension` as documented in the [main README.md](../README.md).
+2.	Build and install the `eternis-extension` as documented in the [main README.md](../README.md).
 3.	[Run a local notary server](https://github.com/tlsnotary/tlsn/blob/main/notary-server/README.md), ensuring `TLS` is disabled in the [config file](https://github.com/tlsnotary/tlsn/blob/main/notary-server/config/config.yaml#L18).
 4.	Install the plugin: Click the **Add a Plugin (+)** button and select the `index.wasm` file you built in step 1. A **Twitter Profile** button should then appear below the default buttons.
 5.	Click the **Twitter Profile** button. This action opens the Twitter webpage along with a TLSNotary sidebar.

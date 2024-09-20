@@ -4,6 +4,7 @@ import { PluginConfig, PluginMetadata, sha256 } from '../../utils/misc';
 import mutex from './mutex';
 const charwise = require('charwise');
 
+import { AttrAttestation } from '../../utils/types';
 export const db = new Level('./ext-db', {
   valueEncoding: 'json',
 });
@@ -34,10 +35,12 @@ export async function addNotaryRequest(
   request: Omit<RequestHistory, 'status' | 'id'>,
 ): Promise<RequestHistory> {
   const id = charwise.encode(now).toString('hex');
+  console.log('addNotaryRequest', id, request);
   const newReq: RequestHistory = {
     ...request,
     id,
     status: '',
+    timestamp: now,
   };
   await historyDb.put(id, newReq);
   return newReq;
@@ -45,7 +48,7 @@ export async function addNotaryRequest(
 
 export async function addNotaryRequestProofs(
   id: string,
-  proof: { session: any; substrings: any },
+  proof: AttrAttestation,
 ): Promise<RequestHistory | null> {
   const existing = await historyDb.get(id);
 
@@ -120,13 +123,27 @@ export async function setNotaryRequestVerification(
 export async function removeNotaryRequest(
   id: string,
 ): Promise<RequestHistory | null> {
-  const existing = await historyDb.get(id);
+  try {
+    const existing = await historyDb.get(id);
+    if (!existing) return null;
 
-  if (!existing) return null;
+    await historyDb.del(id);
 
-  await historyDb.del(id);
+    return existing;
+  } catch (e) {
+    console.log('error retrieving request', e);
+    return null;
+  }
+}
 
-  return existing;
+export async function removeAllNotaryRequests(): Promise<void> {
+  try {
+    for await (const key of historyDb.keys()) {
+      await historyDb.del(key);
+    }
+  } catch (e) {
+    console.log('error removing all notary requests', e);
+  }
 }
 
 export async function getNotaryRequests(): Promise<RequestHistory[]> {
@@ -137,10 +154,33 @@ export async function getNotaryRequests(): Promise<RequestHistory[]> {
   return retVal;
 }
 
+export async function getNotaryRequestsByUrl(
+  url: string,
+): Promise<RequestHistory[]> {
+  const retVal = [];
+  for await (const [key, value] of historyDb.iterator()) {
+    if (value.url === url) {
+      retVal.push(value);
+    }
+  }
+  return retVal;
+}
+
 export async function getNotaryRequest(
   id: string,
 ): Promise<RequestHistory | null> {
   return historyDb.get(id).catch(() => null);
+}
+
+export async function getLastNotaryRequest(): Promise<RequestHistory | null> {
+  let lastRequest: RequestHistory | null = null;
+  for await (const [key, value] of historyDb.iterator({
+    reverse: true,
+    limit: 1,
+  })) {
+    lastRequest = value;
+  }
+  return lastRequest;
 }
 
 export async function getPluginHashes(): Promise<string[]> {

@@ -5,8 +5,9 @@ import {
   useHistoryOrder,
   useRequestHistory,
   deleteRequestHistory,
+  useAllRequestHistory,
 } from '../../reducers/history';
-import Icon from '../../components/Icon';
+
 import { getNotaryApi, getProxyApi } from '../../utils/storage';
 import { urlify, download, upload } from '../../utils/misc';
 import { BackgroundActiontype } from '../../entries/Background/rpc';
@@ -15,16 +16,41 @@ import classNames from 'classnames';
 import copy from 'copy-to-clipboard';
 import { EXPLORER_API } from '../../utils/constants';
 import {
-  getNotaryRequest,
   setNotaryRequestCid,
+  getNotaryRequest,
+  getNotaryRequests,
+  removeNotaryRequest,
+  removeAllNotaryRequests,
 } from '../../entries/Background/db';
+import { BookmarkManager } from '../../reducers/bookmarks';
+import { RequestHistory } from '../../entries/Background/rpc';
+import Icon from '../../components/Icon';
 const charwise = require('charwise');
 
+const bookmarkManager = new BookmarkManager();
 export default function History(): ReactElement {
   const history = useHistoryOrder();
 
+  const clearHistory = useCallback(async () => {
+    await removeAllNotaryRequests();
+  }, []);
+
+  const foo = 'ahi';
+
+  const allRequest = useAllRequestHistory();
   return (
     <div className="flex flex-col flex-nowrap overflow-y-auto">
+      <button
+        onClick={clearHistory}
+        className="flex items-center px-3 py-2 bg-red-100 text-red-600 rounded-md hover:bg-red-200 transition-colors duration-200"
+      >
+        <Icon
+          className="text-slate-500 hover:text-slate-700 cursor-pointer"
+          size={1}
+          fa="fa-solid fa-trash"
+        />
+        Clear History
+      </button>
       {history.map((id) => {
         return <OneRequestHistory key={id} requestId={id} />;
       })}
@@ -50,10 +76,10 @@ export function OneRequestHistory(props: {
   const { status } = request || {};
   const requestUrl = urlify(request?.url || '');
 
+  const [successBookmark, setSuccessBookmark] = useState(false);
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const request = await getNotaryRequest(props.requestId);
         if (request && request.cid) {
           setCid({ [props.requestId]: request.cid });
         }
@@ -98,6 +124,14 @@ export function OneRequestHistory(props: {
     showError(false);
   }, [setShowingShareConfirmation, showError]);
 
+  const addBookmark = useCallback(
+    async (request: RequestHistory) => {
+      setSuccessBookmark(true);
+      bookmarkManager.addBookmark(request);
+    },
+    [request],
+  );
+
   const handleUpload = useCallback(async () => {
     setUploading(true);
     try {
@@ -129,7 +163,7 @@ export function OneRequestHistory(props: {
             {request?.method}
           </div>
           <div className="text-black font-bold px-2 py-1 rounded-md overflow-hidden text-ellipsis">
-            {requestUrl?.pathname}
+            {requestUrl?.host}
           </div>
         </div>
         <div className="flex flex-row">
@@ -139,8 +173,10 @@ export function OneRequestHistory(props: {
           </div>
         </div>
         <div className="flex flex-row">
-          <div className="font-bold text-slate-400">Host:</div>
-          <div className="ml-2 text-slate-800">{requestUrl?.host}</div>
+          <div className="font-bold text-slate-400">Url:</div>
+          <div className="ml-2 text-slate-800">
+            {requestUrl?.pathname.substring(0, 100) + '...'}
+          </div>
         </div>
         <div className="flex flex-row">
           <div className="font-bold text-slate-400">Notary API:</div>
@@ -152,6 +188,12 @@ export function OneRequestHistory(props: {
             {request?.websocketProxyUrl}
           </div>
         </div>
+        <div className="flex flex-row">
+          <div className="font-bold text-slate-400">Notary signature</div>
+          <div className="ml-2 text-slate-800">
+            0x{request?.proof?.signature.substring(0, 20) + '...'}
+          </div>
+        </div>
       </div>
       <div className="flex flex-col gap-1">
         {status === 'success' && (
@@ -160,9 +202,20 @@ export function OneRequestHistory(props: {
               className="bg-slate-600 text-slate-200 hover:bg-slate-500 hover:text-slate-100"
               onClick={onView}
               fa="fa-solid fa-receipt"
-              ctaText="View Proof"
+              ctaText="View Attestation"
               hidden={hideActions.includes('view')}
             />
+            <ActionButton
+              className={
+                'text-slate-300 hover:bg-slate-200 hover:text-slate-500 ' +
+                (successBookmark ? 'bg-slate-600' : 'bg-slate-100')
+              }
+              onClick={() => addBookmark(request!)}
+              fa="fa-solid fa-bookmark"
+              ctaText="Add provider"
+              hidden={hideActions.includes('save')}
+            />
+
             <ActionButton
               className="bg-slate-100 text-slate-300 hover:bg-slate-200 hover:text-slate-500"
               onClick={() =>
@@ -172,21 +225,20 @@ export function OneRequestHistory(props: {
               ctaText="Download"
               hidden={hideActions.includes('download')}
             />
-            <ActionButton
+
+            {/* <ActionButton
               className="flex flex-row flex-grow-0 gap-2 self-end items-center justify-end px-2 py-1 bg-slate-100 text-slate-300 hover:bg-slate-200 hover:text-slate-500 hover:font-bold"
               onClick={() => setShowingShareConfirmation(true)}
               fa="fa-solid fa-upload"
               ctaText="Share"
               hidden={hideActions.includes('share')}
-            />
+            /> */}
           </>
         )}
         {status === 'error' && !!request?.error && (
           <ErrorButton hidden={hideActions.includes('error')} />
         )}
-        {(!status || status === 'error') && (
-          <RetryButton hidden={hideActions.includes('retry')} />
-        )}
+        {<RetryButton hidden={hideActions.includes('retry')} />}
         {status === 'pending' && (
           <button className="flex flex-row flex-grow-0 gap-2 self-end items-center justify-end px-2 py-1 bg-slate-100 text-slate-300 font-bold">
             <Icon className="animate-spin" fa="fa-solid fa-spinner" size={1} />
@@ -336,10 +388,9 @@ function ActionButton(props: {
 
   return (
     <button
-      className={classNames(
-        'flex flex-row flex-grow-0 gap-2 self-end items-center justify-end px-2 py-1 hover:font-bold',
-        props.className,
-      )}
+      className={
+        'flex items-center px-3 py-2 bg-blue-100 text-blue-600 rounded-md hover:bg-blue-200 transition-colors duration-200'
+      }
       onClick={props.onClick}
     >
       <Icon className="" fa={props.fa} size={1} />

@@ -1,9 +1,8 @@
 import * as Comlink from 'comlink';
-import init, { Prover, NotarizedSession, TlsProof } from 'tlsn-js';
+import init, { Prover, verify_attestation } from 'tlsn-js';
 
 Comlink.expose({
   init,
   Prover,
-  NotarizedSession,
-  TlsProof,
+  verify_attestation,
 });

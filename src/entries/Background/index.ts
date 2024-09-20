@@ -1,4 +1,9 @@
-import { onBeforeRequest, onResponseStarted, onSendHeaders } from './handlers';
+import {
+  onBeforeRequest,
+  onResponseStarted,
+  onSendHeaders,
+  handleNotarization,
+} from './handlers';
 import { deleteCacheByTabId } from './cache';
 import browser from 'webextension-polyfill';
 
@@ -17,6 +22,14 @@ import browser from 'webextension-polyfill';
       urls: ['<all_urls>'],
     },
     ['requestBody'],
+  );
+
+  browser.webRequest.onCompleted.addListener(
+    handleNotarization,
+    {
+      urls: ['<all_urls>'],
+    },
+    ['responseHeaders', 'extraHeaders'],
   );
 
   browser.webRequest.onResponseStarted.addListener(

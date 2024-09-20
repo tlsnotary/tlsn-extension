@@ -17,21 +17,21 @@ export default function RequestTable(props: Props): ReactElement {
   const [query, setQuery] = useState('');
 
   const fuse = new Fuse(requests, {
-    isCaseSensitive: true,
+    isCaseSensitive: false,
     minMatchCharLength: 2,
     shouldSort: true,
     findAllMatches: true,
-    threshold: 0.2,
+    threshold: 0.5,
     includeMatches: true,
     ignoreLocation: true,
     keys: [
-      { name: 'method', weight: 2 },
-      { name: 'type', weight: 2 },
+      { name: 'method', weight: 1 },
+      { name: 'type', weight: 1 },
       { name: 'requestHeaders.name', weight: 1 },
       { name: 'requestHeaders.value', weight: 1 },
       { name: 'responseHeaders.name', weight: 1 },
       { name: 'responseHeaders.value', weight: 1 },
-      { name: 'url', weight: 1 },
+      { name: 'url', weight: 3 },
     ],
   });
 
@@ -69,6 +69,9 @@ export default function RequestTable(props: Props): ReactElement {
                 Method
               </td>
               <td className="border border-slate-300 py-1 px-2 w-3/12">Type</td>
+              <td className="border border-slate-300 py-1 px-2 w-2/12">
+                Domain
+              </td>
               <td className="border border-slate-300 py-1 px-2">Name</td>
             </tr>
           </thead>
@@ -91,6 +94,9 @@ export default function RequestTable(props: Props): ReactElement {
                   </td>
                   <td className="border border-slate-200 align-top py-1 px-2 whitespace-nowrap w-3/12">
                     {r.type}
+                  </td>
+                  <td className="border border-slate-200 py-1 px-2 break-all truncate">
+                    {url?.host}
                   </td>
                   <td className="border border-slate-200 py-1 px-2 break-all truncate">
                     {url?.pathname}

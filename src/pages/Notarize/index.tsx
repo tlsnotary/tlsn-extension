@@ -49,6 +49,7 @@ export default function Notarize(): ReactElement {
     headers['Accept-Encoding'] = 'identity';
     headers['Connection'] = 'close';
 
+    console.log('Notarize from search request', req.type);
     dispatch(
       // @ts-ignore
       notarizeRequest({
@@ -63,6 +64,7 @@ export default function Notarize(): ReactElement {
         websocketProxyUrl,
         secretHeaders,
         secretResps,
+        type: req.type,
       }),
     );
     navigate(`/history`);

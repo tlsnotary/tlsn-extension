@@ -1,5 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Navigate, Route, Routes, useNavigate } from 'react-router';
+import {
+  Navigate,
+  Route,
+  Routes,
+  useNavigate,
+  useLocation,
+} from 'react-router';
 import { useDispatch } from 'react-redux';
 import {
   setActiveTab,
@@ -12,11 +18,12 @@ import Requests from '../../pages/Requests';
 import Options from '../../pages/Options';
 import Request from '../../pages/Requests/Request';
 import Home from '../../pages/Home';
-import logo from '../../assets/img/icon-128.png';
+import logo from '../../assets/img/icon-128-white.png';
 import RequestBuilder from '../../pages/RequestBuilder';
 import Notarize from '../../pages/Notarize';
 import ProofViewer from '../../pages/ProofViewer';
 import History from '../../pages/History';
+import Bookmarks from '../../pages/Bookmarks';
 import ProofUploader from '../../pages/ProofUploader';
 import browser from 'webextension-polyfill';
 import store from '../../utils/store';
@@ -33,9 +40,13 @@ import Icon from '../../components/Icon';
 import classNames from 'classnames';
 import { getConnection } from '../Background/db';
 
+import RemoteAttestationBadge from '../../components/RemoteAttestationBadge';
+import ToggleExtensionButton from '../../components/ToggleExtensionButton';
+
 const Popup = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     (async () => {
@@ -84,14 +95,23 @@ const Popup = () => {
 
   return (
     <div className="flex flex-col w-full h-full overflow-hidden">
-      <div className="flex flex-nowrap flex-shrink-0 flex-row items-center relative gap-2 h-9 p-2 cursor-default justify-center bg-slate-300 w-full">
-        <img
-          className="absolute left-2 h-5 cursor-pointer"
-          src={logo}
-          alt="logo"
-          onClick={() => navigate('/')}
-        />
-        <AppConnectionLogo />
+      <div className="bg-blue-600 text-white  flex flex-nowrap flex-shrink-0 flex-row items-center relative gap-2 h-9 p-2 cursor-default justify-center w-full">
+        <div className="absolute left-2">
+          <RemoteAttestationBadge />
+        </div>
+
+        {location.pathname === '/home' && (
+          <img className="  left-2 h-5 cursor-pointer" src={logo} alt="logo" />
+        )}
+        {location.pathname !== '/home' && (
+          <Icon
+            className="  left-2 h-5 cursor-pointer"
+            fa="fa-solid fa-chevron-left"
+            onClick={() => navigate('/')}
+          />
+        )}
+        <ToggleExtensionButton />
+        {/* <AppConnectionLogo /> */}
       </div>
       <Routes>
         <Route path="/requests/:requestId/*" element={<Request />} />
@@ -99,6 +119,7 @@ const Popup = () => {
         <Route path="/verify/:requestId/*" element={<ProofViewer />} />
         <Route path="/verify" element={<ProofUploader />} />
         <Route path="/history" element={<History />} />
+        <Route path="/bookmarks" element={<Bookmarks />} />
         <Route path="/requests" element={<Requests />} />
         <Route path="/custom/*" element={<RequestBuilder />} />
         <Route path="/options" element={<Options />} />

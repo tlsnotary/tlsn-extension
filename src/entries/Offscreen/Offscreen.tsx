@@ -1,23 +1,17 @@
 import React, { useEffect } from 'react';
 import * as Comlink from 'comlink';
 import { OffscreenActionTypes } from './types';
-import {
-  NotaryServer,
-  Prover as _Prover,
-  NotarizedSession as _NotarizedSession,
-  TlsProof as _TlsProof,
-} from 'tlsn-js';
+import { NotaryServer, Prover as _Prover, RemoteAttestation } from 'tlsn-js';
 import { verify } from 'tlsn-jsV5.3';
 
 import { urlify } from '../../utils/misc';
 import { BackgroundActiontype } from '../Background/rpc';
 import browser from 'webextension-polyfill';
-import { Proof, ProofV1 } from '../../utils/types';
+import { Proof, AttrAttestation } from '../../utils/types';
 import { Method } from 'tlsn-js/wasm/pkg';
 
-const { init, Prover, NotarizedSession, TlsProof }: any = Comlink.wrap(
-  new Worker(new URL('./worker.ts', import.meta.url)),
-);
+const { init, verify_attestation, Prover, NotarizedSession, TlsProof }: any =
+  Comlink.wrap(new Worker(new URL('./worker.ts', import.meta.url)));
 
 const Offscreen = () => {
   useEffect(() => {
@@ -25,113 +19,149 @@ const Offscreen = () => {
       const loggingLevel = await browser.runtime.sendMessage({
         type: BackgroundActiontype.get_logging_level,
       });
-      await init({ loggingLevel });
+
       // @ts-ignore
-      chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-        switch (request.type) {
-          case OffscreenActionTypes.notarization_request: {
-            const { id } = request.data;
+      chrome.runtime.onMessage.addListener(
+        async (request, sender, sendResponse) => {
+          console.log('request', request);
+          switch (request.type) {
+            case OffscreenActionTypes.remote_attestation_verification: {
+              console.log(
+                'OffscreenActionTypes.remote_attestation_verification',
+              );
+              const remoteAttestation: RemoteAttestation =
+                request.data.remoteAttestation;
+              const nonce = request.data.nonce;
+              console.log(
+                'OffscreenActionTypes.remote_attestation_verification',
+                remoteAttestation,
+              );
 
-            (async () => {
               try {
-                const proof = await createProof(request.data);
-
-                browser.runtime.sendMessage({
-                  type: BackgroundActiontype.finish_prove_request,
-                  data: {
-                    id,
-                    proof,
-                  },
-                });
-
-                browser.runtime.sendMessage({
-                  type: OffscreenActionTypes.notarization_response,
-                  data: {
-                    id,
-                    proof,
-                  },
-                });
+                await init({ loggingLevel });
               } catch (error) {
-                console.error(error);
-                browser.runtime.sendMessage({
-                  type: BackgroundActiontype.finish_prove_request,
-                  data: {
-                    id,
-                    error,
-                  },
-                });
-
-                browser.runtime.sendMessage({
-                  type: OffscreenActionTypes.notarization_response,
-                  data: {
-                    id,
-                    error,
-                  },
-                });
+                console.error('wasm aready init');
               }
-            })();
+              const result = await verify_attestation(remoteAttestation, nonce);
 
-            break;
-          }
-          case BackgroundActiontype.process_prove_request: {
-            const { id } = request.data;
+              console.log('remoteAttestation', remoteAttestation);
+              //verify x509 certificate
+              // if (remoteAttestation?.certificate) {
+              //   const certificateUint8Array = new Uint8Array(
+              //     Buffer.from(remoteAttestation?.certificate, 'base64'),
+              //   );
 
-            (async () => {
-              try {
-                const proof = await createProof(request.data);
-
-                browser.runtime.sendMessage({
-                  type: BackgroundActiontype.finish_prove_request,
-                  data: {
-                    id,
-                    proof: proof,
-                  },
-                });
-              } catch (error) {
-                console.error(error);
-                browser.runtime.sendMessage({
-                  type: BackgroundActiontype.finish_prove_request,
-                  data: {
-                    id,
-                    error,
-                  },
-                });
-              }
-            })();
-
-            break;
-          }
-          case BackgroundActiontype.verify_proof: {
-            (async () => {
-              const result = await verifyProof(request.data);
-              sendResponse(result);
-            })();
-
-            return true;
-          }
-          case BackgroundActiontype.verify_prove_request: {
-            (async () => {
-              const proof: Proof = request.data.proof;
-              const result: { sent: string; recv: string } =
-                await verifyProof(proof);
-
-              chrome.runtime.sendMessage<any, string>({
-                type: BackgroundActiontype.finish_prove_request,
-                data: {
-                  id: request.data.id,
-                  verification: {
-                    sent: result.sent,
-                    recv: result.recv,
-                  },
-                },
+              //   const resultx509 = verifyx509Certificate(certificateUint8Array);
+              //   console.log('resultx509', resultx509);
+              // }
+              chrome.runtime.sendMessage({
+                type: OffscreenActionTypes.remote_attestation_verification_response,
+                data: result,
               });
-            })();
-            break;
+              break;
+            }
+            case OffscreenActionTypes.notarization_request: {
+              const { id } = request.data;
+
+              (async () => {
+                try {
+                  const proof = await createProof(request.data);
+                  browser.runtime.sendMessage({
+                    type: BackgroundActiontype.finish_prove_request,
+                    data: {
+                      id,
+                      proof,
+                    },
+                  });
+
+                  browser.runtime.sendMessage({
+                    type: OffscreenActionTypes.notarization_response,
+                    data: {
+                      id,
+                      proof,
+                    },
+                  });
+                } catch (error) {
+                  console.error(error);
+                  browser.runtime.sendMessage({
+                    type: BackgroundActiontype.finish_prove_request,
+                    data: {
+                      id,
+                      error,
+                    },
+                  });
+
+                  browser.runtime.sendMessage({
+                    type: OffscreenActionTypes.notarization_response,
+                    data: {
+                      id,
+                      error,
+                    },
+                  });
+                }
+              })();
+
+              break;
+            }
+            case BackgroundActiontype.process_prove_request: {
+              const { id } = request.data;
+
+              (async () => {
+                try {
+                  const proof = await createProof(request.data);
+                  console.log('BackgroundActiontype ', proof);
+                  browser.runtime.sendMessage({
+                    type: BackgroundActiontype.finish_prove_request,
+                    data: {
+                      id,
+                      proof: proof,
+                    },
+                  });
+                } catch (error) {
+                  console.error(error);
+                  browser.runtime.sendMessage({
+                    type: BackgroundActiontype.finish_prove_request,
+                    data: {
+                      id,
+                      error,
+                    },
+                  });
+                }
+              })();
+
+              break;
+            }
+            case BackgroundActiontype.verify_proof: {
+              (async () => {
+                const result = await verifyProof(request.data);
+                sendResponse(result);
+              })();
+
+              return true;
+            }
+            case BackgroundActiontype.verify_prove_request: {
+              (async () => {
+                const proof: Proof = request.data.proof;
+                // const result: { sent: string; recv: string } =
+                //   await verifyProof(proof);
+
+                chrome.runtime.sendMessage<any, string>({
+                  type: BackgroundActiontype.finish_prove_request,
+                  data: {
+                    id: request.data.id,
+                    verification: {
+                      proof,
+                    },
+                  },
+                });
+              })();
+              break;
+            }
+            default:
+              break;
           }
-          default:
-            break;
-        }
-      });
+        },
+      );
     })();
   }, []);
 
@@ -194,7 +224,7 @@ async function createProof(options: {
   id: string;
   secretHeaders: string[];
   secretResps: string[];
-}): Promise<ProofV1> {
+}): Promise<AttrAttestation> {
   const {
     url,
     method = 'GET',
@@ -227,51 +257,18 @@ async function createProof(options: {
     body,
   });
 
-  const transcript = await prover.transcript();
+  const result = await prover.notarize();
 
-  const commit = {
-    sent: subtractRanges(
-      transcript.ranges.sent.all,
-      secretHeaders
-        .map((secret: string) => {
-          const index = transcript.sent.indexOf(secret);
-          return index > -1
-            ? {
-                start: index,
-                end: index + secret.length,
-              }
-            : null;
-        })
-        .filter((data: any) => !!data) as { start: number; end: number }[],
-    ),
-    recv: subtractRanges(
-      transcript.ranges.recv.all,
-      secretResps
-        .map((secret: string) => {
-          const index = transcript.recv.indexOf(secret);
-          return index > -1
-            ? {
-                start: index,
-                end: index + secret.length,
-              }
-            : null;
-        })
-        .filter((data: any) => !!data) as { start: number; end: number }[],
-    ),
-  };
-
-  const session: _NotarizedSession = await new NotarizedSession(
-    await prover.notarize(commit),
-  );
-
-  const proofHex = await session.proof(commit);
-  const proof: ProofV1 = {
+  const proof: AttrAttestation = {
     version: '1.0',
     meta: {
       notaryUrl,
       websocketProxyUrl,
     },
-    data: proofHex,
+    signature: result.signature,
+    signedSession: result.signedSession,
+    applicationData: result.applicationData,
+    attestations: result.attestation,
   };
   return proof;
 }
@@ -279,22 +276,20 @@ async function createProof(options: {
 async function verifyProof(
   proof: Proof,
 ): Promise<{ sent: string; recv: string }> {
-  let result: { sent: string; recv: string };
+  return { sent: '', recv: '' };
 
-  switch (proof.version) {
-    case undefined: {
-      result = await verify(proof);
-      break;
-    }
-    case '1.0': {
-      const tlsProof: _TlsProof = await new TlsProof(proof.data);
-      result = await tlsProof.verify({
-        typ: 'P256',
-        key: await NotaryServer.from(proof.meta.notaryUrl).publicKey(),
-      });
-      break;
-    }
-  }
-
-  return result;
+  // switch (proof.version) {
+  //   case undefined: {
+  //     result = await verify(proof);
+  //     break;
+  //   }
+  //   case '1.0': {
+  //     const tlsProof: _TlsProof = await new TlsProof(proof.data);
+  //     result = await tlsProof.verify({
+  //       typ: 'P256',
+  //       key: await NotaryServer.from(proof.meta.notaryUrl).publicKey(),
+  //     });
+  //     break;
+  //   }
+  // }
 }

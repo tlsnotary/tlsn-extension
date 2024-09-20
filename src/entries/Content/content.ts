@@ -2,10 +2,11 @@ import { ContentScriptTypes, RPCClient } from './rpc';
 import { RequestHistory } from '../Background/rpc';
 import { PluginConfig, PluginMetadata } from '../../utils/misc';
 import { Proof } from '../../utils/types';
+import { loadEnvFile } from 'process';
 
 const client = new RPCClient();
 
-class TLSN {
+export class TLSN {
   async getHistory(
     method: string,
     url: string,
@@ -79,6 +80,10 @@ class TLSN {
     });
 
     return resp;
+  }
+
+  async loadPage(url: string): Promise<void> {
+    await client.call(ContentScriptTypes.load_page, { url });
   }
 
   async getPlugins(

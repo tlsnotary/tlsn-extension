@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "TLSN Extension",
-  "description": "A chrome extension for TLSN",
+  "name": "TEE-TLS Eternis",
+  "description": "A chrome extension for generating attribute attestations for your data",
   "options_page": "options.html",
   "background": {
     "service_worker": "background.bundle.js"

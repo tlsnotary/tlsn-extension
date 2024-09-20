@@ -5,7 +5,22 @@ import { urlify } from '../../utils/misc';
 
 (async () => {
   loadScript('content.bundle.js');
+
   const server = new RPCServer();
+  server.on(
+    ContentScriptTypes.load_page,
+    async (request: ContentScriptRequest<{ url: string }>) => {
+      const { url } = request.params || {};
+
+      console.log('load_page', url);
+
+      if (!url) throw new Error('params must include url.');
+
+      if (window.location.href === url) {
+        window.location.reload();
+      }
+    },
+  );
 
   server.on(ContentScriptTypes.connect, async () => {
     const connected = await browser.runtime.sendMessage({

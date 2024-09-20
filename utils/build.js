@@ -22,6 +22,23 @@ config.plugins = (config.plugins || []).concat(
   }),
 );
 
-webpack(config, function (err) {
-  if (err) throw err;
+webpack(config, function (err, stats) {
+  if (err) {
+    console.error('Webpack build error:', err);
+    process.exit(1);
+  }
+
+  if (stats.hasErrors()) {
+    console.error(
+      'Webpack stats errors:',
+      stats.toString({
+        colors: true,
+        errors: true,
+        errorDetails: true,
+      }),
+    );
+    process.exit(1);
+  }
+
+  console.log('Build completed successfully');
 });

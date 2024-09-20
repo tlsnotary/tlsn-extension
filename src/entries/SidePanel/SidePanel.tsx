@@ -165,7 +165,7 @@ function StepContent(
 
     try {
       const out = await plugin.call(action, JSON.stringify(lastResponse));
-      const val = JSON.parse(out.string());
+      const val = JSON.parse(out!.string());
       if (val && prover) {
         setNotarizationId(val);
       } else {

@@ -24,6 +24,8 @@ export default function ProofUploader(): ReactElement {
         const reader = new FileReader();
         reader.addEventListener('load', async (event) => {
           const result = event.target?.result;
+
+          console.log('ProofViewer', result);
           if (result) {
             const proof = JSON.parse(result as string);
             const res = await chrome.runtime
@@ -48,7 +50,7 @@ export default function ProofUploader(): ReactElement {
   );
 
   if (proof) {
-    return <ProofViewer recv={proof.recv} sent={proof.sent} />;
+    return <ProofViewer proof={proof} />;
   }
 
   return (

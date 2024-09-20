@@ -1,9 +1,14 @@
 import React, { ReactElement } from 'react';
 import RequestTable from '../../components/RequestTable';
-import { useRequests } from '../../reducers/requests';
+import { useUniqueRequests } from '../../reducers/requests';
+import { useState, useEffect } from 'react';
+import { RequestLog } from '../../entries/Background/rpc';
 
 export default function Requests(): ReactElement {
-  const requests = useRequests();
+  const requests = useUniqueRequests();
+
+  console.log('requests', requests);
+
   return (
     <>
       <RequestTable requests={requests} />

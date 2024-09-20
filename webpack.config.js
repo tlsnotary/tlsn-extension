@@ -12,7 +12,10 @@ var ExtReloader = require('webpack-ext-reloader');
 
 const ASSET_PATH = process.env.ASSET_PATH || "/";
 
-var alias = {};
+var alias = {
+  stream: require.resolve('stream-browserify'),
+  vm: require.resolve('vm-browserify'),
+};
 
 // load the secrets
 var secretsPath = path.join(__dirname, "secrets." + env.NODE_ENV + ".js");
@@ -141,6 +144,7 @@ var options = {
     extensions: fileExtensions
       .map((extension) => "." + extension)
       .concat([".js", ".jsx", ".ts", ".tsx", ".css"]),
+      fallback: alias,
   },
   plugins: [
     isDevelopment && new ReactRefreshWebpackPlugin(),
