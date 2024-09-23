@@ -19,6 +19,19 @@ import { urlify } from '../../utils/misc';
     return true;
   });
 
+  server.on(ContentScriptTypes.connect, async () => {
+    const connected = await browser.runtime.sendMessage({
+      type: BackgroundActiontype.connect_request,
+      data: {
+        ...getPopupData(),
+      },
+    });
+
+    if (!connected) throw new Error('user rejected.');
+
+    return connected;
+  });
+
   server.on(
     ContentScriptTypes.get_history,
     async (
