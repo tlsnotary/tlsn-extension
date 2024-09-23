@@ -1,4 +1,4 @@
-import browser from 'webextension-polyfill';
+import browser, { browserAction } from 'webextension-polyfill';
 import { ContentScriptRequest, ContentScriptTypes, RPCServer } from './rpc';
 import { BackgroundActiontype, RequestHistory } from '../Background/rpc';
 import { urlify } from '../../utils/misc';
@@ -7,17 +7,16 @@ import { urlify } from '../../utils/misc';
   loadScript('content.bundle.js');
   const server = new RPCServer();
 
-  server.on(ContentScriptTypes.connect, async () => {
-    const connected = await browser.runtime.sendMessage({
-      type: BackgroundActiontype.connect_request,
-      data: {
-        ...getPopupData(),
-      },
-    });
-
-    if (!connected) throw new Error('user rejected.');
-
-    return connected;
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.type === 'GET_LOCAL_STORAGE') {
+      const localData = localStorage.getItem(request.data);
+      sendResponse({ success: true, data: localData });
+    }
+    if (request.type === 'GET_SESSION_STORAGE') {
+      const sessionData = sessionStorage.getItem(request.data);
+      sendResponse({ success: true, data: sessionData });
+    }
+    return true;
   });
 
   server.on(

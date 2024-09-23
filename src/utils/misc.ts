@@ -143,6 +143,8 @@ export const sha256 = async (data: string) => {
 const VALID_HOST_FUNCS: { [name: string]: string } = {
   redirect: 'redirect',
   notarize: 'notarize',
+  getSessionStorage: 'getSessionStorage',
+  getLocalStorage: 'getLocalStorage',
 };
 
 export const makePlugin = async (
@@ -231,6 +233,64 @@ export const makePlugin = async (
       })();
 
       return context.store(`${id}`);
+    },
+    getSessionStorage: function (context: CallContext, off: bigint) {
+      const r = context.read(off);
+      const key = r.text();
+      (async () => {
+        try {
+          const v = await new Promise((resolve, reject) => {
+            chrome.runtime.sendMessage(
+              { type: 'GET_SESSION_STORAGE', data: key },
+              (response) => {
+                if (chrome.runtime.lastError) {
+                  console.error(
+                    'Error in background script communication:',
+                    chrome.runtime.lastError,
+                  );
+                  reject(chrome.runtime.lastError);
+                } else {
+                  console.log('Response from background script:', response);
+                  resolve(response.data);
+                }
+              },
+            );
+          });
+          console.log('Fetched sessionStorage value:', v);
+          return context.store(`${v}`);
+        } catch (err) {
+          console.error('Error fetching sessionStorage:', err);
+        }
+      })();
+    },
+    getLocalStorage: function (context: CallContext, off: bigint) {
+      const r = context.read(off);
+      const key = r.text();
+      (async () => {
+        try {
+          const v = await new Promise((resolve, reject) => {
+            chrome.runtime.sendMessage(
+              { type: 'GET_LOCAL_STORAGE', data: key },
+              (response) => {
+                if (chrome.runtime.lastError) {
+                  console.error(
+                    'Error in background script communication:',
+                    chrome.runtime.lastError,
+                  );
+                  reject(chrome.runtime.lastError);
+                } else {
+                  console.log('Response from background script:', response);
+                  resolve(response.data);
+                }
+              },
+            );
+          });
+          console.log('Fetched localStorage value:', v);
+          return context.store(`${v}`);
+        } catch (err) {
+          console.error('Error fetching localStorage:', err);
+        }
+      })();
     },
   };
 

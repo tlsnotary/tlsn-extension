@@ -5,6 +5,47 @@ import { getAppState, setDefaultPluginsInstalled } from './db';
 import { installPlugin } from './plugins/utils';
 
 (async () => {
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.type === 'GET_LOCAL_STORAGE') {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        chrome.tabs.sendMessage(tabs[0].id as number, request, (response) => {
+          if (chrome.runtime.lastError) {
+            console.error(
+              'Error in content script communication:',
+              chrome.runtime.lastError.message,
+            );
+            sendResponse({
+              success: false,
+              error: chrome.runtime.lastError.message,
+            });
+          } else {
+            sendResponse(response);
+          }
+        });
+      });
+      return true;
+    }
+    if (request.type === 'GET_SESSION_STORAGE') {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        chrome.tabs.sendMessage(tabs[0].id as number, request, (response) => {
+          if (chrome.runtime.lastError) {
+            console.error(
+              'Error in content script communication:',
+              chrome.runtime.lastError.message,
+            );
+            sendResponse({
+              success: false,
+              error: chrome.runtime.lastError.message,
+            });
+          } else {
+            sendResponse(response);
+          }
+        });
+      });
+      return true;
+    }
+  });
+
   browser.webRequest.onSendHeaders.addListener(
     onSendHeaders,
     {
