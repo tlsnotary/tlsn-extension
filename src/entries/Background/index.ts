@@ -7,7 +7,6 @@ import { BackgroundActiontype } from './rpc';
 import { setStorage } from './db';
 
 (async () => {
-
   chrome.runtime.onMessage.addListener(async (request, sender) => {
     if (
       request.type === BackgroundActiontype.get_browser_storage &&

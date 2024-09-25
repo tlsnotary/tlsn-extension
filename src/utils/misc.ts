@@ -143,7 +143,6 @@ export const sha256 = async (data: string) => {
 const VALID_HOST_FUNCS: { [name: string]: string } = {
   redirect: 'redirect',
   notarize: 'notarize',
-  getStorage: 'getStorage',
 };
 
 export const makePlugin = async (
