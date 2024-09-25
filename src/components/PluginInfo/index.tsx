@@ -194,7 +194,7 @@ export function PluginPermissions({
         </PermissionDescription>
       )}
       {pluginContent.storage && (
-        <PermissionDescription fa="fa-solid fa-globe">
+        <PermissionDescription fa="fa-solid fa-database">
           <span className="cursor-default">
             <span className="mr-1">Access browser storage from</span>
             <MultipleParts parts={pluginContent.storage} />
