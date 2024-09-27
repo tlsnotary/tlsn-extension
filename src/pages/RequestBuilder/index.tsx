@@ -272,7 +272,12 @@ export default function RequestBuilder(props?: {
                 Response
               </TabLabel>
 
-              <button className="button" onClick={onNotarize}>
+              <button
+                className={
+                  'flex items-center px-3 py-2 bg-blue-100 text-blue-600 rounded-md hover:bg-blue-200 transition-colors duration-200'
+                }
+                onClick={onNotarize}
+              >
                 Notarize
               </button>
             </div>

@@ -26,29 +26,50 @@ import { BookmarkManager } from '../../reducers/bookmarks';
 import { RequestHistory } from '../../entries/Background/rpc';
 import Icon from '../../components/Icon';
 import { AttestationCard } from '../../components/AttestationCard';
+import { Bookmark } from '../../reducers/bookmarks';
 const charwise = require('charwise');
 
 const bookmarkManager = new BookmarkManager();
-export default function History(): ReactElement {
-  const params = useParams<{ host: string }>();
-  const history = useHistoryOrder(params.host);
-  const showDate = !Boolean(params.host);
+export default function BookmarkHistory(): ReactElement {
+  const params = useParams<{ id: string }>();
 
-  const request = useRequestHistory(history[0]);
-  const [targetUrl, setTargetUrl] = useState<string | undefined>(undefined);
+  const { id } = params;
+
+  const showDate = !Boolean(id);
+  const [error, setError] = useState<string | undefined>(undefined);
+
+  const [bookmark, setBookmark] = useState<Bookmark | undefined>(undefined);
+
+  //retrieve bookmark detail
   useEffect(() => {
-    const targetUrl = urlify(request?.url || '');
-    const host = targetUrl?.host;
-    const scheme = targetUrl?.protocol;
-    setTargetUrl(targetUrl?.toString());
-  }, [request]);
+    async function fetchBookmarks() {
+      if (!id) return;
+      const bookmark = await bookmarkManager.getBookmarkById(id);
 
+      if (!bookmark) setError('Bookmark not found');
+      if (bookmark) {
+        setBookmark(bookmark);
+      }
+    }
+    fetchBookmarks();
+  }, [id]);
+
+  const history = useHistoryOrder(undefined, bookmark?.url);
+
+  const allHistory = useAllRequestHistory();
   const clearHistory = useCallback(async () => {
     await removeAllNotaryRequests();
   }, []);
 
-  const allRequest = useAllRequestHistory();
-
+  if (!bookmark) return <></>;
+  if (error)
+    return (
+      <div className="flex flex-col gap-4 py-4 overflow-y-auto flex-1">
+        <div className="flex flex-col flex-nowrap justify-center gap-2 mx-4">
+          <div className="text-red-500">{error}</div>
+        </div>
+      </div>
+    );
   return (
     <div className="flex flex-col gap-4 py-4 overflow-y-auto flex-1">
       <div className="flex flex-col flex-nowrap justify-center gap-2 mx-4">
@@ -61,10 +82,12 @@ export default function History(): ReactElement {
           </button>
         </div> */}
 
+        <div className="text-sm mb-2 leading-5">{bookmark.description}</div>
+
         {!showDate && (
           <div
             onClick={() => {
-              window.open(targetUrl || '', '_blank');
+              window.open(bookmark?.targetUrl || '', '_blank');
             }}
             className="cursor-pointer border border-[#E4E6EA] bg-white hover:bg-slate-100 text-[#092EEA] text-sm font-medium py-[10px] px-2 rounded-lg text-center"
           >
@@ -108,6 +131,10 @@ export default function History(): ReactElement {
   //   </div>
   // );
 }
+
+// export default function BookmarkHistory(): ReactElement {
+//   return <div>Bookmark History</div>;
+// }
 
 export function OneRequestHistory(props: {
   requestId: string;

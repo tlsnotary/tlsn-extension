@@ -5,6 +5,7 @@ import {
 import { useSelector } from 'react-redux';
 import { AppRootState } from './index';
 import deepEqual from 'fast-deep-equal';
+import { extractHostFromUrl, extractPathFromUrl } from '../utils/misc';
 
 enum ActionType {
   '/history/addRequest' = '/history/addRequest',
@@ -88,9 +89,19 @@ export default function history(
   }
 }
 
-export const useHistoryOrder = (): string[] => {
+export const useHistoryOrder = (host?: string, url?: string): string[] => {
   return useSelector((state: AppRootState) => {
-    return [...state.history.order].reverse();
+    const allRequests = [...state.history.order].reverse();
+    return allRequests.filter((id) => {
+      if (!host && !url) return true;
+      else if (host) {
+        const req = state.history.map[id];
+        return extractHostFromUrl(req.url) === host;
+      } else if (url) {
+        const req = state.history.map[id];
+        return req.url.includes(url);
+      }
+    });
   }, deepEqual);
 };
 
@@ -118,5 +129,37 @@ export const useAllRequestHistoryByUrl = (url: string): RequestHistory[] => {
     return state.history.order
       .map((id) => state.history.map[id])
       .filter((req) => req.url === url);
+  }, deepEqual);
+};
+
+export const useAllWebsites = (): {
+  host: string;
+  requests: string;
+  faviconUrl: string;
+}[] => {
+  return useSelector((state: AppRootState) => {
+    const allRequests = state.history.order.map((id) => state.history.map[id]);
+    const websites = {} as { [host: string]: Set<string> };
+    const faviconUrls = {} as { [host: string]: string };
+
+    allRequests.forEach((req) => {
+      const host = extractHostFromUrl(req.url);
+      const path = extractPathFromUrl(req.url);
+      if (!websites[host]) {
+        websites[host] = new Set();
+      }
+      websites[host].add(path);
+
+      if (!faviconUrls[host]) {
+        // faviconUrls[host] = req.faviconUrl;
+        faviconUrls[host] = 'https://www.google.com/favicon.ico';
+      }
+    });
+
+    return Object.keys(websites).map((host) => ({
+      host,
+      requests: Array.from(websites[host]).join(', '),
+      faviconUrl: faviconUrls[host],
+    }));
   }, deepEqual);
 };

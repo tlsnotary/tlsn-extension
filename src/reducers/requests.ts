@@ -14,6 +14,8 @@ import {
 import { BackgroundActiontype } from '../entries/Background/rpc';
 import browser from 'webextension-polyfill';
 import { useState, useEffect } from 'react';
+import { Dispatch, SetStateAction } from 'react';
+
 enum ActionType {
   '/requests/setRequests' = '/requests/setRequests',
   '/requests/addRequest' = '/requests/addRequest',
@@ -170,14 +172,20 @@ export const useActiveTabUrl = (): URL | null => {
   }, deepEqual);
 };
 
-export const useExtensionEnabled = (): boolean => {
+export const useExtensionEnabled = (): [
+  boolean,
+  Dispatch<SetStateAction<boolean>>,
+] => {
   const [isEnabled, setIsEnabled] = useState(false);
   useEffect(() => {
     (async () => {
       const storage = await chrome.storage.sync.get('enable-extension');
       const isEnabled = storage['enable-extension'];
-      setIsEnabled(isEnabled);
+      if (isEnabled === undefined) {
+        setIsEnabled(true);
+        chrome.storage.sync.set({ 'enable-extension': true });
+      } else setIsEnabled(isEnabled);
     })();
   }, []);
-  return isEnabled;
+  return [isEnabled, setIsEnabled];
 };

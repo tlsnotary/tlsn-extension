@@ -23,6 +23,7 @@ import RequestBuilder from '../../pages/RequestBuilder';
 import Notarize from '../../pages/Notarize';
 import ProofViewer from '../../pages/ProofViewer';
 import History from '../../pages/History';
+import BookmarkHistory from '../../pages/History/bookmark-history';
 import Bookmarks from '../../pages/Bookmarks';
 import ProofUploader from '../../pages/ProofUploader';
 import browser from 'webextension-polyfill';
@@ -40,8 +41,9 @@ import Icon from '../../components/Icon';
 import classNames from 'classnames';
 import { getConnection } from '../Background/db';
 
-import RemoteAttestationBadge from '../../components/RemoteAttestationBadge';
-import ToggleExtensionButton from '../../components/ToggleExtensionButton';
+import NavHeader from '../../components/NavHeader';
+import Websites from '../../pages/Websites';
+import AttestationDetails from '../../pages/AttestationDetails';
 
 const Popup = () => {
   const dispatch = useDispatch();
@@ -94,32 +96,44 @@ const Popup = () => {
   }, []);
 
   return (
-    <div className="flex flex-col w-full h-full overflow-hidden">
-      <div className="bg-blue-600 text-white  flex flex-nowrap flex-shrink-0 flex-row items-center relative gap-2 h-9 p-2 cursor-default justify-center w-full">
-        <div className="absolute left-2">
-          <RemoteAttestationBadge />
-        </div>
+    <div className="flex flex-col w-full h-full overflow-hidden bg-[#F9FAFB]">
+      <NavHeader pathname={location.pathname} navigate={navigate} />
 
-        {location.pathname === '/home' && (
-          <img className="  left-2 h-5 cursor-pointer" src={logo} alt="logo" />
-        )}
-        {location.pathname !== '/home' && (
-          <Icon
-            className="  left-2 h-5 cursor-pointer"
-            fa="fa-solid fa-chevron-left"
-            onClick={() => navigate('/')}
-          />
-        )}
-        <ToggleExtensionButton />
-        {/* <AppConnectionLogo /> */}
-      </div>
       <Routes>
         <Route path="/requests/:requestId/*" element={<Request />} />
         <Route path="/notary/:requestId" element={<Notarize />} />
         <Route path="/verify/:requestId/*" element={<ProofViewer />} />
         <Route path="/verify" element={<ProofUploader />} />
+
         <Route path="/history" element={<History />} />
+        <Route path="/history/:host" element={<History />} />
+        <Route path="/websites/history/:host" element={<History />} />
+        <Route path="/websites/favorites/history/:host" element={<History />} />
+        <Route
+          path="/websites/favorites/bookmarks/:id"
+          element={<BookmarkHistory />}
+        />
         <Route path="/bookmarks" element={<Bookmarks />} />
+
+        <Route
+          path="/websites/favorites"
+          element={<Websites onlyFavorites />}
+        />
+        <Route path="/websites" element={<Websites />} />
+
+        <Route
+          path="/history/:host/attestation/:requestId"
+          element={<AttestationDetails />}
+        />
+        <Route
+          path="/websites/history/:host/attestation/:requestId"
+          element={<AttestationDetails />}
+        />
+        <Route
+          path="/websites/favorites/history/:host/attestation/:requestId"
+          element={<AttestationDetails />}
+        />
+
         <Route path="/requests" element={<Requests />} />
         <Route path="/custom/*" element={<RequestBuilder />} />
         <Route path="/options" element={<Options />} />
@@ -135,6 +149,7 @@ const Popup = () => {
           path="/install-plugin-approval"
           element={<InstallPluginApproval />}
         />
+
         <Route path="*" element={<Navigate to="/home" />} />
       </Routes>
     </div>

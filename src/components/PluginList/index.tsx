@@ -71,9 +71,6 @@ export function Plugin(props: {
 
       await browser.storage.local.set({ plugin_hash: props.hash });
 
-      // @ts-ignore
-      if (chrome.sidePanel) await chrome.sidePanel.open({ tabId: tab.id });
-
       window.close();
     } catch (e: any) {
       showError(e.message);

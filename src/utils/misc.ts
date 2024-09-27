@@ -1,6 +1,7 @@
 import {
   BackgroundActiontype,
   handleExecPluginProver,
+  RequestHistory,
   RequestLog,
 } from '../entries/Background/rpc';
 import { EXPLORER_API } from './constants';
@@ -16,7 +17,36 @@ import { minimatch } from 'minimatch';
 import { getCookiesByHost, getHeadersByHost } from '../entries/Background/db';
 
 import { AttrAttestation } from '../utils/types';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
 const charwise = require('charwise');
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
+export function parseAttributeFromRequest(
+  attributeAttestation: AttrAttestation,
+) {
+  if (!attributeAttestation)
+    return { attributes: null, signedSessionDecoded: null };
+  const signedSessionDecoded = decodeTLSData(
+    attributeAttestation.applicationData,
+  );
+
+  if (attributeAttestation.attestations) {
+    const attestations = attributeAttestation.attestations.split(';');
+    const attributes = [];
+    console.log(attestations);
+    for (const attestation of attestations) {
+      const [key] = attestation.split(':');
+      if (key) attributes.push(key);
+    }
+    return { attributes, signedSessionDecoded };
+  }
+  return { attributes: null, signedSessionDecoded };
+}
 
 export function urlify(
   text: string,
@@ -35,6 +65,18 @@ export function urlify(
   } catch (e) {
     return null;
   }
+}
+
+export function parseHexSignature(input: string) {
+  const regex = /\(([^()]+)\)/;
+  const match = input.match(regex);
+
+  if (match && match[1]) {
+    const hexString = match[1].replace(/[^0-9A-Fa-f]/g, '');
+    return `0x${hexString}`;
+  }
+
+  return input;
 }
 
 export function devlog(...args: any[]) {
@@ -75,6 +117,29 @@ export async function upload(filename: string, content: string) {
   }
   const data = await response.json();
   return data;
+}
+
+export function printAttestation(
+  attrAttestation: AttrAttestation,
+  arrayOutput = false,
+): string | string[] {
+  if (!arrayOutput) {
+    return `
+    Version: ${attrAttestation.version}
+    Notary URL: ${attrAttestation.meta.notaryUrl}
+    Websocket Proxy URL: ${attrAttestation.meta.websocketProxyUrl}
+    Signature: 0x${attrAttestation.signature}
+    Signed Session: ${attrAttestation.signedSession}
+  `;
+  }
+
+  return [
+    `Version: ${attrAttestation.version}`,
+    `Notary URL: ${attrAttestation.meta.notaryUrl}`,
+    `Websocket Proxy URL: ${attrAttestation.meta.websocketProxyUrl}`,
+    `Signature: 0x${attrAttestation.signature}`,
+    `Signed Session: ${attrAttestation.signedSession}`,
+  ];
 }
 
 export const copyText = async (text: string): Promise<void> => {
@@ -409,4 +474,14 @@ export function decodeTLSData(hexString: string) {
     request,
     response: response_body, // Split headers and body
   };
+}
+
+export function extractHostFromUrl(url: string) {
+  const u = new URL(url);
+  return u.host;
+}
+
+export function extractPathFromUrl(url: string) {
+  const u = new URL(url);
+  return u.pathname.substring(1);
 }

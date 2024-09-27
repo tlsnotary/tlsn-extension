@@ -31,7 +31,7 @@ export default function ProofViewer(props?: { proof?: any }): ReactElement {
         const [key] = attestation.split(':');
         if (key) attributes.push(key);
       }
-      console.log('attributes', attributes);
+
       setAttributes(attributes);
     } else {
       const signedSessionDecoded = decodeTLSData(

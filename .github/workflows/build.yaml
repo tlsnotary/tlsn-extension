@@ -48,6 +48,7 @@ jobs:
       - name: Install dependencies
         run: |
           cd ./tlsn-js && npm i && cd -
+          sed -i -e 's/\.\.\/tlsn-js/\.\/tlsn-js/g' package.json
           npm i
 
       - name: Build tlsn-js

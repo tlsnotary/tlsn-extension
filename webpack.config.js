@@ -12,10 +12,7 @@ var ExtReloader = require('webpack-ext-reloader');
 
 const ASSET_PATH = process.env.ASSET_PATH || "/";
 
-var alias = {
-  stream: require.resolve('stream-browserify'),
-  vm: require.resolve('vm-browserify'),
-};
+var alias = { };
 
 // load the secrets
 var secretsPath = path.join(__dirname, "secrets." + env.NODE_ENV + ".js");
@@ -53,7 +50,6 @@ var options = {
     contentScript: path.join(__dirname, "src", "entries", "Content", "index.ts"),
     content: path.join(__dirname, "src", "entries", "Content", "content.ts"),
     offscreen: path.join(__dirname, "src", "entries", "Offscreen", "index.tsx"),
-    sidePanel: path.join(__dirname, "src", "entries", "SidePanel", "index.tsx"),
   },
   // chromeExtensionBoilerplate: {
   //   notHotReload: ["background", "contentScript", "devtools"],
@@ -224,7 +220,7 @@ var options = {
         //   force: true,
         // },
         {
-          from: "node_modules/tlsn-js/build",
+          from: "node_modules/@eternis/tlsn-js/build",
           to: path.join(__dirname, "build"),
           force: true,
         },
@@ -246,12 +242,6 @@ var options = {
       template: path.join(__dirname, "src", "entries", "Offscreen", "index.html"),
       filename: "offscreen.html",
       chunks: ["offscreen"],
-      cache: false,
-    }),
-    new HtmlWebpackPlugin({
-      template: path.join(__dirname, "src", "entries", "SidePanel", "index.html"),
-      filename: "sidePanel.html",
-      chunks: ["sidePanel"],
       cache: false,
     }),
     new webpack.ProvidePlugin({

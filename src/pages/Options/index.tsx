@@ -30,7 +30,10 @@ import {
 } from '../../utils/constants';
 import Modal, { ModalContent } from '../../components/Modal/Modal';
 import browser from 'webextension-polyfill';
-import { LoggingLevel } from 'tlsn-js';
+import { LoggingLevel } from '@eternis/tlsn-js';
+
+import { Input } from '../../components/Table/table';
+import RemoteAttestationBadge from '../../components/RemoteAttestationBadge';
 // import { version } from '../../../package.json';
 
 export default function Options(): ReactElement {
@@ -110,9 +113,7 @@ export default function Options(): ReactElement {
           </div>
         </Modal>
       )}
-      <div className="flex flex-row flex-nowrap justify-between items-between py-1 px-2 gap-2">
-        <p className="font-bold text-base">Settings</p>
-      </div>
+
       <NormalOptions
         notary={notary}
         setNotary={setNotary}
@@ -121,7 +122,10 @@ export default function Options(): ReactElement {
         setDirty={setDirty}
       />
       <div className="justify-left px-2 pt-3 gap-2">
-        <button className="font-bold" onClick={onAdvanced}>
+        <button
+          className="cursor-pointer  hover:bg-slate-100 text-[#092EEA] text-sm font-medium py-[10px] px-2 rounded-lg text-center"
+          onClick={onAdvanced}
+        >
           <i
             className={
               advanced
@@ -146,14 +150,17 @@ export default function Options(): ReactElement {
           setShouldReload={setShouldReload}
         />
       )}
-      <div className="flex flex-row flex-nowrap justify-end gap-2 p-2">
+      <div className="flex flex-row flex-nowrap  gap-2 p-2">
         <button
-          className="button !bg-primary/[0.9] hover:bg-primary/[0.8] active:bg-primary !text-white"
+          className="cursor-pointer border border-[#E4E6EA] bg-white hover:bg-slate-100 text-[#092EEA] text-sm font-medium py-[10px] px-2 rounded-lg text-center"
           disabled={!dirty}
           onClick={onSave}
         >
           Save
         </button>
+      </div>
+      <div className="flex justify-center">
+        <RemoteAttestationBadge />
       </div>
     </div>
   );
@@ -171,14 +178,13 @@ function InputField(props: {
 
   return (
     <div className="flex flex-col flex-nowrap py-1 px-2 gap-2">
-      <div className="font-semibold cursor-default">{label}</div>
-      <input
-        type={type}
-        className="input border"
-        onChange={onChange}
+      <div className="text-sm font-semibold cursor-default">{label}</div>
+
+      <Input
+        id="search"
         value={value}
-        min={min}
         placeholder={placeholder}
+        onChange={onChange}
       />
     </div>
   );

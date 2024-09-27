@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { NOTARY_API } from '../utils/constants';
-import { decodeCborAll, RemoteAttestation, generateNonce } from 'tlsn-js';
+import { RemoteAttestation, generateNonce } from '@eternis/tlsn-js';
 import { OffscreenActionTypes } from '../entries/Offscreen/types';
-import { DEFAULT_CONFIG_ENDPOINT } from '../utils/constants';
+import { DEFAULT_CONFIG_ENDPOINT, CONFIG_CACHE_AGE } from '../utils/constants';
 
 export const useRemoteAttestation = () => {
   const [remoteAttestation, setRemoteAttestation] =
@@ -15,7 +15,11 @@ export const useRemoteAttestation = () => {
 
   useEffect(() => {
     (async () => {
-      const res = await fetch(DEFAULT_CONFIG_ENDPOINT);
+      const res = await fetch(DEFAULT_CONFIG_ENDPOINT, {
+        headers: {
+          'Cache-Control': `max-age=${CONFIG_CACHE_AGE}`,
+        },
+      });
       const config = await res.json();
       console.log('config', config);
       setExpectedPcrs(config.EXPECTED_PCRS);
@@ -50,32 +54,12 @@ export const useRemoteAttestation = () => {
         const remoteAttbase64 = response.data.trim();
         console.log('response.data', remoteAttbase64);
 
-        //analyze attestation validity here
-        const remoteAttestation = decodeCborAll(response.data);
-
-        //verify pcrs values
-        const pcrs = remoteAttestation?.payload_object.pcrs;
-
-        console.log('pcrs', pcrs, expectedPcrs);
-        if (!pcrs) {
-          setIsValid(false);
-          setLoading(false);
-          return setError('pcrs not found');
-        }
-        if (
-          pcrs?.get(1) !== expectedPcrs['1'] ||
-          pcrs?.get(2) !== expectedPcrs['2']
-        ) {
-          setIsValid(false);
-          setLoading(false);
-          return setError('pcrs values are not the one expected');
-        }
-
         chrome.runtime.sendMessage({
           type: OffscreenActionTypes.remote_attestation_verification,
           data: {
             remoteAttestation: remoteAttbase64,
             nonce,
+            pcrs: expectedPcrs,
           },
         });
       } catch (error) {

@@ -10,6 +10,32 @@ type Props = {
   requests: RequestLog[];
 };
 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  Input,
+} from '../../components/Table/table';
+
+export function RequestTable2({
+  requests,
+}: {
+  requests: RequestLog[];
+}): ReactElement {
+  return (
+    <div className="w-full max-w-3xl mx-auto p-4 space-y-4">
+      <div className="space-y-2">
+        <label htmlFor="search" className="text-sm font-medium text-gray-700">
+          Search
+        </label>
+      </div>
+    </div>
+  );
+}
+
 export default function RequestTable(props: Props): ReactElement {
   const { requests } = props;
   const navigate = useNavigate();
@@ -48,64 +74,53 @@ export default function RequestTable(props: Props): ReactElement {
   return (
     <div className="flex flex-col flex-nowrap flex-grow">
       <div className="flex flex-row flex-nowrap bg-slate-300 py-1 px-2 gap-2">
-        <input
-          className="input w-full"
-          type="text"
-          placeholder="Search..."
-          onChange={(e) => setQuery(e.target.value)}
-          value={query}
-        ></input>
         <Icon
           className="text-slate-400"
           fa="fa-solid fa-trash"
           onClick={reset}
         />
       </div>
+      <div className="space-y-2">
+        <Input
+          id="search"
+          placeholder="Search..."
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      </div>
       <div className="flex-grow overflow-y-auto h-0">
-        <table className="border border-slate-300 border-collapse table-fixed w-full">
-          <thead className="bg-slate-200">
-            <tr>
-              <td className="border border-slate-300 py-1 px-2 w-2/12">
-                Method
-              </td>
-              <td className="border border-slate-300 py-1 px-2 w-3/12">Type</td>
-              <td className="border border-slate-300 py-1 px-2 w-2/12">
-                Domain
-              </td>
-              <td className="border border-slate-300 py-1 px-2">Name</td>
-            </tr>
-          </thead>
-          <tbody>
-            {list.map((r) => {
-              let url;
-
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Method</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Domain</TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead className="w-[100px]"></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {list.map((row, index) => {
+              let url: URL | undefined;
               try {
-                url = new URL(r.url);
+                url = new URL(row.url);
               } catch (e) {}
 
               return (
-                <tr
-                  key={r.requestId}
-                  onClick={() => navigate('/requests/' + r.requestId)}
+                <TableRow
+                  key={index}
+                  onClick={() => navigate('/requests/' + row.requestId)}
                   className="cursor-pointer hover:bg-slate-100"
                 >
-                  <td className="border border-slate-200 align-top py-1 px-2 whitespace-nowrap w-2/12">
-                    {r.method}
-                  </td>
-                  <td className="border border-slate-200 align-top py-1 px-2 whitespace-nowrap w-3/12">
-                    {r.type}
-                  </td>
-                  <td className="border border-slate-200 py-1 px-2 break-all truncate">
-                    {url?.host}
-                  </td>
-                  <td className="border border-slate-200 py-1 px-2 break-all truncate">
-                    {url?.pathname}
-                  </td>
-                </tr>
+                  <TableCell>{row.method}</TableCell>
+                  <TableCell>{row.type}</TableCell>
+                  <TableCell>{url?.host}</TableCell>
+                  <TableCell>{url?.pathname}</TableCell>
+                  <TableCell></TableCell>
+                </TableRow>
               );
             })}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

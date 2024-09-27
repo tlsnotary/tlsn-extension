@@ -46,7 +46,16 @@ export default function RequestDetail(props: Props): ReactElement {
 
   return (
     <>
-      <div className="flex flex-row flex-nowrap relative items-center bg-slate-300 py-2 px-2 gap-2">
+      {' '}
+      <div>
+        <button
+          className="w-1/2 cursor-pointer border border-[#E9EBF3] bg-white hover:bg-[#dfe0e5] text-[#092EEA] text-sm font-medium py-[10px] px-8 rounded-lg mx-auto block"
+          onClick={notarize}
+        >
+          Notarize
+        </button>
+      </div>
+      <div className="flex flex-row flex-nowrap relative items-center  py-2 px-2 gap-2">
         <Icon
           className="cursor-point text-slate-400 hover:text-slate-700"
           fa="fa-solid fa-xmark"
@@ -64,12 +73,6 @@ export default function RequestDetail(props: Props): ReactElement {
         <RequestDetailsHeaderTab path="/advanced">
           Advanced
         </RequestDetailsHeaderTab>
-        <button
-          className="absolute right-2 bg-primary/[0.9] text-white font-bold px-2 py-0.5 hover:bg-primary/[0.8] active:bg-primary"
-          onClick={notarize}
-        >
-          Notarize
-        </button>
       </div>
       <Routes>
         <Route
@@ -100,15 +103,12 @@ function RequestDetailsHeaderTab(props: {
   const navigate = useNavigate();
   const selected = loc.pathname.includes(props.path);
   return (
-    <div
-      className={classNames('font-bold', {
-        'text-slate-700 cursor-default': selected,
-        'text-slate-400 hover:text-slate-500 cursor-pointer': !selected,
-      })}
+    <button
+      className={`px-4 py-2 text-sm font-medium  text-blue-600`}
       onClick={() => navigate('/requests/' + params.requestId + props.path)}
     >
       {props.children}
-    </div>
+    </button>
   );
 }
 
@@ -201,12 +201,15 @@ function RequestPayload(props: Props): ReactElement {
 
   return (
     <div className="flex flex-col flex-nowrap overflow-y-auto">
-      <table className="border border-slate-300 border-collapse table-fixed w-full">
+      <table className="  text-sm  border border-slate-300 border-collapse table-fixed w-full">
         {!!url?.searchParams.size && (
           <>
             <thead className="bg-slate-200">
               <tr>
-                <td colSpan={2} className="border border-slate-300 py-1 px-2">
+                <td
+                  colSpan={2}
+                  className="  text-sm  border border-slate-300 py-1 px-2"
+                >
                   Query String Parameters
                 </td>
               </tr>
@@ -214,11 +217,14 @@ function RequestPayload(props: Props): ReactElement {
             <tbody>
               {Array.from(url.searchParams).map((param) => {
                 return (
-                  <tr key={param[0]} className="border-b border-slate-200">
-                    <td className="border border-slate-300 font-bold align-top py-1 px-2 break-all">
+                  <tr
+                    key={param[0]}
+                    className="  text-sm  border -b border-slate-200"
+                  >
+                    <td className="  text-sm  border  border-slate-300 font-bold align-top py-1 px-2 break-all">
                       {param[0]}
                     </td>
-                    <td className="border border-slate-300 break-all align-top py-1 px-2 break-all">
+                    <td className="  text-sm  border  border-slate-300 break-all align-top py-1 px-2 break-all">
                       {param[1]}
                     </td>
                   </tr>
@@ -231,7 +237,10 @@ function RequestPayload(props: Props): ReactElement {
           <>
             <thead className="bg-slate-200">
               <tr>
-                <td colSpan={2} className="border border-slate-300 py-1 px-2">
+                <td
+                  colSpan={2}
+                  className="  text-sm  border  border-slate-300 py-1 px-2"
+                >
                   Body Payload
                 </td>
               </tr>
@@ -251,7 +260,10 @@ function RequestPayload(props: Props): ReactElement {
           <>
             <thead className="bg-slate-200">
               <tr>
-                <td colSpan={2} className="border border-slate-300 py-1 px-2">
+                <td
+                  colSpan={2}
+                  className="  text-sm  border  border-slate-300 py-1 px-2"
+                >
                   Form Data
                 </td>
               </tr>
@@ -271,7 +283,10 @@ function RequestPayload(props: Props): ReactElement {
           <>
             <thead className="bg-slate-200">
               <tr>
-                <td colSpan={2} className="border border-slate-300 py-1 px-2">
+                <td
+                  colSpan={2}
+                  className="  text-sm  border  border-slate-300 py-1 px-2"
+                >
                   Body
                 </td>
               </tr>
@@ -378,12 +393,15 @@ function WebResponse(props: Props): ReactElement {
           </button>
         </div>
       )}
-      <table className="border border-slate-300 border-collapse table-fixed w-full">
+      <table className="  text-sm  border  border-slate-300 border-collapse table-fixed w-full">
         {!!response?.headers && (
           <>
             <thead className="bg-slate-200">
               <tr>
-                <td colSpan={2} className="border border-slate-300 py-1 px-2">
+                <td
+                  colSpan={2}
+                  className=" text-sm  border border-slate-300 py-1 px-2"
+                >
                   Headers
                 </td>
               </tr>
@@ -391,11 +409,11 @@ function WebResponse(props: Props): ReactElement {
             <tbody>
               {Array.from(response.headers.entries()).map(([name, value]) => {
                 return (
-                  <tr className="border-b border-slate-200">
-                    <td className="border border-slate-300 font-bold align-top py-1 px-2 whitespace-nowrap">
+                  <tr className="  text-sm  border -b border-slate-200">
+                    <td className="  text-sm  border  border-slate-300 font-bold align-top py-1 px-2 whitespace-nowrap">
                       {name}
                     </td>
-                    <td className="border border-slate-300 break-all align-top py-1 px-2">
+                    <td className="  text-sm  border  border-slate-300 break-all align-top py-1 px-2">
                       {value}
                     </td>
                   </tr>
@@ -408,7 +426,10 @@ function WebResponse(props: Props): ReactElement {
           <>
             <thead className="bg-slate-200">
               <tr>
-                <td colSpan={2} className="border border-slate-300 py-1 px-2">
+                <td
+                  colSpan={2}
+                  className="  text-sm  border  border-slate-300 py-1 px-2"
+                >
                   <button
                     className=" right-2 bg-slate-500 text-white px-2 py-1 text-xs rounded"
                     onClick={() => {
@@ -439,7 +460,10 @@ function WebResponse(props: Props): ReactElement {
           <>
             <thead className="bg-slate-200">
               <tr>
-                <td colSpan={2} className="border border-slate-300 py-1 px-2">
+                <td
+                  colSpan={2}
+                  className="  text-sm  border  border-slate-300 py-1 px-2"
+                >
                   <button
                     className=" right-2 bg-slate-500 text-white px-2 py-1 text-xs rounded"
                     onClick={() => {
@@ -467,7 +491,10 @@ function WebResponse(props: Props): ReactElement {
           <>
             <thead className="bg-slate-200">
               <tr>
-                <td colSpan={2} className="border border-slate-300 py-1 px-2">
+                <td
+                  colSpan={2}
+                  className="  text-sm  border  border-slate-300 py-1 px-2"
+                >
                   Img
                 </td>
               </tr>
@@ -489,54 +516,60 @@ function RequestHeaders(props: Props): ReactElement {
 
   return (
     <div className="flex flex-col flex-nowrap overflow-y-auto">
-      <table className="border border-slate-300 border-collapse table-fixed">
+      <table className="  text-sm  border  border-slate-300 border-collapse table-fixed">
         <thead className="bg-slate-200">
           <tr>
-            <td colSpan={2} className="border border-slate-300 py-1 px-2">
+            <td
+              colSpan={2}
+              className="  text-sm  border border-slate-300 py-1 px-2"
+            >
               General
             </td>
           </tr>
         </thead>
         <tbody>
-          <tr className="border-b border-slate-200">
-            <td className="border border-slate-300 font-bold align-top py-1 px-2 whitespace-nowrap">
+          <tr className="  text-sm  border-b border-slate-200">
+            <td className="  text-sm  border  border-slate-300 font-bold align-top py-1 px-2 whitespace-nowrap">
               Method
             </td>
-            <td className="border border-slate-300 break-all align-top py-1 px-2">
+            <td className="  text-sm  border  border-slate-300 break-all align-top py-1 px-2">
               {data?.method}
             </td>
           </tr>
-          <tr className="border-b border-slate-200">
-            <td className="border border-slate-300 font-bold align-top py-1 px-2 whitespace-nowrap">
+          <tr className="  text-sm  border -b border-slate-200">
+            <td className="  text-sm  border  border-slate-300 font-bold align-top py-1 px-2 whitespace-nowrap">
               Type
             </td>
-            <td className="border border-slate-300 break-all align-top py-1 px-2">
+            <td className="  text-sm  border  border-slate-300 break-all align-top py-1 px-2">
               {data?.type}
             </td>
           </tr>
-          <tr className="border-b border-slate-200">
-            <td className="border border-slate-300 font-bold align-top py-1 px-2 whitespace-nowrap">
+          <tr className="  text-sm  border -b border-slate-200">
+            <td className="  text-sm  border  border-slate-300 font-bold align-top py-1 px-2 whitespace-nowrap">
               URL
             </td>
-            <td className="border border-slate-300 break-all align-top py-1 px-2">
+            <td className="  text-sm  border  border-slate-300 break-all align-top py-1 px-2">
               {data?.url}
             </td>
           </tr>
         </tbody>
         <thead className="bg-slate-200">
           <tr>
-            <td colSpan={2} className="border border-slate-300 py-1 px-2">
+            <td
+              colSpan={2}
+              className="  text-sm  border  border-slate-300 py-1 px-2"
+            >
               Headers
             </td>
           </tr>
         </thead>
         <tbody className="">
           {data?.requestHeaders?.map((h) => (
-            <tr key={h.name} className="border-b border-slate-200">
-              <td className="border border-slate-300 font-bold align-top py-1 px-2 whitespace-nowrap">
+            <tr key={h.name} className="  text-sm  border -b border-slate-200">
+              <td className="  text-sm  border  border-slate-300 font-bold align-top py-1 px-2 whitespace-nowrap">
                 {h.name}
               </td>
-              <td className="border border-slate-300 break-all align-top py-1 px-2">
+              <td className="  text-sm  border  border-slate-300 break-all align-top py-1 px-2">
                 {h.value}
               </td>
             </tr>

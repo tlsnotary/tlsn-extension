@@ -1,14 +1,17 @@
 import React, { useEffect } from 'react';
 import * as Comlink from 'comlink';
 import { OffscreenActionTypes } from './types';
-import { NotaryServer, Prover as _Prover, RemoteAttestation } from 'tlsn-js';
-import { verify } from 'tlsn-jsV5.3';
+import {
+  NotaryServer,
+  Prover as _Prover,
+  RemoteAttestation,
+} from '@eternis/tlsn-js';
 
 import { urlify } from '../../utils/misc';
 import { BackgroundActiontype } from '../Background/rpc';
 import browser from 'webextension-polyfill';
 import { Proof, AttrAttestation } from '../../utils/types';
-import { Method } from 'tlsn-js/wasm/pkg';
+import { Method } from '@eternis/tlsn-js/wasm/pkg';
 
 const { init, verify_attestation, Prover, NotarizedSession, TlsProof }: any =
   Comlink.wrap(new Worker(new URL('./worker.ts', import.meta.url)));
@@ -32,9 +35,11 @@ const Offscreen = () => {
               const remoteAttestation: RemoteAttestation =
                 request.data.remoteAttestation;
               const nonce = request.data.nonce;
+              const pcrs = request.data.pcrs;
               console.log(
                 'OffscreenActionTypes.remote_attestation_verification',
                 remoteAttestation,
+                pcrs,
               );
 
               try {
@@ -42,18 +47,14 @@ const Offscreen = () => {
               } catch (error) {
                 console.error('wasm aready init');
               }
-              const result = await verify_attestation(remoteAttestation, nonce);
+              const result = await verify_attestation(
+                remoteAttestation,
+                nonce,
+                pcrs,
+              );
 
               console.log('remoteAttestation', remoteAttestation);
-              //verify x509 certificate
-              // if (remoteAttestation?.certificate) {
-              //   const certificateUint8Array = new Uint8Array(
-              //     Buffer.from(remoteAttestation?.certificate, 'base64'),
-              //   );
 
-              //   const resultx509 = verifyx509Certificate(certificateUint8Array);
-              //   console.log('resultx509', resultx509);
-              // }
               chrome.runtime.sendMessage({
                 type: OffscreenActionTypes.remote_attestation_verification_response,
                 data: result,

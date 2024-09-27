@@ -1,4 +1,4 @@
-import { LoggingLevel } from 'tlsn-js';
+import { LoggingLevel } from '@eternis/tlsn-js';
 
 export const NOTARY_API_LS_KEY = 'notary-api';
 export const PROXY_API_LS_KEY = 'proxy-api';

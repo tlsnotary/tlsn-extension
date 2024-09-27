@@ -43,7 +43,6 @@ import {
 import { deferredPromise } from '../../utils/promise';
 import { minimatch } from 'minimatch';
 import { OffscreenActionTypes } from '../Offscreen/types';
-import { SidePanelActionTypes } from '../SidePanel/types';
 
 const charwise = require('charwise');
 import { AttrAttestation } from '../../utils/types';
@@ -1058,7 +1057,6 @@ async function handleRunPluginCSRequest(request: BackgroundAction) {
   );
 
   const onPluginRequest = async (req: any) => {
-    if (req.type !== SidePanelActionTypes.execute_plugin_response) return;
     if (req.data.hash !== hash) return;
 
     if (req.data.error) defer.reject(req.data.error);

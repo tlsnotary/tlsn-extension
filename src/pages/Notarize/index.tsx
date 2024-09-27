@@ -384,7 +384,9 @@ function HideResponseStep(props: {
           Back
         </button>
         <button
-          className="bg-primary/[0.9] text-white font-bold hover:bg-primary/[0.8] px-2 py-0.5 active:bg-primary"
+          className={
+            'flex items-center px-3 py-2 bg-blue-100 text-blue-600 rounded-md hover:bg-blue-200 transition-colors duration-200'
+          }
           onClick={props.onNext}
         >
           Notarize

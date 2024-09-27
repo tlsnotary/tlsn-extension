@@ -5,12 +5,10 @@ import { type PluginConfig, PluginMetadata, urlify } from '../../utils/misc';
 import browser from 'webextension-polyfill';
 import { BackgroundActiontype } from '../../entries/Background/rpc';
 import { BaseApproval } from '../BaseApproval';
-import { PluginPermissions } from '../../components/PluginInfo';
 import {
   getPluginConfigByHash,
   getPluginMetadataByHash,
 } from '../../entries/Background/db';
-import { runPlugin } from '../../utils/rpc';
 
 export function RunPluginApproval(): ReactElement {
   const [params] = useSearchParams();
@@ -37,9 +35,6 @@ export function RunPluginApproval(): ReactElement {
       });
 
       await browser.storage.local.set({ plugin_hash: hash });
-
-      // @ts-ignore
-      if (chrome.sidePanel) await chrome.sidePanel.open({ tabId: tab.id });
 
       browser.runtime.sendMessage({
         type: BackgroundActiontype.run_plugin_response,

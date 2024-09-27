@@ -1,5 +1,5 @@
 import * as Comlink from 'comlink';
-import init, { Prover, verify_attestation } from 'tlsn-js';
+import init, { Prover, verify_attestation } from '@eternis/tlsn-js';
 
 Comlink.expose({
   init,

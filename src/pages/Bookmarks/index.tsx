@@ -2,23 +2,27 @@ import React, { ReactElement, useState, useCallback, useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router';
 import Icon from '../../components/Icon';
-import { urlify } from '../../utils/misc';
+import {
+  extractHostFromUrl,
+  extractPathFromUrl,
+  urlify,
+} from '../../utils/misc';
 import classNames from 'classnames';
 import copy from 'copy-to-clipboard';
 import { BookmarkManager } from '../../reducers/bookmarks';
 import { useUniqueRequests } from '../../reducers/requests';
 import { TLSN } from '../../entries/Content/content';
 import { Bookmark } from '../../reducers/bookmarks';
+import NavButton from '../../components/NavButton';
 
-const tlsn = new TLSN();
 const bookmarkManager = new BookmarkManager();
 export default function Bookmarks(): ReactElement {
-  const requests = useUniqueRequests();
-
+  const navigate = useNavigate();
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
 
   const fetchBookmarks = useCallback(async () => {
     const bookmarks = await bookmarkManager.getBookmarks();
+    console.log('bookmarks', bookmarks);
     setBookmarks(bookmarks);
   }, []);
 
@@ -26,18 +30,34 @@ export default function Bookmarks(): ReactElement {
     fetchBookmarks();
   }, []);
 
+  console.log('bookmarks', bookmarks);
   return (
-    <div className="flex flex-col flex-nowrap overflow-y-auto">
-      {bookmarks.length > 0 &&
-        bookmarks.map((bookmark) => {
-          return (
-            <OneBookmark
-              key={bookmark.url}
-              bookmark={bookmark}
-              fetchBookmarks={fetchBookmarks}
-            />
-          );
-        })}
+    <div className="flex flex-col flex-nowrap">
+      <div className="text-sm font-bold mt-3 ml-4 mb-2">Popular</div>
+      <div className="flex flex-col gap-2 mx-4">
+        {bookmarks.length > 0 &&
+          bookmarks
+            .filter((bookmark, index) => index < 2)
+            .map((bookmark) => {
+              return (
+                <NavButton
+                  ImageIcon={
+                    bookmark.icon ? (
+                      <img src={bookmark.icon} className="w-4 h-4" />
+                    ) : (
+                      <div className="w-4 h-4 bg-transparent rounded-sm" />
+                    )
+                  }
+                  title={bookmark.title}
+                  subtitle={bookmark.description}
+                  onClick={() => {
+                    navigate(`/websites/favorites/bookmarks/${bookmark.id}`);
+                    return;
+                  }}
+                />
+              );
+            })}
+      </div>
     </div>
   );
 }
