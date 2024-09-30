@@ -256,8 +256,8 @@ export const makePlugin = async (
 
       const localStorageEntries: { [key: string]: string } = {};
       for (const [key, value] of Object.entries(cache)) {
-        if (key.startsWith("localStorage")) {
-          localStorageEntries[key.replace("localStorage:", "")] = value;
+        if (key.startsWith('localStorage')) {
+          localStorageEntries[key.replace('localStorage:', '')] = value;
         }
       }
       localStorage[host] = localStorageEntries;
@@ -267,14 +267,15 @@ export const makePlugin = async (
   }
 
   if (config?.sessionStorage) {
-    const sessionStorage: { [hostname: string]: { [key: string]: string } } = {};
+    const sessionStorage: { [hostname: string]: { [key: string]: string } } =
+      {};
     for (const host of config.sessionStorage) {
       const cache = await getStorageByHost(host);
 
       const sessionStorageEntries: { [key: string]: string } = {};
       for (const [key, value] of Object.entries(cache)) {
-        if (key.startsWith("sessionStorage")) {
-          sessionStorageEntries[key.replace("sessionStorage:", "")] = value;
+        if (key.startsWith('sessionStorage')) {
+          sessionStorageEntries[key.replace('sessionStorage:', '')] = value;
         }
       }
       sessionStorage[host] = sessionStorageEntries;
