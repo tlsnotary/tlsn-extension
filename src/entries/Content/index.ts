@@ -8,8 +8,8 @@ import { urlify } from '../../utils/misc';
   const server = new RPCServer();
 
   const storage = {
-    ...localStorage,
-    ...sessionStorage,
+    localStorage: localStorage,
+    sessionStorage: sessionStorage,
   };
 
   chrome.runtime.sendMessage({

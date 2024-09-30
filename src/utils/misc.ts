@@ -248,15 +248,41 @@ export const makePlugin = async (
       funcs[fn] = HostFunctions[fn];
     }
   }
-  if (config?.storage) {
-    const storage: { [hostname: string]: { [key: string]: string } } = {};
-    for (const host of config.storage) {
+
+  if (config?.localStorage) {
+    const localStorage: { [hostname: string]: { [key: string]: string } } = {};
+    for (const host of config.localStorage) {
       const cache = await getStorageByHost(host);
-      storage[host] = cache;
+
+      const localStorageEntries: { [key: string]: string } = {};
+      for (const [key, value] of Object.entries(cache)) {
+        if (key.startsWith("localStorage")) {
+          localStorageEntries[key.replace("localStorage:", "")] = value;
+        }
+      }
+      localStorage[host] = localStorageEntries;
     }
     // @ts-ignore
-    injectedConfig.storage = JSON.stringify(storage);
+    injectedConfig.localStorage = JSON.stringify(localStorage);
   }
+
+  if (config?.sessionStorage) {
+    const sessionStorage: { [hostname: string]: { [key: string]: string } } = {};
+    for (const host of config.sessionStorage) {
+      const cache = await getStorageByHost(host);
+
+      const sessionStorageEntries: { [key: string]: string } = {};
+      for (const [key, value] of Object.entries(cache)) {
+        if (key.startsWith("sessionStorage")) {
+          sessionStorageEntries[key.replace("sessionStorage:", "")] = value;
+        }
+      }
+      sessionStorage[host] = sessionStorageEntries;
+    }
+    // @ts-ignore
+    injectedConfig.sessionStorage = JSON.stringify(sessionStorage);
+  }
+
   if (config?.cookies) {
     const cookies: { [hostname: string]: { [key: string]: string } } = {};
     for (const host of config.cookies) {
@@ -306,7 +332,8 @@ export type PluginConfig = {
   hostFunctions?: string[];
   cookies?: string[];
   headers?: string[];
-  storage?: string[];
+  localStorage: string[];
+  sessionStorage: string[];
   requests: { method: string; url: string }[];
   notaryUrls?: string[];
   proxyUrls?: string[];
@@ -356,8 +383,13 @@ export const getPluginConfig = async (
       assert(typeof name === 'string' && name.length);
     }
   }
-  if (config.storage) {
-    for (const name of config.storage) {
+  if (config.localStorage) {
+    for (const name of config.localStorage) {
+      assert(typeof name === 'string' && name.length);
+    }
+  }
+  if (config.sessionStorage) {
+    for (const name of config.sessionStorage) {
       assert(typeof name === 'string' && name.length);
     }
   }

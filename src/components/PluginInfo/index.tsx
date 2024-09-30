@@ -193,11 +193,19 @@ export function PluginPermissions({
           </span>
         </PermissionDescription>
       )}
-      {pluginContent.storage && (
+      {pluginContent.localStorage && (
         <PermissionDescription fa="fa-solid fa-database">
           <span className="cursor-default">
-            <span className="mr-1">Access browser storage from</span>
-            <MultipleParts parts={pluginContent.storage} />
+            <span className="mr-1">Access local storage storage from</span>
+            <MultipleParts parts={pluginContent.localStorage} />
+          </span>
+        </PermissionDescription>
+      )}
+      {pluginContent.sessionStorage && (
+        <PermissionDescription fa="fa-solid fa-database">
+          <span className="cursor-default">
+            <span className="mr-1">Access session storage from</span>
+            <MultipleParts parts={pluginContent.sessionStorage} />
           </span>
         </PermissionDescription>
       )}

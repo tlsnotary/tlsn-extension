@@ -14,9 +14,15 @@ import { setStorage } from './db';
     ) {
       const url = new URL(sender.tab.url);
       const hostname = url.hostname;
-      const storage: { [key: string]: string } = request.storage;
-      for (const [key, value] of Object.entries(storage)) {
-        await setStorage(hostname, key, value);
+      const localStorage: { [key: string]: string } = request.storage.localStorage;
+      const sessionStorage: { [key: string]: string } = request.storage.sessionStorage;
+
+      for (const [key, value] of Object.entries(localStorage || {})) {
+        await setStorage(hostname, `localStorage:${key}`, value);
+      }
+
+      for (const [key, value] of Object.entries(sessionStorage || {})) {
+        await setStorage(hostname, `sessionStorage:${key}`, value);
       }
     }
   });
