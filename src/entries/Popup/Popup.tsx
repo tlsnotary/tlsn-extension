@@ -12,6 +12,7 @@ import Requests from '../../pages/Requests';
 import Options from '../../pages/Options';
 import Request from '../../pages/Requests/Request';
 import Home from '../../pages/Home';
+import Chat from '../../pages/Chat';
 import logo from '../../assets/img/icon-128.png';
 import RequestBuilder from '../../pages/RequestBuilder';
 import Notarize from '../../pages/Notarize';
@@ -104,6 +105,7 @@ const Popup = () => {
         <Route path="/custom/*" element={<RequestBuilder />} />
         <Route path="/options" element={<Options />} />
         <Route path="/home" element={<Home />} />
+        <Route path="/chat" element={<Chat />} />
         <Route path="/plugininfo" element={<PluginUploadInfo />} />
         <Route path="/connection-approval" element={<ConnectionApproval />} />
         <Route path="/get-history-approval" element={<GetHistoryApproval />} />

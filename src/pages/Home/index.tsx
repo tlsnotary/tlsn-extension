@@ -44,6 +44,9 @@ export default function Home(): ReactElement {
         <NavButton fa="fa-solid fa-gear" onClick={() => navigate('/options')}>
           Options
         </NavButton>
+        <NavButton fa="fa-solid fa-comment-dots" onClick={() => navigate('/chat')}>
+          Chat
+        </NavButton>
       </div>
       <PluginList className="mx-4" />
     </div>

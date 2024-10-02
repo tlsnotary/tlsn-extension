@@ -18,7 +18,9 @@
   "dependencies": {
     "@extism/extism": "^1.0.2",
     "@fortawesome/fontawesome-free": "^6.4.2",
+    "@types/axios": "^0.14.0",
     "async-mutex": "^0.4.0",
+    "axios": "^1.7.7",
     "buffer": "^6.0.3",
     "charwise": "^3.0.1",
     "classnames": "^2.3.2",
