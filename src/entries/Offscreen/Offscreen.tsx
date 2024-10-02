@@ -18,8 +18,8 @@ const { init, verify_attestation, Prover, NotarizedSession, TlsProof }: any =
 
 async function withRetry<T>(
   operation: () => Promise<T>,
-  maxRetries: number = 3,
-  baseDelay: number = 1000
+  maxRetries = 3,
+  baseDelay = 1000,
 ): Promise<T> {
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
@@ -31,7 +31,7 @@ async function withRetry<T>(
       }
       const delay = baseDelay * Math.pow(2, attempt);
       console.log(`Retrying in ${delay}ms...`);
-      await new Promise(resolve => setTimeout(resolve, delay));
+      await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
   throw new Error('Max retries reached');
@@ -87,7 +87,9 @@ const Offscreen = () => {
 
               (async () => {
                 try {
-                  const proof = await withRetry(() => createProof(request.data));
+                  const proof = await withRetry(() =>
+                    createProof(request.data),
+                  );
                   browser.runtime.sendMessage({
                     type: BackgroundActiontype.finish_prove_request,
                     data: {
@@ -127,7 +129,9 @@ const Offscreen = () => {
 
               (async () => {
                 try {
-                  const proof = await withRetry(() => createProof(request.data));
+                  const proof = await withRetry(() =>
+                    createProof(request.data),
+                  );
                   console.log('BackgroundActiontype ', proof);
                   browser.runtime.sendMessage({
                     type: BackgroundActiontype.finish_prove_request,
