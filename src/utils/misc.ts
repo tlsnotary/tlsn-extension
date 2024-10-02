@@ -26,6 +26,15 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+export function reqTypeToName(type: string) {
+  switch (type) {
+    case 'xmlhttprequest':
+      return 'XHR';
+
+    default:
+      return type;
+  }
+}
 export function parseAttributeFromRequest(
   attributeAttestation: AttrAttestation,
 ) {
