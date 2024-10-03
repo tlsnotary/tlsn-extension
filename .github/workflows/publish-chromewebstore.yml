@@ -1,0 +1,28 @@
+name: chromewebstorepublish
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    env:
+      GH_TOKEN: ${{ github.token }}
+    runs-on: ubuntu-latest
+    steps:
+     - uses: actions/setup-node@v2-beta
+       with:
+          node-version: "18.18.0"
+     - name: Install webstore cli
+       run: |-
+          : # get secrets.CWS_GOOGLE* from: https://developer.chrome.com/docs/webstore/using-api
+          RELEASE=$(gh release list --repo tlsnotary/tlsn-extension -L1 | awk '{print $1}')
+          gh release download $RELEASE --repo tlsnotary/tlsn-extension
+          mv *.zip tlsnotary-extension.zip
+          npm install -g chrome-webstore-upload-cli
+          chrome-webstore-upload upload \
+            --source tlsnotary-extension.zip \
+            --extension-id gcfkkledipjbgdbimfpijgbkhajiaaph \
+            --client-id ${{ secrets.CWS_GOOGLE_CLIENT_ID }} \
+            --client-secret ${{ secrets.CWS_GOOGLE_CLIENT_SECRET }} \
+            --refresh-token ${{ secrets.CWS_GOOGLE_REFRESH_TOKEN }}
+           chrome-webstore-upload publish --extension-id gcfkkledipjbgdbimfpijgbkhajiaaph
