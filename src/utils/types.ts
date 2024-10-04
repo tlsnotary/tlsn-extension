@@ -1,18 +1,10 @@
-export type Proof = ProofV0 | ProofV1;
+import { PresentationJSON as PresentationJSONa7 } from 'tlsn-js/build/types';
 
-export type ProofV0 = {
+export type PresentationJSON = PresentationJSONa5 | PresentationJSONa7;
+
+export type PresentationJSONa5 = {
   version?: undefined;
   session: any;
   substrings: any;
   notaryUrl: string;
-};
-
-export type ProofV1 = {
-  version: '1.0';
-  data: string;
-  meta: {
-    notaryUrl: string;
-    websocketProxyUrl: string;
-    pluginUrl?: string;
-  };
 };

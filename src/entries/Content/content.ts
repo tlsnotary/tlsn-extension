@@ -1,7 +1,7 @@
 import { ContentScriptTypes, RPCClient } from './rpc';
 import { RequestHistory } from '../Background/rpc';
 import { PluginConfig, PluginMetadata } from '../../utils/misc';
-import { Proof } from '../../utils/types';
+import { PresentationJSON } from '../../utils/types';
 
 const client = new RPCClient();
 
@@ -27,7 +27,7 @@ class TLSN {
     return resp || [];
   }
 
-  async getProof(id: string): Promise<Proof | null> {
+  async getProof(id: string): Promise<PresentationJSON | null> {
     const resp = await client.call(ContentScriptTypes.get_proof, {
       id,
     });
@@ -52,7 +52,7 @@ class TLSN {
         [k: string]: string;
       };
     },
-  ): Promise<Proof> {
+  ): Promise<PresentationJSON> {
     const resp = await client.call(ContentScriptTypes.notarize, {
       url,
       method: requestOptions?.method,

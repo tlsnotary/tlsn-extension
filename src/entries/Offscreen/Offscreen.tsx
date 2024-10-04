@@ -3,19 +3,20 @@ import * as Comlink from 'comlink';
 import { OffscreenActionTypes } from './types';
 import {
   NotaryServer,
-  Prover as _Prover,
-  NotarizedSession as _NotarizedSession,
-  TlsProof as _TlsProof,
+  Prover as TProver,
+  Presentation as TPresentation,
+  Transcript,
 } from 'tlsn-js';
 import { verify } from 'tlsn-js-v5';
 
 import { urlify } from '../../utils/misc';
 import { BackgroundActiontype } from '../Background/rpc';
 import browser from 'webextension-polyfill';
-import { Proof, ProofV1 } from '../../utils/types';
+import { PresentationJSON } from '../../utils/types';
+import { PresentationJSON as PresentationJSONa7 } from 'tlsn-js/build/types';
 import { Method } from 'tlsn-js/wasm/pkg';
 
-const { init, Prover, NotarizedSession, TlsProof }: any = Comlink.wrap(
+const { init, Prover, Presentation }: any = Comlink.wrap(
   new Worker(new URL('./worker.ts', import.meta.url)),
 );
 
@@ -111,7 +112,7 @@ const Offscreen = () => {
           }
           case BackgroundActiontype.verify_prove_request: {
             (async () => {
-              const proof: Proof = request.data.proof;
+              const proof: PresentationJSON = request.data.proof;
               const result: { sent: string; recv: string } =
                 await verifyProof(proof);
 
@@ -194,7 +195,7 @@ async function createProof(options: {
   id: string;
   secretHeaders: string[];
   secretResps: string[];
-}): Promise<ProofV1> {
+}): Promise<PresentationJSONa7> {
   const {
     url,
     method = 'GET',
@@ -211,7 +212,7 @@ async function createProof(options: {
 
   const hostname = urlify(url)?.hostname || '';
   const notary = NotaryServer.from(notaryUrl);
-  const prover: _Prover = await new Prover({
+  const prover: TProver = await new Prover({
     id,
     serverDns: hostname,
     maxSentData,
@@ -260,24 +261,21 @@ async function createProof(options: {
     ),
   };
 
-  const session: _NotarizedSession = await new NotarizedSession(
-    await prover.notarize(commit),
-  );
+  const notarizationOutputs = await prover.notarize(commit);
 
-  const proofHex = await session.proof(commit);
-  const proof: ProofV1 = {
-    version: '1.0',
-    meta: {
-      notaryUrl,
-      websocketProxyUrl,
-    },
-    data: proofHex,
-  };
-  return proof;
+  const presentation = (await new Presentation({
+    attestationHex: notarizationOutputs.attestation,
+    secretsHex: notarizationOutputs.secrets,
+    notaryUrl: notarizationOutputs.notaryUrl,
+    websocketProxyUrl: notarizationOutputs.websocketProxyUrl,
+    reveal: commit,
+  })) as TPresentation;
+  const presentationJSON = await presentation.json();
+  return presentationJSON;
 }
 
 async function verifyProof(
-  proof: Proof,
+  proof: PresentationJSON,
 ): Promise<{ sent: string; recv: string }> {
   let result: { sent: string; recv: string };
 
@@ -286,12 +284,17 @@ async function verifyProof(
       result = await verify(proof);
       break;
     }
-    case '1.0': {
-      const tlsProof: _TlsProof = await new TlsProof(proof.data);
-      result = await tlsProof.verify({
-        typ: 'P256',
-        key: await NotaryServer.from(proof.meta.notaryUrl).publicKey(),
+    case '0.1.0-alpha.7': {
+      const presentation: TPresentation = await new Presentation(proof.data);
+      const verifierOutput = await presentation.verify();
+      const transcript = new Transcript({
+        sent: verifierOutput.transcript.sent,
+        recv: verifierOutput.transcript.recv,
       });
+      result = {
+        sent: transcript.sent(),
+        recv: transcript.recv(),
+      };
       break;
     }
   }
