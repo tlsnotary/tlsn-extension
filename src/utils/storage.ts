@@ -26,7 +26,7 @@ export async function getMaxRecv() {
 }
 
 export async function getNotaryApi() {
-  return await get(NOTARY_API_LS_KEY, 'https://notary.pse.dev/v0.1.0-alpha.6');
+  return await get(NOTARY_API_LS_KEY, 'https://notary.pse.dev/v0.1.0-alpha.7');
 }
 
 export async function getProxyApi() {
