@@ -119,7 +119,6 @@ export type RequestHistory = {
   method: string;
   headers: { [key: string]: string };
   body?: string;
-  maxTranscriptSize: number;
   maxSentData: number;
   maxRecvData: number;
   notaryUrl: string;
@@ -328,7 +327,6 @@ async function handleProveRequestStart(
     method,
     headers,
     body,
-    maxTranscriptSize,
     maxSentData,
     maxRecvData,
     notaryUrl,
@@ -344,7 +342,6 @@ async function handleProveRequestStart(
     body,
     maxSentData,
     maxRecvData,
-    maxTranscriptSize,
     notaryUrl,
     websocketProxyUrl,
     secretHeaders,
@@ -369,7 +366,6 @@ async function handleProveRequestStart(
       method,
       headers,
       body,
-      maxTranscriptSize,
       maxSentData,
       maxRecvData,
       notaryUrl,
@@ -399,14 +395,12 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
   const websocketProxyUrl = _websocketProxyUrl || (await getProxyApi());
   const maxSentData = _maxSentData || (await getMaxSent());
   const maxRecvData = _maxRecvData || (await getMaxRecv());
-  const maxTranscriptSize = 16384;
 
   const { id } = await addNotaryRequest(now, {
     url,
     method,
     headers,
     body,
-    maxTranscriptSize,
     notaryUrl,
     websocketProxyUrl,
     maxRecvData,
@@ -433,7 +427,6 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
       method,
       headers,
       body,
-      maxTranscriptSize,
       notaryUrl,
       websocketProxyUrl,
       maxRecvData,
@@ -808,7 +801,6 @@ async function handleNotarizeRequest(request: BackgroundAction) {
     body,
     maxSentData = await getMaxSent(),
     maxRecvData = await getMaxRecv(),
-    maxTranscriptSize,
     notaryUrl = await getNotaryApi(),
     websocketProxyUrl = await getProxyApi(),
     origin,
@@ -823,7 +815,6 @@ async function handleNotarizeRequest(request: BackgroundAction) {
     body,
     maxSentData,
     maxRecvData,
-    maxTranscriptSize,
     notaryUrl,
     websocketProxyUrl,
     metadata,
@@ -866,7 +857,6 @@ async function handleNotarizeRequest(request: BackgroundAction) {
               method,
               headers,
               body,
-              maxTranscriptSize,
               maxSentData,
               maxRecvData,
               notaryUrl,

@@ -47,7 +47,6 @@ class TLSN {
       websocketProxyUrl?: string;
       maxSentData?: number;
       maxRecvData?: number;
-      maxTranscriptSize?: number;
       metadata?: {
         [k: string]: string;
       };
@@ -60,7 +59,6 @@ class TLSN {
       body: requestOptions?.body,
       maxSentData: proofOptions?.maxSentData,
       maxRecvData: proofOptions?.maxRecvData,
-      maxTranscriptSize: proofOptions?.maxTranscriptSize,
       notaryUrl: proofOptions?.notaryUrl,
       websocketProxyUrl: proofOptions?.websocketProxyUrl,
       metadata: proofOptions?.metadata,

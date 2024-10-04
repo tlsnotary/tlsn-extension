@@ -192,7 +192,6 @@ export default function RequestBuilder(props?: {
           maxRecvData,
           secretHeaders: [],
           secretResps: [],
-          maxTranscriptSize: 0,
           notaryUrl,
           websocketProxyUrl,
         },

@@ -19,8 +19,6 @@ import {
 } from '../../utils/storage';
 import { useDispatch } from 'react-redux';
 
-const maxTranscriptSize = 16384;
-
 export default function Notarize(): ReactElement {
   const params = useParams<{ requestId: string }>();
   const req = useRequest(params.requestId);
@@ -58,7 +56,6 @@ export default function Notarize(): ReactElement {
         body: req.requestBody,
         maxSentData,
         maxRecvData,
-        maxTranscriptSize,
         notaryUrl,
         websocketProxyUrl,
         secretHeaders,
