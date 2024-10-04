@@ -24,6 +24,9 @@ export default function AttestationDetails() {
 
   useEffect(() => {
     const AttributeAttestation = request?.proof as AttrAttestation;
+
+    console.log('AttributeAttestation', AttributeAttestation);
+
     if (!AttributeAttestation) return;
     setAttributeAttestation(AttributeAttestation);
 
