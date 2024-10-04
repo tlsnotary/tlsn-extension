@@ -7,6 +7,7 @@ jobs:
   publish:
     env:
       GH_TOKEN: ${{ github.token }}
+      EXTENSION_ID: gcfkkledipjbgdbimfpijgbkhajiaaph
     runs-on: ubuntu-latest
     steps:
      - uses: actions/setup-node@v4
