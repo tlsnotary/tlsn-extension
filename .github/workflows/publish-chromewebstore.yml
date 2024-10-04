@@ -9,7 +9,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
     runs-on: ubuntu-latest
     steps:
-     - uses: actions/setup-node@v2-beta
+     - uses: actions/setup-node@v4
        with:
           node-version: "18.18.0"
      - name: Install webstore cli
