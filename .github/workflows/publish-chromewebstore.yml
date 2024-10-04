@@ -12,7 +12,7 @@ jobs:
      - uses: actions/setup-node@v4
        with:
           node-version: "18.18.0"
-     - name: Install webstore cli
+     - name: Install webstore cli and upload extension to webstore
        run: |-
           : # get secrets.CWS_GOOGLE* from: https://developer.chrome.com/docs/webstore/using-api
           RELEASE=$(gh release list --repo tlsnotary/tlsn-extension -L1 | awk '{print $1}')
