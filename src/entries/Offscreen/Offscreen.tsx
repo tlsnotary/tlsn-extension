@@ -12,7 +12,8 @@ import { verify } from 'tlsn-js-v5';
 import { urlify } from '../../utils/misc';
 import { BackgroundActiontype } from '../Background/rpc';
 import browser from 'webextension-polyfill';
-import { Proof, ProofV1 } from '../../utils/types';
+import { PresentationJSON } from '../../utils/types';
+import { PresentationJSON as PresentationJSONa7 } from 'tlsn-js/build/types';
 import { Method } from 'tlsn-js/wasm/pkg';
 
 const { init, Prover, Presentation }: any = Comlink.wrap(
@@ -111,7 +112,7 @@ const Offscreen = () => {
           }
           case BackgroundActiontype.verify_prove_request: {
             (async () => {
-              const proof: Proof = request.data.proof;
+              const proof: PresentationJSON = request.data.proof;
               const result: { sent: string; recv: string } =
                 await verifyProof(proof);
 
@@ -194,7 +195,7 @@ async function createProof(options: {
   id: string;
   secretHeaders: string[];
   secretResps: string[];
-}): Promise<ProofV1> {
+}): Promise<PresentationJSONa7> {
   const {
     url,
     method = 'GET',
@@ -265,23 +266,16 @@ async function createProof(options: {
   const presentation = (await new Presentation({
     attestationHex: notarizationOutputs.attestation,
     secretsHex: notarizationOutputs.secrets,
+    notaryUrl: notarizationOutputs.notaryUrl,
+    websocketProxyUrl: notarizationOutputs.websocketProxyUrl,
     reveal: commit,
   })) as TPresentation;
-  const presentationHex = await presentation.serialize();
-
-  const proof: ProofV1 = {
-    version: '1.0',
-    meta: {
-      notaryUrl,
-      websocketProxyUrl,
-    },
-    data: presentationHex,
-  };
-  return proof;
+  const presentationJSON = await presentation.json();
+  return presentationJSON;
 }
 
 async function verifyProof(
-  proof: Proof,
+  proof: PresentationJSON,
 ): Promise<{ sent: string; recv: string }> {
   let result: { sent: string; recv: string };
 
@@ -290,7 +284,7 @@ async function verifyProof(
       result = await verify(proof);
       break;
     }
-    case '1.0': {
+    case '0.1.0-alpha.7': {
       const presentation: TPresentation = await new Presentation(proof.data);
       const verifierOutput = await presentation.verify();
       const transcript = new Transcript({
