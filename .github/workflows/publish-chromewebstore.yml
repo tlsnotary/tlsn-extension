@@ -17,7 +17,7 @@ jobs:
           : # get secrets.CWS_GOOGLE* from: https://developer.chrome.com/docs/webstore/using-api
           RELEASE=$(gh release list --repo tlsnotary/tlsn-extension -L1 | awk '{print $1}')
           gh release download $RELEASE --repo tlsnotary/tlsn-extension
-          mv *.zip tlsnotary-extension.zip
+          mv tlsn-extension-*.zip tlsnotary-extension.zip
           npm install -g chrome-webstore-upload-cli
           chrome-webstore-upload upload \
             --source tlsnotary-extension.zip \
