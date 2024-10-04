@@ -21,7 +21,7 @@ jobs:
           npm install -g chrome-webstore-upload-cli
           chrome-webstore-upload upload \
             --source tlsnotary-extension.zip \
-            --extension-id gcfkkledipjbgdbimfpijgbkhajiaaph \
+            --extension-id $EXTENSION_ID \
             --client-id ${{ secrets.CWS_GOOGLE_CLIENT_ID }} \
             --client-secret ${{ secrets.CWS_GOOGLE_CLIENT_SECRET }} \
             --refresh-token ${{ secrets.CWS_GOOGLE_REFRESH_TOKEN }}
