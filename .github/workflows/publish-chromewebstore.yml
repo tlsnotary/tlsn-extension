@@ -16,7 +16,7 @@ jobs:
      - name: Install webstore cli and upload extension to webstore
        run: |-
           : # get secrets.CWS_GOOGLE* from: https://developer.chrome.com/docs/webstore/using-api
-          RELEASE=$(gh release list --repo tlsnotary/tlsn-extension -L1 | awk '{print $1}')
+          RELEASE=$(gh release list --repo tlsnotary/tlsn-extension --limit 1 | awk '{print $1}')
           gh release download $RELEASE --repo tlsnotary/tlsn-extension
           mv tlsn-extension-*.zip tlsnotary-extension.zip
           npm install -g chrome-webstore-upload-cli
