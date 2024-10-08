@@ -118,6 +118,7 @@ export default function Notarize(): ReactElement {
   );
 }
 
+
 export function RevealHeaderStep(props: {
   onNext: () => void;
   onCancel: () => void;
@@ -132,17 +133,19 @@ export function RevealHeaderStep(props: {
   useEffect(() => {
     if (!req) return;
 
+    // Inicializa todos os headers como revelados
+    const initialRevealed = req.requestHeaders.reduce(
+      (acc, h) => ({ ...acc, [h.name]: true }),
+      {},
+    );
+    setRevealed(initialRevealed);
+
     props.setSecretHeaders(
       req.requestHeaders
-        .map((h) => {
-          if (!revealed[h.name]) {
-            return `${h.name.toLowerCase()}: ${h.value || ''}` || '';
-          }
-          return '';
-        })
+        .map((h) => `${h.name.toLowerCase()}: ${h.value || ''}` || '')
         .filter((d) => !!d),
     );
-  }, [revealed]);
+  }, [req]);
 
   const changeHeaderKey = useCallback(
     (key: string, shouldReveal: boolean) => {

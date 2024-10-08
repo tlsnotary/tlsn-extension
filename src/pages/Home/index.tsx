@@ -15,16 +15,14 @@ import { ErrorModal } from '../../components/ErrorModal';
 export default function Home(): ReactElement {
   const requests = useRequests();
   const navigate = useNavigate();
+
+  const firstGraphqlRequest = requests.find((r) => r.url.includes('graphql'));
   const [error, showError] = useState('');
 
   return (
     <div className="flex flex-col gap-4 py-4 overflow-y-auto bg-fourfh h-full">
       {error && <ErrorModal onClose={() => showError('')} message={error} />}
       <div className="flex flex-col flex-nowrap justify-center gap-2 mx-4">
-        <NavButton fa="fa-solid fa-table" onClick={() => navigate('/requests')}>
-          <span>Requests</span>
-          <span>{`(${requests.length})`}</span>
-        </NavButton>
         <NavButton fa="fa-solid fa-list" onClick={() => navigate('/history')}>
           History
         </NavButton>
@@ -33,7 +31,10 @@ export default function Home(): ReactElement {
         </NavButton>
       </div>
 
-      <button>sexo</button>
+      <button onClick={() => navigate('/requests')}>
+        <span>we gucci</span>
+        <span>{`(${requests.length})`}</span>
+      </button>
     </div>
   );
 }
