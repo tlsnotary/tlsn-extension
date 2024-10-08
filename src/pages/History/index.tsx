@@ -49,6 +49,7 @@ export default function History(): ReactElement {
 
   const allRequest = useAllRequestHistory();
 
+  console.log('history', allRequest);
   return (
     <div className="flex flex-col gap-4 py-4 overflow-y-auto flex-1">
       <div className="flex flex-col flex-nowrap justify-center gap-2 mx-4">

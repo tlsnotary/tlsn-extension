@@ -56,6 +56,8 @@ export default function BookmarkHistory(): ReactElement {
 
   const history = useHistoryOrder(undefined, bookmark?.url);
 
+  console.log('history2', history);
+
   const allHistory = useAllRequestHistory();
   const clearHistory = useCallback(async () => {
     await removeAllNotaryRequests();

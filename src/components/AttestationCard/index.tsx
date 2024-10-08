@@ -244,6 +244,15 @@ export function AttestationCard({
               >
                 Save
               </div>
+
+              <div
+                onClick={() => {
+                  navigator.clipboard.writeText(JSON.stringify(request));
+                }}
+                className="ml-3 cursor-pointer border border-[#E9EBF3] bg-[#F6F7FC] hover:bg-[#e2e3e8] text-[#092EEA] text-sm font-medium py-[10px] px-4 rounded-lg"
+              >
+                Copy request
+              </div>
             </>
           )}
 
