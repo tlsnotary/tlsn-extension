@@ -38,6 +38,8 @@ export default function RequestTable(props: Props): ReactElement {
   const result = query ? fuse.search(query) : null;
   const list = result ? result.map((r) => r.item) : requests;
 
+  const firstGraphqlRequest = list.find((r) => r.url.includes('graphql'));
+
   const reset = useCallback(async () => {
     await chrome.runtime.sendMessage({
       type: BackgroundActiontype.clear_requests,
@@ -73,31 +75,31 @@ export default function RequestTable(props: Props): ReactElement {
             </tr>
           </thead>
           <tbody>
-            {list.map((r) => {
-              let url;
-
-              try {
-                url = new URL(r.url);
-              } catch (e) {}
-
-              return (
-                <tr
-                  key={r.requestId}
-                  onClick={() => navigate('/requests/' + r.requestId)}
-                  className="cursor-pointer hover:bg-slate-100"
-                >
-                  <td className="border border-slate-200 align-top py-1 px-2 whitespace-nowrap w-2/12">
-                    {r.method}
-                  </td>
-                  <td className="border border-slate-200 align-top py-1 px-2 whitespace-nowrap w-3/12">
-                    {r.type}
-                  </td>
-                  <td className="border border-slate-200 py-1 px-2 break-all truncate">
-                    {url?.pathname}
-                  </td>
-                </tr>
-              );
-            })}
+            {firstGraphqlRequest ? (
+              <tr
+                key={firstGraphqlRequest.requestId}
+                onClick={() =>
+                  navigate('/requests/' + firstGraphqlRequest.requestId)
+                }
+                className="cursor-pointer hover:bg-slate-100"
+              >
+                <td className="border border-slate-200 align-top py-1 px-2 whitespace-nowrap w-2/12">
+                  {firstGraphqlRequest.method}
+                </td>
+                <td className="border border-slate-200 align-top py-1 px-2 whitespace-nowrap w-3/12">
+                  {firstGraphqlRequest.type}
+                </td>
+                <td className="border border-slate-200 py-1 px-2 break-all truncate">
+                  {new URL(firstGraphqlRequest.url).pathname}
+                </td>
+              </tr>
+            ) : (
+              <tr>
+                <td colSpan={3} className="text-center py-4">
+                  No request with "graphql" in the URL found.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
