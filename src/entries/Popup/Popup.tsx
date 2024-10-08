@@ -34,6 +34,7 @@ import classNames from 'classnames';
 import { getConnection } from '../Background/db';
 import { useIsConnected, setConnection } from '../../reducers/requests';
 import { MenuIcon } from '../../components/Menu';
+import Plugins from '../../pages/Plugins';
 
 const Popup = () => {
   const dispatch = useDispatch();
@@ -103,10 +104,11 @@ const Popup = () => {
         <Route path="/notary/:requestId" element={<Notarize />} />
         <Route path="/verify/:requestId/*" element={<ProofViewer />} />
         <Route path="/verify" element={<ProofUploader />} />
-        <Route path="/history" element={<History />} />
-        <Route path="/requests" element={<Requests />} />
+        {/*<Route path="/history" element={<History />} />*/}
+        <Route path="/requests" element={<Home tab="network" />} />
         <Route path="/custom/*" element={<RequestBuilder />} />
         <Route path="/options" element={<Options />} />
+        <Route path="/plugins" element={<Plugins />} />
         <Route path="/home" element={<Home />} />
         <Route path="/plugininfo" element={<PluginUploadInfo />} />
         <Route path="/connection-approval" element={<ConnectionApproval />} />

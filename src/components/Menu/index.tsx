@@ -50,8 +50,23 @@ export default function Menu(props: {
 
   return (
     <div className="absolute top-[100%] right-0 rounded-md z-20">
-      <div className="flex flex-col bg-slate-200 shadow rounded-md py-1">
-        <MenuRow fa="fa-solid fa-toolbox" label="Plugins" />
+      <div className="flex flex-col bg-slate-200 w-40 shadow rounded-md py">
+        <MenuRow
+          fa="fa-solid fa-plus"
+          label="Install Plugin"
+          onClick={() => {
+            props.setOpen(false);
+          }}
+        />
+        <MenuRow
+          fa="fa-solid fa-toolbox"
+          label="Plugins"
+          className="border-b border-slate-300"
+          onClick={() => {
+            props.setOpen(false);
+            navigate('/plugins');
+          }}
+        />
         <MenuRow
           className="lg:hidden"
           fa="fa-solid fa-up-right-and-down-left-from-center"
@@ -80,7 +95,7 @@ function MenuRow(props: {
   return (
     <div
       className={classNames(
-        'flex flex-row items-center py-2 px-4 gap-2 hover:bg-slate-300 cursor-pointer text-slate-800 hover:text-slate-900',
+        'flex flex-row items-center py-3 px-4 gap-2 hover:bg-slate-300 cursor-pointer text-slate-800 hover:text-slate-900',
         props.className,
       )}
       onClick={props.onClick}
