@@ -18,34 +18,22 @@ export default function Home(): ReactElement {
   const [error, showError] = useState('');
 
   return (
-    <div className="flex flex-col gap-4 py-4 overflow-y-auto">
+    <div className="flex flex-col gap-4 py-4 overflow-y-auto bg-fourfh h-full">
       {error && <ErrorModal onClose={() => showError('')} message={error} />}
       <div className="flex flex-col flex-nowrap justify-center gap-2 mx-4">
         <NavButton fa="fa-solid fa-table" onClick={() => navigate('/requests')}>
           <span>Requests</span>
           <span>{`(${requests.length})`}</span>
         </NavButton>
-        <NavButton fa="fa-solid fa-hammer" onClick={() => navigate('/custom')}>
-          Custom
-        </NavButton>
-        <NavButton
-          fa="fa-solid fa-certificate"
-          onClick={() => navigate('/verify')}
-        >
-          Verify
-        </NavButton>
         <NavButton fa="fa-solid fa-list" onClick={() => navigate('/history')}>
           History
-        </NavButton>
-        <NavButton className="relative" fa="fa-solid fa-plus">
-          <PluginUploadInfo />
-          Add a plugin
         </NavButton>
         <NavButton fa="fa-solid fa-gear" onClick={() => navigate('/options')}>
           Options
         </NavButton>
       </div>
-      <PluginList className="mx-4" />
+
+      <button>sexo</button>
     </div>
   );
 }
