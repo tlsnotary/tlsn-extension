@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "TLSN Extension",
-  "description": "A chrome extension for TLSN",
+  "name": "Tribes Extension",
+  "description": "Chrome Extension for Tribe powered by TLSNotary",
   "options_page": "options.html",
   "background": {
     "service_worker": "background.bundle.js"
