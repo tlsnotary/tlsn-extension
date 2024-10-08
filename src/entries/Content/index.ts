@@ -84,7 +84,6 @@ import { urlify } from '../../utils/misc';
         websocketProxyUrl?: string;
         maxSentData?: number;
         maxRecvData?: number;
-        maxTranscriptSize?: number;
       }>,
     ) => {
       const {
@@ -94,7 +93,6 @@ import { urlify } from '../../utils/misc';
         body,
         maxSentData,
         maxRecvData,
-        maxTranscriptSize,
         notaryUrl,
         websocketProxyUrl,
         metadata,
@@ -112,7 +110,6 @@ import { urlify } from '../../utils/misc';
           body,
           maxSentData,
           maxRecvData,
-          maxTranscriptSize,
           notaryUrl,
           websocketProxyUrl,
           metadata,

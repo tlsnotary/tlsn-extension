@@ -1,4 +1,5 @@
 import { LoggingLevel } from 'tlsn-js';
+import { MAX_RECV, MAX_SENT, NOTARY_API, NOTARY_PROXY } from './constants';
 
 export const NOTARY_API_LS_KEY = 'notary-api';
 export const PROXY_API_LS_KEY = 'proxy-api';
@@ -18,19 +19,19 @@ export async function get(key: string, defaultValue?: string) {
 }
 
 export async function getMaxSent() {
-  return parseInt(await get(MAX_SENT_LS_KEY, '4096'));
+  return parseInt(await get(MAX_SENT_LS_KEY, MAX_SENT.toString()));
 }
 
 export async function getMaxRecv() {
-  return parseInt(await get(MAX_RECEIVED_LS_KEY, '16384'));
+  return parseInt(await get(MAX_RECEIVED_LS_KEY, MAX_RECV.toString()));
 }
 
 export async function getNotaryApi() {
-  return await get(NOTARY_API_LS_KEY, 'https://notary.pse.dev/v0.1.0-alpha.7');
+  return await get(NOTARY_API_LS_KEY, NOTARY_API);
 }
 
 export async function getProxyApi() {
-  return await get(PROXY_API_LS_KEY, 'wss://notary.pse.dev/proxy');
+  return await get(PROXY_API_LS_KEY, NOTARY_PROXY);
 }
 
 export async function getLoggingFilter(): Promise<LoggingLevel> {
