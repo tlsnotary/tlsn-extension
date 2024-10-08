@@ -43,6 +43,10 @@ export default function RequestTable(props: Props): ReactElement {
   const dispatch = useDispatch();
   const [query, setQuery] = useState('');
 
+  const filteredRequests = requests.filter(
+    (request) => request.method !== 'stylesheet',
+  );
+
   const fuse = new Fuse(requests, {
     isCaseSensitive: false,
     minMatchCharLength: 2,
