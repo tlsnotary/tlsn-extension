@@ -33,6 +33,8 @@ import Icon from '../../components/Icon';
 import classNames from 'classnames';
 import { getConnection } from '../Background/db';
 import { useIsConnected, setConnection } from '../../reducers/requests';
+import { MenuIcon } from '../../components/Menu';
+import Plugins from '../../pages/Plugins';
 
 const Popup = () => {
   const dispatch = useDispatch();
@@ -84,7 +86,7 @@ const Popup = () => {
   }, []);
 
   return (
-    <div className="flex flex-col w-full h-full overflow-hidden">
+    <div className="flex flex-col w-full h-full overflow-hidden lg:w-[600px] lg:h-[800px] lg:border lg:m-auto lg:mt-40 lg:bg-white lg:shadow">
       <div className="flex flex-nowrap flex-shrink-0 flex-row items-center relative gap-2 h-9 p-2 cursor-default justify-center bg-slate-300 w-full">
         <img
           className="absolute left-2 h-5 cursor-pointer"
@@ -92,17 +94,21 @@ const Popup = () => {
           alt="logo"
           onClick={() => navigate('/')}
         />
-        <AppConnectionLogo />
+        <div className="flex flex-row flex-grow items-center justify-end gap-4">
+          <AppConnectionLogo />
+          <MenuIcon />
+        </div>
       </div>
       <Routes>
         <Route path="/requests/:requestId/*" element={<Request />} />
         <Route path="/notary/:requestId" element={<Notarize />} />
         <Route path="/verify/:requestId/*" element={<ProofViewer />} />
         <Route path="/verify" element={<ProofUploader />} />
-        <Route path="/history" element={<History />} />
-        <Route path="/requests" element={<Requests />} />
+        <Route path="/history" element={<Home tab="history" />} />
+        <Route path="/requests" element={<Home tab="network" />} />
         <Route path="/custom/*" element={<RequestBuilder />} />
         <Route path="/options" element={<Options />} />
+        <Route path="/plugins" element={<Plugins />} />
         <Route path="/home" element={<Home />} />
         <Route path="/plugininfo" element={<PluginUploadInfo />} />
         <Route path="/connection-approval" element={<ConnectionApproval />} />
@@ -141,7 +147,7 @@ function AppConnectionLogo() {
 
   return (
     <div
-      className="absolute right-2 flex flex-nowrap flex-row items-center gap-1 justify-center w-fit cursor-pointer"
+      className="flex flex-nowrap flex-row items-center gap-1 justify-center w-fit cursor-pointer"
       onClick={() => setShowConnectionDetails(true)}
     >
       <div className="flex flex-row relative bg-black border-[1px] border-black rounded-full">
