@@ -1,6 +1,6 @@
 import browser from 'webextension-polyfill';
 import { clearCache, getCacheByTabId } from './cache';
-import { addRequestHistory } from '../../reducers/history';
+import { addRequestHistory, setRequests } from '../../reducers/history';
 import {
   addNotaryRequest,
   addNotaryRequestProofs,
@@ -224,15 +224,13 @@ function handleGetProveRequests(
   sendResponse: (data?: any) => void,
 ): boolean {
   getNotaryRequests().then(async (reqs) => {
-    for (const req of reqs.reverse()) {
-      await browser.runtime.sendMessage({
-        type: BackgroundActiontype.push_action,
-        data: {
-          tabId: 'background',
-        },
-        action: addRequestHistory(req),
-      });
-    }
+    await browser.runtime.sendMessage({
+      type: BackgroundActiontype.push_action,
+      data: {
+        tabId: 'background',
+      },
+      action: setRequests(reqs),
+    });
     sendResponse(reqs);
   });
 

@@ -25,9 +25,11 @@ export default function History(): ReactElement {
 
   return (
     <div className="flex flex-col flex-nowrap overflow-y-auto">
-      {history.map((id) => {
-        return <OneRequestHistory key={id} requestId={id} />;
-      })}
+      {history
+        .map((id) => {
+          return <OneRequestHistory key={id} requestId={id} />;
+        })
+        .reverse()}
     </div>
   );
 }

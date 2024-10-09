@@ -8,6 +8,7 @@ import deepEqual from 'fast-deep-equal';
 
 enum ActionType {
   '/history/addRequest' = '/history/addRequest',
+  '/history/setRequests' = '/history/setRequests',
   '/history/deleteRequest' = '/history/deleteRequest',
 }
 
@@ -34,6 +35,13 @@ export const addRequestHistory = (request?: RequestHistory | null) => {
   return {
     type: ActionType['/history/addRequest'],
     payload: request,
+  };
+};
+
+export const setRequests = (requests: RequestHistory[]) => {
+  return {
+    type: ActionType['/history/setRequests'],
+    payload: requests,
   };
 };
 
@@ -70,6 +78,18 @@ export default function history(
         ...state,
         map: newMap,
         order: newOrder,
+      };
+    }
+    case ActionType['/history/setRequests']: {
+      const payload: RequestHistory[] = action.payload;
+
+      return {
+        ...state,
+        map: payload.reduce((map: { [id: string]: RequestHistory }, req) => {
+          map[req.id] = req;
+          return map;
+        }, {}),
+        order: payload.map(({ id }) => id),
       };
     }
     case ActionType['/history/deleteRequest']: {
