@@ -80,6 +80,10 @@ export default function Options(): ReactElement {
     setAdvanced(!advanced);
   }, [advanced]);
 
+  const openInTab = useCallback((url: string) => {
+    browser.tabs.create({ url });
+  }, []);
+
   return (
     <div className="flex flex-col flex-nowrap flex-grow">
       {showReloadModal && (
@@ -150,6 +154,22 @@ export default function Options(): ReactElement {
           onClick={onSave}
         >
           Save
+        </button>
+      </div>
+      <div className="flex flex-col w-full items-end gap-2 p-2">
+        <button
+          className="button"
+          onClick={() =>
+            openInTab('https://github.com/tlsnotary/tlsn-extension/issues/new')
+          }
+        >
+          File an issue
+        </button>
+        <button
+          className="button"
+          onClick={() => openInTab('https://discord.gg/9XwESXtcN7')}
+        >
+          Join our Discord
         </button>
       </div>
     </div>
