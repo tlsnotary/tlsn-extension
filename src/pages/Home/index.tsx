@@ -178,15 +178,6 @@ function ActionPanel({
       {pluginHashes.map((hash) => (
         <PluginIcon hash={hash} />
       ))}
-      {pluginHashes.map((hash) => (
-        <PluginIcon hash={hash} />
-      ))}
-      {pluginHashes.map((hash) => (
-        <PluginIcon hash={hash} />
-      ))}
-      {pluginHashes.map((hash) => (
-        <PluginIcon hash={hash} />
-      ))}
       <button
         className={
           'flex flex-row items-center justify-center self-start rounded relative border-2 border-dashed border-slate-300 hover:border-slate-400 text-slate-300 hover:text-slate-400 h-16 w-16 mx-1'
