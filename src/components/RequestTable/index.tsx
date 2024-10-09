@@ -1,13 +1,21 @@
-import React, { ReactElement, useCallback, useState } from 'react';
+import React, {
+  ReactElement,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { BackgroundActiontype, RequestLog } from '../../entries/Background/rpc';
 import { useNavigate } from 'react-router';
 import Fuse from 'fuse.js';
 import Icon from '../Icon';
 import { useDispatch } from 'react-redux';
 import { setRequests } from '../../reducers/requests';
+import classNames from 'classnames';
 
 type Props = {
   requests: RequestLog[];
+  shouldFix?: boolean;
 };
 
 export default function RequestTable(props: Props): ReactElement {
@@ -49,7 +57,14 @@ export default function RequestTable(props: Props): ReactElement {
 
   return (
     <div className="flex flex-col flex-nowrap flex-grow">
-      <div className="flex flex-row flex-nowrap bg-slate-300 py-1 px-2 gap-2">
+      <div
+        className={classNames(
+          'flex flex-row flex-nowrap bg-slate-300 py-1 px-2 gap-2',
+          {
+            'fixed top-[4.5rem] w-full shadow': props.shouldFix,
+          },
+        )}
+      >
         <input
           className="input w-full"
           type="text"
@@ -63,7 +78,7 @@ export default function RequestTable(props: Props): ReactElement {
           onClick={reset}
         />
       </div>
-      <div className="flex-grow overflow-y-auto h-0">
+      <div className="flex-grow">
         <table className="border border-slate-300 border-collapse table-fixed w-full">
           <thead className="bg-slate-200">
             <tr>

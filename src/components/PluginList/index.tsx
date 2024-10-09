@@ -5,12 +5,7 @@ import React, {
   useEffect,
   useState,
 } from 'react';
-import {
-  fetchPluginHashes,
-  removePlugin,
-  fetchPluginConfigByHash,
-  runPlugin,
-} from '../../utils/rpc';
+import { fetchPluginHashes, removePlugin, runPlugin } from '../../utils/rpc';
 import { usePluginHashes } from '../../reducers/plugins';
 import { PluginConfig } from '../../utils/misc';
 import DefaultPluginIcon from '../../assets/img/default-plugin-icon.png';

@@ -25,9 +25,11 @@ export default function History(): ReactElement {
 
   return (
     <div className="flex flex-col flex-nowrap overflow-y-auto">
-      {history.map((id) => {
-        return <OneRequestHistory key={id} requestId={id} />;
-      })}
+      {history
+        .map((id) => {
+          return <OneRequestHistory key={id} requestId={id} />;
+        })
+        .reverse()}
     </div>
   );
 }
@@ -160,7 +162,7 @@ export function OneRequestHistory(props: {
               className="bg-slate-600 text-slate-200 hover:bg-slate-500 hover:text-slate-100"
               onClick={onView}
               fa="fa-solid fa-receipt"
-              ctaText="View Proof"
+              ctaText="View"
               hidden={hideActions.includes('view')}
             />
             <ActionButton

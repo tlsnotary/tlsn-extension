@@ -30,6 +30,10 @@ code {
   width: 100vw;
   height: 100vh;
   overflow: hidden;
+
+  @media (min-width: 1024px) {
+    @apply bg-slate-400;
+  }
 }
 
 .button {
