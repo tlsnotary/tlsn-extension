@@ -7,16 +7,14 @@ import { urlify } from '../../utils/misc';
   loadScript('content.bundle.js');
   const server = new RPCServer();
 
-  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.type === 'GET_LOCAL_STORAGE') {
-      const localData = localStorage.getItem(request.data);
-      sendResponse({ success: true, data: localData });
-    }
-    if (request.type === 'GET_SESSION_STORAGE') {
-      const sessionData = sessionStorage.getItem(request.data);
-      sendResponse({ success: true, data: sessionData });
-    }
-    return true;
+  const storage = {
+    ...localStorage,
+    ...sessionStorage,
+  };
+
+  chrome.runtime.sendMessage({
+    type: BackgroundActiontype.get_browser_storage,
+    storage,
   });
 
   server.on(ContentScriptTypes.connect, async () => {

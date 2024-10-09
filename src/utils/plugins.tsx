@@ -33,20 +33,6 @@ export const HostFunctionsDescriptions: {
       </>
     );
   },
-  getSessionStorage: () => {
-    return (
-      <PermissionDescription fa="fa-solid fa-database">
-        <span>Access your browser's session storage</span>
-      </PermissionDescription>
-    );
-  },
-  getLocalStorage: () => {
-    return (
-      <PermissionDescription fa="fa-solid fa-database">
-        <span>Access your browser's local storage</span>
-      </PermissionDescription>
-    );
-  },
 };
 
 export function PermissionDescription({

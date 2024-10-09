@@ -14,7 +14,7 @@ import NodeCache from 'node-cache';
 import { getNotaryApi, getProxyApi } from './storage';
 import { minimatch } from 'minimatch';
 import { getCookiesByHost, getHeadersByHost } from '../entries/Background/db';
-
+import { getStorageByHost } from '../entries/Background/db';
 const charwise = require('charwise');
 
 export function urlify(
@@ -143,8 +143,7 @@ export const sha256 = async (data: string) => {
 const VALID_HOST_FUNCS: { [name: string]: string } = {
   redirect: 'redirect',
   notarize: 'notarize',
-  getSessionStorage: 'getSessionStorage',
-  getLocalStorage: 'getLocalStorage',
+  getStorage: 'getStorage',
 };
 
 export const makePlugin = async (
@@ -234,66 +233,7 @@ export const makePlugin = async (
 
       return context.store(`${id}`);
     },
-    getSessionStorage: function (context: CallContext, off: bigint) {
-      const r = context.read(off);
-      const key = r.text();
-      (async () => {
-        try {
-          const v = await new Promise((resolve, reject) => {
-            chrome.runtime.sendMessage(
-              { type: 'GET_SESSION_STORAGE', data: key },
-              (response) => {
-                if (chrome.runtime.lastError) {
-                  console.error(
-                    'Error in background script communication:',
-                    chrome.runtime.lastError,
-                  );
-                  reject(chrome.runtime.lastError);
-                } else {
-                  console.log('Response from background script:', response);
-                  resolve(response.data);
-                }
-              },
-            );
-          });
-          console.log('Fetched sessionStorage value:', v);
-          return context.store(`${v}`);
-        } catch (err) {
-          console.error('Error fetching sessionStorage:', err);
-        }
-      })();
-    },
-    getLocalStorage: function (context: CallContext, off: bigint) {
-      const r = context.read(off);
-      const key = r.text();
-      (async () => {
-        try {
-          const v = await new Promise((resolve, reject) => {
-            chrome.runtime.sendMessage(
-              { type: 'GET_LOCAL_STORAGE', data: key },
-              (response) => {
-                if (chrome.runtime.lastError) {
-                  console.error(
-                    'Error in background script communication:',
-                    chrome.runtime.lastError,
-                  );
-                  reject(chrome.runtime.lastError);
-                } else {
-                  console.log('Response from background script:', response);
-                  resolve(response.data);
-                }
-              },
-            );
-          });
-          console.log('Fetched localStorage value:', v);
-          return context.store(`${v}`);
-        } catch (err) {
-          console.error('Error fetching localStorage:', err);
-        }
-      })();
-    },
   };
-
   const funcs: {
     [key: string]: (callContext: CallContext, ...args: any[]) => any;
   } = {};
@@ -309,7 +249,15 @@ export const makePlugin = async (
       funcs[fn] = HostFunctions[fn];
     }
   }
-
+  if (config?.storage) {
+    const storage: { [hostname: string]: { [key: string]: string } } = {};
+    for (const host of config.storage) {
+      const cache = await getStorageByHost(host);
+      storage[host] = cache;
+    }
+    // @ts-ignore
+    injectedConfig.storage = JSON.stringify(storage);
+  }
   if (config?.cookies) {
     const cookies: { [hostname: string]: { [key: string]: string } } = {};
     for (const host of config.cookies) {
@@ -352,16 +300,17 @@ export type StepConfig = {
 };
 
 export type PluginConfig = {
-  title: string; // The name of the plugin
-  description: string; // A description of the plugin's purpose
-  icon?: string; // A base64-encoded image string representing the plugin's icon (optional)
-  steps?: StepConfig[]; // An array describing the UI steps and behavior (see Step UI below) (optional)
-  hostFunctions?: string[]; // Host functions that the plugin will have access to
-  cookies?: string[]; // Cookies the plugin will have access to, cached by the extension from specified hosts (optional)
-  headers?: string[]; // Headers the plugin will have access to, cached by the extension from specified hosts (optional)
-  requests: { method: string; url: string }[]; // List of requests that the plugin is allowed to make
-  notaryUrls?: string[]; // List of notary services that the plugin is allowed to use (optional)
-  proxyUrls?: string[]; // List of websocket proxies that the plugin is allowed to use (optional)
+  title: string;
+  description: string;
+  icon?: string;
+  steps?: StepConfig[];
+  hostFunctions?: string[];
+  cookies?: string[];
+  headers?: string[];
+  storage?: string[];
+  requests: { method: string; url: string }[];
+  notaryUrls?: string[];
+  proxyUrls?: string[];
 };
 
 export type PluginMetadata = {
@@ -408,7 +357,11 @@ export const getPluginConfig = async (
       assert(typeof name === 'string' && name.length);
     }
   }
-
+  if (config.storage) {
+    for (const name of config.storage) {
+      assert(typeof name === 'string' && name.length);
+    }
+  }
   if (config.headers) {
     for (const name of config.headers) {
       assert(typeof name === 'string' && name.length);

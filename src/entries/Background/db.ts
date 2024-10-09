@@ -28,6 +28,10 @@ const cookiesDb = db.sublevel<string, boolean>('cookies', {
 const headersDb = db.sublevel<string, boolean>('headers', {
   valueEncoding: 'json',
 });
+const storageDb = db.sublevel<string, any>('storage', {
+  valueEncoding: 'json',
+});
+
 const appDb = db.sublevel<string, any>('app', {
   valueEncoding: 'json',
 });
@@ -370,10 +374,31 @@ export async function getHeaders(host: string, name: string) {
     return null;
   }
 }
-
 export async function getHeadersByHost(host: string) {
   const ret: { [key: string]: string } = {};
   for await (const [key, value] of headersDb.sublevel(host).iterator()) {
+    ret[key] = value;
+  }
+  return ret;
+}
+
+export async function setStorage(host: string, name: string, value: string) {
+  return mutex.runExclusive(async () => {
+    await storageDb.sublevel(host).put(name, value);
+    return true;
+  });
+}
+
+export async function clearStorage(host: string) {
+  return mutex.runExclusive(async () => {
+    await storageDb.sublevel(host).clear();
+    return true;
+  });
+}
+
+export async function getStorageByHost(host: string) {
+  const ret: { [key: string]: string } = {};
+  for await (const [key, value] of storageDb.sublevel(host).iterator()) {
     ret[key] = value;
   }
   return ret;

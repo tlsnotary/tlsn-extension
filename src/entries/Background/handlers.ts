@@ -5,7 +5,6 @@ import browser from 'webextension-polyfill';
 import { addRequest } from '../../reducers/requests';
 import { urlify } from '../../utils/misc';
 import { setCookies, setHeaders } from './db';
-
 export const onSendHeaders = (
   details: browser.WebRequest.OnSendHeadersDetailsType,
 ) => {

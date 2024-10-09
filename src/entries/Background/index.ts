@@ -3,46 +3,22 @@ import { deleteCacheByTabId } from './cache';
 import browser from 'webextension-polyfill';
 import { getAppState, setDefaultPluginsInstalled } from './db';
 import { installPlugin } from './plugins/utils';
+import { BackgroundActiontype } from './rpc';
+import { setStorage } from './db';
 
 (async () => {
-  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.type === 'GET_LOCAL_STORAGE') {
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        chrome.tabs.sendMessage(tabs[0].id as number, request, (response) => {
-          if (chrome.runtime.lastError) {
-            console.error(
-              'Error in content script communication:',
-              chrome.runtime.lastError.message,
-            );
-            sendResponse({
-              success: false,
-              error: chrome.runtime.lastError.message,
-            });
-          } else {
-            sendResponse(response);
-          }
-        });
-      });
-      return true;
-    }
-    if (request.type === 'GET_SESSION_STORAGE') {
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        chrome.tabs.sendMessage(tabs[0].id as number, request, (response) => {
-          if (chrome.runtime.lastError) {
-            console.error(
-              'Error in content script communication:',
-              chrome.runtime.lastError.message,
-            );
-            sendResponse({
-              success: false,
-              error: chrome.runtime.lastError.message,
-            });
-          } else {
-            sendResponse(response);
-          }
-        });
-      });
-      return true;
+
+  chrome.runtime.onMessage.addListener(async (request, sender) => {
+    if (
+      request.type === BackgroundActiontype.get_browser_storage &&
+      sender.tab?.url
+    ) {
+      const url = new URL(sender.tab.url);
+      const hostname = url.hostname;
+      const storage: { [key: string]: string } = request.storage;
+      for (const [key, value] of Object.entries(storage)) {
+        await setStorage(hostname, key, value);
+      }
     }
   });
 
