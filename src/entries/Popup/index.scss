@@ -9,14 +9,7 @@ $fa-font-path: "~@fortawesome/fontawesome-free/webfonts";
 @import "../../../node_modules/@fortawesome/fontawesome-free/scss/solid";
 @import "../../../node_modules/@fortawesome/fontawesome-free/scss/regular";
 
-@font-face {
-  font-family: 'Inter';
-  src: url('../../assets/fonts/Inter/Inter-regular.ttf') format('ttf'),
-       url('../../assets/fonts/Inter/Inter-italic.ttf') format('ttf');
-  font-weight: normal;
-  font-style: normal;
-}
-
+ 
  
 
 body {
