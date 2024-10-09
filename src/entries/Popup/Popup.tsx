@@ -104,7 +104,7 @@ const Popup = () => {
         <Route path="/notary/:requestId" element={<Notarize />} />
         <Route path="/verify/:requestId/*" element={<ProofViewer />} />
         <Route path="/verify" element={<ProofUploader />} />
-        {/*<Route path="/history" element={<History />} />*/}
+        <Route path="/history" element={<Home tab="history" />} />
         <Route path="/requests" element={<Home tab="network" />} />
         <Route path="/custom/*" element={<RequestBuilder />} />
         <Route path="/options" element={<Options />} />

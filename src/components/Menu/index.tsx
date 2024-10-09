@@ -1,6 +1,7 @@
 import React, {
   MouseEventHandler,
   ReactElement,
+  ReactNode,
   useCallback,
   useState,
 } from 'react';
@@ -8,6 +9,7 @@ import Icon from '../Icon';
 import browser from 'webextension-polyfill';
 import classNames from 'classnames';
 import { useNavigate } from 'react-router';
+import PluginUploadInfo from '../PluginInfo';
 
 export function MenuIcon(): ReactElement {
   const [opened, setOpen] = useState(false);
@@ -53,34 +55,40 @@ export default function Menu(props: {
       <div className="flex flex-col bg-slate-200 w-40 shadow rounded-md py">
         <MenuRow
           fa="fa-solid fa-plus"
-          label="Install Plugin"
+          className="relative"
           onClick={() => {
             props.setOpen(false);
           }}
-        />
+        >
+          <PluginUploadInfo />
+          <span>Install Plugin</span>
+        </MenuRow>
         <MenuRow
           fa="fa-solid fa-toolbox"
-          label="Plugins"
           className="border-b border-slate-300"
           onClick={() => {
             props.setOpen(false);
             navigate('/plugins');
           }}
-        />
+        >
+          Plugins
+        </MenuRow>
         <MenuRow
           className="lg:hidden"
           fa="fa-solid fa-up-right-and-down-left-from-center"
-          label="Expand"
           onClick={openExtensionInPage}
-        />
+        >
+          Expand
+        </MenuRow>
         <MenuRow
           fa="fa-solid fa-gear"
-          label="Options"
           onClick={() => {
             props.setOpen(false);
             navigate('/options');
           }}
-        />
+        >
+          Options
+        </MenuRow>
       </div>
     </div>
   );
@@ -88,20 +96,20 @@ export default function Menu(props: {
 
 function MenuRow(props: {
   fa: string;
-  label: string;
+  children?: ReactNode;
   onClick?: MouseEventHandler;
   className?: string;
 }): ReactElement {
   return (
     <div
       className={classNames(
-        'flex flex-row items-center py-3 px-4 gap-2 hover:bg-slate-300 cursor-pointer text-slate-800 hover:text-slate-900',
+        'flex flex-row items-center py-3 px-4 gap-2 hover:bg-slate-300 cursor-pointer text-slate-800 hover:text-slate-900 font-semibold',
         props.className,
       )}
       onClick={props.onClick}
     >
       <Icon size={0.875} fa={props.fa} />
-      <div className="font-semibold">{props.label}</div>
+      {props.children}
     </div>
   );
 }

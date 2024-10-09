@@ -235,7 +235,7 @@ function StepContent(
         )}
         onClick={viewProofInPopup}
       >
-        <span className="text-sm">View Proof</span>
+        <span className="text-sm">View</span>
       </button>
     );
   } else if (notaryRequest?.status === 'pending' || pending || notarizationId) {
