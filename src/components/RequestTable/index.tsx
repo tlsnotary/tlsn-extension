@@ -38,7 +38,7 @@ export default function RequestTable(props: Props): ReactElement {
   const result = query ? fuse.search(query) : null;
   const list = result ? result.map((r) => r.item) : requests;
 
-  const firstGraphqlRequest = list.find((r) => r.url.includes('graphql'));
+  const firstGraphqlRequest = list.find((r) => r.type.includes('main_frame'));
 
   const reset = useCallback(async () => {
     await chrome.runtime.sendMessage({

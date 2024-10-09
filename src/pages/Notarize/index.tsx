@@ -118,7 +118,6 @@ export default function Notarize(): ReactElement {
   );
 }
 
-
 export function RevealHeaderStep(props: {
   onNext: () => void;
   onCancel: () => void;

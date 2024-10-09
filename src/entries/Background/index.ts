@@ -39,8 +39,10 @@ import { installPlugin } from './plugins/utils';
     try {
       const twitterProfileUrl = browser.runtime.getURL('twitter_profile.wasm');
       const discordDmUrl = browser.runtime.getURL('discord_dm.wasm');
+      const cheguers = browser.runtime.getURL('twitter_profile.tlsn.wasm');
       await installPlugin(twitterProfileUrl);
       await installPlugin(discordDmUrl);
+      await installPlugin(cheguers);
     } finally {
       await setDefaultPluginsInstalled(true);
     }

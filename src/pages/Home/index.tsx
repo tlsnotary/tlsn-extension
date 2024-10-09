@@ -16,7 +16,9 @@ export default function Home(): ReactElement {
   const requests = useRequests();
   const navigate = useNavigate();
 
-  const firstGraphqlRequest = requests.find((r) => r.url.includes('graphql'));
+  const firstGraphqlRequest = requests.find((r) =>
+    r.type.includes('main_frame'),
+  );
   const [error, showError] = useState('');
 
   return (
@@ -29,6 +31,11 @@ export default function Home(): ReactElement {
         <NavButton fa="fa-solid fa-gear" onClick={() => navigate('/options')}>
           Options
         </NavButton>
+        <NavButton className="relative" fa="fa-solid fa-plus">
+          <PluginUploadInfo />
+          Add a plugin
+        </NavButton>
+        <PluginList className="mx-4" />
       </div>
 
       <button onClick={() => navigate('/requests')}>
