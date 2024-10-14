@@ -326,18 +326,18 @@ export type StepConfig = {
 };
 
 export type PluginConfig = {
-  title: string;
-  description: string;
-  icon?: string;
-  steps?: StepConfig[];
-  hostFunctions?: string[];
-  cookies?: string[];
-  headers?: string[];
-  localStorage: string[];
-  sessionStorage: string[];
-  requests: { method: string; url: string }[];
-  notaryUrls?: string[];
-  proxyUrls?: string[];
+  title: string; // The name of the plugin
+  description: string; // A description of the plugin purpose
+  icon?: string; // A base64-encoded image string representing the plugin's icon (optional)
+  steps?: StepConfig[]; // An array describing the UI steps and behavior (see Step UI below) (optional)
+  hostFunctions?: string[]; // Host functions that the plugin will have access to
+  cookies?: string[]; // Cookies the plugin will have access to, cached by the extension from specified hosts (optional)
+  headers?: string[]; // Headers the plugin will have access to, cached by the extension from specified hosts (optional)
+  localStorage: string[]; // LocalStorage the plugin will have access to, cached by the extension from specified hosts
+  sessionStorage: string[]; // SessionStorage the plugin will have access to, cached by the extension from specified hosts
+  requests: { method: string; url: string }[]; // List of requests that the plugin is allowed to make
+  notaryUrls?: string[]; // List of notary services that the plugin is allowed to use (optional)
+  proxyUrls?: string[]; // List of websocket proxies that the plugin is allowed to use (optional)
 };
 
 export type PluginMetadata = {
