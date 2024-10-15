@@ -89,6 +89,7 @@ export enum BackgroundActiontype {
   get_logging_level = 'get_logging_level',
   get_app_state = 'get_app_state',
   set_default_plugins_installed = 'set_default_plugins_installed',
+  get_browser_storage = 'get_browser_storage',
 }
 
 export type BackgroundAction = {

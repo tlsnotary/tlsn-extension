@@ -14,7 +14,7 @@ import NodeCache from 'node-cache';
 import { getNotaryApi, getProxyApi } from './storage';
 import { minimatch } from 'minimatch';
 import { getCookiesByHost, getHeadersByHost } from '../entries/Background/db';
-
+import { getStorageByHost } from '../entries/Background/db';
 const charwise = require('charwise');
 
 export function urlify(
@@ -233,7 +233,6 @@ export const makePlugin = async (
       return context.store(`${id}`);
     },
   };
-
   const funcs: {
     [key: string]: (callContext: CallContext, ...args: any[]) => any;
   } = {};
@@ -248,6 +247,41 @@ export const makePlugin = async (
     for (const fn of config.hostFunctions) {
       funcs[fn] = HostFunctions[fn];
     }
+  }
+
+  if (config?.localStorage) {
+    const localStorage: { [hostname: string]: { [key: string]: string } } = {};
+    for (const host of config.localStorage) {
+      const cache = await getStorageByHost(host);
+
+      const localStorageEntries: { [key: string]: string } = {};
+      for (const [key, value] of Object.entries(cache)) {
+        if (key.startsWith('localStorage')) {
+          localStorageEntries[key.replace('localStorage:', '')] = value;
+        }
+      }
+      localStorage[host] = localStorageEntries;
+    }
+    // @ts-ignore
+    injectedConfig.localStorage = JSON.stringify(localStorage);
+  }
+
+  if (config?.sessionStorage) {
+    const sessionStorage: { [hostname: string]: { [key: string]: string } } =
+      {};
+    for (const host of config.sessionStorage) {
+      const cache = await getStorageByHost(host);
+
+      const sessionStorageEntries: { [key: string]: string } = {};
+      for (const [key, value] of Object.entries(cache)) {
+        if (key.startsWith('sessionStorage')) {
+          sessionStorageEntries[key.replace('sessionStorage:', '')] = value;
+        }
+      }
+      sessionStorage[host] = sessionStorageEntries;
+    }
+    // @ts-ignore
+    injectedConfig.sessionStorage = JSON.stringify(sessionStorage);
   }
 
   if (config?.cookies) {
@@ -293,12 +327,14 @@ export type StepConfig = {
 
 export type PluginConfig = {
   title: string; // The name of the plugin
-  description: string; // A description of the plugin's purpose
+  description: string; // A description of the plugin purpose
   icon?: string; // A base64-encoded image string representing the plugin's icon (optional)
   steps?: StepConfig[]; // An array describing the UI steps and behavior (see Step UI below) (optional)
   hostFunctions?: string[]; // Host functions that the plugin will have access to
   cookies?: string[]; // Cookies the plugin will have access to, cached by the extension from specified hosts (optional)
   headers?: string[]; // Headers the plugin will have access to, cached by the extension from specified hosts (optional)
+  localStorage?: string[]; // LocalStorage the plugin will have access to, cached by the extension from specified hosts (optional)
+  sessionStorage?: string[]; // SessionStorage the plugin will have access to, cached by the extension from specified hosts (optional)
   requests: { method: string; url: string }[]; // List of requests that the plugin is allowed to make
   notaryUrls?: string[]; // List of notary services that the plugin is allowed to use (optional)
   proxyUrls?: string[]; // List of websocket proxies that the plugin is allowed to use (optional)
@@ -348,7 +384,16 @@ export const getPluginConfig = async (
       assert(typeof name === 'string' && name.length);
     }
   }
-
+  if (config.localStorage) {
+    for (const name of config.localStorage) {
+      assert(typeof name === 'string' && name.length);
+    }
+  }
+  if (config.sessionStorage) {
+    for (const name of config.sessionStorage) {
+      assert(typeof name === 'string' && name.length);
+    }
+  }
   if (config.headers) {
     for (const name of config.headers) {
       assert(typeof name === 'string' && name.length);
