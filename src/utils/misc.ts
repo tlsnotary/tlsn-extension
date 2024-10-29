@@ -207,24 +207,34 @@ export const makePlugin = async (
           body: reqBody,
         } = params;
         let secretResps;
-        const resp = await fetch(url, {
-          method,
-          headers,
-          body: reqBody,
-        });
-        const body = await extractBodyFromResponse(resp);
 
-        if (getSecretResponse) {
-          const out = await plugin.call(getSecretResponse, body);
-          secretResps = JSON.parse(out.string());
-        }
+        // const resp = await fetch(url, {
+        //   method,
+        //   headers,
+        //   body: reqBody,
+        // });
+        // const body = await extractBodyFromResponse(resp);
+        // console.log('pre', body);
+        //
+        // if (getSecretResponse) {
+        //   const out = await plugin.call(getSecretResponse, body);
+        //   secretResps = JSON.parse(out.string());
+        //   console.log({ secretResps });
+        // }
 
         handleExecPluginProver({
           type: BackgroundActiontype.execute_plugin_prover,
           data: {
             ...params,
             body: reqBody,
-            secretResps,
+            getSecretResponse: async (body: string) => {
+              return new Promise((resolve) => {
+                setTimeout(async () => {
+                  const out = await plugin.call(getSecretResponse, body);
+                  resolve(JSON.parse(out.string()));
+                }, 0);
+              });
+            },
             now,
           },
         });

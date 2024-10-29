@@ -46,6 +46,7 @@ import { deferredPromise } from '../../utils/promise';
 import { minimatch } from 'minimatch';
 import { OffscreenActionTypes } from '../Offscreen/types';
 import { SidePanelActionTypes } from '../SidePanel/types';
+import { subtractRanges } from '../Offscreen/utils';
 
 const charwise = require('charwise');
 
@@ -382,8 +383,9 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
     method,
     headers,
     body,
-    secretHeaders,
-    secretResps,
+    secretHeaders = [],
+    // secretResps,
+    getSecretResponse,
     notaryUrl: _notaryUrl,
     websocketProxyUrl: _websocketProxyUrl,
     maxSentData: _maxSentData,
@@ -394,33 +396,130 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
   const maxSentData = _maxSentData || (await getMaxSent());
   const maxRecvData = _maxRecvData || (await getMaxRecv());
 
-  const { id } = await addNotaryRequest(now, {
-    url,
-    method,
-    headers,
-    body,
-    notaryUrl,
-    websocketProxyUrl,
-    maxRecvData,
-    maxSentData,
-    secretHeaders,
-    secretResps,
-  });
+  let secretResps: string[] = [];
 
-  await setNotaryRequestStatus(id, 'pending');
+  // const { id } = await addNotaryRequest(now, {
+  //   url,
+  //   method,
+  //   headers,
+  //   body,
+  //   notaryUrl,
+  //   websocketProxyUrl,
+  //   maxRecvData,
+  //   maxSentData,
+  //   secretHeaders,
+  //   secretResps,
+  // });
+  //
+  // await setNotaryRequestStatus(id, 'pending');
+  //
+  // await browser.runtime.sendMessage({
+  //   type: BackgroundActiontype.push_action,
+  //   data: {
+  //     tabId: 'background',
+  //   },
+  //   action: addRequestHistory(await getNotaryRequest(id)),
+  // });
 
-  await browser.runtime.sendMessage({
-    type: BackgroundActiontype.push_action,
+  const onProverResponse = async (request: any) => {
+    const { data, type } = request;
+
+    if (type !== OffscreenActionTypes.create_prover_response) {
+      return;
+    }
+
+    if (data.error) {
+      console.error(data.error);
+      return;
+    }
+
+    if (data.id !== now) {
+      return;
+    }
+
+    if (getSecretResponse) {
+      console.log('getting secret response');
+      const {
+        recv,
+        ranges: {
+          recv: {
+            body: { start },
+            all: { end },
+          },
+        },
+      } = data.transcript;
+      secretResps = await getSecretResponse(recv.slice(start, end));
+    }
+
+    const commit = {
+      sent: subtractRanges(
+        data.transcript.ranges.sent.all,
+        secretHeaders
+          .map((secret: string) => {
+            const index = data.transcript.sent.indexOf(secret);
+            return index > -1
+              ? {
+                  start: index,
+                  end: index + secret.length,
+                }
+              : null;
+          })
+          .filter((data: any) => !!data) as { start: number; end: number }[],
+      ),
+      recv: subtractRanges(
+        data.transcript.ranges.recv.all,
+        secretResps
+          .map((secret: string) => {
+            const index = data.transcript.recv.indexOf(secret);
+            return index > -1
+              ? {
+                  start: index,
+                  end: index + secret.length,
+                }
+              : null;
+          })
+          .filter((data: any) => !!data) as { start: number; end: number }[],
+      ),
+    };
+
+    browser.runtime.sendMessage({
+      type: OffscreenActionTypes.create_presentation_request,
+      data: {
+        id: now,
+        commit,
+      },
+    });
+
+    browser.runtime.onMessage.removeListener(onProverResponse);
+  };
+
+  const onPresentationResponse = async (request: any) => {
+    const { data, type } = request;
+
+    if (type !== OffscreenActionTypes.create_presentation_response) {
+      return;
+    }
+
+    if (data.error) {
+      console.error(data.error);
+      return;
+    }
+
+    if (data.id !== now) {
+      return;
+    }
+
+    console.log(request);
+    browser.runtime.onMessage.removeListener(onPresentationResponse);
+  };
+
+  browser.runtime.onMessage.addListener(onProverResponse);
+  browser.runtime.onMessage.addListener(onPresentationResponse);
+
+  browser.runtime.sendMessage({
+    type: OffscreenActionTypes.create_prover_request,
     data: {
-      tabId: 'background',
-    },
-    action: addRequestHistory(await getNotaryRequest(id)),
-  });
-
-  await browser.runtime.sendMessage({
-    type: BackgroundActiontype.process_prove_request,
-    data: {
-      id,
+      id: now,
       url,
       method,
       headers,
@@ -429,8 +528,6 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
       websocketProxyUrl,
       maxRecvData,
       maxSentData,
-      secretHeaders,
-      secretResps,
     },
   });
 }

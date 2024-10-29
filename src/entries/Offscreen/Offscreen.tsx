@@ -14,11 +14,14 @@ import { BackgroundActiontype } from '../Background/rpc';
 import browser from 'webextension-polyfill';
 import { PresentationJSON } from '../../utils/types';
 import { PresentationJSON as PresentationJSONa7 } from 'tlsn-js/build/types';
-import { Method } from 'tlsn-js/wasm/pkg';
+import { Commit, Method } from 'tlsn-wasm';
+import { subtractRanges } from './utils';
 
 const { init, Prover, Presentation }: any = Comlink.wrap(
   new Worker(new URL('./worker.ts', import.meta.url)),
 );
+
+const provers: { [id: string]: TProver } = {};
 
 const Offscreen = () => {
   useEffect(() => {
@@ -72,6 +75,76 @@ const Offscreen = () => {
               }
             })();
 
+            break;
+          }
+          case OffscreenActionTypes.create_prover_request: {
+            const { id } = request.data;
+
+            (async () => {
+              try {
+                const prover = await createProver(request.data);
+
+                provers[id] = prover;
+
+                browser.runtime.sendMessage({
+                  type: OffscreenActionTypes.create_prover_response,
+                  data: {
+                    id,
+                    transcript: await prover.transcript(),
+                  },
+                });
+              } catch (error) {
+                console.error(error);
+                browser.runtime.sendMessage({
+                  type: OffscreenActionTypes.create_prover_response,
+                  data: {
+                    id,
+                    error,
+                  },
+                });
+              }
+            })();
+            break;
+          }
+          case OffscreenActionTypes.create_presentation_request: {
+            const { id, commit } = request.data;
+            (async () => {
+              const prover = provers[id];
+
+              try {
+                if (!prover) throw new Error(`Cannot find prover ${id}.`);
+
+                const notarizationOutputs = await prover.notarize(commit);
+
+                const presentation = (await new Presentation({
+                  attestationHex: notarizationOutputs.attestation,
+                  secretsHex: notarizationOutputs.secrets,
+                  notaryUrl: notarizationOutputs.notaryUrl,
+                  websocketProxyUrl: notarizationOutputs.websocketProxyUrl,
+                  reveal: commit,
+                })) as TPresentation;
+                const presentationJSON = await presentation.json();
+
+                browser.runtime.sendMessage({
+                  type: OffscreenActionTypes.create_presentation_response,
+                  data: {
+                    id,
+                    presentation: presentationJSON,
+                  },
+                });
+
+                delete provers[id];
+              } catch (error) {
+                console.error(error);
+                browser.runtime.sendMessage({
+                  type: OffscreenActionTypes.create_presentation_response,
+                  data: {
+                    id,
+                    error,
+                  },
+                });
+              }
+            })();
             break;
           }
           case BackgroundActiontype.process_prove_request: {
@@ -140,46 +213,6 @@ const Offscreen = () => {
 };
 
 export default Offscreen;
-
-function subtractRanges(
-  ranges: { start: number; end: number },
-  negatives: { start: number; end: number }[],
-): { start: number; end: number }[] {
-  const returnVal: { start: number; end: number }[] = [ranges];
-
-  negatives
-    .sort((a, b) => (a.start < b.start ? -1 : 1))
-    .forEach(({ start, end }) => {
-      const last = returnVal.pop()!;
-
-      if (start < last.start || end > last.end) {
-        console.error('invalid ranges');
-        return;
-      }
-
-      if (start === last.start && end === last.end) {
-        return;
-      }
-
-      if (start === last.start && end < last.end) {
-        returnVal.push({ start: end, end: last.end });
-        return;
-      }
-
-      if (start > last.start && end < last.end) {
-        returnVal.push({ start: last.start, end: start });
-        returnVal.push({ start: end, end: last.end });
-        return;
-      }
-
-      if (start > last.start && end === last.end) {
-        returnVal.push({ start: last.start, end: start });
-        return;
-      }
-    });
-
-  return returnVal;
-}
 
 async function createProof(options: {
   url: string;
@@ -270,8 +303,54 @@ async function createProof(options: {
     websocketProxyUrl: notarizationOutputs.websocketProxyUrl,
     reveal: commit,
   })) as TPresentation;
-  const presentationJSON = await presentation.json();
-  return presentationJSON;
+
+  return presentation.json();
+}
+
+async function createProver(options: {
+  url: string;
+  notaryUrl: string;
+  websocketProxyUrl: string;
+  method?: Method;
+  headers?: {
+    [name: string]: string;
+  };
+  body?: any;
+  maxSentData?: number;
+  maxRecvData?: number;
+  id: string;
+}): Promise<TProver> {
+  const {
+    url,
+    method = 'GET',
+    headers = {},
+    body,
+    maxSentData,
+    maxRecvData,
+    notaryUrl,
+    websocketProxyUrl,
+    id,
+  } = options;
+
+  const hostname = urlify(url)?.hostname || '';
+  const notary = NotaryServer.from(notaryUrl);
+  const prover: TProver = await new Prover({
+    id,
+    serverDns: hostname,
+    maxSentData,
+    maxRecvData,
+  });
+
+  await prover.setup(await notary.sessionUrl(maxSentData, maxRecvData));
+
+  await prover.sendRequest(websocketProxyUrl + `?token=${hostname}`, {
+    url,
+    method,
+    headers,
+    body,
+  });
+
+  return prover;
 }
 
 async function verifyProof(
