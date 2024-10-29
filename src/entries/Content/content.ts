@@ -116,3 +116,5 @@ const connect = async () => {
 window.tlsn = {
   connect,
 };
+
+window.dispatchEvent(new CustomEvent('tlsn_loaded'));
