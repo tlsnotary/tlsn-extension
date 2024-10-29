@@ -20,8 +20,6 @@ import {
   usePluginConfig,
   usePluginHashes,
 } from '../../reducers/plugins';
-import { PluginConfig } from '../../utils/misc';
-import { getPluginConfigByHash } from '../../entries/Background/db';
 import { fetchPluginHashes } from '../../utils/rpc';
 import DefaultPluginIcon from '../../assets/img/default-plugin-icon.png';
 
@@ -211,6 +209,8 @@ function PluginIcon({ hash }: { hash: string }) {
     if (!config) return;
     onPluginClick();
   }, [onPluginClick, config]);
+
+  if (!config) return null;
 
   return (
     <button

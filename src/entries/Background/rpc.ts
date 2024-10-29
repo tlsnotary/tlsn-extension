@@ -921,6 +921,11 @@ async function handleInstallPluginRequest(request: BackgroundAction) {
         try {
           const hex = Buffer.from(arrayBuffer).toString('hex');
           const hash = await addPlugin(hex);
+
+          if (!hash) {
+            throw new Error('Plugin already exist.');
+          }
+
           await addPluginConfig(hash!, config);
           await addPluginMetadata(hash!, {
             ...metadata,
