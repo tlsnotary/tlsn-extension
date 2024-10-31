@@ -126,10 +126,10 @@ const Offscreen = () => {
                 const presentationJSON = await presentation.json();
 
                 browser.runtime.sendMessage({
-                  type: OffscreenActionTypes.create_presentation_response,
+                  type: BackgroundActiontype.finish_prove_request,
                   data: {
                     id,
-                    presentation: presentationJSON,
+                    proof: presentationJSON,
                   },
                 });
 
@@ -137,7 +137,7 @@ const Offscreen = () => {
               } catch (error) {
                 console.error(error);
                 browser.runtime.sendMessage({
-                  type: OffscreenActionTypes.create_presentation_response,
+                  type: BackgroundActiontype.finish_prove_request,
                   data: {
                     id,
                     error,

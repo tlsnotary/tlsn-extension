@@ -34,6 +34,7 @@ import {
   hexToArrayBuffer,
   makePlugin,
   PluginConfig,
+  safeParseJSON,
 } from '../../utils/misc';
 import {
   getLoggingFilter,
@@ -384,8 +385,8 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
     headers,
     body,
     secretHeaders = [],
-    // secretResps,
     getSecretResponse,
+    getSecretResponseFn,
     notaryUrl: _notaryUrl,
     websocketProxyUrl: _websocketProxyUrl,
     maxSentData: _maxSentData,
@@ -398,28 +399,28 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
 
   let secretResps: string[] = [];
 
-  // const { id } = await addNotaryRequest(now, {
-  //   url,
-  //   method,
-  //   headers,
-  //   body,
-  //   notaryUrl,
-  //   websocketProxyUrl,
-  //   maxRecvData,
-  //   maxSentData,
-  //   secretHeaders,
-  //   secretResps,
-  // });
-  //
-  // await setNotaryRequestStatus(id, 'pending');
-  //
-  // await browser.runtime.sendMessage({
-  //   type: BackgroundActiontype.push_action,
-  //   data: {
-  //     tabId: 'background',
-  //   },
-  //   action: addRequestHistory(await getNotaryRequest(id)),
-  // });
+  const { id } = await addNotaryRequest(now, {
+    url,
+    method,
+    headers,
+    body,
+    notaryUrl,
+    websocketProxyUrl,
+    maxRecvData,
+    maxSentData,
+    secretHeaders,
+    secretResps,
+  });
+
+  await setNotaryRequestStatus(id, 'pending');
+
+  await browser.runtime.sendMessage({
+    type: BackgroundActiontype.push_action,
+    data: {
+      tabId: 'background',
+    },
+    action: addRequestHistory(await getNotaryRequest(id)),
+  });
 
   const onProverResponse = async (request: any) => {
     const { data, type } = request;
@@ -433,22 +434,15 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
       return;
     }
 
-    if (data.id !== now) {
+    if (data.id !== id) {
       return;
     }
 
     if (getSecretResponse) {
-      console.log('getting secret response');
-      const {
-        recv,
-        ranges: {
-          recv: {
-            body: { start },
-            all: { end },
-          },
-        },
-      } = data.transcript;
-      secretResps = await getSecretResponse(recv.slice(start, end));
+      const body = data.transcript.recv
+        .split('\r\n')
+        .filter((txt: string) => safeParseJSON(txt))[0];
+      secretResps = await getSecretResponseFn(body);
     }
 
     const commit = {
@@ -485,7 +479,7 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
     browser.runtime.sendMessage({
       type: OffscreenActionTypes.create_presentation_request,
       data: {
-        id: now,
+        id,
         commit,
       },
     });
@@ -493,33 +487,12 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
     browser.runtime.onMessage.removeListener(onProverResponse);
   };
 
-  const onPresentationResponse = async (request: any) => {
-    const { data, type } = request;
-
-    if (type !== OffscreenActionTypes.create_presentation_response) {
-      return;
-    }
-
-    if (data.error) {
-      console.error(data.error);
-      return;
-    }
-
-    if (data.id !== now) {
-      return;
-    }
-
-    console.log(request);
-    browser.runtime.onMessage.removeListener(onPresentationResponse);
-  };
-
   browser.runtime.onMessage.addListener(onProverResponse);
-  browser.runtime.onMessage.addListener(onPresentationResponse);
 
   browser.runtime.sendMessage({
     type: OffscreenActionTypes.create_prover_request,
     data: {
-      id: now,
+      id,
       url,
       method,
       headers,

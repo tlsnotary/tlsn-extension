@@ -109,6 +109,7 @@ function PluginBody(props: {
       <div className="flex flex-col items-start gap-8 mt-8">
         {steps?.map((step, i) => (
           <StepContent
+            key={i}
             hash={hash}
             index={i}
             setResponse={setResponse}
