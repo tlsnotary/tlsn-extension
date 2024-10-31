@@ -116,21 +116,21 @@ function ActionPanel({
   const [isOverflow, setOverflow] = useState(false);
   const [expanded, setExpand] = useState(false);
 
-  useEffect(() => {
+  const onCheckSize = useCallback(() => {
     const element = container.current;
 
     if (!element) return;
 
     setActionPanelElement(element);
 
-    const onCheckSize = () => {
-      if (element.scrollWidth > element.clientWidth) {
-        setOverflow(true);
-      } else {
-        setOverflow(false);
-      }
-    };
+    if (element.scrollWidth > element.clientWidth) {
+      setOverflow(true);
+    } else {
+      setOverflow(false);
+    }
+  }, [container]);
 
+  useEffect(() => {
     onCheckSize();
 
     window.addEventListener('resize', onCheckSize);
@@ -138,7 +138,7 @@ function ActionPanel({
     return () => {
       window.removeEventListener('resize', onCheckSize);
     };
-  }, [container, pluginHashes]);
+  }, [onCheckSize, pluginHashes]);
 
   useEffect(() => {
     const element = container.current;
@@ -187,11 +187,11 @@ function ActionPanel({
         P2P
       </NavButton>
       {pluginHashes.map((hash) => (
-        <PluginIcon hash={hash} />
+        <PluginIcon hash={hash} onCheckSize={onCheckSize} />
       ))}
       <button
         className={
-          'flex flex-row items-center justify-center self-start rounded relative border-2 border-dashed border-slate-300 hover:border-slate-400 text-slate-300 hover:text-slate-400 h-16 w-16 mx-1'
+          'flex flex-row shrink-0 items-center justify-center self-start rounded relative border-2 border-dashed border-slate-300 hover:border-slate-400 text-slate-300 hover:text-slate-400 h-16 w-16 mx-1'
         }
         title="Install a plugin"
       >
@@ -214,7 +214,13 @@ function ActionPanel({
   );
 }
 
-function PluginIcon({ hash }: { hash: string }) {
+function PluginIcon({
+  hash,
+  onCheckSize,
+}: {
+  hash: string;
+  onCheckSize: () => void;
+}) {
   const config = usePluginConfig(hash);
   const onPluginClick = useOnPluginClick(hash);
 
@@ -227,9 +233,12 @@ function PluginIcon({ hash }: { hash: string }) {
 
   return (
     <button
+      ref={() => {
+        onCheckSize();
+      }}
       className={classNames(
         'flex flex-col flex-nowrap items-center justify-center',
-        'text-white px-2 py-1 gap-1 opacity-90 hover:opacity-100',
+        'text-white px-2 py-1 gap-1 opacity-90 hover:opacity-100 w-18',
       )}
       onClick={onClick}
     >
@@ -282,12 +291,12 @@ function NavButton(props: {
     <button
       className={classNames(
         'flex flex-col flex-nowrap items-center justify-center',
-        'text-white px-2 py-1 gap-1 opacity-90 hover:opacity-100',
         // {
         //   'bg-primary/[.8] hover:bg-primary/[.7] active:bg-primary':
         //     !props.disabled,
         //   'bg-primary/[.5]': props.disabled,
         // },
+        'text-white px-2 py-1 gap-1 opacity-90 hover:opacity-100 w-18',
         props.className,
       )}
       onClick={props.onClick}
