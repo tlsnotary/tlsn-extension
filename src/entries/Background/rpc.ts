@@ -68,6 +68,7 @@ import {
   startedVerifier,
   startedProver,
   endProofRequest,
+  setupProver,
 } from './ws';
 
 const charwise = require('charwise');
@@ -130,6 +131,7 @@ export enum BackgroundActiontype {
   start_proof_request = 'start_proof_request',
   proof_request_end = 'proof_request_end',
   verifier_started = 'verifier_started',
+  prover_setup = 'prover_setup',
   prover_started = 'prover_started',
   get_p2p_state = 'get_p2p_state',
   request_p2p_proof = 'request_p2p_proof',
@@ -289,6 +291,9 @@ export const initRPC = () => {
           return;
         case BackgroundActiontype.prover_started:
           startedProver(request.data.pluginHash).then(sendResponse);
+          return;
+        case BackgroundActiontype.prover_setup:
+          setupProver(request.data.pluginHash).then(sendResponse);
           return;
         case BackgroundActiontype.request_p2p_proof:
           requestProof(request.data).then(sendResponse);

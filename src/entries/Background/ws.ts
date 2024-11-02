@@ -220,6 +220,16 @@ export const connectSession = async () => {
         });
         break;
       }
+      case 'prover_setup': {
+        const { pluginHash } = message.params;
+        browser.runtime.sendMessage({
+          type: OffscreenActionTypes.prover_setup,
+          data: {
+            pluginHash: pluginHash,
+          },
+        });
+        break;
+      }
       case 'prover_started': {
         const { pluginHash } = message.params;
         browser.runtime.sendMessage({
@@ -534,6 +544,23 @@ export const startedProver = async (pluginHash: string) => {
     socket.send(
       bufferify({
         method: 'prover_started',
+        params: {
+          from: clientId,
+          to: pairing,
+          pluginHash,
+          id: state.reqId++,
+        },
+      }),
+    );
+  }
+};
+
+export const setupProver = async (pluginHash: string) => {
+  const { socket, clientId, pairing } = state;
+  if (socket && clientId && pairing) {
+    socket.send(
+      bufferify({
+        method: 'prover_setup',
         params: {
           from: clientId,
           to: pairing,

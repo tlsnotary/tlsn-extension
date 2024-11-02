@@ -177,7 +177,7 @@ function ActionPanel({
       </NavButton>
       <NavButton
         className={'relative'}
-        fa="fa-solid fa-circle"
+        fa="fa-solid fa-network-wired"
         iconSize={0.5}
         iconClassName={classNames({
           '!text-green-500': clientId,
@@ -304,7 +304,10 @@ function NavButton(props: {
       title={props.title}
     >
       <Icon
-        className="w-8 h-8 rounded-full bg-primary flex flex-row items-center justify-center flex-grow-0 flex-shrink-0"
+        className={classNames(
+          'w-8 h-8 rounded-full bg-primary flex flex-row items-center justify-center flex-grow-0 flex-shrink-0',
+          props.iconClassName,
+        )}
         fa={props.fa}
         size={0.875}
       />

@@ -29,31 +29,10 @@ const provers: { [id: string]: TProver } = {};
 
 const Offscreen = () => {
   useEffect(() => {
-    const P2PProvers: Map<
-      string,
-      {
-        prover: TProver;
-        params: {
-          pluginHash: string;
-          url: string;
-          method: Method;
-          headers: { [name: string]: string };
-          body?: any;
-          proverUrl: string;
-          websocketProxyUrl: string;
-          maxRecvData: number;
-          maxSentData: number;
-          secretHeaders: string[];
-          secretResps: string[];
-        };
-      }
-    > = new Map();
-    const P2PVerifier: Map<string, TVerifier> = new Map();
-
     (async () => {
       const loggingLevel = await browser.runtime.sendMessage({
         type: BackgroundActiontype.get_logging_level,
-        hardwareConcurrency: 1,
+        hardwareConcurrency: navigator.hardwareConcurrency,
       });
       await init({ loggingLevel });
       // @ts-ignore
@@ -237,17 +216,33 @@ const Offscreen = () => {
                 verifierUrl,
                 peerId,
               } = request.data;
+
+              console.log('verifier', {
+                pluginHash,
+                maxSentData,
+                maxRecvData,
+                verifierUrl,
+              });
               const verifier: TVerifier = await new Verifier({
                 id: pluginHash,
-                max_sent_data: maxSentData,
-                max_recv_data: maxRecvData,
+                maxSentData: maxSentData,
+                maxRecvData: maxRecvData,
               });
 
               await verifier.connect(verifierUrl);
-              // await new Promise((r) => setTimeout(r, 10000));
+              // await new Promise((r) => setTimeout(r, 5000));
               const proverStarted = waitForEvent(
                 OffscreenActionTypes.prover_started,
               );
+
+              browser.runtime.sendMessage({
+                type: BackgroundActiontype.verifier_started,
+                data: {
+                  pluginHash,
+                },
+              });
+
+              await waitForEvent(OffscreenActionTypes.prover_setup);
 
               verifier.verify().then((res) => {
                 console.log(res);
@@ -261,13 +256,7 @@ const Offscreen = () => {
                 });
               });
 
-              browser.runtime.sendMessage({
-                type: BackgroundActiontype.verifier_started,
-                data: {
-                  pluginHash,
-                },
-              });
-
+              // await new Promise((r) => setTimeout(r, 5000));
               await proverStarted;
 
               browser.runtime.sendMessage({
@@ -296,6 +285,13 @@ const Offscreen = () => {
               } = request.data;
 
               const hostname = urlify(url)?.hostname || '';
+
+              console.log('prover', {
+                maxSentData,
+                maxRecvData,
+                proverUrl,
+                websocketProxyUrl,
+              });
               const prover: TProver = await new Prover({
                 id: pluginHash,
                 serverDns: hostname,
@@ -307,10 +303,19 @@ const Offscreen = () => {
                 OffscreenActionTypes.start_p2p_proof_request,
               );
 
+              console.log('prover setup start');
               const proverSetup = prover.setup(proverUrl);
-              // await new Promise((r) => setTimeout(r, 10000));
+
+              // await new Promise((r) => setTimeout(r, 5000));
+              browser.runtime.sendMessage({
+                type: BackgroundActiontype.prover_setup,
+                data: {
+                  pluginHash,
+                },
+              });
 
               await proverSetup;
+              console.log('prover setup started');
               browser.runtime.sendMessage({
                 type: BackgroundActiontype.prover_started,
                 data: {
