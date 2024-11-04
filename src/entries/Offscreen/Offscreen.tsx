@@ -232,8 +232,6 @@ const Offscreen = () => {
               await waitForEvent(OffscreenActionTypes.prover_setup);
 
               verifier.verify().then((res) => {
-                console.log(res);
-
                 browser.runtime.sendMessage({
                   type: BackgroundActiontype.proof_request_end,
                   data: {
@@ -353,7 +351,7 @@ const Offscreen = () => {
                 OffscreenActionTypes.end_p2p_proof_request,
               );
               await prover.reveal(commit);
-              console.log(await endRequest);
+              await endRequest;
             })();
             break;
           }

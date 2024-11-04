@@ -39,6 +39,7 @@ import { sha256 } from '../../utils/misc';
 import { openSidePanel } from '../../entries/utils';
 import { SidePanelActionTypes } from '../../entries/SidePanel/types';
 import { verify } from 'tlsn-js-v5';
+import ProofViewer from '../ProofViewer';
 
 export function P2PHome(): ReactElement {
   const clientId = useClientId();
@@ -235,11 +236,26 @@ function IncomingProof({
   accept: () => void;
   isProving: boolean;
 }) {
+  const presentation = useP2PPresentation();
+  const [showingTranscript, showTranscript] = useState(false);
+
   if (isProving) {
     return (
       <>
+        {presentation && showingTranscript && (
+          <Modal
+            className="h-full m-0 rounded-none"
+            onClose={() => showTranscript(false)}
+          >
+            <ProofViewer
+              className="h-full"
+              sent={presentation.sent}
+              recv={presentation.recv}
+            />
+          </Modal>
+        )}
         <div className="font-semibold text-orange-500">
-          Proving to your peer...
+          {presentation ? 'Proving Completed' : 'Proving to your peer...'}
         </div>
         <Plugin
           className="w-full bg-white !cursor-default hover:!bg-white active:!bg-white hover:!border-slate-300"
@@ -248,6 +264,15 @@ function IncomingProof({
           onClick={() => null}
           unremovable
         />
+        <div className="flex flex-row gap-2">
+          <button
+            className="button button--primary"
+            onClick={() => showTranscript(true)}
+            disabled={!presentation}
+          >
+            View
+          </button>
+        </div>
       </>
     );
   }
@@ -285,11 +310,28 @@ function OutgoingProof({
   outgoingPluginHash: string;
   cancel: () => void;
 }) {
+  const presentation = useP2PPresentation();
+  const [showingTranscript, showTranscript] = useState(false);
+
   if (isVerifying) {
     return (
       <>
+        {presentation && showingTranscript && (
+          <Modal
+            className="h-full m-0 rounded-none"
+            onClose={() => showTranscript(false)}
+          >
+            <ProofViewer
+              className="h-full"
+              sent={presentation.sent}
+              recv={presentation.recv}
+            />
+          </Modal>
+        )}
         <div className="font-semibold text-orange-500">
-          Verifying with your peer...
+          {presentation
+            ? 'Verification Completed'
+            : 'Verifying with your peer...'}
         </div>
         <Plugin
           className="w-full bg-white !cursor-default hover:!bg-white active:!bg-white hover:!border-slate-300"
@@ -297,6 +339,15 @@ function OutgoingProof({
           onClick={() => null}
           unremovable
         />
+        <div className="flex flex-row gap-2">
+          <button
+            className="button button--primary"
+            onClick={() => showTranscript(true)}
+            disabled={!presentation}
+          >
+            View
+          </button>
+        </div>
       </>
     );
   }

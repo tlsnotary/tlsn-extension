@@ -22,6 +22,8 @@ import browser, { storage } from 'webextension-polyfill';
 import { OffscreenActionTypes } from '../Offscreen/types';
 import { getMaxRecv, getMaxSent, getRendezvousApi } from '../../utils/storage';
 import { SidePanelActionTypes } from '../SidePanel/types';
+import { Transcript } from 'tlsn-js';
+import { VerifierOutput } from 'tlsn-wasm';
 
 const state: {
   clientId: string;
@@ -279,6 +281,18 @@ export const connectSession = async () => {
       }
       case 'proof_request_end': {
         const { pluginHash, proof } = message.params;
+        const transcript = new Transcript({
+          sent: proof.transcript.sent,
+          recv: proof.transcript.recv,
+        });
+
+        state.presentation = {
+          sent: transcript.sent(),
+          recv: transcript.recv(),
+        };
+
+        pushToRedux(setP2PPresentation(state.presentation));
+
         browser.runtime.sendMessage({
           type: OffscreenActionTypes.end_p2p_proof_request,
           data: {
@@ -512,9 +526,22 @@ export const startProofRequest = async (pluginHash: string) => {
 
 export const endProofRequest = async (data: {
   pluginHash: string;
-  proof: any;
+  proof: VerifierOutput;
 }) => {
+  const transcript = new Transcript({
+    sent: data.proof.transcript.sent,
+    recv: data.proof.transcript.recv,
+  });
+
+  state.presentation = {
+    sent: transcript.sent(),
+    recv: transcript.recv(),
+  };
+
+  pushToRedux(setP2PPresentation(state.presentation));
+
   const { socket, clientId, pairing } = state;
+
   if (socket && clientId && pairing) {
     socket.send(
       bufferify({
