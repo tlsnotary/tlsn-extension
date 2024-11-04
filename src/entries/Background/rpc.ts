@@ -440,10 +440,29 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
     }
 
     if (getSecretResponse) {
-      const body = data.transcript.recv
-        .split('\r\n')
-        .filter((txt: string) => safeParseJSON(txt))[0];
-      secretResps = await getSecretResponseFn(body);
+      const body = data.transcript.recv.split('\r\n').reduce(
+        (
+          state: { headerEnd: boolean; isBody: boolean; body: string[] },
+          line: string,
+        ) => {
+          if (state.headerEnd) {
+            state.body.push(line);
+          } else if (!line) {
+            state.headerEnd = true;
+          }
+
+          return state;
+        },
+        { headerEnd: false, body: [] },
+      ).body;
+
+      if (body.length == 1) {
+        secretResps = await getSecretResponseFn(body[0]);
+      } else {
+        secretResps = await getSecretResponse(
+          body.filter((txt: string) => safeParseJSON(txt))[0],
+        );
+      }
     }
 
     const commit = {
