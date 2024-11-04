@@ -16,6 +16,7 @@ import { PresentationJSON } from '../../utils/types';
 import { PresentationJSON as PresentationJSONa7 } from 'tlsn-js/build/types';
 import { Commit, Method } from 'tlsn-wasm';
 import { subtractRanges } from './utils';
+import { mapSecretsToRange } from '../Background/plugins/utils';
 
 const { init, Prover, Presentation }: any = Comlink.wrap(
   new Worker(new URL('./worker.ts', import.meta.url)),
@@ -266,31 +267,11 @@ async function createProof(options: {
   const commit = {
     sent: subtractRanges(
       transcript.ranges.sent.all,
-      secretHeaders
-        .map((secret: string) => {
-          const index = transcript.sent.indexOf(secret);
-          return index > -1
-            ? {
-                start: index,
-                end: index + secret.length,
-              }
-            : null;
-        })
-        .filter((data: any) => !!data) as { start: number; end: number }[],
+      mapSecretsToRange(secretHeaders, transcript.sent),
     ),
     recv: subtractRanges(
       transcript.ranges.recv.all,
-      secretResps
-        .map((secret: string) => {
-          const index = transcript.recv.indexOf(secret);
-          return index > -1
-            ? {
-                start: index,
-                end: index + secret.length,
-              }
-            : null;
-        })
-        .filter((data: any) => !!data) as { start: number; end: number }[],
+      mapSecretsToRange(secretResps, transcript.recv),
     ),
   };
 

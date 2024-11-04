@@ -48,6 +48,7 @@ import { minimatch } from 'minimatch';
 import { OffscreenActionTypes } from '../Offscreen/types';
 import { SidePanelActionTypes } from '../SidePanel/types';
 import { subtractRanges } from '../Offscreen/utils';
+import { mapSecretsToRange } from './plugins/utils';
 
 const charwise = require('charwise');
 
@@ -448,31 +449,11 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
     const commit = {
       sent: subtractRanges(
         data.transcript.ranges.sent.all,
-        secretHeaders
-          .map((secret: string) => {
-            const index = data.transcript.sent.indexOf(secret);
-            return index > -1
-              ? {
-                  start: index,
-                  end: index + secret.length,
-                }
-              : null;
-          })
-          .filter((data: any) => !!data) as { start: number; end: number }[],
+        mapSecretsToRange(secretHeaders, data.transcript.sent),
       ),
       recv: subtractRanges(
         data.transcript.ranges.recv.all,
-        secretResps
-          .map((secret: string) => {
-            const index = data.transcript.recv.indexOf(secret);
-            return index > -1
-              ? {
-                  start: index,
-                  end: index + secret.length,
-                }
-              : null;
-          })
-          .filter((data: any) => !!data) as { start: number; end: number }[],
+        mapSecretsToRange(secretResps, data.transcript.recv),
       ),
     };
 
