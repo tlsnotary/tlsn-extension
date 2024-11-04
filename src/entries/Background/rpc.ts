@@ -460,7 +460,10 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
         secretResps = await getSecretResponseFn(body[0]);
       } else {
         secretResps = await getSecretResponse(
-          body.filter((txt: string) => safeParseJSON(txt))[0],
+          body.filter((txt: string) => {
+            const json = safeParseJSON(txt);
+            return typeof json === 'object';
+          })[0],
         );
       }
     }
