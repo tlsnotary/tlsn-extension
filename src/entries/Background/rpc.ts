@@ -70,6 +70,7 @@ import {
   endProofRequest,
   setupProver,
 } from './ws';
+import { setIsProving } from '../../reducers/p2p';
 
 const charwise = require('charwise');
 

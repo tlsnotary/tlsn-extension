@@ -209,20 +209,8 @@ const Offscreen = () => {
           }
           case OffscreenActionTypes.start_p2p_verifier: {
             (async () => {
-              const {
-                pluginHash,
-                maxSentData,
-                maxRecvData,
-                verifierUrl,
-                peerId,
-              } = request.data;
-
-              console.log('verifier', {
-                pluginHash,
-                maxSentData,
-                maxRecvData,
-                verifierUrl,
-              });
+              const { pluginHash, maxSentData, maxRecvData, verifierUrl } =
+                request.data;
               const verifier: TVerifier = await new Verifier({
                 id: pluginHash,
                 maxSentData: maxSentData,
@@ -230,7 +218,6 @@ const Offscreen = () => {
               });
 
               await verifier.connect(verifierUrl);
-              // await new Promise((r) => setTimeout(r, 5000));
               const proverStarted = waitForEvent(
                 OffscreenActionTypes.prover_started,
               );
@@ -256,7 +243,6 @@ const Offscreen = () => {
                 });
               });
 
-              // await new Promise((r) => setTimeout(r, 5000));
               await proverStarted;
 
               browser.runtime.sendMessage({
@@ -286,12 +272,6 @@ const Offscreen = () => {
 
               const hostname = urlify(url)?.hostname || '';
 
-              console.log('prover', {
-                maxSentData,
-                maxRecvData,
-                proverUrl,
-                websocketProxyUrl,
-              });
               const prover: TProver = await new Prover({
                 id: pluginHash,
                 serverDns: hostname,
@@ -303,10 +283,8 @@ const Offscreen = () => {
                 OffscreenActionTypes.start_p2p_proof_request,
               );
 
-              console.log('prover setup start');
               const proverSetup = prover.setup(proverUrl);
 
-              // await new Promise((r) => setTimeout(r, 5000));
               browser.runtime.sendMessage({
                 type: BackgroundActiontype.prover_setup,
                 data: {
@@ -315,7 +293,6 @@ const Offscreen = () => {
               });
 
               await proverSetup;
-              console.log('prover setup started');
               browser.runtime.sendMessage({
                 type: BackgroundActiontype.prover_started,
                 data: {
@@ -323,7 +300,6 @@ const Offscreen = () => {
                 },
               });
               await proofRequestStart;
-
               await prover.sendRequest(
                 websocketProxyUrl + `?token=${hostname}`,
                 {

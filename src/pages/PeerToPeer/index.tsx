@@ -27,6 +27,9 @@ import {
   acceptProofRequest,
   rejectProofRequest,
   cancelProofRequest,
+  useP2PProving,
+  useP2PVerifying,
+  useP2PPresentation,
 } from '../../reducers/p2p';
 import { useDispatch } from 'react-redux';
 import Modal, { ModalHeader } from '../../components/Modal/Modal';
@@ -35,6 +38,7 @@ import browser from 'webextension-polyfill';
 import { sha256 } from '../../utils/misc';
 import { openSidePanel } from '../../entries/utils';
 import { SidePanelActionTypes } from '../../entries/SidePanel/types';
+import { verify } from 'tlsn-js-v5';
 
 export function P2PHome(): ReactElement {
   const clientId = useClientId();
@@ -130,6 +134,9 @@ function Paired() {
   const [outgoingPluginHash] = useOutgoingProofRequests();
   const [incomingPluginHash, setIncomingPluginHash] = useState('');
   const [showingModal, showModal] = useState(false);
+  const isProving = useP2PProving();
+  const isVerifying = useP2PVerifying();
+  const presentation = useP2PPresentation();
 
   useEffect(() => {
     (async () => {
@@ -172,6 +179,37 @@ function Paired() {
     if (outgoingPluginHash) cancelProofRequest(outgoingPluginHash);
   }, [outgoingPluginHash]);
 
+  let body;
+
+  if (incomingPluginHash) {
+    body = (
+      <IncomingProof
+        incomingProofRequest={incomingProofRequest}
+        incomingPluginHash={incomingPluginHash}
+        accept={accept}
+        reject={reject}
+        isProving={isProving}
+      />
+    );
+  } else if (outgoingPluginHash) {
+    body = (
+      <OutgoingProof
+        outgoingPluginHash={outgoingPluginHash}
+        cancel={cancel}
+        isVerifying={isVerifying}
+      />
+    );
+  } else {
+    body = (
+      <button
+        className="button button--primary"
+        onClick={() => showModal(true)}
+      >
+        Request Proof
+      </button>
+    );
+  }
+
   return (
     <div className="flex flex-col items-center gap-2 px-4 w-full">
       {showingModal && <PluginListModal onClose={() => showModal(false)} />}
@@ -179,50 +217,105 @@ function Paired() {
         <span>Paired with </span>
         <span className="font-semibold text-blue-500">{pairId}</span>
       </div>
-      {incomingPluginHash ? (
-        <>
-          <div className="font-semibold text-orange-500">
-            Your peer is requesting the following proof:
-          </div>
-          <Plugin
-            className="w-full bg-white !cursor-default hover:!bg-white active:!bg-white hover:!border-slate-300"
-            hash={incomingPluginHash}
-            hex={incomingProofRequest}
-            unremovable
-          />
-          <div className="flex flex-row gap-2">
-            <button className="button" onClick={reject}>
-              Decline
-            </button>
-            <button className="button button--primary" onClick={accept}>
-              Accept
-            </button>
-          </div>
-        </>
-      ) : outgoingPluginHash ? (
-        <>
-          <div className="font-semibold text-orange-500">
-            Sent request for following proof:
-          </div>
-          <Plugin
-            className="w-full bg-white !cursor-default hover:!bg-white active:!bg-white hover:!border-slate-300"
-            hash={outgoingPluginHash}
-            onClick={() => null}
-            unremovable
-          />
-          <button className="button" onClick={cancel}>
-            Cancel
-          </button>
-        </>
-      ) : (
-        <button
-          className="button button--primary"
-          onClick={() => showModal(true)}
-        >
-          Request Proof
-        </button>
-      )}
+      {body}
     </div>
+  );
+}
+
+function IncomingProof({
+  incomingPluginHash,
+  incomingProofRequest,
+  reject,
+  accept,
+  isProving,
+}: {
+  incomingPluginHash: string;
+  incomingProofRequest: string;
+  reject: () => void;
+  accept: () => void;
+  isProving: boolean;
+}) {
+  if (isProving) {
+    return (
+      <>
+        <div className="font-semibold text-orange-500">
+          Proving to your peer...
+        </div>
+        <Plugin
+          className="w-full bg-white !cursor-default hover:!bg-white active:!bg-white hover:!border-slate-300"
+          hash={incomingPluginHash}
+          hex={incomingProofRequest}
+          onClick={() => null}
+          unremovable
+        />
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="font-semibold text-orange-500">
+        Your peer is requesting the following proof:
+      </div>
+      <Plugin
+        className="w-full bg-white !cursor-default hover:!bg-white active:!bg-white hover:!border-slate-300"
+        hash={incomingPluginHash}
+        hex={incomingProofRequest}
+        onClick={() => null}
+        unremovable
+      />
+      <div className="flex flex-row gap-2">
+        <button className="button" onClick={reject}>
+          Decline
+        </button>
+        <button className="button button--primary" onClick={accept}>
+          Accept
+        </button>
+      </div>
+    </>
+  );
+}
+
+function OutgoingProof({
+  outgoingPluginHash,
+  cancel,
+  isVerifying,
+}: {
+  isVerifying: boolean;
+  outgoingPluginHash: string;
+  cancel: () => void;
+}) {
+  if (isVerifying) {
+    return (
+      <>
+        <div className="font-semibold text-orange-500">
+          Verifying with your peer...
+        </div>
+        <Plugin
+          className="w-full bg-white !cursor-default hover:!bg-white active:!bg-white hover:!border-slate-300"
+          hash={outgoingPluginHash}
+          onClick={() => null}
+          unremovable
+        />
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="font-semibold text-orange-500">
+        Sent request for following proof:
+      </div>
+      <Plugin
+        className="w-full bg-white !cursor-default hover:!bg-white active:!bg-white hover:!border-slate-300"
+        hash={outgoingPluginHash}
+        onClick={() => null}
+        unremovable
+      />
+      <button className="button" onClick={cancel}>
+        Cancel
+      </button>
+    </>
   );
 }
 

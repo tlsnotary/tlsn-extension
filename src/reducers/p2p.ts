@@ -1,7 +1,6 @@
 import { useSelector } from 'react-redux';
 import { AppRootState } from './index';
 import deepEqual from 'fast-deep-equal';
-import { Dispatch } from 'redux';
 import browser from 'webextension-polyfill';
 import { BackgroundActiontype } from '../entries/Background/rpc';
 
@@ -18,6 +17,9 @@ enum ActionType {
   '/p2p/appendOutgoingProofRequest' = '/p2p/appendOutgoingProofRequest',
   '/p2p/setIncomingProofRequest' = '/p2p/setIncomingProofRequest',
   '/p2p/setOutgoingProofRequest' = '/p2p/setOutgoingProofRequest',
+  '/p2p/setIsProving' = '/p2p/setIsProving',
+  '/p2p/setIsVerifying' = '/p2p/setIsVerifying',
+  '/p2p/setPresentation' = '/p2p/setPresentation',
 }
 
 type Action<payload> = {
@@ -36,6 +38,12 @@ type State = {
   outgoingPairingRequests: string[];
   incomingProofRequests: string[];
   outgoingProofRequests: string[];
+  isProving: boolean;
+  isVerifying: boolean;
+  presentation: null | {
+    sent: string;
+    recv: string;
+  };
 };
 
 export type RequestProofMessage = {
@@ -54,6 +62,9 @@ const initialState: State = {
   outgoingPairingRequests: [],
   incomingProofRequests: [],
   outgoingProofRequests: [],
+  isProving: false,
+  isVerifying: false,
+  presentation: null,
 };
 
 export const fetchP2PState = async () => {
@@ -134,12 +145,22 @@ export const setP2PError = (error: string) => ({
   payload: error,
 });
 
-export const requestProof = (pluginHash: string) => {
-  return browser.runtime.sendMessage({
-    type: BackgroundActiontype.request_p2p_proof,
-    data: pluginHash,
-  });
-};
+export const setIsProving = (proving: boolean) => ({
+  type: ActionType['/p2p/setIsProving'],
+  payload: proving,
+});
+
+export const setIsVerifying = (verifying: boolean) => ({
+  type: ActionType['/p2p/setIsVerifying'],
+  payload: verifying,
+});
+
+export const setP2PPresentation = (
+  presentation: null | { sent: string; recv: string },
+) => ({
+  type: ActionType['/p2p/setPresentation'],
+  payload: presentation,
+});
 
 export const requestProofByHash = (pluginHash: string) => {
   return browser.runtime.sendMessage({
@@ -267,6 +288,21 @@ export default function p2p(state = initialState, action: Action<any>): State {
         ...state,
         error: action.payload,
       };
+    case ActionType['/p2p/setIsProving']:
+      return {
+        ...state,
+        isProving: action.payload,
+      };
+    case ActionType['/p2p/setIsVerifying']:
+      return {
+        ...state,
+        isVerifying: action.payload,
+      };
+    case ActionType['/p2p/setPresentation']:
+      return {
+        ...state,
+        presentation: action.payload,
+      };
     default:
       return state;
   }
@@ -317,5 +353,23 @@ export function useOutgoingProofRequests(): string[] {
 export function useP2PError(): string {
   return useSelector((state: AppRootState) => {
     return state.p2p.error;
+  }, deepEqual);
+}
+
+export function useP2PVerifying(): boolean {
+  return useSelector((state: AppRootState) => {
+    return state.p2p.isVerifying;
+  }, deepEqual);
+}
+
+export function useP2PProving(): boolean {
+  return useSelector((state: AppRootState) => {
+    return state.p2p.isProving;
+  }, deepEqual);
+}
+
+export function useP2PPresentation(): null | { sent: string; recv: string } {
+  return useSelector((state: AppRootState) => {
+    return state.p2p.presentation;
   }, deepEqual);
 }
