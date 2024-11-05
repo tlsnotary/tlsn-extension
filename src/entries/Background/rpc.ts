@@ -34,6 +34,7 @@ import {
   hexToArrayBuffer,
   makePlugin,
   PluginConfig,
+  safeParseJSON,
 } from '../../utils/misc';
 import {
   getLoggingFilter,
@@ -46,6 +47,8 @@ import { deferredPromise } from '../../utils/promise';
 import { minimatch } from 'minimatch';
 import { OffscreenActionTypes } from '../Offscreen/types';
 import { SidePanelActionTypes } from '../SidePanel/types';
+import { subtractRanges } from '../Offscreen/utils';
+import { mapSecretsToRange } from './plugins/utils';
 
 const charwise = require('charwise');
 
@@ -382,8 +385,9 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
     method,
     headers,
     body,
-    secretHeaders,
-    secretResps,
+    secretHeaders = [],
+    getSecretResponse,
+    getSecretResponseFn,
     notaryUrl: _notaryUrl,
     websocketProxyUrl: _websocketProxyUrl,
     maxSentData: _maxSentData,
@@ -393,6 +397,8 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
   const websocketProxyUrl = _websocketProxyUrl || (await getProxyApi());
   const maxSentData = _maxSentData || (await getMaxSent());
   const maxRecvData = _maxRecvData || (await getMaxRecv());
+
+  let secretResps: string[] = [];
 
   const { id } = await addNotaryRequest(now, {
     url,
@@ -417,8 +423,77 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
     action: addRequestHistory(await getNotaryRequest(id)),
   });
 
-  await browser.runtime.sendMessage({
-    type: BackgroundActiontype.process_prove_request,
+  const onProverResponse = async (request: any) => {
+    const { data, type } = request;
+
+    if (type !== OffscreenActionTypes.create_prover_response) {
+      return;
+    }
+
+    if (data.error) {
+      console.error(data.error);
+      return;
+    }
+
+    if (data.id !== id) {
+      return;
+    }
+
+    if (getSecretResponse) {
+      const body = data.transcript.recv.split('\r\n').reduce(
+        (
+          state: { headerEnd: boolean; isBody: boolean; body: string[] },
+          line: string,
+        ) => {
+          if (state.headerEnd) {
+            state.body.push(line);
+          } else if (!line) {
+            state.headerEnd = true;
+          }
+
+          return state;
+        },
+        { headerEnd: false, body: [] },
+      ).body;
+
+      if (body.length == 1) {
+        secretResps = await getSecretResponseFn(body[0]);
+      } else {
+        secretResps = await getSecretResponse(
+          body.filter((txt: string) => {
+            const json = safeParseJSON(txt);
+            return typeof json === 'object';
+          })[0],
+        );
+      }
+    }
+
+    const commit = {
+      sent: subtractRanges(
+        data.transcript.ranges.sent.all,
+        mapSecretsToRange(secretHeaders, data.transcript.sent),
+      ),
+      recv: subtractRanges(
+        data.transcript.ranges.recv.all,
+        mapSecretsToRange(secretResps, data.transcript.recv),
+      ),
+    };
+
+    browser.runtime.sendMessage({
+      type: OffscreenActionTypes.create_presentation_request,
+      data: {
+        id,
+        commit,
+      },
+    });
+
+    browser.runtime.onMessage.removeListener(onProverResponse);
+  };
+
+  browser.runtime.onMessage.addListener(onProverResponse);
+
+  browser.runtime.sendMessage({
+    type: OffscreenActionTypes.create_prover_request,
     data: {
       id,
       url,
@@ -429,8 +504,6 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
       websocketProxyUrl,
       maxRecvData,
       maxSentData,
-      secretHeaders,
-      secretResps,
     },
   });
 }
