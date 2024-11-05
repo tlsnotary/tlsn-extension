@@ -99,7 +99,7 @@ export const connectSession = async () => {
           ...new Set(state.incomingPairingRequests.concat(from)),
         ];
         pushToRedux(appendIncomingPairingRequests(from));
-        send('pair_request_sent', from, { pairId: state.clientId });
+        sendMessage(from, 'pair_request_sent', { pairId: state.clientId });
         break;
       }
       case 'pair_request_sent': {
@@ -116,7 +116,7 @@ export const connectSession = async () => {
           (id) => id !== from,
         );
         pushToRedux(setIncomingPairingRequest(state.incomingPairingRequests));
-        send('pair_request_cancelled', from, { pairId: state.clientId });
+        sendMessage(from, 'pair_request_cancelled', { pairId: state.clientId });
         break;
       }
       case 'pair_request_cancelled': {
@@ -133,7 +133,7 @@ export const connectSession = async () => {
           (id) => id !== from,
         );
         pushToRedux(setOutgoingPairingRequest(state.outgoingPairingRequests));
-        send('pair_request_rejected', from, { pairId: state.clientId });
+        sendMessage(from, 'pair_request_rejected', { pairId: state.clientId });
         break;
       }
       case 'pair_request_accept': {
@@ -144,7 +144,7 @@ export const connectSession = async () => {
         );
         pushToRedux(setOutgoingPairingRequest(state.outgoingPairingRequests));
         pushToRedux(setPairing(from));
-        send('pair_request_success', from, { pairId: state.clientId });
+        sendMessage(from, 'pair_request_success', { pairId: state.clientId });
         break;
       }
       case 'pair_request_success': {
@@ -171,7 +171,7 @@ export const connectSession = async () => {
           ...new Set(state.incomingProofRequests.concat(plugin)),
         ];
         pushToRedux(appendIncomingProofRequests(plugin));
-        send('proof_request_received', from, { pluginHash });
+        sendMessage(from, 'proof_request_received', { pluginHash });
         break;
       }
       case 'request_proof_by_hash': {
@@ -182,9 +182,9 @@ export const connectSession = async () => {
             ...new Set(state.incomingProofRequests.concat(plugin)),
           ];
           pushToRedux(appendIncomingProofRequests(plugin));
-          send('proof_request_received', from, { pluginHash });
+          sendMessage(from, 'proof_request_received', { pluginHash });
         } else {
-          send('request_proof_by_hash_failed', from, { pluginHash });
+          sendMessage(from, 'request_proof_by_hash_failed', { pluginHash });
         }
         break;
       }
@@ -207,13 +207,13 @@ export const connectSession = async () => {
       case 'proof_request_reject': {
         const { pluginHash, from } = message.params;
         await handleRemoveOutgoingProofRequest(message);
-        send('proof_request_rejected', from, { pluginHash });
+        sendMessage(from, 'proof_request_rejected', { pluginHash });
         break;
       }
       case 'proof_request_cancel': {
         const { pluginHash, from } = message.params;
         await handleRemoveIncomingProofRequest(message);
-        send('proof_request_cancelled', from, { pluginHash });
+        sendMessage(from, 'proof_request_cancelled', { pluginHash });
         break;
       }
       case 'proof_request_rejected':
@@ -361,167 +361,94 @@ export const disconnectSession = async () => {
   pushToRedux(setOutgoingProofRequest([]));
 };
 
-export const sendPairRequest = async (target: string) => {
+function sendMessage(target: string, method: string, params?: any) {
   const { socket, clientId } = state;
 
-  if (clientId === target) return;
-
-  if (socket && clientId) {
-    socket.send(
-      bufferify({
-        method: 'pair_request',
-        params: {
-          from: clientId,
-          to: target,
-          id: state.reqId++,
-        },
-      }),
-    );
+  if (clientId === target) {
+    console.error('client cannot send message to itself.');
+    return;
   }
+
+  if (!socket) {
+    console.error('socket connection not found.');
+    return;
+  }
+
+  if (!clientId) {
+    console.error('clientId not found.');
+    return;
+  }
+
+  socket.send(
+    bufferify({
+      method,
+      params: {
+        from: clientId,
+        to: target,
+        id: state.reqId++,
+        ...params,
+      },
+    }),
+  );
+}
+
+function sendPairedMessage(method: string, params?: any) {
+  const { pairing } = state;
+
+  if (!pairing) {
+    console.error('not paired to a peer.');
+    return;
+  }
+
+  sendMessage(pairing, method, params);
+}
+
+export const sendPairRequest = async (target: string) => {
+  sendMessage(target, 'pair_request');
 };
 
 export const cancelPairRequest = async (target: string) => {
-  const { socket, clientId } = state;
-
-  if (clientId === target) return;
-
-  if (socket && clientId) {
-    socket.send(
-      bufferify({
-        method: 'pair_request_cancel',
-        params: {
-          from: clientId,
-          to: target,
-          id: state.reqId++,
-        },
-      }),
-    );
-  }
+  sendMessage(target, 'pair_request_cancel');
 };
 
 export const acceptPairRequest = async (target: string) => {
-  const { socket, clientId } = state;
-
-  if (clientId === target) return;
-
-  if (socket && clientId) {
-    socket.send(
-      bufferify({
-        method: 'pair_request_accept',
-        params: {
-          from: clientId,
-          to: target,
-          id: state.reqId++,
-        },
-      }),
-    );
-  }
+  sendMessage(target, 'pair_request_accept');
 };
 
 export const rejectPairRequest = async (target: string) => {
-  const { socket, clientId } = state;
-
-  if (clientId === target) return;
-
-  if (socket && clientId) {
-    socket.send(
-      bufferify({
-        method: 'pair_request_reject',
-        params: {
-          from: clientId,
-          to: target,
-          id: state.reqId++,
-        },
-      }),
-    );
-  }
+  sendMessage(target, 'pair_request_reject');
 };
 
 export const requestProof = async (pluginHash: string) => {
-  const { socket, clientId, pairing } = state;
   const pluginHex = await getPluginByHash(pluginHash);
-  if (socket && clientId && pairing) {
-    socket.send(
-      bufferify({
-        method: 'request_proof',
-        params: {
-          from: clientId,
-          to: pairing,
-          plugin: pluginHex,
-          pluginHash,
-          id: state.reqId++,
-        },
-      }),
-    );
-  }
+  sendPairedMessage('request_proof', {
+    plugin: pluginHex,
+    pluginHash,
+  });
 };
 
 export const requestProofByHash = async (pluginHash: string) => {
-  const { socket, clientId, pairing } = state;
-  if (socket && clientId && pairing) {
-    socket.send(
-      bufferify({
-        method: 'request_proof_by_hash',
-        params: {
-          from: clientId,
-          to: pairing,
-          pluginHash,
-          id: state.reqId++,
-        },
-      }),
-    );
-  }
+  sendPairedMessage('request_proof_by_hash', {
+    pluginHash,
+  });
 };
 
 export const cancelProofRequest = async (pluginHash: string) => {
-  const { socket, clientId, pairing } = state;
-  if (socket && clientId && pairing) {
-    socket.send(
-      bufferify({
-        method: 'proof_request_cancel',
-        params: {
-          from: clientId,
-          to: pairing,
-          pluginHash,
-          id: state.reqId++,
-        },
-      }),
-    );
-  }
+  sendPairedMessage('proof_request_cancel', {
+    pluginHash,
+  });
 };
 
 export const acceptProofRequest = async (pluginHash: string) => {
-  const { socket, clientId, pairing } = state;
-  if (socket && clientId && pairing) {
-    socket.send(
-      bufferify({
-        method: 'proof_request_accept',
-        params: {
-          from: clientId,
-          to: pairing,
-          pluginHash,
-          id: state.reqId++,
-        },
-      }),
-    );
-  }
+  sendPairedMessage('proof_request_accept', {
+    pluginHash,
+  });
 };
 
 export const startProofRequest = async (pluginHash: string) => {
-  const { socket, clientId, pairing } = state;
-  if (socket && clientId && pairing) {
-    socket.send(
-      bufferify({
-        method: 'proof_request_start',
-        params: {
-          from: clientId,
-          to: pairing,
-          pluginHash,
-          id: state.reqId++,
-        },
-      }),
-    );
-  }
+  sendPairedMessage('proof_request_start', {
+    pluginHash,
+  });
 };
 
 export const endProofRequest = async (data: {
@@ -540,146 +467,37 @@ export const endProofRequest = async (data: {
 
   pushToRedux(setP2PPresentation(state.presentation));
 
-  const { socket, clientId, pairing } = state;
-
-  if (socket && clientId && pairing) {
-    socket.send(
-      bufferify({
-        method: 'proof_request_end',
-        params: {
-          from: clientId,
-          to: pairing,
-          pluginHash: data.pluginHash,
-          proof: data.proof,
-          id: state.reqId++,
-        },
-      }),
-    );
-  }
+  sendPairedMessage('proof_request_end', {
+    pluginHash: data.pluginHash,
+    proof: data.proof,
+  });
 };
 
 export const rejectProofRequest = async (pluginHash: string) => {
-  const { socket, clientId, pairing } = state;
-  if (socket && clientId && pairing) {
-    socket.send(
-      bufferify({
-        method: 'proof_request_reject',
-        params: {
-          from: clientId,
-          to: pairing,
-          pluginHash,
-          id: state.reqId++,
-        },
-      }),
-    );
-  }
+  sendPairedMessage('proof_request_reject', {
+    pluginHash,
+  });
 };
 
 export const startedVerifier = async (pluginHash: string) => {
-  const { socket, clientId, pairing } = state;
-  if (socket && clientId && pairing) {
-    socket.send(
-      bufferify({
-        method: 'verifier_started',
-        params: {
-          from: clientId,
-          to: pairing,
-          pluginHash,
-          id: state.reqId++,
-        },
-      }),
-    );
-  }
+  sendPairedMessage('verifier_started', {
+    pluginHash,
+  });
 };
 
 export const startedProver = async (pluginHash: string) => {
-  const { socket, clientId, pairing } = state;
-  if (socket && clientId && pairing) {
-    socket.send(
-      bufferify({
-        method: 'prover_started',
-        params: {
-          from: clientId,
-          to: pairing,
-          pluginHash,
-          id: state.reqId++,
-        },
-      }),
-    );
-  }
+  sendPairedMessage('prover_started', {
+    pluginHash,
+  });
 };
 
 export const setupProver = async (pluginHash: string) => {
-  const { socket, clientId, pairing } = state;
-  if (socket && clientId && pairing) {
-    state.isProving = true;
-    pushToRedux(setIsProving(true));
-    socket.send(
-      bufferify({
-        method: 'prover_setup',
-        params: {
-          from: clientId,
-          to: pairing,
-          pluginHash,
-          id: state.reqId++,
-        },
-      }),
-    );
-  }
+  state.isProving = true;
+  pushToRedux(setIsProving(true));
+  sendPairedMessage('prover_setup', {
+    pluginHash,
+  });
 };
-
-export const handleNoPluginHash = async (pluginHash: string) => {
-  const { socket, clientId, pairing } = state;
-  if (socket && clientId && pairing) {
-    socket.send(
-      bufferify({
-        method: 'request_proof_by_hash_failed',
-        params: {
-          from: clientId,
-          to: pairing,
-          pluginHash,
-          id: state.reqId++,
-        },
-      }),
-    );
-  }
-};
-
-export const handleProofRequestReceived = async (pluginHash: string) => {
-  const { socket, clientId, pairing } = state;
-  if (socket && clientId && pairing) {
-    socket.send(
-      bufferify({
-        method: 'proof_request_received',
-        params: {
-          from: clientId,
-          to: pairing,
-          pluginHash,
-          id: state.reqId++,
-        },
-      }),
-    );
-  }
-};
-
-function send(method: string, to: string, params?: any) {
-  const { socket, clientId } = state;
-  if (!socket || !clientId) {
-    console.error('not connected to rendezvous server');
-  } else {
-    socket.send(
-      bufferify({
-        method,
-        params: {
-          from: clientId,
-          to,
-          id: state.reqId++,
-          ...params,
-        },
-      }),
-    );
-  }
-}
 
 function bufferify(data: any): Buffer {
   return Buffer.from(JSON.stringify(data));

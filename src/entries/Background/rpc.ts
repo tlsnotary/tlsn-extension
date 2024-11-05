@@ -115,6 +115,7 @@ export enum BackgroundActiontype {
   get_plugins_response = 'get_plugins_response',
   run_plugin_request = 'run_plugin_request',
   run_plugin_response = 'run_plugin_response',
+  get_secrets_from_transcript = 'get_secrets_from_transcript',
   // App State
   get_logging_level = 'get_logging_level',
   get_app_state = 'get_app_state',
@@ -225,6 +226,8 @@ export const initRPC = () => {
           return handleGetPluginConfigByHash(request, sendResponse);
         case BackgroundActiontype.run_plugin:
           return handleRunPlugin(request, sendResponse);
+        case BackgroundActiontype.get_secrets_from_transcript:
+          return handleGetSecretsFromTranscript(request, sendResponse);
         case BackgroundActiontype.execute_plugin_prover:
           return handleExecPluginProver(request);
         case BackgroundActiontype.execute_p2p_plugin_prover:
@@ -506,10 +509,7 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
 
     if (getSecretResponse) {
       const body = data.transcript.recv.split('\r\n').reduce(
-        (
-          state: { headerEnd: boolean; isBody: boolean; body: string[] },
-          line: string,
-        ) => {
+        (state: { headerEnd: boolean; body: string[] }, line: string) => {
           if (state.headerEnd) {
             state.body.push(line);
           } else if (!line) {
@@ -524,7 +524,7 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
       if (body.length == 1) {
         secretResps = await getSecretResponseFn(body[0]);
       } else {
-        secretResps = await getSecretResponse(
+        secretResps = await getSecretResponseFn(
           body.filter((txt: string) => {
             const json = safeParseJSON(txt);
             return typeof json === 'object';
@@ -573,15 +573,62 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
   });
 }
 
+async function handleGetSecretsFromTranscript(
+  request: BackgroundAction,
+  sendResponse: (data?: any) => void,
+) {
+  const { pluginHash, pluginHex, p2p, transcript, method } = request.data;
+  const hex = (await getPluginByHash(pluginHash)) || pluginHex;
+  const arrayBuffer = hexToArrayBuffer(hex!);
+  const config = await getPluginConfig(arrayBuffer);
+  const plugin = await makePlugin(arrayBuffer, config, p2p);
+
+  const body = transcript.recv.split('\r\n').reduce(
+    (state: { headerEnd: boolean; body: string[] }, line: string) => {
+      if (state.headerEnd) {
+        state.body.push(line);
+      } else if (!line) {
+        state.headerEnd = true;
+      }
+
+      return state;
+    },
+    { headerEnd: false, body: [] },
+  ).body;
+
+  let out;
+
+  if (body.length == 1) {
+    out = await plugin.call(method, body[0]);
+  } else {
+    out = await plugin.call(
+      method,
+      body.filter((txt: string) => {
+        const json = safeParseJSON(txt);
+        return typeof json === 'object';
+      })[0],
+    );
+  }
+
+  const secretResps = JSON.parse(out.string());
+  await browser.runtime.sendMessage({
+    type: OffscreenActionTypes.get_secrets_from_transcript_success,
+    data: {
+      secretResps,
+    },
+  });
+}
+
 async function runP2PPluginProver(request: BackgroundAction, now = Date.now()) {
   const {
     pluginHash,
+    pluginHex,
     url,
     method,
     headers,
     body,
     secretHeaders,
-    secretResps,
+    getSecretResponse,
     websocketProxyUrl: _websocketProxyUrl,
     maxSentData: _maxSentData,
     maxRecvData: _maxRecvData,
@@ -597,6 +644,7 @@ async function runP2PPluginProver(request: BackgroundAction, now = Date.now()) {
     type: OffscreenActionTypes.start_p2p_prover,
     data: {
       pluginHash,
+      pluginHex,
       url,
       method,
       headers,
@@ -606,7 +654,7 @@ async function runP2PPluginProver(request: BackgroundAction, now = Date.now()) {
       maxRecvData,
       maxSentData,
       secretHeaders,
-      secretResps,
+      getSecretResponse,
     },
   });
 }

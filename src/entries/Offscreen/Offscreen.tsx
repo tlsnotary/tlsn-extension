@@ -10,7 +10,12 @@ import {
 } from 'tlsn-js';
 import { verify } from 'tlsn-js-v5';
 
-import { urlify } from '../../utils/misc';
+import {
+  hexToArrayBuffer,
+  makePlugin,
+  safeParseJSON,
+  urlify,
+} from '../../utils/misc';
 import { BackgroundActiontype } from '../Background/rpc';
 import browser from 'webextension-polyfill';
 import { PresentationJSON } from '../../utils/types';
@@ -20,6 +25,7 @@ import { subtractRanges } from './utils';
 import { mapSecretsToRange } from '../Background/plugins/utils';
 import { waitForEvent } from '../utils';
 import type { ParsedTranscriptData } from 'tlsn-js/src/types';
+import { getPluginByHash } from '../Background/db';
 
 const { init, Prover, Presentation, Verifier }: any = Comlink.wrap(
   new Worker(new URL('./worker.ts', import.meta.url)),
@@ -256,6 +262,7 @@ const Offscreen = () => {
             (async () => {
               const {
                 pluginHash,
+                pluginHex,
                 url,
                 method,
                 headers,
@@ -265,7 +272,7 @@ const Offscreen = () => {
                 maxRecvData,
                 maxSentData,
                 secretHeaders,
-                secretResps,
+                getSecretResponse,
               } = request.data;
 
               const hostname = urlify(url)?.hostname || '';
@@ -310,23 +317,31 @@ const Offscreen = () => {
 
               const transcript = await prover.transcript();
 
+              let secretResps: string[] = [];
+
+              if (getSecretResponse) {
+                browser.runtime.sendMessage({
+                  type: BackgroundActiontype.get_secrets_from_transcript,
+                  data: {
+                    pluginHash,
+                    pluginHex,
+                    method: getSecretResponse,
+                    transcript,
+                    p2p: true,
+                  },
+                });
+
+                const msg: any = await waitForEvent(
+                  OffscreenActionTypes.get_secrets_from_transcript_success,
+                );
+
+                secretResps = msg.data.secretResps;
+              }
+
               const commit = {
                 sent: subtractRanges(
                   transcript.ranges.sent.all,
-                  secretHeaders
-                    .map((secret: string) => {
-                      const index = transcript.sent.indexOf(secret);
-                      return index > -1
-                        ? {
-                            start: index,
-                            end: index + secret.length,
-                          }
-                        : null;
-                    })
-                    .filter((data: any) => !!data) as {
-                    start: number;
-                    end: number;
-                  }[],
+                  mapSecretsToRange(secretHeaders, transcript.sent),
                 ),
                 recv: subtractRanges(
                   transcript.ranges.recv.all,

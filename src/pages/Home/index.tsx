@@ -291,11 +291,6 @@ function NavButton(props: {
     <button
       className={classNames(
         'flex flex-col flex-nowrap items-center justify-center',
-        // {
-        //   'bg-primary/[.8] hover:bg-primary/[.7] active:bg-primary':
-        //     !props.disabled,
-        //   'bg-primary/[.5]': props.disabled,
-        // },
         'text-white px-2 py-1 gap-1 opacity-90 hover:opacity-100 w-18',
         props.className,
       )}

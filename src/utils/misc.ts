@@ -207,22 +207,14 @@ export const makePlugin = async (
         const { getSecretResponse, body: reqBody } = params;
 
         if (meta?.p2p) {
+          const pluginHex = Buffer.from(arrayBuffer).toString('hex');
           handleExecP2PPluginProver({
             type: BackgroundActiontype.execute_p2p_plugin_prover,
             data: {
               ...params,
-              pluginHash: await sha256(
-                Buffer.from(arrayBuffer).toString('hex'),
-              ),
+              pluginHash: await sha256(pluginHex),
+              pluginHex,
               body: reqBody,
-              getSecretResponseFn: async (body: string) => {
-                return new Promise((resolve) => {
-                  setTimeout(async () => {
-                    const out = await plugin.call(getSecretResponse, body);
-                    resolve(JSON.parse(out.string()));
-                  }, 0);
-                });
-              },
               now,
               clientId: meta.clientId,
             },
