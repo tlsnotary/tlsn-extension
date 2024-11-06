@@ -69,13 +69,22 @@ export const getP2PState = async () => {
 export const connectSession = async () => {
   if (state.socket) return;
 
-  const socket = new WebSocket('ws://localhost:3001');
+  const rendezvousAPI = await getRendezvousApi();
+  const socket = new WebSocket(rendezvousAPI);
 
   socket.onopen = () => {
     devlog('Connected to websocket');
     state.connected = true;
     state.socket = socket;
     pushToRedux(setConnected(true));
+    const heartbeatInterval = setInterval(() => {
+      if (socket.readyState === 1) {
+        // Check if connection is open
+        socket.send(bufferify({ method: 'ping' }));
+      } else {
+        clearInterval(heartbeatInterval); // Stop heartbeat if connection is closed
+      }
+    }, 55000);
   };
 
   socket.onmessage = async (event) => {

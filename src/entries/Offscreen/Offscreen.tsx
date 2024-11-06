@@ -289,7 +289,7 @@ const Offscreen = () => {
               );
 
               const proverSetup = prover.setup(proverUrl);
-
+              await new Promise((r) => setTimeout(r, 5000));
               browser.runtime.sendMessage({
                 type: BackgroundActiontype.prover_setup,
                 data: {
