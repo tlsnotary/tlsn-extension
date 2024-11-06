@@ -82,6 +82,7 @@ export const connectSession = async () => {
         // Check if connection is open
         socket.send(bufferify({ method: 'ping' }));
       } else {
+        disconnectSession();
         clearInterval(heartbeatInterval); // Stop heartbeat if connection is closed
       }
     }, 55000);
@@ -352,7 +353,7 @@ async function handleRemoveIncomingProofRequest(message: {
 
 export const disconnectSession = async () => {
   if (!state.socket) return;
-  await state.socket.close();
+  const socket = state.socket;
   state.socket = null;
   state.clientId = '';
   state.pairing = '';
@@ -368,6 +369,7 @@ export const disconnectSession = async () => {
   pushToRedux(setOutgoingPairingRequest([]));
   pushToRedux(setIncomingProofRequest([]));
   pushToRedux(setOutgoingProofRequest([]));
+  await socket.close();
 };
 
 function sendMessage(target: string, method: string, params?: any) {
