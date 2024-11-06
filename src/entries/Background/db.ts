@@ -28,10 +28,12 @@ const cookiesDb = db.sublevel<string, boolean>('cookies', {
 const headersDb = db.sublevel<string, boolean>('headers', {
   valueEncoding: 'json',
 });
-const storageDb = db.sublevel<string, any>('storage', {
+const localStorageDb = db.sublevel<string, any>('sessionStorage', {
   valueEncoding: 'json',
 });
-
+const sessionStorageDb = db.sublevel<string, any>('localStorage', {
+  valueEncoding: 'json'
+});
 const appDb = db.sublevel<string, any>('app', {
   valueEncoding: 'json',
 });
@@ -382,23 +384,46 @@ export async function getHeadersByHost(host: string) {
   return ret;
 }
 
-export async function setStorage(host: string, name: string, value: string) {
+
+export async function setLocalStorage(host: string, name: string, value: string) {
   return mutex.runExclusive(async () => {
-    await storageDb.sublevel(host).put(name, value);
+    await localStorageDb.sublevel(host).put(name, value);
     return true;
-  });
+  })
 }
 
-export async function clearStorage(host: string) {
+export async function setSessionStorage(host: string, name: string, value: string) {
   return mutex.runExclusive(async () => {
-    await storageDb.sublevel(host).clear();
+    await sessionStorageDb.sublevel(host).put(name, value);
     return true;
-  });
+  })
 }
 
-export async function getStorageByHost(host: string) {
-  const ret: { [key: string]: string } = {};
-  for await (const [key, value] of storageDb.sublevel(host).iterator()) {
+export async function clearLocalStorage(host: string) {
+  return mutex.runExclusive(async () => {
+    await localStorageDb.sublevel(host).clear();
+    return true;
+  })
+}
+
+export async function clearSessionStorage(host: string) {
+  return mutex.runExclusive(async () => {
+    await sessionStorageDb.sublevel(host).clear();
+    return true;
+  })
+}
+
+export async function getLocalStorageByHost(host: string) {
+  const ret: { [key:string]: string } = {};
+  for await (const [key, value] of localStorageDb.sublevel(host).iterator()) {
+    ret[key] = value;
+  }
+  return ret;
+}
+
+export async function getSessionStorageByHost(host: string) {
+  const ret: { [key:string]: string } = {};
+  for await (const [key, value] of sessionStorageDb.sublevel(host).iterator()) {
     ret[key] = value;
   }
   return ret;

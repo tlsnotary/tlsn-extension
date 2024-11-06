@@ -12,10 +12,23 @@ import { urlify } from '../../utils/misc';
     sessionStorage: sessionStorage,
   };
 
-  chrome.runtime.sendMessage({
-    type: BackgroundActiontype.get_browser_storage,
-    storage,
-  });
+
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === BackgroundActiontype.get_local_storage) {
+      chrome.runtime.sendMessage({
+        type: BackgroundActiontype.set_local_storage,
+        data: storage.localStorage
+      })
+    }
+  })
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === BackgroundActiontype.get_session_storage) {
+      chrome.runtime.sendMessage({
+        type: BackgroundActiontype.set_session_storage,
+        data: storage.sessionStorage
+      })
+    }
+  })
 
   server.on(ContentScriptTypes.connect, async () => {
     const connected = await browser.runtime.sendMessage({

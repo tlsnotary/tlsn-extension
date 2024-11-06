@@ -4,30 +4,41 @@ import browser from 'webextension-polyfill';
 import { getAppState, setDefaultPluginsInstalled } from './db';
 import { installPlugin } from './plugins/utils';
 import { BackgroundActiontype } from './rpc';
-import { setStorage } from './db';
+import { setLocalStorage, setSessionStorage } from './db';
 
 (async () => {
   chrome.runtime.onMessage.addListener(async (request, sender) => {
     if (
-      request.type === BackgroundActiontype.get_browser_storage &&
+      request.type === BackgroundActiontype.set_local_storage &&
       sender.tab?.url
     ) {
       const url = new URL(sender.tab.url);
       const hostname = url.hostname;
       const localStorage: { [key: string]: string } =
-        request.storage.localStorage;
-      const sessionStorage: { [key: string]: string } =
-        request.storage.sessionStorage;
+        request.data;
 
       for (const [key, value] of Object.entries(localStorage || {})) {
-        await setStorage(hostname, `localStorage:${key}`, value);
-      }
-
-      for (const [key, value] of Object.entries(sessionStorage || {})) {
-        await setStorage(hostname, `sessionStorage:${key}`, value);
+        await setLocalStorage(hostname, key, value);
       }
     }
   });
+
+  chrome.runtime.onMessage.addListener(async (request, sender) => {
+    if (
+      request.type === BackgroundActiontype.set_session_storage &&
+      sender.tab?.url
+     ) {
+      const url = new URL(sender.tab.url);
+      const hostname = url.hostname;
+      const sessionStorage: { [key: string]: string } =
+      request.data;
+
+      for (const [key, value] of Object.entries(sessionStorage || {})) {
+        await setSessionStorage(hostname, key, value)
+      }
+    }
+  })
+
 
   browser.webRequest.onSendHeaders.addListener(
     onSendHeaders,

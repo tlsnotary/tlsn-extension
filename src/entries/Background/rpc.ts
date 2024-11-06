@@ -26,6 +26,8 @@ import {
   getHeadersByHost,
   getAppState,
   setDefaultPluginsInstalled,
+  getSessionStorageByHost,
+  getLocalStorageByHost
 } from './db';
 import { addOnePlugin, removeOnePlugin } from '../../reducers/plugins';
 import {
@@ -89,7 +91,10 @@ export enum BackgroundActiontype {
   get_logging_level = 'get_logging_level',
   get_app_state = 'get_app_state',
   set_default_plugins_installed = 'set_default_plugins_installed',
-  get_browser_storage = 'get_browser_storage',
+  set_local_storage = 'set_local_storage',
+  get_local_storage = 'get_local_storage',
+  set_session_storage = 'set_session_storage',
+  get_session_storage = 'get_session_storage',
 }
 
 export type BackgroundAction = {
@@ -202,6 +207,15 @@ export const initRPC = () => {
         case BackgroundActiontype.set_default_plugins_installed:
           setDefaultPluginsInstalled(request.data).then(sendResponse);
           return true;
+        case BackgroundActiontype.set_local_storage:
+            return
+        case BackgroundActiontype.get_local_storage:
+          return handleGetLocalStorageByHostName(request, sendResponse);
+        case BackgroundActiontype.set_session_storage:
+          return;
+        case BackgroundActiontype.get_session_storage:
+          return handleGetSessionStorageByHostname(request, sendResponse);
+          return;
         default:
           break;
       }
@@ -464,6 +478,29 @@ function handleGetHeadersByHostname(
   })();
   return true;
 }
+
+function handleGetSessionStorageByHostname(
+  request: BackgroundAction,
+  sendResponse: (data?: any) => void,
+): boolean {
+  (async () => {
+    const sessionStorage = await getSessionStorageByHost(request.data);
+    sendResponse(sessionStorage)
+  })();
+  return true;
+}
+
+function handleGetLocalStorageByHostName(
+  request: BackgroundAction,
+  sendResponse: (data?: any) => void,
+): boolean {
+  (async () => {
+    const localStorage = await getLocalStorageByHost(request.data);
+    sendResponse(localStorage);
+  })();
+  return true;
+}
+
 
 async function handleAddPlugin(
   request: BackgroundAction,

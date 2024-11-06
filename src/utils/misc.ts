@@ -13,8 +13,7 @@ import browser from 'webextension-polyfill';
 import NodeCache from 'node-cache';
 import { getNotaryApi, getProxyApi } from './storage';
 import { minimatch } from 'minimatch';
-import { getCookiesByHost, getHeadersByHost } from '../entries/Background/db';
-import { getStorageByHost } from '../entries/Background/db';
+import { getCookiesByHost, getHeadersByHost, getLocalStorageByHost, getSessionStorageByHost } from '../entries/Background/db';
 const charwise = require('charwise');
 
 export function urlify(
@@ -250,38 +249,37 @@ export const makePlugin = async (
   }
 
   if (config?.localStorage) {
-    const localStorage: { [hostname: string]: { [key: string]: string } } = {};
+    const localStorage: { [hostname: string]: { [key: string]: string}} = {};
+    console.log('before event')
+    chrome.runtime.sendMessage({
+      type: BackgroundActiontype.set_local_storage,
+    })
+    console.log('after event')
     for (const host of config.localStorage) {
-      const cache = await getStorageByHost(host);
-
-      const localStorageEntries: { [key: string]: string } = {};
+      console.log('here')
+      const cache = getLocalStorageByHost(host);
       for (const [key, value] of Object.entries(cache)) {
-        if (key.startsWith('localStorage')) {
-          localStorageEntries[key.replace('localStorage:', '')] = value;
-        }
+        console.log(value)
+        localStorage[key] = value;
       }
-      localStorage[host] = localStorageEntries;
     }
-    // @ts-ignore
-    injectedConfig.localStorage = JSON.stringify(localStorage);
+    //@ts-ignore
+    injectedConfig.sessionStorage = localStorage;
   }
 
   if (config?.sessionStorage) {
-    const sessionStorage: { [hostname: string]: { [key: string]: string } } =
-      {};
+    const sessionStorage: { [hostname: string]: { [key: string]: string}} = {};
+    chrome.runtime.sendMessage({
+      type: BackgroundActiontype.set_session_storage,
+    })
     for (const host of config.sessionStorage) {
-      const cache = await getStorageByHost(host);
-
-      const sessionStorageEntries: { [key: string]: string } = {};
+      const cache = getSessionStorageByHost(host);
       for (const [key, value] of Object.entries(cache)) {
-        if (key.startsWith('sessionStorage')) {
-          sessionStorageEntries[key.replace('sessionStorage:', '')] = value;
-        }
+        sessionStorage[key] = value;
       }
-      sessionStorage[host] = sessionStorageEntries;
     }
-    // @ts-ignore
-    injectedConfig.sessionStorage = JSON.stringify(sessionStorage);
+    //@ts-ignore
+    injectedConfig.sessionStorage = sessionStorage;
   }
 
   if (config?.cookies) {
