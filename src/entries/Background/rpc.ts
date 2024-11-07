@@ -42,6 +42,7 @@ import {
   getMaxSent,
   getNotaryApi,
   getProxyApi,
+  getRendezvousApi,
 } from '../../utils/storage';
 import { deferredPromise } from '../../utils/promise';
 import { minimatch } from 'minimatch';
@@ -49,6 +50,27 @@ import { OffscreenActionTypes } from '../Offscreen/types';
 import { SidePanelActionTypes } from '../SidePanel/types';
 import { subtractRanges } from '../Offscreen/utils';
 import { mapSecretsToRange } from './plugins/utils';
+import { pushToRedux } from '../utils';
+import {
+  acceptPairRequest,
+  cancelPairRequest,
+  connectSession,
+  disconnectSession,
+  getP2PState,
+  rejectPairRequest,
+  requestProofByHash,
+  requestProof,
+  sendPairRequest,
+  cancelProofRequest,
+  acceptProofRequest,
+  rejectProofRequest,
+  startProofRequest,
+  startedVerifier,
+  startedProver,
+  endProofRequest,
+  setupProver,
+  onProverInstantiated,
+} from './ws';
 
 const charwise = require('charwise');
 
@@ -57,6 +79,7 @@ export enum BackgroundActiontype {
   clear_requests = 'clear_requests',
   push_action = 'push_action',
   execute_plugin_prover = 'execute_plugin_prover',
+  execute_p2p_plugin_prover = 'execute_p2p_plugin_prover',
   get_prove_requests = 'get_prove_requests',
   prove_request_start = 'prove_request_start',
   process_prove_request = 'process_prove_request',
@@ -67,12 +90,15 @@ export enum BackgroundActiontype {
   retry_prove_request = 'retry_prove_request',
   get_cookies_by_hostname = 'get_cookies_by_hostname',
   get_headers_by_hostname = 'get_headers_by_hostname',
+  // Plugins
   add_plugin = 'add_plugin',
   remove_plugin = 'remove_plugin',
   get_plugin_by_hash = 'get_plugin_by_hash',
+  read_plugin_config = 'read_plugin_config',
   get_plugin_config_by_hash = 'get_plugin_config_by_hash',
   run_plugin = 'run_plugin',
   get_plugin_hashes = 'get_plugin_hashes',
+  // Content Script
   open_popup = 'open_popup',
   change_route = 'change_route',
   connect_request = 'connect_request',
@@ -89,9 +115,30 @@ export enum BackgroundActiontype {
   get_plugins_response = 'get_plugins_response',
   run_plugin_request = 'run_plugin_request',
   run_plugin_response = 'run_plugin_response',
+  get_secrets_from_transcript = 'get_secrets_from_transcript',
+  // App State
   get_logging_level = 'get_logging_level',
   get_app_state = 'get_app_state',
   set_default_plugins_installed = 'set_default_plugins_installed',
+  // P2P
+  connect_rendezvous = 'connect_rendezvous',
+  disconnect_rendezvous = 'disconnect_rendezvous',
+  send_pair_request = 'send_pair_request',
+  cancel_pair_request = 'cancel_pair_request',
+  accept_pair_request = 'accept_pair_request',
+  reject_pair_request = 'reject_pair_request',
+  cancel_proof_request = 'cancel_proof_request',
+  accept_proof_request = 'accept_proof_request',
+  reject_proof_request = 'reject_proof_request',
+  start_proof_request = 'start_proof_request',
+  proof_request_end = 'proof_request_end',
+  verifier_started = 'verifier_started',
+  prover_instantiated = 'prover_instantiated',
+  prover_setup = 'prover_setup',
+  prover_started = 'prover_started',
+  get_p2p_state = 'get_p2p_state',
+  request_p2p_proof = 'request_p2p_proof',
+  request_p2p_proof_by_hash = 'request_p2p_proof_by_hash',
 }
 
 export type BackgroundAction = {
@@ -173,12 +220,19 @@ export const initRPC = () => {
           return handleGetPluginHashes(request, sendResponse);
         case BackgroundActiontype.get_plugin_by_hash:
           return handleGetPluginByHash(request, sendResponse);
+        case BackgroundActiontype.read_plugin_config:
+          getPluginConfig(request.data).then(sendResponse);
+          return true;
         case BackgroundActiontype.get_plugin_config_by_hash:
           return handleGetPluginConfigByHash(request, sendResponse);
         case BackgroundActiontype.run_plugin:
           return handleRunPlugin(request, sendResponse);
+        case BackgroundActiontype.get_secrets_from_transcript:
+          return handleGetSecretsFromTranscript(request, sendResponse);
         case BackgroundActiontype.execute_plugin_prover:
           return handleExecPluginProver(request);
+        case BackgroundActiontype.execute_p2p_plugin_prover:
+          return handleExecP2PPluginProver(request);
         case BackgroundActiontype.open_popup:
           return handleOpenPopup(request);
         case BackgroundActiontype.connect_request:
@@ -204,6 +258,60 @@ export const initRPC = () => {
         case BackgroundActiontype.set_default_plugins_installed:
           setDefaultPluginsInstalled(request.data).then(sendResponse);
           return true;
+        case BackgroundActiontype.connect_rendezvous:
+          connectSession().then(sendResponse);
+          return;
+        case BackgroundActiontype.disconnect_rendezvous:
+          disconnectSession().then(sendResponse);
+          return;
+        case BackgroundActiontype.send_pair_request:
+          sendPairRequest(request.data).then(sendResponse);
+          return;
+        case BackgroundActiontype.cancel_pair_request:
+          cancelPairRequest(request.data).then(sendResponse);
+          return;
+        case BackgroundActiontype.accept_pair_request:
+          acceptPairRequest(request.data).then(sendResponse);
+          return;
+        case BackgroundActiontype.reject_pair_request:
+          rejectPairRequest(request.data).then(sendResponse);
+          return;
+        case BackgroundActiontype.cancel_proof_request:
+          cancelProofRequest(request.data).then(sendResponse);
+          return;
+        case BackgroundActiontype.accept_proof_request:
+          acceptProofRequest(request.data).then(sendResponse);
+          return;
+        case BackgroundActiontype.reject_proof_request:
+          rejectProofRequest(request.data).then(sendResponse);
+          return;
+        case BackgroundActiontype.start_proof_request:
+          startProofRequest(request.data.pluginHash).then(sendResponse);
+          return;
+        case BackgroundActiontype.proof_request_end:
+          endProofRequest(request.data).then(sendResponse);
+          return;
+        case BackgroundActiontype.verifier_started:
+          startedVerifier(request.data.pluginHash).then(sendResponse);
+          return;
+        case BackgroundActiontype.prover_started:
+          startedProver(request.data.pluginHash).then(sendResponse);
+          return;
+        case BackgroundActiontype.prover_instantiated:
+          onProverInstantiated(request.data.pluginHash);
+          return;
+        case BackgroundActiontype.prover_setup:
+          setupProver(request.data.pluginHash).then(sendResponse);
+          return;
+        case BackgroundActiontype.request_p2p_proof:
+          requestProof(request.data).then(sendResponse);
+          return;
+        case BackgroundActiontype.request_p2p_proof_by_hash:
+          requestProofByHash(request.data).then(sendResponse);
+          return;
+        case BackgroundActiontype.get_p2p_state:
+          getP2PState();
+          return;
         default:
           break;
       }
@@ -250,39 +358,21 @@ async function handleFinishProveRequest(
     const newReq = await addNotaryRequestProofs(id, proof);
     if (!newReq) return;
 
-    await browser.runtime.sendMessage({
-      type: BackgroundActiontype.push_action,
-      data: {
-        tabId: 'background',
-      },
-      action: addRequestHistory(await getNotaryRequest(id)),
-    });
+    await pushToRedux(addRequestHistory(await getNotaryRequest(id)));
   }
 
   if (error) {
     const newReq = await setNotaryRequestError(id, error);
     if (!newReq) return;
 
-    await browser.runtime.sendMessage({
-      type: BackgroundActiontype.push_action,
-      data: {
-        tabId: 'background',
-      },
-      action: addRequestHistory(await getNotaryRequest(id)),
-    });
+    await pushToRedux(addRequestHistory(await getNotaryRequest(id)));
   }
 
   if (verification) {
     const newReq = await setNotaryRequestVerification(id, verification);
     if (!newReq) return;
 
-    await browser.runtime.sendMessage({
-      type: BackgroundActiontype.push_action,
-      data: {
-        tabId: 'background',
-      },
-      action: addRequestHistory(await getNotaryRequest(id)),
-    });
+    await pushToRedux(addRequestHistory(await getNotaryRequest(id)));
   }
 
   return sendResponse();
@@ -299,13 +389,7 @@ async function handleRetryProveReqest(
 
   const req = await getNotaryRequest(id);
 
-  await browser.runtime.sendMessage({
-    type: BackgroundActiontype.push_action,
-    data: {
-      tabId: 'background',
-    },
-    action: addRequestHistory(req),
-  });
+  await pushToRedux(addRequestHistory(req));
 
   await browser.runtime.sendMessage({
     type: BackgroundActiontype.process_prove_request,
@@ -351,13 +435,7 @@ async function handleProveRequestStart(
 
   await setNotaryRequestStatus(id, 'pending');
 
-  await browser.runtime.sendMessage({
-    type: BackgroundActiontype.push_action,
-    data: {
-      tabId: 'background',
-    },
-    action: addRequestHistory(await getNotaryRequest(id)),
-  });
+  await pushToRedux(addRequestHistory(await getNotaryRequest(id)));
 
   browser.runtime.sendMessage({
     type: BackgroundActiontype.process_prove_request,
@@ -415,13 +493,7 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
 
   await setNotaryRequestStatus(id, 'pending');
 
-  await browser.runtime.sendMessage({
-    type: BackgroundActiontype.push_action,
-    data: {
-      tabId: 'background',
-    },
-    action: addRequestHistory(await getNotaryRequest(id)),
-  });
+  await pushToRedux(addRequestHistory(await getNotaryRequest(id)));
 
   const onProverResponse = async (request: any) => {
     const { data, type } = request;
@@ -441,10 +513,7 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
 
     if (getSecretResponse) {
       const body = data.transcript.recv.split('\r\n').reduce(
-        (
-          state: { headerEnd: boolean; isBody: boolean; body: string[] },
-          line: string,
-        ) => {
+        (state: { headerEnd: boolean; body: string[] }, line: string) => {
           if (state.headerEnd) {
             state.body.push(line);
           } else if (!line) {
@@ -459,7 +528,7 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
       if (body.length == 1) {
         secretResps = await getSecretResponseFn(body[0]);
       } else {
-        secretResps = await getSecretResponse(
+        secretResps = await getSecretResponseFn(
           body.filter((txt: string) => {
             const json = safeParseJSON(txt);
             return typeof json === 'object';
@@ -508,10 +577,103 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
   });
 }
 
+async function handleGetSecretsFromTranscript(
+  request: BackgroundAction,
+  sendResponse: (data?: any) => void,
+) {
+  const { pluginHash, pluginHex, p2p, transcript, method } = request.data;
+  const hex = (await getPluginByHash(pluginHash)) || pluginHex;
+  const arrayBuffer = hexToArrayBuffer(hex!);
+  const config = await getPluginConfig(arrayBuffer);
+  const plugin = await makePlugin(arrayBuffer, config, p2p);
+
+  const body = transcript.recv.split('\r\n').reduce(
+    (state: { headerEnd: boolean; body: string[] }, line: string) => {
+      if (state.headerEnd) {
+        state.body.push(line);
+      } else if (!line) {
+        state.headerEnd = true;
+      }
+
+      return state;
+    },
+    { headerEnd: false, body: [] },
+  ).body;
+
+  let out;
+
+  if (body.length == 1) {
+    out = await plugin.call(method, body[0]);
+  } else {
+    out = await plugin.call(
+      method,
+      body.filter((txt: string) => {
+        const json = safeParseJSON(txt);
+        return typeof json === 'object';
+      })[0],
+    );
+  }
+
+  const secretResps = JSON.parse(out.string());
+  await browser.runtime.sendMessage({
+    type: OffscreenActionTypes.get_secrets_from_transcript_success,
+    data: {
+      secretResps,
+    },
+  });
+}
+
+async function runP2PPluginProver(request: BackgroundAction, now = Date.now()) {
+  const {
+    pluginHash,
+    pluginHex,
+    url,
+    method,
+    headers,
+    body,
+    secretHeaders,
+    getSecretResponse,
+    websocketProxyUrl: _websocketProxyUrl,
+    maxSentData: _maxSentData,
+    maxRecvData: _maxRecvData,
+    clientId,
+  } = request.data;
+  const rendezvousApi = await getRendezvousApi();
+  const proverUrl = `${rendezvousApi}?clientId=${clientId}:proof`;
+  const websocketProxyUrl = _websocketProxyUrl || (await getProxyApi());
+  const maxSentData = _maxSentData || (await getMaxSent());
+  const maxRecvData = _maxRecvData || (await getMaxRecv());
+
+  await browser.runtime.sendMessage({
+    type: OffscreenActionTypes.start_p2p_prover,
+    data: {
+      pluginHash,
+      pluginHex,
+      url,
+      method,
+      headers,
+      body,
+      proverUrl,
+      websocketProxyUrl,
+      maxRecvData,
+      maxSentData,
+      secretHeaders,
+      getSecretResponse,
+    },
+  });
+}
+
 export async function handleExecPluginProver(request: BackgroundAction) {
   const now = request.data.now;
   const id = charwise.encode(now).toString('hex');
   runPluginProver(request, now);
+  return id;
+}
+
+export async function handleExecP2PPluginProver(request: BackgroundAction) {
+  const now = request.data.now;
+  const id = charwise.encode(now).toString('hex');
+  runP2PPluginProver(request, now);
   return id;
 }
 
@@ -550,13 +712,7 @@ async function handleAddPlugin(
       if (hash) {
         await addPluginConfig(hash, config);
 
-        await browser.runtime.sendMessage({
-          type: BackgroundActiontype.push_action,
-          data: {
-            tabId: 'background',
-          },
-          action: addOnePlugin(hash),
-        });
+        await pushToRedux(addOnePlugin(hash));
       }
     }
   } finally {
@@ -570,13 +726,7 @@ async function handleRemovePlugin(
 ) {
   await removePlugin(request.data);
   await removePluginConfig(request.data);
-  await browser.runtime.sendMessage({
-    type: BackgroundActiontype.push_action,
-    data: {
-      tabId: 'background',
-    },
-    action: removeOnePlugin(request.data),
-  });
+  await pushToRedux(removeOnePlugin(request.data));
 
   return sendResponse();
 }
@@ -587,13 +737,7 @@ async function handleGetPluginHashes(
 ) {
   const hashes = await getPluginHashes();
   for (const hash of hashes) {
-    await browser.runtime.sendMessage({
-      type: BackgroundActiontype.push_action,
-      data: {
-        tabId: 'background',
-      },
-      action: addOnePlugin(hash),
-    });
+    await pushToRedux(addOnePlugin(hash));
   }
   return sendResponse();
 }
@@ -621,11 +765,11 @@ function handleRunPlugin(
   sendResponse: (data?: any) => void,
 ) {
   (async () => {
-    const { hash, method, params } = request.data;
+    const { hash, method, params, meta } = request.data;
     const hex = await getPluginByHash(hash);
     const arrayBuffer = hexToArrayBuffer(hex!);
     const config = await getPluginConfig(arrayBuffer);
-    const plugin = await makePlugin(arrayBuffer, config);
+    const plugin = await makePlugin(arrayBuffer, config, meta?.p2p);
     devlog(`plugin::${method}`, params);
     const out = await plugin.call(method, params);
     devlog(`plugin response: `, out.string());
@@ -1125,7 +1269,6 @@ async function handleRunPluginCSRequest(request: BackgroundAction) {
   );
 
   const onPluginRequest = async (req: any) => {
-    console.log(req);
     if (req.type !== SidePanelActionTypes.execute_plugin_response) return;
     if (req.data.hash !== hash) return;
 

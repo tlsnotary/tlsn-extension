@@ -1,7 +1,6 @@
 import React, { ReactElement, useCallback, useEffect, useState } from 'react';
 import './sidePanel.scss';
 import browser from 'webextension-polyfill';
-import { fetchPluginConfigByHash, runPlugin } from '../../utils/rpc';
 import {
   getPluginConfig,
   hexToArrayBuffer,
@@ -9,7 +8,6 @@ import {
   PluginConfig,
   StepConfig,
 } from '../../utils/misc';
-import { PluginList } from '../../components/PluginList';
 import DefaultPluginIcon from '../../assets/img/default-plugin-icon.png';
 import logo from '../../assets/img/icon-128.png';
 import classNames from 'classnames';
@@ -17,28 +15,58 @@ import Icon from '../../components/Icon';
 import { useRequestHistory } from '../../reducers/history';
 import { BackgroundActiontype } from '../Background/rpc';
 import { getPluginByHash, getPluginConfigByHash } from '../Background/db';
-import type { Plugin } from '@extism/extism';
-import { OffscreenActionTypes } from '../Offscreen/types';
 import { SidePanelActionTypes } from './types';
+import { fetchP2PState, useClientId } from '../../reducers/p2p';
 
 export default function SidePanel(): ReactElement {
   const [config, setConfig] = useState<PluginConfig | null>(null);
   const [hash, setHash] = useState('');
+  const [hex, setHex] = useState('');
+  const [p2p, setP2P] = useState(false);
+  const [started, setStarted] = useState(false);
+  const clientId = useClientId();
 
   useEffect(() => {
-    (async function () {
-      const result = await browser.storage.local.get('plugin_hash');
-      const { plugin_hash } = result;
-      const config = await getPluginConfigByHash(plugin_hash);
-      setHash(plugin_hash);
-      setConfig(config);
-      // await browser.storage.local.set({ plugin_hash: '' });
-    })();
+    fetchP2PState();
+    browser.runtime.sendMessage({
+      type: SidePanelActionTypes.panel_opened,
+    });
+  }, []);
+
+  useEffect(() => {
+    browser.runtime.onMessage.addListener(async (request) => {
+      const { type, data } = request;
+
+      switch (type) {
+        case SidePanelActionTypes.execute_plugin_request: {
+          setConfig(await getPluginConfigByHash(data.pluginHash));
+          setHash(data.pluginHash);
+          setStarted(true);
+          break;
+        }
+        case SidePanelActionTypes.run_p2p_plugin_request: {
+          const { pluginHash, plugin } = data;
+          const config =
+            (await getPluginConfigByHash(pluginHash)) ||
+            (await getPluginConfig(hexToArrayBuffer(plugin)));
+
+          setHash(pluginHash);
+          setHex(plugin);
+          setP2P(true);
+          setConfig(config);
+          break;
+        }
+        case SidePanelActionTypes.start_p2p_plugin: {
+          setStarted(true);
+          break;
+        }
+      }
+    });
   }, []);
 
   return (
     <div className="flex flex-col bg-slate-100 w-screen h-screen">
-      <div className="relative flex flex-nowrap flex-shrink-0 flex-row items-center relative gap-2 h-9 p-2 cursor-default justify-center bg-slate-300 w-full">
+      <div className="relative flex flex-nowrap flex-shrink-0 flex-row items-center gap-2 h-9 p-2 cursor-default justify-center bg-slate-300 w-full">
         <img className="h-5" src={logo} alt="logo" />
         <button
           className="button absolute right-2"
@@ -47,8 +75,16 @@ export default function SidePanel(): ReactElement {
           Close
         </button>
       </div>
-      {!config && <PluginList />}
-      {config && <PluginBody hash={hash} config={config} />}
+      {/*{!config && <PluginList />}*/}
+      {started && config && (
+        <PluginBody
+          hash={hash}
+          hex={hex}
+          config={config}
+          p2p={p2p}
+          clientId={clientId}
+        />
+      )}
     </div>
   );
 }
@@ -56,9 +92,12 @@ export default function SidePanel(): ReactElement {
 function PluginBody(props: {
   config: PluginConfig;
   hash: string;
+  hex?: string;
+  clientId?: string;
+  p2p?: boolean;
 }): ReactElement {
-  const { hash } = props;
-  const { title, description, icon, steps } = props.config;
+  const { hash, hex, config, p2p, clientId } = props;
+  const { title, description, icon, steps } = config;
   const [responses, setResponses] = useState<any[]>([]);
   const [notarizationId, setNotarizationId] = useState('');
   const notaryRequest = useRequestHistory(notarizationId);
@@ -111,10 +150,14 @@ function PluginBody(props: {
           <StepContent
             key={i}
             hash={hash}
+            config={config}
+            hex={hex}
             index={i}
             setResponse={setResponse}
             lastResponse={i > 0 ? responses[i - 1] : undefined}
             responses={responses}
+            p2p={p2p}
+            clientId={clientId}
             {...step}
           />
         ))}
@@ -126,10 +169,14 @@ function PluginBody(props: {
 function StepContent(
   props: StepConfig & {
     hash: string;
+    hex?: string;
+    clientId?: string;
     index: number;
     setResponse: (resp: any, i: number) => void;
     responses: any[];
     lastResponse?: any;
+    config: PluginConfig;
+    p2p?: boolean;
   },
 ): ReactElement {
   const {
@@ -142,6 +189,10 @@ function StepContent(
     lastResponse,
     prover,
     hash,
+    hex: _hex,
+    config,
+    p2p = false,
+    clientId = '',
   } = props;
   const [completed, setCompleted] = useState(false);
   const [pending, setPending] = useState(false);
@@ -150,11 +201,10 @@ function StepContent(
   const notaryRequest = useRequestHistory(notarizationId);
 
   const getPlugin = useCallback(async () => {
-    const hex = await getPluginByHash(hash);
-    const config = await getPluginConfigByHash(hash);
+    const hex = (await getPluginByHash(hash)) || _hex;
     const arrayBuffer = hexToArrayBuffer(hex!);
-    return makePlugin(arrayBuffer, config!);
-  }, [hash]);
+    return makePlugin(arrayBuffer, config, { p2p, clientId });
+  }, [hash, _hex, config, p2p, clientId]);
 
   const processStep = useCallback(async () => {
     const plugin = await getPlugin();
@@ -210,13 +260,38 @@ function StepContent(
     });
   }, [notaryRequest, notarizationId]);
 
+  const viewP2P = useCallback(async () => {
+    await browser.runtime.sendMessage({
+      type: BackgroundActiontype.open_popup,
+      data: {
+        position: {
+          left: window.screen.width / 2 - 240,
+          top: window.screen.height / 2 - 300,
+        },
+        route: `/p2p`,
+      },
+    });
+  }, []);
+
   useEffect(() => {
     processStep();
   }, [processStep]);
 
   let btnContent = null;
 
-  if (completed) {
+  console.log('prover', prover, p2p);
+  if (prover && p2p) {
+    btnContent = (
+      <button
+        className={classNames(
+          'button button--primary mt-2 w-fit flex flex-row flex-nowrap items-center gap-2',
+        )}
+        onClick={viewP2P}
+      >
+        <span className="text-sm">View in P2P</span>
+      </button>
+    );
+  } else if (completed) {
     btnContent = (
       <button
         className={classNames(

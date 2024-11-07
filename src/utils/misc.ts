@@ -1,5 +1,6 @@
 import {
   BackgroundActiontype,
+  handleExecP2PPluginProver,
   handleExecPluginProver,
   RequestLog,
 } from '../entries/Background/rpc';
@@ -148,6 +149,10 @@ const VALID_HOST_FUNCS: { [name: string]: string } = {
 export const makePlugin = async (
   arrayBuffer: ArrayBuffer,
   config?: PluginConfig,
+  meta?: {
+    p2p: boolean;
+    clientId: string;
+  },
 ) => {
   const module = await WebAssembly.compile(arrayBuffer);
   const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
@@ -201,22 +206,37 @@ export const makePlugin = async (
       (async () => {
         const { getSecretResponse, body: reqBody } = params;
 
-        handleExecPluginProver({
-          type: BackgroundActiontype.execute_plugin_prover,
-          data: {
-            ...params,
-            body: reqBody,
-            getSecretResponseFn: async (body: string) => {
-              return new Promise((resolve) => {
-                setTimeout(async () => {
-                  const out = await plugin.call(getSecretResponse, body);
-                  resolve(JSON.parse(out.string()));
-                }, 0);
-              });
+        if (meta?.p2p) {
+          const pluginHex = Buffer.from(arrayBuffer).toString('hex');
+          handleExecP2PPluginProver({
+            type: BackgroundActiontype.execute_p2p_plugin_prover,
+            data: {
+              ...params,
+              pluginHash: await sha256(pluginHex),
+              pluginHex,
+              body: reqBody,
+              now,
+              clientId: meta.clientId,
             },
-            now,
-          },
-        });
+          });
+        } else {
+          handleExecPluginProver({
+            type: BackgroundActiontype.execute_plugin_prover,
+            data: {
+              ...params,
+              body: reqBody,
+              getSecretResponseFn: async (body: string) => {
+                return new Promise((resolve) => {
+                  setTimeout(async () => {
+                    const out = await plugin.call(getSecretResponse, body);
+                    resolve(JSON.parse(out.string()));
+                  }, 0);
+                });
+              },
+              now,
+            },
+          });
+        }
       })();
 
       return context.store(`${id}`);

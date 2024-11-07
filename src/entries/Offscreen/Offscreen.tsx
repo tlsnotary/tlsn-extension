@@ -4,21 +4,30 @@ import { OffscreenActionTypes } from './types';
 import {
   NotaryServer,
   Prover as TProver,
+  Verifier as TVerifier,
   Presentation as TPresentation,
   Transcript,
 } from 'tlsn-js';
 import { verify } from 'tlsn-js-v5';
 
-import { urlify } from '../../utils/misc';
+import {
+  hexToArrayBuffer,
+  makePlugin,
+  safeParseJSON,
+  urlify,
+} from '../../utils/misc';
 import { BackgroundActiontype } from '../Background/rpc';
 import browser from 'webextension-polyfill';
 import { PresentationJSON } from '../../utils/types';
 import { PresentationJSON as PresentationJSONa7 } from 'tlsn-js/build/types';
-import { Commit, Method } from 'tlsn-wasm';
+import { Method } from 'tlsn-wasm';
 import { subtractRanges } from './utils';
 import { mapSecretsToRange } from '../Background/plugins/utils';
+import { waitForEvent } from '../utils';
+import type { ParsedTranscriptData } from 'tlsn-js/src/types';
+import { getPluginByHash } from '../Background/db';
 
-const { init, Prover, Presentation }: any = Comlink.wrap(
+const { init, Prover, Presentation, Verifier }: any = Comlink.wrap(
   new Worker(new URL('./worker.ts', import.meta.url)),
 );
 
@@ -29,6 +38,7 @@ const Offscreen = () => {
     (async () => {
       const loggingLevel = await browser.runtime.sendMessage({
         type: BackgroundActiontype.get_logging_level,
+        hardwareConcurrency: navigator.hardwareConcurrency,
       });
       await init({ loggingLevel });
       // @ts-ignore
@@ -203,6 +213,170 @@ const Offscreen = () => {
             })();
             break;
           }
+          case OffscreenActionTypes.start_p2p_verifier: {
+            (async () => {
+              const { pluginHash, maxSentData, maxRecvData, verifierUrl } =
+                request.data;
+              const verifier: TVerifier = await new Verifier({
+                id: pluginHash,
+                maxSentData: maxSentData,
+                maxRecvData: maxRecvData,
+              });
+
+              await verifier.connect(verifierUrl);
+              const proverStarted = waitForEvent(
+                OffscreenActionTypes.prover_started,
+              );
+
+              browser.runtime.sendMessage({
+                type: BackgroundActiontype.verifier_started,
+                data: {
+                  pluginHash,
+                },
+              });
+
+              await waitForEvent(OffscreenActionTypes.prover_setup);
+
+              verifier.verify().then((res) => {
+                browser.runtime.sendMessage({
+                  type: BackgroundActiontype.proof_request_end,
+                  data: {
+                    pluginHash,
+                    proof: res,
+                  },
+                });
+              });
+
+              await proverStarted;
+
+              browser.runtime.sendMessage({
+                type: BackgroundActiontype.start_proof_request,
+                data: {
+                  pluginHash,
+                },
+              });
+            })();
+            break;
+          }
+          case OffscreenActionTypes.start_p2p_prover: {
+            (async () => {
+              const {
+                pluginHash,
+                pluginHex,
+                url,
+                method,
+                headers,
+                body,
+                proverUrl,
+                websocketProxyUrl,
+                maxRecvData,
+                maxSentData,
+                secretHeaders,
+                getSecretResponse,
+              } = request.data;
+
+              const hostname = urlify(url)?.hostname || '';
+
+              const prover: TProver = await new Prover({
+                id: pluginHash,
+                serverDns: hostname,
+                maxSentData,
+                maxRecvData,
+              });
+
+              browser.runtime.sendMessage({
+                type: BackgroundActiontype.prover_instantiated,
+                data: {
+                  pluginHash,
+                },
+              });
+
+              const proofRequestStart = waitForEvent(
+                OffscreenActionTypes.start_p2p_proof_request,
+              );
+
+              const proverSetup = prover.setup(proverUrl);
+              await new Promise((r) => setTimeout(r, 5000));
+              browser.runtime.sendMessage({
+                type: BackgroundActiontype.prover_setup,
+                data: {
+                  pluginHash,
+                },
+              });
+
+              await proverSetup;
+              browser.runtime.sendMessage({
+                type: BackgroundActiontype.prover_started,
+                data: {
+                  pluginHash,
+                },
+              });
+              await proofRequestStart;
+              await prover.sendRequest(
+                websocketProxyUrl + `?token=${hostname}`,
+                {
+                  url,
+                  method,
+                  headers,
+                  body,
+                },
+              );
+
+              const transcript = await prover.transcript();
+
+              let secretResps: string[] = [];
+
+              if (getSecretResponse) {
+                browser.runtime.sendMessage({
+                  type: BackgroundActiontype.get_secrets_from_transcript,
+                  data: {
+                    pluginHash,
+                    pluginHex,
+                    method: getSecretResponse,
+                    transcript,
+                    p2p: true,
+                  },
+                });
+
+                const msg: any = await waitForEvent(
+                  OffscreenActionTypes.get_secrets_from_transcript_success,
+                );
+
+                secretResps = msg.data.secretResps;
+              }
+
+              const commit = {
+                sent: subtractRanges(
+                  transcript.ranges.sent.all,
+                  mapSecretsToRange(secretHeaders, transcript.sent),
+                ),
+                recv: subtractRanges(
+                  transcript.ranges.recv.all,
+                  secretResps
+                    .map((secret: string) => {
+                      const index = transcript.recv.indexOf(secret);
+                      return index > -1
+                        ? {
+                            start: index,
+                            end: index + secret.length,
+                          }
+                        : null;
+                    })
+                    .filter((data: any) => !!data) as {
+                    start: number;
+                    end: number;
+                  }[],
+                ),
+              };
+
+              const endRequest = waitForEvent(
+                OffscreenActionTypes.end_p2p_proof_request,
+              );
+              await prover.reveal(commit);
+              await endRequest;
+            })();
+            break;
+          }
           default:
             break;
         }
@@ -332,6 +506,55 @@ async function createProver(options: {
   });
 
   return prover;
+}
+
+function getCommitFromTranscript(
+  transcript: {
+    sent: string;
+    recv: string;
+    ranges: { recv: ParsedTranscriptData; sent: ParsedTranscriptData };
+  },
+  secretHeaders: string[],
+  secretResps: string[],
+) {
+  const commit = {
+    sent: subtractRanges(
+      transcript.ranges.sent.all,
+      secretHeaders
+        .map((secret: string) => {
+          const index = transcript.sent.indexOf(secret);
+          return index > -1
+            ? {
+                start: index,
+                end: index + secret.length,
+              }
+            : null;
+        })
+        .filter((data: any) => !!data) as {
+        start: number;
+        end: number;
+      }[],
+    ),
+    recv: subtractRanges(
+      transcript.ranges.recv.all,
+      secretResps
+        .map((secret: string) => {
+          const index = transcript.recv.indexOf(secret);
+          return index > -1
+            ? {
+                start: index,
+                end: index + secret.length,
+              }
+            : null;
+        })
+        .filter((data: any) => !!data) as {
+        start: number;
+        end: number;
+      }[],
+    ),
+  };
+
+  return commit;
 }
 
 async function verifyProof(

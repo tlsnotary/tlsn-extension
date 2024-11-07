@@ -9,8 +9,10 @@ import c from 'classnames';
 import { useRequestHistory } from '../../reducers/history';
 import Icon from '../../components/Icon';
 import { download } from '../../utils/misc';
+import classNames from 'classnames';
 
 export default function ProofViewer(props?: {
+  className?: string;
   recv?: string;
   sent?: string;
 }): ReactElement {
@@ -20,7 +22,12 @@ export default function ProofViewer(props?: {
   const [tab, setTab] = useState('sent');
 
   return (
-    <div className="flex flex-col w-full py-2 gap-2 flex-grow">
+    <div
+      className={classNames(
+        'flex flex-col w-full py-2 gap-2 flex-grow',
+        props?.className,
+      )}
+    >
       <div className="flex flex-col px-2">
         <div className="flex flex-row gap-2 items-center">
           <Icon
