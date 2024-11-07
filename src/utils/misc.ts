@@ -13,7 +13,13 @@ import browser from 'webextension-polyfill';
 import NodeCache from 'node-cache';
 import { getNotaryApi, getProxyApi } from './storage';
 import { minimatch } from 'minimatch';
-import { getCookiesByHost, getHeadersByHost, getLocalStorageByHost, getSessionStorageByHost } from '../entries/Background/db';
+import {
+  getCookiesByHost,
+  getHeadersByHost,
+  getLocalStorageByHost,
+  getSessionStorageByHost,
+  setLocalStorage,
+} from '../entries/Background/db';
 const charwise = require('charwise');
 
 export function urlify(
@@ -249,29 +255,37 @@ export const makePlugin = async (
   }
 
   if (config?.localStorage) {
-    const localStorage: { [hostname: string]: { [key: string]: string}} = {};
-    console.log('before event')
-    chrome.runtime.sendMessage({
-      type: BackgroundActiontype.set_local_storage,
-    })
-    console.log('after event')
+    const localStorage: { [hostname: string]: { [key: string]: string } } = {};
+
+    // (async () => {
+      const [tab] = await chrome.tabs.query({
+        active: true,
+        lastFocusedWindow: true,
+      });
+      await chrome.tabs.sendMessage(tab.id as number, {
+        type: BackgroundActiontype.get_local_storage,
+      });
+    // })();
+    //@ts-ignore
     for (const host of config.localStorage) {
-      console.log('here')
-      const cache = getLocalStorageByHost(host);
+      const cache = await getLocalStorageByHost(host);
+      console.log('in plugin config', cache);
       for (const [key, value] of Object.entries(cache)) {
-        console.log(value)
-        localStorage[key] = value;
+        console.log('inside', key, value);
+        localStorage[host] = cache;
       }
     }
+    console.log('after 1', localStorage);
     //@ts-ignore
-    injectedConfig.sessionStorage = localStorage;
+    injectedConfig.localStorage = JSON.stringify(localStorage);
   }
 
   if (config?.sessionStorage) {
-    const sessionStorage: { [hostname: string]: { [key: string]: string}} = {};
+    const sessionStorage: { [hostname: string]: { [key: string]: string } } =
+      {};
     chrome.runtime.sendMessage({
       type: BackgroundActiontype.set_session_storage,
-    })
+    });
     for (const host of config.sessionStorage) {
       const cache = getSessionStorageByHost(host);
       for (const [key, value] of Object.entries(cache)) {
@@ -331,7 +345,7 @@ export type PluginConfig = {
   hostFunctions?: string[]; // Host functions that the plugin will have access to
   cookies?: string[]; // Cookies the plugin will have access to, cached by the extension from specified hosts (optional)
   headers?: string[]; // Headers the plugin will have access to, cached by the extension from specified hosts (optional)
-  localStorage?: string[]; // LocalStorage the plugin will have access to, cached by the extension from specified hosts (optional)
+  localStorage?: any // LocalStorage the plugin will have access to, cached by the extension from specified hosts (optional)
   sessionStorage?: string[]; // SessionStorage the plugin will have access to, cached by the extension from specified hosts (optional)
   requests: { method: string; url: string }[]; // List of requests that the plugin is allowed to make
   notaryUrls?: string[]; // List of notary services that the plugin is allowed to use (optional)

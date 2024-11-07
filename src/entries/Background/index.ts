@@ -4,41 +4,40 @@ import browser from 'webextension-polyfill';
 import { getAppState, setDefaultPluginsInstalled } from './db';
 import { installPlugin } from './plugins/utils';
 import { BackgroundActiontype } from './rpc';
-import { setLocalStorage, setSessionStorage } from './db';
+import {
+  setLocalStorage,
+  setSessionStorage,
+  getLocalStorageByHost,
+} from './db';
 
 (async () => {
-  chrome.runtime.onMessage.addListener(async (request, sender) => {
-    if (
-      request.type === BackgroundActiontype.set_local_storage &&
-      sender.tab?.url
-    ) {
-      const url = new URL(sender.tab.url);
-      const hostname = url.hostname;
-      const localStorage: { [key: string]: string } =
-        request.data;
-
-      for (const [key, value] of Object.entries(localStorage || {})) {
-        await setLocalStorage(hostname, key, value);
+  chrome.runtime.onMessage.addListener(
+    async (request, sender, sendResponse) => {
+      if (request.type === BackgroundActiontype.get_local_storage) {
+        const { localStorageData, hostname } = request;
+        console.log('background', localStorageData);
+        // Use `setLocalStorage` for each key-value pair
+        for (const [key, value] of Object.entries(localStorageData)) {
+          await setLocalStorage(hostname, key, value as any);
+        }
       }
-    }
-  });
+    },
+  );
 
   chrome.runtime.onMessage.addListener(async (request, sender) => {
     if (
       request.type === BackgroundActiontype.set_session_storage &&
       sender.tab?.url
-     ) {
+    ) {
       const url = new URL(sender.tab.url);
       const hostname = url.hostname;
-      const sessionStorage: { [key: string]: string } =
-      request.data;
+      const sessionStorage: { [key: string]: string } = request.data;
 
       for (const [key, value] of Object.entries(sessionStorage || {})) {
-        await setSessionStorage(hostname, key, value)
+        await setSessionStorage(hostname, key, value);
       }
     }
-  })
-
+  });
 
   browser.webRequest.onSendHeaders.addListener(
     onSendHeaders,

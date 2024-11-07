@@ -27,7 +27,7 @@ import {
   getAppState,
   setDefaultPluginsInstalled,
   getSessionStorageByHost,
-  getLocalStorageByHost
+  getLocalStorageByHost,
 } from './db';
 import { addOnePlugin, removeOnePlugin } from '../../reducers/plugins';
 import {
@@ -208,7 +208,7 @@ export const initRPC = () => {
           setDefaultPluginsInstalled(request.data).then(sendResponse);
           return true;
         case BackgroundActiontype.set_local_storage:
-            return
+          return;
         case BackgroundActiontype.get_local_storage:
           return handleGetLocalStorageByHostName(request, sendResponse);
         case BackgroundActiontype.set_session_storage:
@@ -485,7 +485,7 @@ function handleGetSessionStorageByHostname(
 ): boolean {
   (async () => {
     const sessionStorage = await getSessionStorageByHost(request.data);
-    sendResponse(sessionStorage)
+    sendResponse(sessionStorage);
   })();
   return true;
 }
@@ -495,12 +495,12 @@ function handleGetLocalStorageByHostName(
   sendResponse: (data?: any) => void,
 ): boolean {
   (async () => {
+    console.log('in rpc', request);
     const localStorage = await getLocalStorageByHost(request.data);
     sendResponse(localStorage);
   })();
   return true;
 }
-
 
 async function handleAddPlugin(
   request: BackgroundAction,

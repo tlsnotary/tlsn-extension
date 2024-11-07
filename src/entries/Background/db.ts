@@ -32,7 +32,7 @@ const localStorageDb = db.sublevel<string, any>('sessionStorage', {
   valueEncoding: 'json',
 });
 const sessionStorageDb = db.sublevel<string, any>('localStorage', {
-  valueEncoding: 'json'
+  valueEncoding: 'json',
 });
 const appDb = db.sublevel<string, any>('app', {
   valueEncoding: 'json',
@@ -384,37 +384,45 @@ export async function getHeadersByHost(host: string) {
   return ret;
 }
 
-
-export async function setLocalStorage(host: string, name: string, value: string) {
+export async function setLocalStorage(
+  host: string,
+  name: string,
+  value: string,
+) {
   return mutex.runExclusive(async () => {
     await localStorageDb.sublevel(host).put(name, value);
     return true;
-  })
+  });
 }
 
-export async function setSessionStorage(host: string, name: string, value: string) {
+export async function setSessionStorage(
+  host: string,
+  name: string,
+  value: string,
+) {
   return mutex.runExclusive(async () => {
     await sessionStorageDb.sublevel(host).put(name, value);
     return true;
-  })
+  });
 }
 
 export async function clearLocalStorage(host: string) {
   return mutex.runExclusive(async () => {
     await localStorageDb.sublevel(host).clear();
     return true;
-  })
+  });
 }
 
 export async function clearSessionStorage(host: string) {
   return mutex.runExclusive(async () => {
     await sessionStorageDb.sublevel(host).clear();
     return true;
-  })
+  });
 }
 
 export async function getLocalStorageByHost(host: string) {
-  const ret: { [key:string]: string } = {};
+  const ret: { [key: string]: string } = {};
+  console.log('in func', host);
   for await (const [key, value] of localStorageDb.sublevel(host).iterator()) {
     ret[key] = value;
   }
@@ -422,7 +430,7 @@ export async function getLocalStorageByHost(host: string) {
 }
 
 export async function getSessionStorageByHost(host: string) {
-  const ret: { [key:string]: string } = {};
+  const ret: { [key: string]: string } = {};
   for await (const [key, value] of sessionStorageDb.sublevel(host).iterator()) {
     ret[key] = value;
   }
