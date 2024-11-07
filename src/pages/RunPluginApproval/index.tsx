@@ -11,6 +11,8 @@ import {
   getPluginMetadataByHash,
 } from '../../entries/Background/db';
 import { runPlugin } from '../../utils/rpc';
+import { openSidePanel } from '../../entries/utils';
+import { SidePanelActionTypes } from '../../entries/SidePanel/types';
 
 export function RunPluginApproval(): ReactElement {
   const [params] = useSearchParams();
@@ -32,14 +34,18 @@ export function RunPluginApproval(): ReactElement {
   const onAccept = useCallback(async () => {
     if (!hash) return;
     try {
-      const tab = await browser.tabs.create({
-        active: true,
-      });
-
       await browser.storage.local.set({ plugin_hash: hash });
 
-      // @ts-ignore
-      if (chrome.sidePanel) await chrome.sidePanel.open({ tabId: tab.id });
+      await openSidePanel();
+
+      browser.runtime.sendMessage({
+        type: SidePanelActionTypes.execute_plugin_request,
+        data: {
+          pluginHash: hash,
+        },
+      });
+
+      await runPlugin(hash, 'start');
 
       browser.runtime.sendMessage({
         type: BackgroundActiontype.run_plugin_response,
