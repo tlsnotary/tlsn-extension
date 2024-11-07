@@ -24,7 +24,6 @@ import {
   PluginInfoModalHeader,
 } from '../PluginInfo';
 import { getPluginConfigByHash } from '../../entries/Background/db';
-import { OffscreenActionTypes } from '../../entries/Offscreen/types';
 import { SidePanelActionTypes } from '../../entries/SidePanel/types';
 import { openSidePanel } from '../../entries/utils';
 
