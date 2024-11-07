@@ -362,6 +362,9 @@ export const disconnectSession = async () => {
   state.outgoingPairingRequests = [];
   state.incomingProofRequests = [];
   state.outgoingProofRequests = [];
+  state.isProving = false;
+  state.isVerifying = false;
+  state.presentation = null;
   pushToRedux(setPairing(''));
   pushToRedux(setConnected(false));
   pushToRedux(setClientId(''));
@@ -369,6 +372,9 @@ export const disconnectSession = async () => {
   pushToRedux(setOutgoingPairingRequest([]));
   pushToRedux(setIncomingProofRequest([]));
   pushToRedux(setOutgoingProofRequest([]));
+  pushToRedux(setIsProving(false));
+  pushToRedux(setIsVerifying(false));
+  pushToRedux(setP2PPresentation(null));
   await socket.close();
 };
 
@@ -502,9 +508,12 @@ export const startedProver = async (pluginHash: string) => {
   });
 };
 
-export const setupProver = async (pluginHash: string) => {
+export const onProverInstantiated = async (pluginHash: string) => {
   state.isProving = true;
   pushToRedux(setIsProving(true));
+};
+
+export const setupProver = async (pluginHash: string) => {
   sendPairedMessage('prover_setup', {
     pluginHash,
   });

@@ -69,8 +69,8 @@ import {
   startedProver,
   endProofRequest,
   setupProver,
+  onProverInstantiated,
 } from './ws';
-import { setIsProving } from '../../reducers/p2p';
 
 const charwise = require('charwise');
 
@@ -133,6 +133,7 @@ export enum BackgroundActiontype {
   start_proof_request = 'start_proof_request',
   proof_request_end = 'proof_request_end',
   verifier_started = 'verifier_started',
+  prover_instantiated = 'prover_instantiated',
   prover_setup = 'prover_setup',
   prover_started = 'prover_started',
   get_p2p_state = 'get_p2p_state',
@@ -295,6 +296,9 @@ export const initRPC = () => {
           return;
         case BackgroundActiontype.prover_started:
           startedProver(request.data.pluginHash).then(sendResponse);
+          return;
+        case BackgroundActiontype.prover_instantiated:
+          onProverInstantiated(request.data.pluginHash);
           return;
         case BackgroundActiontype.prover_setup:
           setupProver(request.data.pluginHash).then(sendResponse);

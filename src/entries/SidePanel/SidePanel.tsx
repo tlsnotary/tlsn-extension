@@ -6,10 +6,8 @@ import {
   hexToArrayBuffer,
   makePlugin,
   PluginConfig,
-  sha256,
   StepConfig,
 } from '../../utils/misc';
-import { PluginList } from '../../components/PluginList';
 import DefaultPluginIcon from '../../assets/img/default-plugin-icon.png';
 import logo from '../../assets/img/icon-128.png';
 import classNames from 'classnames';
@@ -18,11 +16,7 @@ import { useRequestHistory } from '../../reducers/history';
 import { BackgroundActiontype } from '../Background/rpc';
 import { getPluginByHash, getPluginConfigByHash } from '../Background/db';
 import { SidePanelActionTypes } from './types';
-import {
-  fetchP2PState,
-  useClientId,
-  useIncomingProofRequests,
-} from '../../reducers/p2p';
+import { fetchP2PState, useClientId } from '../../reducers/p2p';
 
 export default function SidePanel(): ReactElement {
   const [config, setConfig] = useState<PluginConfig | null>(null);
@@ -266,13 +260,41 @@ function StepContent(
     });
   }, [notaryRequest, notarizationId]);
 
+  const viewP2P = useCallback(async () => {
+    chrome.runtime.sendMessage<any, string>({
+      type: BackgroundActiontype.verify_prove_request,
+      data: notaryRequest,
+    });
+    await browser.runtime.sendMessage({
+      type: BackgroundActiontype.open_popup,
+      data: {
+        position: {
+          left: window.screen.width / 2 - 240,
+          top: window.screen.height / 2 - 300,
+        },
+        route: `/p2p`,
+      },
+    });
+  }, []);
+
   useEffect(() => {
     processStep();
   }, [processStep]);
 
   let btnContent = null;
 
-  if (completed) {
+  if (prover && p2p) {
+    btnContent = (
+      <button
+        className={classNames(
+          'button button--primary mt-2 w-fit flex flex-row flex-nowrap items-center gap-2',
+        )}
+        onClick={viewP2P}
+      >
+        <span className="text-sm">View in P2P</span>
+      </button>
+    );
+  } else if (completed) {
     btnContent = (
       <button
         className={classNames(

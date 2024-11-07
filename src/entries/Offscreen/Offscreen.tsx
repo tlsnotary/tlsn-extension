@@ -284,6 +284,13 @@ const Offscreen = () => {
                 maxRecvData,
               });
 
+              browser.runtime.sendMessage({
+                type: BackgroundActiontype.prover_instantiated,
+                data: {
+                  pluginHash,
+                },
+              });
+
               const proofRequestStart = waitForEvent(
                 OffscreenActionTypes.start_p2p_proof_request,
               );
