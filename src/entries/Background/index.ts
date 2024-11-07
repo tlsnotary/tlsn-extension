@@ -13,10 +13,11 @@ import {
 (async () => {
   chrome.runtime.onMessage.addListener(
     async (request, sender, sendResponse) => {
-      if (request.type === BackgroundActiontype.get_local_storage) {
-        const { localStorageData, hostname } = request;
-        console.log('background', localStorageData);
-        // Use `setLocalStorage` for each key-value pair
+      if (request.type === BackgroundActiontype.set_local_storage && sender.tab?.url) {
+        const url = new URL(sender.tab.url);
+      const hostname = url.hostname;
+        const { localStorageData } = request;
+        console.log('in background', localStorageData, hostname)
         for (const [key, value] of Object.entries(localStorageData)) {
           await setLocalStorage(hostname, key, value as any);
         }
@@ -26,15 +27,11 @@ import {
 
   chrome.runtime.onMessage.addListener(async (request, sender) => {
     if (
-      request.type === BackgroundActiontype.set_session_storage &&
-      sender.tab?.url
+      request.type === BackgroundActiontype.get_session_storage
     ) {
-      const url = new URL(sender.tab.url);
-      const hostname = url.hostname;
-      const sessionStorage: { [key: string]: string } = request.data;
-
-      for (const [key, value] of Object.entries(sessionStorage || {})) {
-        await setSessionStorage(hostname, key, value);
+      const { sessionStorageData, hostname } = request;
+      for (const [key, value] of Object.entries(sessionStorageData)) {
+        await setSessionStorage(hostname, key, value as any)
       }
     }
   });

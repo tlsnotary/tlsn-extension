@@ -257,7 +257,7 @@ export const makePlugin = async (
   if (config?.localStorage) {
     const localStorage: { [hostname: string]: { [key: string]: string } } = {};
 
-    // (async () => {
+    (async () => {
       const [tab] = await chrome.tabs.query({
         active: true,
         lastFocusedWindow: true,
@@ -265,7 +265,7 @@ export const makePlugin = async (
       await chrome.tabs.sendMessage(tab.id as number, {
         type: BackgroundActiontype.get_local_storage,
       });
-    // })();
+    })();
     //@ts-ignore
     for (const host of config.localStorage) {
       const cache = await getLocalStorageByHost(host);
@@ -275,7 +275,7 @@ export const makePlugin = async (
         localStorage[host] = cache;
       }
     }
-    console.log('after 1', localStorage);
+    console.log('after', localStorage);
     //@ts-ignore
     injectedConfig.localStorage = JSON.stringify(localStorage);
   }
@@ -283,17 +283,27 @@ export const makePlugin = async (
   if (config?.sessionStorage) {
     const sessionStorage: { [hostname: string]: { [key: string]: string } } =
       {};
-    chrome.runtime.sendMessage({
-      type: BackgroundActiontype.set_session_storage,
-    });
-    for (const host of config.sessionStorage) {
-      const cache = getSessionStorageByHost(host);
-      for (const [key, value] of Object.entries(cache)) {
-        sessionStorage[key] = value;
+      (async () => {
+        const [tab] = await chrome.tabs.query({
+          active: true,
+          lastFocusedWindow: true,
+        });
+        await chrome.tabs.sendMessage(tab.id as number, {
+          type: BackgroundActiontype.get_session_storage,
+        });
+      })();
+      //@ts-ignore
+      for (const host of config.sessionStorage) {
+        const cache = await getSessionStorageByHost(host);
+        console.log('session in plugin config', cache);
+        for (const [key, value] of Object.entries(cache)) {
+          console.log('session inside', key, value);
+          sessionStorage[host] = cache;
+        }
       }
-    }
-    //@ts-ignore
-    injectedConfig.sessionStorage = sessionStorage;
+      console.log('session after', sessionStorage);
+      //@ts-ignore
+      injectedConfig.sessionStorage = JSON.stringify(sessionStorage);
   }
 
   if (config?.cookies) {
@@ -345,7 +355,7 @@ export type PluginConfig = {
   hostFunctions?: string[]; // Host functions that the plugin will have access to
   cookies?: string[]; // Cookies the plugin will have access to, cached by the extension from specified hosts (optional)
   headers?: string[]; // Headers the plugin will have access to, cached by the extension from specified hosts (optional)
-  localStorage?: any // LocalStorage the plugin will have access to, cached by the extension from specified hosts (optional)
+  localStorage?: string[]; // LocalStorage the plugin will have access to, cached by the extension from specified hosts (optional)
   sessionStorage?: string[]; // SessionStorage the plugin will have access to, cached by the extension from specified hosts (optional)
   requests: { method: string; url: string }[]; // List of requests that the plugin is allowed to make
   notaryUrls?: string[]; // List of notary services that the plugin is allowed to use (optional)

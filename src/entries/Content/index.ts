@@ -14,16 +14,19 @@ import { urlify } from '../../utils/misc';
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === BackgroundActiontype.get_local_storage) {
+      const hostName = message.hostName
+      chrome.runtime.sendMessage({
+        type: BackgroundActiontype.set_local_storage,
+        localStorageData: { ...localStorage },
+        hostName
+      })
       sendResponse(storage.localStorage);
     }
   });
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === BackgroundActiontype.get_session_storage) {
-      chrome.runtime.sendMessage({
-        type: BackgroundActiontype.set_session_storage,
-        data: storage.sessionStorage,
-      });
+      sendResponse(storage.sessionStorage);
     }
   });
 
