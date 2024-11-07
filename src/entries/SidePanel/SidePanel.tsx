@@ -261,10 +261,6 @@ function StepContent(
   }, [notaryRequest, notarizationId]);
 
   const viewP2P = useCallback(async () => {
-    chrome.runtime.sendMessage<any, string>({
-      type: BackgroundActiontype.verify_prove_request,
-      data: notaryRequest,
-    });
     await browser.runtime.sendMessage({
       type: BackgroundActiontype.open_popup,
       data: {
@@ -283,6 +279,7 @@ function StepContent(
 
   let btnContent = null;
 
+  console.log('prover', prover, p2p);
   if (prover && p2p) {
     btnContent = (
       <button

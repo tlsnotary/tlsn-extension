@@ -6,6 +6,8 @@ import { getPluginConfigByHash } from '../entries/Background/db';
 import { PluginConfig } from '../utils/misc';
 import { runPlugin } from '../utils/rpc';
 import browser from 'webextension-polyfill';
+import { openSidePanel } from '../entries/utils';
+import { SidePanelActionTypes } from '../entries/SidePanel/types';
 
 enum ActionType {
   '/plugin/addPlugin' = '/plugin/addPlugin',
@@ -70,17 +72,18 @@ export const usePluginConfig = (hash: string) => {
 
 export const useOnPluginClick = (hash: string) => {
   return useCallback(async () => {
-    await runPlugin(hash, 'start');
-
-    const [tab] = await browser.tabs.query({
-      active: true,
-      currentWindow: true,
-    });
-
     await browser.storage.local.set({ plugin_hash: hash });
 
-    // @ts-ignore
-    if (chrome.sidePanel) await chrome.sidePanel.open({ tabId: tab.id });
+    await openSidePanel();
+
+    browser.runtime.sendMessage({
+      type: SidePanelActionTypes.execute_plugin_request,
+      data: {
+        pluginHash: hash,
+      },
+    });
+
+    await runPlugin(hash, 'start');
 
     window.close();
   }, [hash]);
