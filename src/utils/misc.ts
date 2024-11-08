@@ -269,13 +269,8 @@ export const makePlugin = async (
     //@ts-ignore
     for (const host of config.localStorage) {
       const cache = await getLocalStorageByHost(host);
-      console.log('in plugin config', cache);
-      for (const [key, value] of Object.entries(cache)) {
-        console.log('inside', key, value);
-        localStorage[host] = cache;
-      }
+      localStorage[host] = cache;
     }
-    console.log('after', localStorage);
     //@ts-ignore
     injectedConfig.localStorage = JSON.stringify(localStorage);
   }
@@ -283,27 +278,22 @@ export const makePlugin = async (
   if (config?.sessionStorage) {
     const sessionStorage: { [hostname: string]: { [key: string]: string } } =
       {};
-      (async () => {
-        const [tab] = await chrome.tabs.query({
-          active: true,
-          lastFocusedWindow: true,
-        });
-        await chrome.tabs.sendMessage(tab.id as number, {
-          type: BackgroundActiontype.get_session_storage,
-        });
-      })();
-      //@ts-ignore
-      for (const host of config.sessionStorage) {
-        const cache = await getSessionStorageByHost(host);
-        console.log('session in plugin config', cache);
-        for (const [key, value] of Object.entries(cache)) {
-          console.log('session inside', key, value);
-          sessionStorage[host] = cache;
-        }
-      }
-      console.log('session after', sessionStorage);
-      //@ts-ignore
-      injectedConfig.sessionStorage = JSON.stringify(sessionStorage);
+    (async () => {
+      const [tab] = await chrome.tabs.query({
+        active: true,
+        lastFocusedWindow: true,
+      });
+      await chrome.tabs.sendMessage(tab.id as number, {
+        type: BackgroundActiontype.get_session_storage,
+      });
+    })();
+    //@ts-ignore
+    for (const host of config.sessionStorage) {
+      const cache = await getSessionStorageByHost(host);
+      sessionStorage[host] = cache;
+    }
+    //@ts-ignore
+    injectedConfig.sessionStorage = JSON.stringify(sessionStorage);
   }
 
   if (config?.cookies) {
