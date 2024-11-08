@@ -210,11 +210,10 @@ export const initRPC = () => {
         case BackgroundActiontype.set_local_storage:
           return;
         case BackgroundActiontype.get_local_storage:
-          return handleGetLocalStorageByHostName(request, sendResponse);
+          return;
         case BackgroundActiontype.set_session_storage:
           return;
         case BackgroundActiontype.get_session_storage:
-          return handleGetSessionStorageByHostname(request, sendResponse);
           return;
         default:
           break;

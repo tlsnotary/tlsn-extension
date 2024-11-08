@@ -7,11 +7,6 @@ import { urlify } from '../../utils/misc';
   loadScript('content.bundle.js');
   const server = new RPCServer();
 
-  const storage = {
-    localStorage: localStorage,
-    sessionStorage: sessionStorage,
-  };
-
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === BackgroundActiontype.get_local_storage) {
       console.log('in content');
