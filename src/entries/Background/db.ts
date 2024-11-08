@@ -234,10 +234,16 @@ export async function getPlugins(): Promise<
       ret.push({
         ...config,
         hash,
-        metadata: metadata || {
-          filePath: '',
-          origin: '',
-        },
+        metadata: metadata
+          ? {
+              ...metadata,
+              hash,
+            }
+          : {
+              filePath: '',
+              origin: '',
+              hash,
+            },
       });
     }
   }
