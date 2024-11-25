@@ -3,40 +3,8 @@ import { deleteCacheByTabId } from './cache';
 import browser from 'webextension-polyfill';
 import { getAppState, setDefaultPluginsInstalled } from './db';
 import { installPlugin } from './plugins/utils';
-import { BackgroundActiontype } from './rpc';
-import { setLocalStorage, setSessionStorage } from './db';
 
 (async () => {
-  chrome.runtime.onMessage.addListener(
-    async (request, sender, sendResponse) => {
-      if (
-        request.type === BackgroundActiontype.set_local_storage &&
-        sender.tab?.url
-      ) {
-        const url = new URL(sender.tab.url);
-        const hostname = url.hostname;
-        const { localStorageData } = request;
-        for (const [key, value] of Object.entries(localStorageData)) {
-          await setLocalStorage(hostname, key, value as string);
-        }
-      }
-    },
-  );
-
-  chrome.runtime.onMessage.addListener(async (request, sender) => {
-    if (
-      request.type === BackgroundActiontype.set_session_storage &&
-      sender.tab?.url
-    ) {
-      const url = new URL(sender.tab.url);
-      const hostname = url.hostname;
-      const { sessionStorageData } = request;
-      for (const [key, value] of Object.entries(sessionStorageData)) {
-        await setSessionStorage(hostname, key, value as string);
-      }
-    }
-  });
-
   browser.webRequest.onSendHeaders.addListener(
     onSendHeaders,
     {

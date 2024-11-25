@@ -18,7 +18,6 @@ import {
   getHeadersByHost,
   getLocalStorageByHost,
   getSessionStorageByHost,
-  setLocalStorage,
 } from '../entries/Background/db';
 const charwise = require('charwise');
 

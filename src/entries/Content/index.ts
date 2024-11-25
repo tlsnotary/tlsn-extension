@@ -12,7 +12,7 @@ import { urlify } from '../../utils/misc';
       console.log('in content');
       chrome.runtime.sendMessage({
         type: BackgroundActiontype.set_local_storage,
-        localStorageData: { ...localStorage },
+        data: { ...localStorage },
       });
     }
   });
@@ -21,7 +21,7 @@ import { urlify } from '../../utils/misc';
     if (message.type === BackgroundActiontype.get_session_storage) {
       chrome.runtime.sendMessage({
         type: BackgroundActiontype.set_session_storage,
-        sessionStorageData: { ...sessionStorage },
+        data: { ...sessionStorage },
       });
     }
   });

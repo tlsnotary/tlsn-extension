@@ -422,7 +422,6 @@ export async function clearSessionStorage(host: string) {
 
 export async function getLocalStorageByHost(host: string) {
   const ret: { [key: string]: string } = {};
-  console.log('in func', host);
   for await (const [key, value] of localStorageDb.sublevel(host).iterator()) {
     ret[key] = value;
   }

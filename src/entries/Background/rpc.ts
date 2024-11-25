@@ -26,8 +26,8 @@ import {
   getHeadersByHost,
   getAppState,
   setDefaultPluginsInstalled,
-  getSessionStorageByHost,
-  getLocalStorageByHost,
+  setLocalStorage,
+  setSessionStorage,
 } from './db';
 import { addOnePlugin, removeOnePlugin } from '../../reducers/plugins';
 import {
@@ -208,13 +208,9 @@ export const initRPC = () => {
           setDefaultPluginsInstalled(request.data).then(sendResponse);
           return true;
         case BackgroundActiontype.set_local_storage:
-          return;
-        case BackgroundActiontype.get_local_storage:
-          return;
+          return handleSetLocalStorage(request, sender, sendResponse);
         case BackgroundActiontype.set_session_storage:
-          return;
-        case BackgroundActiontype.get_session_storage:
-          return;
+          return handleSetSessionStorage(request, sender, sendResponse);
         default:
           break;
       }
@@ -478,27 +474,37 @@ function handleGetHeadersByHostname(
   return true;
 }
 
-function handleGetSessionStorageByHostname(
+async function handleSetLocalStorage(
   request: BackgroundAction,
+  sender: browser.Runtime.MessageSender,
   sendResponse: (data?: any) => void,
-): boolean {
-  (async () => {
-    const sessionStorage = await getSessionStorageByHost(request.data);
-    sendResponse(sessionStorage);
-  })();
-  return true;
+) {
+  if (sender.tab?.url) {
+    const url = new URL(sender.tab.url);
+    const hostname = url.hostname;
+    const { data } = request;
+    for (const [key, value] of Object.entries(data)) {
+      await setLocalStorage(hostname, key, value as string);
+    }
+  }
 }
 
-function handleGetLocalStorageByHostName(
+async function handleSetSessionStorage(
   request: BackgroundAction,
+  sender: browser.Runtime.MessageSender,
   sendResponse: (data?: any) => void,
-): boolean {
-  (async () => {
-    console.log('in rpc', request);
-    const localStorage = await getLocalStorageByHost(request.data);
-    sendResponse(localStorage);
-  })();
-  return true;
+) {
+  if (
+    request.type === BackgroundActiontype.set_session_storage &&
+    sender.tab?.url
+  ) {
+    const url = new URL(sender.tab.url);
+    const hostname = url.hostname;
+    const { data } = request;
+    for (const [key, value] of Object.entries(data)) {
+      await setSessionStorage(hostname, key, value as string);
+    }
+  }
 }
 
 async function handleAddPlugin(
