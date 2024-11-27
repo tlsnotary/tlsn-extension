@@ -256,15 +256,14 @@ export const makePlugin = async (
   if (config?.localStorage) {
     const localStorage: { [hostname: string]: { [key: string]: string } } = {};
 
-    (async () => {
-      const [tab] = await chrome.tabs.query({
-        active: true,
-        lastFocusedWindow: true,
-      });
-      await chrome.tabs.sendMessage(tab.id as number, {
-        type: BackgroundActiontype.get_local_storage,
-      });
-    })();
+    const [tab] = await chrome.tabs.query({
+      active: true,
+      lastFocusedWindow: true,
+    });
+    await chrome.tabs.sendMessage(tab.id as number, {
+      type: BackgroundActiontype.get_local_storage,
+    });
+
     //@ts-ignore
     for (const host of config.localStorage) {
       const cache = await getLocalStorageByHost(host);
@@ -277,15 +276,14 @@ export const makePlugin = async (
   if (config?.sessionStorage) {
     const sessionStorage: { [hostname: string]: { [key: string]: string } } =
       {};
-    (async () => {
-      const [tab] = await chrome.tabs.query({
-        active: true,
-        lastFocusedWindow: true,
-      });
-      await chrome.tabs.sendMessage(tab.id as number, {
-        type: BackgroundActiontype.get_session_storage,
-      });
-    })();
+
+    const [tab] = await chrome.tabs.query({
+      active: true,
+      lastFocusedWindow: true,
+    });
+    await chrome.tabs.sendMessage(tab.id as number, {
+      type: BackgroundActiontype.get_session_storage,
+    });
     //@ts-ignore
     for (const host of config.sessionStorage) {
       const cache = await getSessionStorageByHost(host);

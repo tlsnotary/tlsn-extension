@@ -504,6 +504,8 @@ async function handleSetSessionStorage(
     for (const [key, value] of Object.entries(data)) {
       await setSessionStorage(hostname, key, value as string);
     }
+
+    sendResponse({ type: BackgroundActiontype.sessionStorage_set });
   }
 }
 

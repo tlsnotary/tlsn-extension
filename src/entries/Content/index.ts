@@ -9,7 +9,6 @@ import { urlify } from '../../utils/misc';
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === BackgroundActiontype.get_local_storage) {
-      console.log('in content');
       chrome.runtime.sendMessage({
         type: BackgroundActiontype.set_local_storage,
         data: { ...localStorage },
