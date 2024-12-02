@@ -27,3 +27,17 @@ export async function installPlugin(
   });
   return hash;
 }
+
+export function mapSecretsToRange(secrets: string[], text: string) {
+  return secrets
+    .map((secret: string) => {
+      const index = text.indexOf(secret);
+      return index > -1
+        ? {
+          start: index,
+          end: index + secret.length,
+        }
+        : null;
+    })
+    .filter((data: any) => !!data) as { start: number; end: number }[]
+}

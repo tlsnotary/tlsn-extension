@@ -11,6 +11,8 @@ import {
   getPluginMetadataByHash,
 } from '../../entries/Background/db';
 import { runPlugin } from '../../utils/rpc';
+import { SidePanelActionTypes } from '../../entries/SidePanel/types';
+import { deferredPromise } from '../../utils/promise';
 
 export function RunPluginApproval(): ReactElement {
   const [params] = useSearchParams();
@@ -38,8 +40,28 @@ export function RunPluginApproval(): ReactElement {
 
       await browser.storage.local.set({ plugin_hash: hash });
 
+      const { promise, resolve } = deferredPromise();
+
+      const listener = async (request: any) => {
+        if (request.type === SidePanelActionTypes.panel_opened) {
+          browser.runtime.onMessage.removeListener(listener);
+          resolve();
+        }
+      };
+
+      browser.runtime.onMessage.addListener(listener);
+
       // @ts-ignore
       if (chrome.sidePanel) await chrome.sidePanel.open({ tabId: tab.id });
+
+      await promise;
+
+      browser.runtime.sendMessage({
+        type: SidePanelActionTypes.execute_plugin_request,
+        data: {
+          pluginHash: hash,
+        },
+      });
 
       browser.runtime.sendMessage({
         type: BackgroundActiontype.run_plugin_response,

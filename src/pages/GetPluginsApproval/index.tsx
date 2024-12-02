@@ -58,7 +58,7 @@ export function GetPluginsApproval(): ReactElement {
       });
       setResult(res);
     })();
-  }, [url, filterMetadata]);
+  }, [url, JSON.stringify(filterMetadata)]);
 
   return (
     <BaseApproval
