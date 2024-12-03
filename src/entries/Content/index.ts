@@ -1,4 +1,4 @@
-import browser from 'webextension-polyfill';
+import browser, { browserAction } from 'webextension-polyfill';
 import { ContentScriptRequest, ContentScriptTypes, RPCServer } from './rpc';
 import { BackgroundActiontype, RequestHistory } from '../Background/rpc';
 import { urlify } from '../../utils/misc';
@@ -6,6 +6,24 @@ import { urlify } from '../../utils/misc';
 (async () => {
   loadScript('content.bundle.js');
   const server = new RPCServer();
+
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === BackgroundActiontype.get_local_storage) {
+      chrome.runtime.sendMessage({
+        type: BackgroundActiontype.set_local_storage,
+        data: { ...localStorage },
+      });
+    }
+  });
+
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === BackgroundActiontype.get_session_storage) {
+      chrome.runtime.sendMessage({
+        type: BackgroundActiontype.set_session_storage,
+        data: { ...sessionStorage },
+      });
+    }
+  });
 
   server.on(ContentScriptTypes.connect, async () => {
     const connected = await browser.runtime.sendMessage({
