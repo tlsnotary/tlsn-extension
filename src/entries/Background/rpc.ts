@@ -28,6 +28,7 @@ import {
   setDefaultPluginsInstalled,
   setLocalStorage,
   setSessionStorage,
+  setNotaryRequestProgress,
 } from './db';
 import { addOnePlugin, removeOnePlugin } from '../../reducers/plugins';
 import {
@@ -76,6 +77,7 @@ export enum BackgroundActiontype {
   prove_request_start = 'prove_request_start',
   process_prove_request = 'process_prove_request',
   finish_prove_request = 'finish_prove_request',
+  update_request_progress = 'update_request_progress',
   verify_prove_request = 'verify_prove_request',
   verify_proof = 'verify_proof',
   delete_prove_request = 'delete_prove_request',
@@ -158,6 +160,32 @@ export type RequestLog = {
   responseHeaders?: browser.WebRequest.HttpHeaders;
 };
 
+export enum RequestProgress {
+  CreatingProver,
+  GettingSession,
+  SettingUpProver,
+  SendingRequest,
+  ReadingTranscript,
+  FinalizingOutputs,
+}
+
+export function progressText(progress: RequestProgress): string {
+  switch (progress) {
+    case RequestProgress.CreatingProver:
+      return 'Creating prover...';
+    case RequestProgress.GettingSession:
+      return 'Getting session url from notary...';
+    case RequestProgress.SettingUpProver:
+      return 'Setting up prover mpc backend...';
+    case RequestProgress.SendingRequest:
+      return 'Sending request...';
+    case RequestProgress.ReadingTranscript:
+      return 'Reading request transcript...';
+    case RequestProgress.FinalizingOutputs:
+      return 'Finalizing notarization outputs...';
+  }
+}
+
 export type RequestHistory = {
   id: string;
   url: string;
@@ -169,6 +197,7 @@ export type RequestHistory = {
   notaryUrl: string;
   websocketProxyUrl: string;
   status: '' | 'pending' | 'success' | 'error';
+  progress?: RequestProgress;
   error?: any;
   proof?: { session: any; substrings: any };
   requestBody?: any;
@@ -197,6 +226,8 @@ export const initRPC = () => {
           return handleGetProveRequests(request, sendResponse);
         case BackgroundActiontype.finish_prove_request:
           return handleFinishProveRequest(request, sendResponse);
+        case BackgroundActiontype.update_request_progress:
+          return handleUpdateRequestProgress(request, sendResponse);
         case BackgroundActiontype.delete_prove_request:
           return removeNotaryRequest(request.data);
         case BackgroundActiontype.retry_prove_request:
@@ -389,6 +420,19 @@ async function handleFinishProveRequest(
 
     await pushToRedux(addRequestHistory(await getNotaryRequest(id)));
   }
+
+  return sendResponse();
+}
+
+async function handleUpdateRequestProgress(
+  request: BackgroundAction,
+  sendResponse: (data?: any) => void,
+) {
+  const { id, progress } = request.data;
+
+  const newReq = await setNotaryRequestProgress(id, progress);
+  if (!newReq) return;
+  await pushToRedux(addRequestHistory(await getNotaryRequest(id)));
 
   return sendResponse();
 }

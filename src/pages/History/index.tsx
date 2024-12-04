@@ -9,7 +9,10 @@ import {
 import Icon from '../../components/Icon';
 import { getNotaryApi, getProxyApi } from '../../utils/storage';
 import { urlify, download, upload } from '../../utils/misc';
-import { BackgroundActiontype } from '../../entries/Background/rpc';
+import {
+  BackgroundActiontype,
+  progressText,
+} from '../../entries/Background/rpc';
 import Modal, { ModalContent } from '../../components/Modal/Modal';
 import classNames from 'classnames';
 import copy from 'copy-to-clipboard';
@@ -119,7 +122,7 @@ export function OneRequestHistory(props: {
   return (
     <div
       className={classNames(
-        'flex flex-row flex-nowrap border rounded-md p-2 gap-1 hover:bg-slate-50 cursor-pointer',
+        'flex flex-row flex-nowrap border rounded-md p-2 gap-1 hover:bg-slate-50 cursor-pointer relative',
         props.className,
       )}
     >
@@ -190,18 +193,24 @@ export function OneRequestHistory(props: {
           <RetryButton hidden={hideActions.includes('retry')} />
         )}
         {status === 'pending' && (
-          <button className="flex flex-row flex-grow-0 gap-2 self-end items-center justify-end px-2 py-1 bg-slate-100 text-slate-300 font-bold">
+          <div className="absolute top-0 left-0 w-full h-full text-center flex flex-row flex-grow-0 gap-2 self-end items-center justify-center px-2 py-1 bg-black/70 text-white/90 font-bold">
             <Icon className="animate-spin" fa="fa-solid fa-spinner" size={1} />
-            <span className="text-xs font-bold">Pending</span>
-          </button>
+            <span className="text-xs font-bold">
+              {request?.progress
+                ? `(${request.progress + 1}/6) ${progressText(request.progress)}`
+                : 'Pending...'}
+            </span>
+          </div>
         )}
-        <ActionButton
-          className="flex flex-row flex-grow-0 gap-2 self-end items-center justify-end px-2 py-1 bg-slate-100 text-slate-300 hover:bg-red-100 hover:text-red-500 hover:font-bold"
-          onClick={onDelete}
-          fa="fa-solid fa-trash"
-          ctaText="Delete"
-          hidden={hideActions.includes('delete')}
-        />
+        {status !== 'pending' && (
+          <ActionButton
+            className="flex flex-row flex-grow-0 gap-2 self-end items-center justify-end px-2 py-1 bg-slate-100 text-slate-300 hover:bg-red-100 hover:text-red-500 hover:font-bold"
+            onClick={onDelete}
+            fa="fa-solid fa-trash"
+            ctaText="Delete"
+            hidden={hideActions.includes('delete')}
+          />
+        )}
       </div>
     </div>
   );
