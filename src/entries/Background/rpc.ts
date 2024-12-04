@@ -122,7 +122,6 @@ export enum BackgroundActiontype {
   get_logging_level = 'get_logging_level',
   get_app_state = 'get_app_state',
   set_default_plugins_installed = 'set_default_plugins_installed',
-
   set_local_storage = 'set_local_storage',
   get_local_storage = 'get_local_storage',
   set_session_storage = 'set_session_storage',
@@ -739,8 +738,6 @@ async function handleSetSessionStorage(
     for (const [key, value] of Object.entries(data)) {
       await setSessionStorage(hostname, key, value as string);
     }
-
-    sendResponse({ type: BackgroundActiontype.sessionStorage_set });
   }
 }
 
