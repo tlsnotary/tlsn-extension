@@ -1,6 +1,13 @@
-api.twitter.com: api.twitter.com:443
-twitter.com: twitter.com:443
 api.reddit.com: api.reddit.com:443
-reddit.com: reddit.com:443
+api.twitter.com: api.twitter.com:443
+api.x.com api.x.com:443
+discord.com discord.com:443
+discord.gg discord.gg:443
+ethereum.org ethereum.org:443
+example.com example.com:443
 gateway.reddit.com: gateway.reddit.com:443
+reddit.com: reddit.com:443
 swapi.dev: swapi.dev:443
+tlsnotary.org tlsnotary.org:443
+twitter.com: twitter.com:443
+x.com x.com:443
