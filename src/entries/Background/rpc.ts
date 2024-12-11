@@ -54,24 +54,14 @@ import { subtractRanges } from '../Offscreen/utils';
 import { mapSecretsToRange } from './plugins/utils';
 import { pushToRedux } from '../utils';
 import {
-  acceptPairRequest,
-  cancelPairRequest,
   connectSession,
   disconnectSession,
   getP2PState,
-  rejectPairRequest,
-  requestProofByHash,
   requestProof,
-  sendPairRequest,
-  cancelProofRequest,
-  acceptProofRequest,
-  rejectProofRequest,
-  startProofRequest,
-  startedVerifier,
-  startedProver,
   endProofRequest,
-  setupProver,
   onProverInstantiated,
+  sendMessage,
+  sendPairedMessage,
 } from './ws';
 
 const charwise = require('charwise');
@@ -274,49 +264,65 @@ export const initRPC = () => {
           disconnectSession().then(sendResponse);
           return;
         case BackgroundActiontype.send_pair_request:
-          sendPairRequest(request.data).then(sendResponse);
+          sendMessage(request.data, 'pair_request').then(sendResponse);
           return;
         case BackgroundActiontype.cancel_pair_request:
-          cancelPairRequest(request.data).then(sendResponse);
+          sendMessage(request.data, 'pair_request_cancel').then(sendResponse);
           return;
         case BackgroundActiontype.accept_pair_request:
-          acceptPairRequest(request.data).then(sendResponse);
+          sendMessage(request.data, 'pair_request_accept').then(sendResponse);
           return;
         case BackgroundActiontype.reject_pair_request:
-          rejectPairRequest(request.data).then(sendResponse);
+          sendMessage(request.data, 'pair_request_reject').then(sendResponse);
           return;
         case BackgroundActiontype.cancel_proof_request:
-          cancelProofRequest(request.data).then(sendResponse);
+          sendPairedMessage('proof_request_cancel', {
+            pluginHash: request.data,
+          }).then(sendResponse);
           return;
         case BackgroundActiontype.accept_proof_request:
-          acceptProofRequest(request.data).then(sendResponse);
+          sendPairedMessage('proof_request_accept', {
+            plugfinHash: request.data,
+          }).then(sendResponse);
           return;
         case BackgroundActiontype.reject_proof_request:
-          rejectProofRequest(request.data).then(sendResponse);
+          sendPairedMessage('proof_request_reject', {
+            pluginHash: request.data,
+          }).then(sendResponse);
           return;
         case BackgroundActiontype.start_proof_request:
-          startProofRequest(request.data.pluginHash).then(sendResponse);
+          sendPairedMessage('proof_request_start', {
+            pluginHash: request.data.pluginHash,
+          }).then(sendResponse);
           return;
         case BackgroundActiontype.proof_request_end:
           endProofRequest(request.data).then(sendResponse);
           return;
         case BackgroundActiontype.verifier_started:
-          startedVerifier(request.data.pluginHash).then(sendResponse);
+          sendPairedMessage('verifier_started', {
+            pluginHash: request.data.pluginHash,
+          }).then(sendResponse);
           return;
         case BackgroundActiontype.prover_started:
-          startedProver(request.data.pluginHash).then(sendResponse);
+          sendPairedMessage('prover_started', {
+            pluginHash: request.data.pluginHash,
+          }).then(sendResponse);
           return;
         case BackgroundActiontype.prover_instantiated:
-          onProverInstantiated(request.data.pluginHash);
+          onProverInstantiated();
           return;
         case BackgroundActiontype.prover_setup:
-          setupProver(request.data.pluginHash).then(sendResponse);
+          sendPairedMessage('prover_setup', {
+            pluginHash: request.data.pluginHash,
+          }).then(sendResponse);
           return;
         case BackgroundActiontype.request_p2p_proof:
           requestProof(request.data).then(sendResponse);
           return;
         case BackgroundActiontype.request_p2p_proof_by_hash:
-          requestProofByHash(request.data).then(sendResponse);
+          sendPairedMessage('request_proof_by_hash', {
+            pluginHash: request.data,
+          }).then(sendResponse);
           return;
         case BackgroundActiontype.get_p2p_state:
           getP2PState();

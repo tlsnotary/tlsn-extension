@@ -18,7 +18,7 @@ import {
 } from '../../reducers/p2p';
 import { pushToRedux } from '../utils';
 import { getPluginByHash } from './db';
-import browser, { storage } from 'webextension-polyfill';
+import browser from 'webextension-polyfill';
 import { OffscreenActionTypes } from '../Offscreen/types';
 import { getMaxRecv, getMaxSent, getRendezvousApi } from '../../utils/storage';
 import { SidePanelActionTypes } from '../SidePanel/types';
@@ -378,7 +378,11 @@ export const disconnectSession = async () => {
   await socket.close();
 };
 
-function sendMessage(target: string, method: string, params?: any) {
+export async function sendMessage(
+  target: string,
+  method: string,
+  params?: any,
+) {
   const { socket, clientId } = state;
 
   if (clientId === target) {
@@ -409,7 +413,7 @@ function sendMessage(target: string, method: string, params?: any) {
   );
 }
 
-function sendPairedMessage(method: string, params?: any) {
+export async function sendPairedMessage(method: string, params?: any) {
   const { pairing } = state;
 
   if (!pairing) {
@@ -420,50 +424,10 @@ function sendPairedMessage(method: string, params?: any) {
   sendMessage(pairing, method, params);
 }
 
-export const sendPairRequest = async (target: string) => {
-  sendMessage(target, 'pair_request');
-};
-
-export const cancelPairRequest = async (target: string) => {
-  sendMessage(target, 'pair_request_cancel');
-};
-
-export const acceptPairRequest = async (target: string) => {
-  sendMessage(target, 'pair_request_accept');
-};
-
-export const rejectPairRequest = async (target: string) => {
-  sendMessage(target, 'pair_request_reject');
-};
-
 export const requestProof = async (pluginHash: string) => {
   const pluginHex = await getPluginByHash(pluginHash);
   sendPairedMessage('request_proof', {
     plugin: pluginHex,
-    pluginHash,
-  });
-};
-
-export const requestProofByHash = async (pluginHash: string) => {
-  sendPairedMessage('request_proof_by_hash', {
-    pluginHash,
-  });
-};
-
-export const cancelProofRequest = async (pluginHash: string) => {
-  sendPairedMessage('proof_request_cancel', {
-    pluginHash,
-  });
-};
-
-export const acceptProofRequest = async (pluginHash: string) => {
-  sendPairedMessage('proof_request_accept', {
-    pluginHash,
-  });
-};
-
-export const startProofRequest = async (pluginHash: string) => {
-  sendPairedMessage('proof_request_start', {
     pluginHash,
   });
 };
@@ -490,33 +454,9 @@ export const endProofRequest = async (data: {
   });
 };
 
-export const rejectProofRequest = async (pluginHash: string) => {
-  sendPairedMessage('proof_request_reject', {
-    pluginHash,
-  });
-};
-
-export const startedVerifier = async (pluginHash: string) => {
-  sendPairedMessage('verifier_started', {
-    pluginHash,
-  });
-};
-
-export const startedProver = async (pluginHash: string) => {
-  sendPairedMessage('prover_started', {
-    pluginHash,
-  });
-};
-
-export const onProverInstantiated = async (pluginHash: string) => {
+export const onProverInstantiated = async () => {
   state.isProving = true;
   pushToRedux(setIsProving(true));
-};
-
-export const setupProver = async (pluginHash: string) => {
-  sendPairedMessage('prover_setup', {
-    pluginHash,
-  });
 };
 
 function bufferify(data: any): Buffer {
