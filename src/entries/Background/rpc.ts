@@ -1,6 +1,7 @@
 import browser from 'webextension-polyfill';
 import { clearCache, getCacheByTabId } from './cache';
 import { addRequestHistory, setRequests } from '../../reducers/history';
+import { parseResponse } from "http-string-parser";
 import {
   addNotaryRequest,
   addNotaryRequestProofs,
@@ -527,29 +528,20 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
     }
 
     if (getSecretResponse) {
-      const body = data.transcript.recv.split('\r\n').reduce(
-        (state: { headerEnd: boolean; body: string[] }, line: string) => {
-          if (state.headerEnd) {
-            state.body.push(line);
-          } else if (!line) {
-            state.headerEnd = true;
-          }
+      const res = parseResponse(data.transcript.recv);
+      const body = res.body.split('\r\n')
 
-          return state;
-        },
-        { headerEnd: false, body: [] },
-      ).body;
+      let bodyString = ""
 
-      if (body.length == 1) {
-        secretResps = await getSecretResponseFn(body[0]);
-      } else {
-        secretResps = await getSecretResponseFn(
-          body.filter((txt: string) => {
-            const json = safeParseJSON(txt);
-            return typeof json === 'object';
-          })[0],
-        );
-      }
+      // Each second line is the response body chunk
+      // Each line before second line is the size of the chunk
+      body.forEach((line, i) => {
+        if ((i + 1) % 2 === 0) {
+          bodyString += line
+        }
+      })
+
+      secretResps = await getSecretResponseFn(bodyString);
     }
 
     const commit = {
