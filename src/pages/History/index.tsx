@@ -1,4 +1,4 @@
-import React, { ReactElement, useState, useCallback, useEffect } from 'react';
+import React, { ReactElement, useState, useCallback } from 'react';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router';
 import {
@@ -7,27 +7,24 @@ import {
   deleteRequestHistory,
 } from '../../reducers/history';
 import Icon from '../../components/Icon';
+import NotarizeIcon from '../../assets/img/notarize.png';
 import { getNotaryApi, getProxyApi } from '../../utils/storage';
-import { urlify, download, upload } from '../../utils/misc';
+import { urlify } from '../../utils/misc';
 import {
   BackgroundActiontype,
   progressText,
 } from '../../entries/Background/rpc';
 import Modal, { ModalContent } from '../../components/Modal/Modal';
 import classNames from 'classnames';
-import copy from 'copy-to-clipboard';
-import { EXPLORER_API } from '../../utils/constants';
-import {
-  getNotaryRequest,
-  setNotaryRequestCid,
-} from '../../entries/Background/db';
+import dayjs from 'dayjs';
+import RequestMenu from './request-menu';
 const charwise = require('charwise');
 
 export default function History(): ReactElement {
   const history = useHistoryOrder();
 
   return (
-    <div className="flex flex-col flex-nowrap overflow-y-auto">
+    <div className="flex flex-col flex-nowrap overflow-y-auto pb-36">
       {history
         .map((id) => {
           return <OneRequestHistory key={id} requestId={id} />;
@@ -46,41 +43,10 @@ export function OneRequestHistory(props: {
   const dispatch = useDispatch();
   const request = useRequestHistory(props.requestId);
   const [showingError, showError] = useState(false);
-  const [uploadError, setUploadError] = useState('');
-  const [showingShareConfirmation, setShowingShareConfirmation] =
-    useState(false);
-  const [cid, setCid] = useState<{ [key: string]: string }>({});
-  const [uploading, setUploading] = useState(false);
+  const [showingMenu, showMenu] = useState(false);
   const navigate = useNavigate();
   const { status } = request || {};
   const requestUrl = urlify(request?.url || '');
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const request = await getNotaryRequest(props.requestId);
-        if (request && request.cid) {
-          setCid({ [props.requestId]: request.cid });
-        }
-      } catch (e) {
-        console.error('Error fetching data', e);
-      }
-    };
-    fetchData();
-  }, []);
-
-  const onRetry = useCallback(async () => {
-    const notaryUrl = await getNotaryApi();
-    const websocketProxyUrl = await getProxyApi();
-    chrome.runtime.sendMessage<any, string>({
-      type: BackgroundActiontype.retry_prove_request,
-      data: {
-        id: props.requestId,
-        notaryUrl,
-        websocketProxyUrl,
-      },
-    });
-  }, [props.requestId]);
 
   const onView = useCallback(() => {
     chrome.runtime.sendMessage<any, string>({
@@ -90,156 +56,94 @@ export function OneRequestHistory(props: {
     navigate('/verify/' + request?.id);
   }, [request]);
 
-  const onDelete = useCallback(async () => {
-    dispatch(deleteRequestHistory(props.requestId));
-  }, [props.requestId]);
-
   const onShowError = useCallback(async () => {
     showError(true);
   }, [request?.error, showError]);
 
   const closeAllModal = useCallback(() => {
-    setShowingShareConfirmation(false);
     showError(false);
-  }, [setShowingShareConfirmation, showError]);
+  }, [showError]);
 
-  const handleUpload = useCallback(async () => {
-    setUploading(true);
-    try {
-      const data = await upload(
-        `${request?.id}.json`,
-        JSON.stringify(request?.proof),
-      );
-      setCid((prevCid) => ({ ...prevCid, [props.requestId]: data }));
-      await setNotaryRequestCid(props.requestId, data);
-    } catch (e: any) {
-      setUploadError(e.message);
-    } finally {
-      setUploading(false);
-    }
-  }, [props.requestId, request, cid]);
+  const day = dayjs(charwise.decode(props.requestId, 'hex'));
 
   return (
     <div
       className={classNames(
-        'flex flex-row flex-nowrap border rounded-md p-2 gap-1 hover:bg-slate-50 cursor-pointer relative',
+        'flex flex-row items-center flex-nowrap border rounded-md px-2.5 py-3 gap-0.5 hover:bg-slate-50 cursor-pointer relative',
+        {
+          '!cursor-default !bg-slate-200': status === 'pending',
+        },
         props.className,
       )}
+      onClick={() => {
+        if (status === 'success') onView();
+        if (status === 'error') onShowError();
+      }}
     >
-      <ShareConfirmationModal />
       <ErrorModal />
-      <div className="flex flex-col flex-nowrap flex-grow flex-shrink w-0">
-        <div className="flex flex-row items-center text-xs">
-          <div className="bg-slate-200 text-slate-400 px-1 py-0.5 rounded-sm">
-            {request?.method}
-          </div>
-          <div className="text-black font-bold px-2 py-1 rounded-md overflow-hidden text-ellipsis">
-            {requestUrl?.pathname}
-          </div>
+      <div className="w-12 h-12 rounded-full flex flex-row items-center justify-center bg-slate-300">
+        <img
+          className="relative w-7 h-7 top-[-1px] opacity-60"
+          src={NotarizeIcon}
+        />
+      </div>
+      <div className="flex flex-col flex-nowrap flex-grow flex-shrink w-0 gap-1">
+        <div className="flex flex-row text-black text-sm font-semibold px-2 rounded-md overflow-hidden text-ellipsis gap-1">
+          <span>Notarize request</span>
+          <span className="font-normal border-b border-dashed border-slate-400 text-slate-500">
+            {requestUrl?.hostname}
+          </span>
         </div>
-        <div className="flex flex-row">
-          <div className="font-bold text-slate-400">Time:</div>
-          <div className="ml-2 text-slate-800">
-            {new Date(charwise.decode(props.requestId, 'hex')).toISOString()}
-          </div>
-        </div>
-        <div className="flex flex-row">
-          <div className="font-bold text-slate-400">Host:</div>
-          <div className="ml-2 text-slate-800">{requestUrl?.host}</div>
-        </div>
-        <div className="flex flex-row">
-          <div className="font-bold text-slate-400">Notary API:</div>
-          <div className="ml-2 text-slate-800">{request?.notaryUrl}</div>
-        </div>
-        <div className="flex flex-row">
-          <div className="font-bold text-slate-400">TLS Proxy API:</div>
-          <div className="ml-2 text-slate-800">
-            {request?.websocketProxyUrl}
-          </div>
+        <div
+          className={classNames('font-semibold px-2 rounded-sm w-fit', {
+            'text-green-600': status === 'success',
+            'text-red-600': status === 'error',
+          })}
+        >
+          {status === 'success' && 'Success'}
+          {status === 'error' && 'Error'}
+          {status === 'pending' && (
+            <div className="text-center flex flex-row flex-grow-0 gap-2 self-end items-center justify-center text-slate-600">
+              <Icon
+                className="animate-spin"
+                fa="fa-solid fa-spinner"
+                size={1}
+              />
+              <span className="">
+                {request?.progress
+                  ? `(${(
+                      ((request.progress + 1) / 6.06) *
+                      100
+                    ).toFixed()}%) ${progressText(request.progress)}`
+                  : 'Pending...'}
+              </span>
+            </div>
+          )}
         </div>
       </div>
-      <div className="flex flex-col gap-1">
-        {status === 'success' && (
-          <>
-            <ActionButton
-              className="bg-slate-600 text-slate-200 hover:bg-slate-500 hover:text-slate-100"
-              onClick={onView}
-              fa="fa-solid fa-receipt"
-              ctaText="View"
-              hidden={hideActions.includes('view')}
-            />
-            <ActionButton
-              className="bg-slate-100 text-slate-300 hover:bg-slate-200 hover:text-slate-500"
-              onClick={() =>
-                download(`${request?.id}.json`, JSON.stringify(request?.proof))
-              }
-              fa="fa-solid fa-download"
-              ctaText="Download"
-              hidden={hideActions.includes('download')}
-            />
-            <ActionButton
-              className="flex flex-row flex-grow-0 gap-2 self-end items-center justify-end px-2 py-1 bg-slate-100 text-slate-300 hover:bg-slate-200 hover:text-slate-500 hover:font-bold"
-              onClick={() => setShowingShareConfirmation(true)}
-              fa="fa-solid fa-upload"
-              ctaText="Share"
-              hidden={hideActions.includes('share')}
-            />
-          </>
-        )}
-        {status === 'error' && !!request?.error && (
-          <ErrorButton hidden={hideActions.includes('error')} />
-        )}
-        {(!status || status === 'error') && (
-          <RetryButton hidden={hideActions.includes('retry')} />
-        )}
-        {status === 'pending' && (
-          <div className="absolute top-0 left-0 w-full h-full text-center flex flex-row flex-grow-0 gap-2 self-end items-center justify-center px-2 py-1 bg-black/70 text-white/90 font-bold">
-            <Icon className="animate-spin" fa="fa-solid fa-spinner" size={1} />
-            <span className="text-xs font-bold">
-              {request?.progress
-                ? `(${request.progress + 1}/6) ${progressText(request.progress)}`
-                : 'Pending...'}
-            </span>
-          </div>
-        )}
-        {status !== 'pending' && (
-          <ActionButton
-            className="flex flex-row flex-grow-0 gap-2 self-end items-center justify-end px-2 py-1 bg-slate-100 text-slate-300 hover:bg-red-100 hover:text-red-500 hover:font-bold"
-            onClick={onDelete}
-            fa="fa-solid fa-trash"
-            ctaText="Delete"
-            hidden={hideActions.includes('delete')}
-          />
-        )}
+      <div className="flex flex-col items-end gap-1">
+        <div className="h-4">
+          {!hideActions.length && (
+            <Icon
+              className="text-slate-500 hover:text-slate-600 relative"
+              fa="fa-solid fa-ellipsis"
+              onClick={(e) => {
+                e.stopPropagation();
+                showMenu(true);
+              }}
+            >
+              {showingMenu && (
+                <RequestMenu requestId={props.requestId} showMenu={showMenu} />
+              )}
+            </Icon>
+          )}
+        </div>
+        <div className="text-slate-500" title={day.format('LLLL')}>
+          {day.fromNow()}
+        </div>
       </div>
     </div>
   );
-
-  function RetryButton(p: { hidden?: boolean }): ReactElement {
-    if (p.hidden) return <></>;
-    return (
-      <button
-        className="flex flex-row flex-grow-0 gap-2 self-end items-center justify-end px-2 py-1 bg-slate-100 text-slate-300 hover:bg-slate-200 hover:text-slate-500 hover:font-bold"
-        onClick={onRetry}
-      >
-        <Icon fa="fa-solid fa-arrows-rotate" size={1} />
-        <span className="text-xs font-bold">Retry</span>
-      </button>
-    );
-  }
-
-  function ErrorButton(p: { hidden?: boolean }): ReactElement {
-    if (p.hidden) return <></>;
-    return (
-      <button
-        className="flex flex-row flex-grow-0 gap-2 self-end items-center justify-end px-2 py-1 bg-red-100 text-red-300 hover:bg-red-200 hover:text-red-500 hover:font-bold"
-        onClick={onShowError}
-      >
-        <Icon fa="fa-solid fa-circle-exclamation" size={1} />
-        <span className="text-xs font-bold">Error</span>
-      </button>
-    );
-  }
 
   function ErrorModal(): ReactElement {
     const msg = typeof request?.error === 'string' && request?.error;
@@ -262,99 +166,4 @@ export function OneRequestHistory(props: {
       </Modal>
     );
   }
-
-  function ShareConfirmationModal(): ReactElement {
-    return !showingShareConfirmation ? (
-      <></>
-    ) : (
-      <Modal
-        className="flex flex-col items-center text-base cursor-default justify-center !w-auto mx-4 my-[50%] p-4 gap-4"
-        onClose={closeAllModal}
-      >
-        <ModalContent className="flex flex-col w-full gap-4 items-center text-base justify-center">
-          {!cid[props.requestId] ? (
-            <p className="text-slate-500 text-center">
-              {uploadError ||
-                'This will make your proof publicly accessible by anyone with the CID'}
-            </p>
-          ) : (
-            <input
-              className="input w-full bg-slate-100 border border-slate-200"
-              readOnly
-              value={`${EXPLORER_API}/ipfs/${cid[props.requestId]}`}
-              onFocus={(e) => e.target.select()}
-            />
-          )}
-        </ModalContent>
-        <div className="flex flex-row gap-2 justify-center">
-          {!cid[props.requestId] ? (
-            <>
-              {!uploadError && (
-                <button
-                  onClick={handleUpload}
-                  className="button button--primary flex flex-row items-center justify-center gap-2 m-0"
-                  disabled={uploading}
-                >
-                  {uploading && (
-                    <Icon
-                      className="animate-spin"
-                      fa="fa-solid fa-spinner"
-                      size={1}
-                    />
-                  )}
-                  I understand
-                </button>
-              )}
-              <button
-                className="m-0 w-24 bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600 font-bold"
-                onClick={closeAllModal}
-              >
-                Close
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                onClick={() =>
-                  copy(`${EXPLORER_API}/ipfs/${cid[props.requestId]}`)
-                }
-                className="m-0 w-24 bg-slate-600 text-slate-200 hover:bg-slate-500 hover:text-slate-100 font-bold"
-              >
-                Copy
-              </button>
-              <button
-                className="m-0 w-24 bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600 font-bold"
-                onClick={closeAllModal}
-              >
-                Close
-              </button>
-            </>
-          )}
-        </div>
-      </Modal>
-    );
-  }
-}
-
-function ActionButton(props: {
-  onClick: () => void;
-  fa: string;
-  ctaText: string;
-  className?: string;
-  hidden?: boolean;
-}): ReactElement {
-  if (props.hidden) return <></>;
-
-  return (
-    <button
-      className={classNames(
-        'flex flex-row flex-grow-0 gap-2 self-end items-center justify-end px-2 py-1 hover:font-bold',
-        props.className,
-      )}
-      onClick={props.onClick}
-    >
-      <Icon className="" fa={props.fa} size={1} />
-      <span className="text-xs font-bold">{props.ctaText}</span>
-    </button>
-  );
 }

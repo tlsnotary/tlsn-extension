@@ -13,7 +13,7 @@ import logo from '../../assets/img/icon-128.png';
 import classNames from 'classnames';
 import Icon from '../../components/Icon';
 import { useRequestHistory } from '../../reducers/history';
-import { BackgroundActiontype } from '../Background/rpc';
+import { BackgroundActiontype, progressText } from '../Background/rpc';
 import { getPluginByHash, getPluginConfigByHash } from '../Background/db';
 import { SidePanelActionTypes } from './types';
 import { fetchP2PState, useClientId } from '../../reducers/p2p';
@@ -279,7 +279,6 @@ function StepContent(
 
   let btnContent = null;
 
-  console.log('prover', prover, p2p);
   if (prover && p2p) {
     btnContent = (
       <button
@@ -318,7 +317,14 @@ function StepContent(
     btnContent = (
       <button className="button mt-2 w-fit flex flex-row flex-nowrap items-center gap-2 cursor-default">
         <Icon className="animate-spin" fa="fa-solid fa-spinner" size={1} />
-        <span className="text-sm">{cta}</span>
+        <span className="text-sm">
+          {notaryRequest?.progress
+            ? `(${(
+                ((notaryRequest.progress + 1) / 6.06) *
+                100
+              ).toFixed()}%) ${progressText(notaryRequest.progress)}`
+            : 'Pending...'}
+        </span>
       </button>
     );
   } else {
