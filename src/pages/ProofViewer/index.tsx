@@ -3,23 +3,36 @@ import React, {
   ReactElement,
   useState,
   MouseEventHandler,
+  useCallback,
 } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import c from 'classnames';
-import { useRequestHistory } from '../../reducers/history';
+import {
+  deleteRequestHistory,
+  useRequestHistory,
+} from '../../reducers/history';
 import Icon from '../../components/Icon';
 import { download } from '../../utils/misc';
 import classNames from 'classnames';
+import { useDispatch } from 'react-redux';
 
 export default function ProofViewer(props?: {
   className?: string;
   recv?: string;
   sent?: string;
 }): ReactElement {
+  const dispatch = useDispatch();
   const { requestId } = useParams<{ requestId: string }>();
   const request = useRequestHistory(requestId);
   const navigate = useNavigate();
   const [tab, setTab] = useState('sent');
+
+  const onDelete = useCallback(async () => {
+    if (requestId) {
+      dispatch(deleteRequestHistory(requestId));
+      navigate(-1);
+    }
+  }, [requestId]);
 
   return (
     <div
@@ -44,7 +57,7 @@ export default function ProofViewer(props?: {
           <TabLabel onClick={() => setTab('recv')} active={tab === 'recv'}>
             Recv
           </TabLabel>
-          <div className="flex flex-row flex-grow items-center justify-end">
+          <div className="flex flex-row flex-grow items-center justify-end gap-2">
             {!props?.recv && (
               <button
                 className="button"
@@ -56,6 +69,9 @@ export default function ProofViewer(props?: {
                 Download
               </button>
             )}
+            <button className="button !text-red-500" onClick={onDelete}>
+              Delete
+            </button>
           </div>
         </div>
       </div>
