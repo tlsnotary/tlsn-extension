@@ -303,20 +303,20 @@ export const makePlugin = async (
   }
 
   if (config?.cookies) {
-    const cookies: { [hostname: string]: { [key: string]: string } } = {};
-    for (const host of config.cookies) {
-      const cache = await getCookiesByHost(host);
-      cookies[host] = cache;
+    const cookies: { [link: string]: { [key: string]: string } } = {};
+    for (const link of config.cookies) {
+      const cache = await getCookiesByHost(link);
+      cookies[link] = cache;
     }
     // @ts-ignore
     injectedConfig.cookies = JSON.stringify(cookies);
   }
 
   if (config?.headers) {
-    const headers: { [hostname: string]: { [key: string]: string } } = {};
-    for (const host of config.headers) {
-      const cache = await getHeadersByHost(host);
-      headers[host] = cache;
+    const headers: { [link: string]: { [key: string]: string } } = {};
+    for (const link of config.headers) {
+      const cache = await getHeadersByHost(link);
+      headers[link] = cache;
     }
     // @ts-ignore
     injectedConfig.headers = JSON.stringify(headers);

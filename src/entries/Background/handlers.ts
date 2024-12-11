@@ -4,7 +4,7 @@ import mutex from './mutex';
 import browser from 'webextension-polyfill';
 import { addRequest } from '../../reducers/requests';
 import { urlify } from '../../utils/misc';
-import { setCookies, setHeaders } from './db';
+import { getHeadersByHost, setCookies, setHeaders } from './db';
 export const onSendHeaders = (
   details: browser.WebRequest.OnSendHeadersDetailsType,
 ) => {
@@ -14,9 +14,11 @@ export const onSendHeaders = (
     if (method !== 'OPTIONS') {
       const cache = getCacheByTabId(tabId);
       const existing = cache.get<RequestLog>(requestId);
-      const { hostname } = urlify(details.url) || {};
+      const { origin, pathname } = urlify(details.url) || {};
 
-      if (hostname && details.requestHeaders) {
+      const link = [origin, pathname].join('');
+
+      if (link && details.requestHeaders) {
         details.requestHeaders.forEach((header) => {
           const { name, value } = header;
           if (/^cookie$/i.test(name) && value) {
@@ -24,10 +26,10 @@ export const onSendHeaders = (
               .split(';')
               .map((v) => v.split('='))
               .forEach((cookie) => {
-                setCookies(hostname, cookie[0].trim(), cookie[1]);
+                setCookies(link, cookie[0].trim(), cookie[1]);
               });
           } else {
-            setHeaders(hostname, name, value);
+            setHeaders(link, name, value);
           }
         });
       }

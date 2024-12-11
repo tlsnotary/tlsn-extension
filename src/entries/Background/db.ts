@@ -325,18 +325,18 @@ export async function clearCookies(host: string) {
   });
 }
 
-export async function getCookies(host: string, name: string) {
+export async function getCookies(link: string, name: string) {
   try {
-    const existing = await cookiesDb.sublevel(host).get(name);
+    const existing = await cookiesDb.sublevel(link).get(name);
     return existing;
   } catch (e) {
     return null;
   }
 }
 
-export async function getCookiesByHost(host: string) {
+export async function getCookiesByHost(link: string) {
   const ret: { [key: string]: string } = {};
-  for await (const [key, value] of cookiesDb.sublevel(host).iterator()) {
+  for await (const [key, value] of cookiesDb.sublevel(link).iterator()) {
     ret[key] = value;
   }
   return ret;
@@ -359,10 +359,10 @@ export async function getConnection(origin: string) {
   }
 }
 
-export async function setHeaders(host: string, name: string, value?: string) {
+export async function setHeaders(link: string, name: string, value?: string) {
   if (!value) return null;
   return mutex.runExclusive(async () => {
-    await headersDb.sublevel(host).put(name, value);
+    await headersDb.sublevel(link).put(name, value);
     return true;
   });
 }
@@ -382,9 +382,9 @@ export async function getHeaders(host: string, name: string) {
     return null;
   }
 }
-export async function getHeadersByHost(host: string) {
+export async function getHeadersByHost(link: string) {
   const ret: { [key: string]: string } = {};
-  for await (const [key, value] of headersDb.sublevel(host).iterator()) {
+  for await (const [key, value] of headersDb.sublevel(link).iterator()) {
     ret[key] = value;
   }
   return ret;
