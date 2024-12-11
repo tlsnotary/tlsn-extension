@@ -527,9 +527,13 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
 
       let bodyString = ""
 
-      if (body.length > 1) {
-        bodyString = body[1]
-      }
+      // Each second line is the response body chunk
+      // Each line before second line is the size of the chunk
+      body.forEach((line, i) => {
+        if ((i + 1) % 2 === 0) {
+          bodyString += line
+        }
+      })
 
       secretResps = await getSecretResponseFn(bodyString);
     }
