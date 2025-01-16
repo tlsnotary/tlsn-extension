@@ -349,6 +349,8 @@ export async function getCookiesByHost(link: string) {
     ? Object.keys(links).filter((l) => minimatch(l, link))[0]
     : Object.keys(links).filter((l) => urlify(l)?.host === link)[0];
 
+  if (!cookieLink) return ret;
+
   for await (const [key, value] of cookiesDb.sublevel(cookieLink).iterator()) {
     ret[key] = value;
   }
@@ -408,6 +410,8 @@ export async function getHeadersByHost(link: string) {
   const headerLink = url
     ? Object.keys(links).filter((l) => minimatch(l, link))[0]
     : Object.keys(links).filter((l) => urlify(l)?.host === link)[0];
+
+  if (!headerLink) return ret;
 
   for await (const [key, value] of headersDb.sublevel(headerLink).iterator()) {
     ret[key] = value;
