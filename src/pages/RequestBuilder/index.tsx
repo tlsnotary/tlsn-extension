@@ -56,7 +56,15 @@ export default function RequestBuilder(props?: {
   const [method, setMethod] = useState<string>(props?.method || 'GET');
   const [type, setType] = useState<string>('text/plain');
   const [headers, setHeaders] = useState<[string, string, boolean?][]>(
-    props?.headers || [['Content-Type', type, true]],
+    props?.headers || [
+      ['Content-Type', type, true],
+      ['Accept', '*/*', false],
+      ['Host', '', false],
+      ['Connection', 'keep-alive', false],
+      ['Accept-Encoding', 'gzip, deflate, br', false],
+      ['Accept-Language', 'en-US,en;q=0.9', false],
+      ['User-Agent', window.navigator.userAgent, false],
+    ],
   );
 
   const [responseData, setResponseData] = useState<{
@@ -185,6 +193,9 @@ export default function RequestBuilder(props?: {
             if (k !== 'Cookie') {
               map[k] = v;
             }
+            if (k === 'Host') {
+              map[k] ? map[k] : (map[k] = url?.host || '');
+            }
             return map;
           }, {}),
           body: body ? formatForRequest(body, type) : undefined,
@@ -205,7 +216,7 @@ export default function RequestBuilder(props?: {
     (e: React.ChangeEvent<HTMLSelectElement>) => {
       const value = e.target.value;
       if (value === 'GET' || value === 'HEAD') {
-        setType('');
+        // setType('');  Leaving this here for now - I feel like I did this for a specific reason but I can't remember why
         setMethod(value);
       } else {
         setMethod(value);
@@ -411,7 +422,7 @@ function HeaderTable(props: {
 }): ReactElement {
   const headers: [string, string, boolean?][] = [
     ...props.headers,
-    ['', '', true],
+    ['', ' ', true],
   ];
   const last = props.headers.length;
 
@@ -449,7 +460,7 @@ function HeaderTable(props: {
               <input
                 className="input py-1 px-2 w-full py-1 px-2"
                 type="text"
-                value={value}
+                value={value ? value : 'Calculated when request is sent'}
                 placeholder="Value"
                 onChange={(e) => {
                   props.setHeader(i, key, e.target.value);
