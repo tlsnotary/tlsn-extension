@@ -53,7 +53,7 @@ export default function Menu(props: {
   return (
     <div className="absolute top-[100%] right-0 rounded-md z-20">
       <div className="flex flex-col bg-slate-200 w-40 shadow rounded-md py">
-      <MenuRow
+        <MenuRow
           fa="fa-solid fa-plus"
           className="relative"
           onClick={() => {
