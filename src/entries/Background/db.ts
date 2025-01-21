@@ -176,6 +176,8 @@ export async function getPluginByHash(hash: string): Promise<string | null> {
 export async function addPlugin(hex: string): Promise<string | null> {
   const hash = await sha256(hex);
 
+  console.log('hex', hex);
+  console.log('hash', hash);
   if (await getPluginByHash(hash)) {
     return null;
   }
@@ -471,11 +473,13 @@ export async function getSessionStorageByHost(host: string) {
   return ret;
 }
 
-async function getDefaultPluginsInstalled(): Promise<boolean> {
+async function getDefaultPluginsInstalled(): Promise<string | boolean> {
   return appDb.get(AppDatabaseKey.DefaultPluginsInstalled).catch(() => false);
 }
 
-export async function setDefaultPluginsInstalled(installed = false) {
+export async function setDefaultPluginsInstalled(
+  installed: string | boolean = false,
+) {
   return mutex.runExclusive(async () => {
     await appDb.put(AppDatabaseKey.DefaultPluginsInstalled, installed);
   });

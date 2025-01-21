@@ -210,6 +210,7 @@ export const makePlugin = async (
       (async () => {
         const { getSecretResponse, body: reqBody } = params;
 
+        console.log(params);
         if (meta?.p2p) {
           const pluginHex = Buffer.from(arrayBuffer).toString('hex');
           handleExecP2PPluginProver({
