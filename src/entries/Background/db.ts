@@ -1,7 +1,8 @@
 import { Level } from 'level';
 import type { RequestHistory } from './rpc';
-import { PluginConfig, PluginMetadata, sha256 } from '../../utils/misc';
+import { PluginConfig, PluginMetadata, sha256, urlify } from '../../utils/misc';
 import mutex from './mutex';
+import { minimatch } from 'minimatch';
 const charwise = require('charwise');
 
 export const db = new Level('./ext-db', {
@@ -325,18 +326,32 @@ export async function clearCookies(host: string) {
   });
 }
 
-export async function getCookies(host: string, name: string) {
+export async function getCookies(link: string, name: string) {
   try {
-    const existing = await cookiesDb.sublevel(host).get(name);
+    const existing = await cookiesDb.sublevel(link).get(name);
     return existing;
   } catch (e) {
     return null;
   }
 }
 
-export async function getCookiesByHost(host: string) {
+export async function getCookiesByHost(link: string) {
   const ret: { [key: string]: string } = {};
-  for await (const [key, value] of cookiesDb.sublevel(host).iterator()) {
+  const links: { [k: string]: boolean } = {};
+  const url = urlify(link);
+
+  for await (const sublevel of cookiesDb.keys({ keyEncoding: 'utf8' })) {
+    const l = sublevel.split('!')[1];
+    links[l] = true;
+  }
+
+  const cookieLink = url
+    ? Object.keys(links).filter((l) => minimatch(l, link))[0]
+    : Object.keys(links).filter((l) => urlify(l)?.host === link)[0];
+
+  if (!cookieLink) return ret;
+
+  for await (const [key, value] of cookiesDb.sublevel(cookieLink).iterator()) {
     ret[key] = value;
   }
   return ret;
@@ -359,10 +374,10 @@ export async function getConnection(origin: string) {
   }
 }
 
-export async function setHeaders(host: string, name: string, value?: string) {
+export async function setHeaders(link: string, name: string, value?: string) {
   if (!value) return null;
   return mutex.runExclusive(async () => {
-    await headersDb.sublevel(host).put(name, value);
+    await headersDb.sublevel(link).put(name, value);
     return true;
   });
 }
@@ -382,9 +397,23 @@ export async function getHeaders(host: string, name: string) {
     return null;
   }
 }
-export async function getHeadersByHost(host: string) {
+export async function getHeadersByHost(link: string) {
   const ret: { [key: string]: string } = {};
-  for await (const [key, value] of headersDb.sublevel(host).iterator()) {
+  const url = urlify(link);
+
+  const links: { [k: string]: boolean } = {};
+  for await (const sublevel of headersDb.keys({ keyEncoding: 'utf8' })) {
+    const l = sublevel.split('!')[1];
+    links[l] = true;
+  }
+
+  const headerLink = url
+    ? Object.keys(links).filter((l) => minimatch(l, link))[0]
+    : Object.keys(links).filter((l) => urlify(l)?.host === link)[0];
+
+  if (!headerLink) return ret;
+
+  for await (const [key, value] of headersDb.sublevel(headerLink).iterator()) {
     ret[key] = value;
   }
   return ret;
