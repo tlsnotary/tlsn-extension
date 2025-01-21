@@ -35,7 +35,6 @@ import { installPlugin } from './plugins/utils';
 
   const { defaultPluginsInstalled } = await getAppState();
 
-  console.log({ defaultPluginsInstalled });
   switch (defaultPluginsInstalled) {
     case false: {
       try {
@@ -43,8 +42,6 @@ import { installPlugin } from './plugins/utils';
           'twitter_profile.wasm',
         );
         const discordDmUrl = browser.runtime.getURL('discord_dm.wasm');
-        console.log('twitterProfileUrl');
-        console.log(twitterProfileUrl);
         await installPlugin(twitterProfileUrl);
         await installPlugin(discordDmUrl);
       } finally {

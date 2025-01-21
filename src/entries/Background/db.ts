@@ -176,8 +176,6 @@ export async function getPluginByHash(hash: string): Promise<string | null> {
 export async function addPlugin(hex: string): Promise<string | null> {
   const hash = await sha256(hex);
 
-  console.log('hex', hex);
-  console.log('hash', hash);
   if (await getPluginByHash(hash)) {
     return null;
   }
