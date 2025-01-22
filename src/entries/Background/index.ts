@@ -1,7 +1,7 @@
 import { onBeforeRequest, onResponseStarted, onSendHeaders } from './handlers';
 import { deleteCacheByTabId } from './cache';
 import browser from 'webextension-polyfill';
-import { getAppState, setDefaultPluginsInstalled } from './db';
+import { getAppState, removePlugin, setDefaultPluginsInstalled } from './db';
 import { installPlugin } from './plugins/utils';
 
 (async () => {
@@ -35,15 +35,36 @@ import { installPlugin } from './plugins/utils';
 
   const { defaultPluginsInstalled } = await getAppState();
 
-  if (!defaultPluginsInstalled) {
-    try {
-      const twitterProfileUrl = browser.runtime.getURL('twitter_profile.wasm');
-      const discordDmUrl = browser.runtime.getURL('discord_dm.wasm');
-      await installPlugin(twitterProfileUrl);
-      await installPlugin(discordDmUrl);
-    } finally {
-      await setDefaultPluginsInstalled(true);
+  switch (defaultPluginsInstalled) {
+    case false: {
+      try {
+        const twitterProfileUrl = browser.runtime.getURL(
+          'twitter_profile.wasm',
+        );
+        const discordDmUrl = browser.runtime.getURL('discord_dm.wasm');
+        await installPlugin(twitterProfileUrl);
+        await installPlugin(discordDmUrl);
+      } finally {
+        await setDefaultPluginsInstalled('0.1.0.703');
+      }
+      break;
     }
+    case true: {
+      try {
+        await removePlugin(
+          '6931d2ad63340d3a1fb1a5c1e3f4454c5a518164d6de5ad272e744832355ee02',
+        );
+        const twitterProfileUrl = browser.runtime.getURL(
+          'twitter_profile.wasm',
+        );
+        await installPlugin(twitterProfileUrl);
+      } finally {
+        await setDefaultPluginsInstalled('0.1.0.703');
+      }
+      break;
+    }
+    case '0.1.0.703':
+      break;
   }
 
   const { initRPC } = await import('./rpc');
