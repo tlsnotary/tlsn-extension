@@ -1,5 +1,9 @@
 import browser from 'webextension-polyfill';
-import { BackgroundActiontype } from '../Background/rpc';
+import {
+  BackgroundActiontype,
+  progressText,
+  RequestProgress,
+} from '../Background/rpc';
 import { Method } from 'tlsn-wasm';
 import {
   NotaryServer,
@@ -8,7 +12,7 @@ import {
   Transcript,
   Verifier as TVerifier,
 } from 'tlsn-js';
-import { urlify } from '../../utils/misc';
+import { devlog, urlify } from '../../utils/misc';
 import * as Comlink from 'comlink';
 import { PresentationJSON as PresentationJSONa7 } from 'tlsn-js/build/types';
 import { subtractRanges } from './utils';
@@ -52,13 +56,13 @@ export const onNotarizationRequest = async (request: any) => {
         proof,
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error(error);
     browser.runtime.sendMessage({
       type: BackgroundActiontype.finish_prove_request,
       data: {
         id,
-        error,
+        error: error?.message || 'Unknown error',
       },
     });
 
@@ -66,7 +70,7 @@ export const onNotarizationRequest = async (request: any) => {
       type: OffscreenActionTypes.notarization_response,
       data: {
         id,
-        error,
+        error: error?.message || 'Unknown error',
       },
     });
   }
@@ -80,6 +84,7 @@ export const onCreateProverRequest = async (request: any) => {
 
     provers[id] = prover;
 
+    updateRequestProgress(id, RequestProgress.ReadingTranscript);
     browser.runtime.sendMessage({
       type: OffscreenActionTypes.create_prover_response,
       data: {
@@ -87,13 +92,13 @@ export const onCreateProverRequest = async (request: any) => {
         transcript: await prover.transcript(),
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error(error);
     browser.runtime.sendMessage({
       type: OffscreenActionTypes.create_prover_response,
       data: {
         id,
-        error,
+        error: error?.message || 'Unknown error',
       },
     });
   }
@@ -106,6 +111,7 @@ export const onCreatePresentationRequest = async (request: any) => {
   try {
     if (!prover) throw new Error(`Cannot find prover ${id}.`);
 
+    updateRequestProgress(id, RequestProgress.FinalizingOutputs);
     const notarizationOutputs = await prover.notarize(commit);
 
     const presentation = (await new Presentation({
@@ -126,13 +132,13 @@ export const onCreatePresentationRequest = async (request: any) => {
     });
 
     delete provers[id];
-  } catch (error) {
+  } catch (error: any) {
     console.error(error);
     browser.runtime.sendMessage({
       type: BackgroundActiontype.finish_prove_request,
       data: {
         id,
-        error,
+        error: error?.message || 'Unknown error',
       },
     });
   }
@@ -151,13 +157,13 @@ export const onProcessProveRequest = async (request: any) => {
         proof: proof,
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error(error);
     browser.runtime.sendMessage({
       type: BackgroundActiontype.finish_prove_request,
       data: {
         id,
-        error,
+        error: error?.message || 'Unknown error',
       },
     });
   }
@@ -367,6 +373,8 @@ async function createProof(options: {
 
   const hostname = urlify(url)?.hostname || '';
   const notary = NotaryServer.from(notaryUrl);
+
+  updateRequestProgress(id, RequestProgress.CreatingProver);
   const prover: TProver = await new Prover({
     id,
     serverDns: hostname,
@@ -374,8 +382,13 @@ async function createProof(options: {
     maxRecvData,
   });
 
-  await prover.setup(await notary.sessionUrl(maxSentData, maxRecvData));
+  updateRequestProgress(id, RequestProgress.GettingSession);
+  const sessionUrl = await notary.sessionUrl(maxSentData, maxRecvData);
 
+  updateRequestProgress(id, RequestProgress.SettingUpProver);
+  await prover.setup(sessionUrl);
+
+  updateRequestProgress(id, RequestProgress.SendingRequest);
   await prover.sendRequest(websocketProxyUrl + `?token=${hostname}`, {
     url,
     method,
@@ -383,6 +396,7 @@ async function createProof(options: {
     body,
   });
 
+  updateRequestProgress(id, RequestProgress.ReadingTranscript);
   const transcript = await prover.transcript();
 
   const commit = {
@@ -396,6 +410,7 @@ async function createProof(options: {
     ),
   };
 
+  updateRequestProgress(id, RequestProgress.FinalizingOutputs);
   const notarizationOutputs = await prover.notarize(commit);
 
   const presentation = (await new Presentation({
@@ -436,6 +451,8 @@ async function createProver(options: {
 
   const hostname = urlify(url)?.hostname || '';
   const notary = NotaryServer.from(notaryUrl);
+
+  updateRequestProgress(id, RequestProgress.CreatingProver);
   const prover: TProver = await new Prover({
     id,
     serverDns: hostname,
@@ -443,8 +460,13 @@ async function createProver(options: {
     maxRecvData,
   });
 
-  await prover.setup(await notary.sessionUrl(maxSentData, maxRecvData));
+  updateRequestProgress(id, RequestProgress.GettingSession);
+  const sessionUrl = await notary.sessionUrl(maxSentData, maxRecvData);
 
+  updateRequestProgress(id, RequestProgress.SettingUpProver);
+  await prover.setup(sessionUrl);
+
+  updateRequestProgress(id, RequestProgress.SendingRequest);
   await prover.sendRequest(websocketProxyUrl + `?token=${hostname}`, {
     url,
     method,
@@ -481,4 +503,15 @@ async function verifyProof(
   }
 
   return result;
+}
+
+function updateRequestProgress(id: string, progress: RequestProgress) {
+  devlog(`Request ${id}: ${progressText(progress)}`);
+  browser.runtime.sendMessage({
+    type: BackgroundActiontype.update_request_progress,
+    data: {
+      id,
+      progress: progress,
+    },
+  });
 }
