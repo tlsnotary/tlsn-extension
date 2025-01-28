@@ -15,6 +15,10 @@ export default function ProofViewer(props?: {
   className?: string;
   recv?: string;
   sent?: string;
+  info?: {
+    meta: { notaryUrl: string; websocketProxyUrl: string };
+    version: string;
+  };
 }): ReactElement {
   const { requestId } = useParams<{ requestId: string }>();
   const request = useRequestHistory(requestId);
@@ -43,6 +47,12 @@ export default function ProofViewer(props?: {
           </TabLabel>
           <TabLabel onClick={() => setTab('recv')} active={tab === 'recv'}>
             Recv
+          </TabLabel>
+          <TabLabel
+            onClick={() => setTab('metadata')}
+            active={tab === 'metadata'}
+          >
+            Metadata
           </TabLabel>
           <div className="flex flex-row flex-grow items-center justify-end">
             {!props?.recv && (
@@ -74,6 +84,31 @@ export default function ProofViewer(props?: {
             readOnly
           ></textarea>
         )}
+        {tab === 'metadata' && (
+          <div className="w-full resize-none bg-slate-100 text-slate-800 border p-2 text-[10px] break-all h-full outline-none font-mono">
+            <MetadataRow
+              label="Version"
+              //@ts-ignore
+              value={props?.info?.version || request?.proof?.version}
+            />
+            <MetadataRow
+              label="Notary URL"
+              value={
+                //@ts-ignore
+                props?.info?.meta?.notaryUrl || request?.proof?.meta?.notaryUrl
+              }
+            />
+            <MetadataRow
+              label="Websocket Proxy URL"
+              value={
+                props?.info?.meta?.websocketProxyUrl ||
+                //@ts-ignore
+                request?.proof?.meta?.websocketProxyUrl
+              }
+            />
+            <MetadataRow label="Verifying Key" value="" />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -95,5 +130,14 @@ function TabLabel(props: {
     >
       {props.children}
     </button>
+  );
+}
+
+function MetadataRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div>{label}:</div>
+      <div className="text-sm font-semibold whitespace-pre-wrap">{value}</div>
+    </div>
   );
 }

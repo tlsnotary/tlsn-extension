@@ -14,7 +14,7 @@ export default function ProofUploader(): ReactElement {
     sent: string;
   } | null>(null);
   const [uploading, setUploading] = useState(false);
-
+  const [metadata, setMetaData] = useState<any>({ meta: '', version: '' });
   const onFileUpload: ChangeEventHandler<HTMLInputElement> = useCallback(
     async (e) => {
       // @ts-ignore
@@ -26,6 +26,7 @@ export default function ProofUploader(): ReactElement {
           const result = event.target?.result;
           if (result) {
             const proof = JSON.parse(result as string);
+            setMetaData({ meta: proof.meta, version: proof.version });
             const res = await chrome.runtime
               .sendMessage<any, { recv: string; sent: string }>({
                 type: BackgroundActiontype.verify_proof,
@@ -48,7 +49,7 @@ export default function ProofUploader(): ReactElement {
   );
 
   if (proof) {
-    return <ProofViewer recv={proof.recv} sent={proof.sent} />;
+    return <ProofViewer recv={proof.recv} sent={proof.sent} info={metadata} />;
   }
 
   return (
