@@ -2,6 +2,7 @@ import React, {
   ReactNode,
   ReactElement,
   useState,
+  useEffect,
   MouseEventHandler,
 } from 'react';
 import { useParams, useNavigate } from 'react-router';
@@ -24,6 +25,13 @@ export default function ProofViewer(props?: {
   const request = useRequestHistory(requestId);
   const navigate = useNavigate();
   const [tab, setTab] = useState('sent');
+  const [isPopup, setIsPopup] = useState(false);
+
+  useEffect(() => {
+    if (window.opener || window.matchMedia('(display-mode: standalone)').matches) {
+      setIsPopup(true);
+    }
+  }, []);
 
   return (
     <div
@@ -34,7 +42,7 @@ export default function ProofViewer(props?: {
     >
       <div className="flex flex-col px-2">
         <div className="flex flex-row gap-2 items-center">
-          <Icon
+          {!isPopup && ( <Icon
             className={c(
               'px-1 select-none cursor-pointer',
               'text-slate-400 border-b-2 border-transparent hover:text-slate-500 active:text-slate-800',
@@ -42,6 +50,7 @@ export default function ProofViewer(props?: {
             onClick={() => navigate(-1)}
             fa="fa-solid fa-xmark"
           />
+          )}
           <TabLabel onClick={() => setTab('sent')} active={tab === 'sent'}>
             Sent
           </TabLabel>

@@ -48,6 +48,7 @@ export function OneRequestHistory(props: {
     useState(false);
   const [cid, setCid] = useState<{ [key: string]: string }>({});
   const [uploading, setUploading] = useState(false);
+  const [remove, showRemove] = useState(false);
   const navigate = useNavigate();
   const { status } = request || {};
   const requestUrl = urlify(request?.url || '');
@@ -89,6 +90,7 @@ export function OneRequestHistory(props: {
 
   const onDelete = useCallback(async () => {
     dispatch(deleteRequestHistory(props.requestId));
+    showRemove(false);
   }, [props.requestId]);
 
   const onShowError = useCallback(async () => {
@@ -117,6 +119,7 @@ export function OneRequestHistory(props: {
   }, [props.requestId, request, cid]);
 
   return (
+
     <div
       className={classNames(
         'flex flex-row flex-nowrap border rounded-md p-2 gap-1 hover:bg-slate-50 cursor-pointer',
@@ -347,5 +350,36 @@ function ActionButton(props: {
       <Icon className="" fa={props.fa} size={1} />
       <span className="text-xs font-bold">{props.ctaText}</span>
     </button>
+  );
+}
+
+function RemoveHistory(props: {
+  onRemove: () => void;
+  showRemove: (show: boolean) => void;
+}): ReactElement {
+  const { onRemove, showRemove } = props;
+
+  const onCancel = useCallback(() => {
+    showRemove(false);
+  }, []);
+
+  return (
+    <div className="flex flex-col items-center w-full gap-1">
+      <div className="font-bold text-red-700">
+        Are you sure you want to delete this attestation?
+      </div>
+      <div className="mb-1">Warning: this cannot be undone.</div>
+      <div className="flex flex-row w-full gap-1">
+        <button className="flex-grow button p-1" onClick={onCancel}>
+          Cancel
+        </button>
+        <button
+          className="flex-grow font-bold bg-red-500 hover:bg-red-600 text-white rounded p-1"
+          onClick={onRemove}
+        >
+          Remove
+        </button>
+      </div>
+    </div>
   );
 }
