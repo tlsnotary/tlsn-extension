@@ -48,10 +48,10 @@ export function OneRequestHistory(props: {
     useState(false);
   const [cid, setCid] = useState<{ [key: string]: string }>({});
   const [uploading, setUploading] = useState(false);
-  const [remove, showRemove] = useState(false);
   const navigate = useNavigate();
   const { status } = request || {};
   const requestUrl = urlify(request?.url || '');
+  const [showRemoveModal, setShowRemoveModal] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -90,7 +90,6 @@ export function OneRequestHistory(props: {
 
   const onDelete = useCallback(async () => {
     dispatch(deleteRequestHistory(props.requestId));
-    showRemove(false);
   }, [props.requestId]);
 
   const onShowError = useCallback(async () => {
@@ -119,7 +118,6 @@ export function OneRequestHistory(props: {
   }, [props.requestId, request, cid]);
 
   return (
-
     <div
       className={classNames(
         'flex flex-row flex-nowrap border rounded-md p-2 gap-1 hover:bg-slate-50 cursor-pointer',
@@ -128,6 +126,12 @@ export function OneRequestHistory(props: {
     >
       <ShareConfirmationModal />
       <ErrorModal />
+      <RemoveHistory
+        onRemove={onDelete}
+        showRemovalModal={showRemoveModal}
+        setShowRemoveModal={setShowRemoveModal}
+        onCancel={() => setShowRemoveModal(false)}
+      />
       <div className="flex flex-col flex-nowrap flex-grow flex-shrink w-0">
         <div className="flex flex-row items-center text-xs">
           <div className="bg-slate-200 text-slate-400 px-1 py-0.5 rounded-sm">
@@ -200,7 +204,7 @@ export function OneRequestHistory(props: {
         )}
         <ActionButton
           className="flex flex-row flex-grow-0 gap-2 self-end items-center justify-end px-2 py-1 bg-slate-100 text-slate-300 hover:bg-red-100 hover:text-red-500 hover:font-bold"
-          onClick={onDelete}
+          onClick={() => setShowRemoveModal(true)}
           fa="fa-solid fa-trash"
           ctaText="Delete"
           hidden={hideActions.includes('delete')}
@@ -355,31 +359,46 @@ function ActionButton(props: {
 
 function RemoveHistory(props: {
   onRemove: () => void;
-  showRemove: (show: boolean) => void;
+  showRemovalModal: boolean;
+  setShowRemoveModal: (show: boolean) => void;
+  onCancel: () => void;
 }): ReactElement {
-  const { onRemove, showRemove } = props;
+  const { onRemove, setShowRemoveModal, showRemovalModal } = props;
 
   const onCancel = useCallback(() => {
-    showRemove(false);
-  }, []);
+    setShowRemoveModal(false);
+  }, [showRemovalModal]);
 
-  return (
-    <div className="flex flex-col items-center w-full gap-1">
-      <div className="font-bold text-red-700">
-        Are you sure you want to delete this attestation?
-      </div>
-      <div className="mb-1">Warning: this cannot be undone.</div>
-      <div className="flex flex-row w-full gap-1">
-        <button className="flex-grow button p-1" onClick={onCancel}>
-          Cancel
-        </button>
-        <button
-          className="flex-grow font-bold bg-red-500 hover:bg-red-600 text-white rounded p-1"
-          onClick={onRemove}
-        >
-          Remove
-        </button>
-      </div>
-    </div>
+  return !showRemovalModal ? (
+    <></>
+  ) : (
+    <Modal
+      onClose={onCancel}
+      className="flex flex-col items-center text-base cursor-default justify-center !w-auto mx-4 my-[50%] p-4 gap-4"
+    >
+      <ModalContent className="flex flex-col w-full gap-4 items-center text-base justify-center">
+        <div className="text-base">
+          Are you sure you want to delete this attestation?
+        </div>
+        <div className="mb-1">
+          <span className="text-red-500 font-bold">Warning:</span> this cannot
+          be undone.
+        </div>
+        <div className="flex flex-row gap-2 justify-end">
+          <button
+            className="m-0 w-24 bg-red-100 text-red-300 hover:bg-red-200 hover:text-red-500"
+            onClick={onRemove}
+          >
+            Delete
+          </button>
+          <button
+            className="m-0 w-24 bg-slate-100 text-slate-300 hover:bg-slate-200 hover:text-slate-500"
+            onClick={onCancel}
+          >
+            Cancel
+          </button>
+        </div>
+      </ModalContent>
+    </Modal>
   );
 }

@@ -49,7 +49,7 @@ export default function ProofUploader(): ReactElement {
   );
 
   if (proof) {
-    return <ProofViewer recv={proof.recv} sent={proof.sent} info={metadata}  />;
+    return <ProofViewer recv={proof.recv} sent={proof.sent} info={metadata} />;
   }
 
   return (

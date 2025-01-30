@@ -28,7 +28,10 @@ export default function ProofViewer(props?: {
   const [isPopup, setIsPopup] = useState(false);
 
   useEffect(() => {
-    if (window.opener || window.matchMedia('(display-mode: standalone)').matches) {
+    if (
+      window.opener ||
+      window.matchMedia('(display-mode: standalone)').matches
+    ) {
       setIsPopup(true);
     }
   }, []);
@@ -42,14 +45,15 @@ export default function ProofViewer(props?: {
     >
       <div className="flex flex-col px-2">
         <div className="flex flex-row gap-2 items-center">
-          {!isPopup && ( <Icon
-            className={c(
-              'px-1 select-none cursor-pointer',
-              'text-slate-400 border-b-2 border-transparent hover:text-slate-500 active:text-slate-800',
-            )}
-            onClick={() => navigate(-1)}
-            fa="fa-solid fa-xmark"
-          />
+          {!isPopup && (
+            <Icon
+              className={c(
+                'px-1 select-none cursor-pointer',
+                'text-slate-400 border-b-2 border-transparent hover:text-slate-500 active:text-slate-800',
+              )}
+              onClick={() => navigate(-1)}
+              fa="fa-solid fa-xmark"
+            />
           )}
           <TabLabel onClick={() => setTab('sent')} active={tab === 'sent'}>
             Sent
