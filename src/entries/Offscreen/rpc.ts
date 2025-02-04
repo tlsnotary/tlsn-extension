@@ -115,8 +115,6 @@ export const onCreatePresentationRequest = async (request: any) => {
       websocketProxyUrl: notarizationOutputs.websocketProxyUrl,
       reveal: commit,
     })) as TPresentation;
-    const vk = await presentation.verifyingKey();
-    const verifyingKey = Buffer.from(vk.data).toString('hex');
     const presentationJSON = await presentation.json();
 
     browser.runtime.sendMessage({
@@ -172,8 +170,7 @@ export const onVerifyProof = async (request: any, sendResponse: any) => {
 
 export const onVerifyProofRequest = async (request: any) => {
   const proof: PresentationJSON = request.data.proof;
-  const result: { sent: string; recv: string; verifierKey?: string } =
-    await verifyProof(proof);
+  const result: { sent: string; recv: string } = await verifyProof(proof);
 
   chrome.runtime.sendMessage<any, string>({
     type: BackgroundActiontype.finish_prove_request,
@@ -183,7 +180,6 @@ export const onVerifyProofRequest = async (request: any) => {
         sent: result.sent,
         recv: result.recv,
       },
-      verifierKey: result.verifierKey,
     },
   });
 };
@@ -483,6 +479,5 @@ async function verifyProof(
       break;
     }
   }
-  console.log(result);
   return result;
 }
