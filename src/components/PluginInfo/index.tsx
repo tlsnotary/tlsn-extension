@@ -26,7 +26,11 @@ import { ErrorModal } from '../ErrorModal';
 import classNames from 'classnames';
 import DefaultPluginIcon from '../../assets/img/default-plugin-icon.png';
 
-export default function PluginUploadInfo(): ReactElement {
+export default function PluginUploadInfo({
+  onPluginInstalled,
+}: {
+  onPluginInstalled?: () => void;
+}): ReactElement {
   const [error, showError] = useState('');
   const [pluginBuffer, setPluginBuffer] = useState<ArrayBuffer | any>(null);
   const [pluginContent, setPluginContent] = useState<PluginConfig | null>(null);
@@ -36,6 +40,7 @@ export default function PluginUploadInfo(): ReactElement {
       try {
         await addPlugin(Buffer.from(pluginBuffer).toString('hex'));
         setPluginContent(null);
+        onPluginInstalled?.();
       } catch (e: any) {
         showError(e?.message || 'Invalid Plugin');
       }
@@ -72,6 +77,9 @@ export default function PluginUploadInfo(): ReactElement {
         className="opacity-0 absolute top-0 right-0 h-full w-full cursor-pointer"
         type="file"
         onChange={onPluginInfo}
+        onClick={(e) => {
+          e.stopPropagation();
+        }}
       />
       {error && <ErrorModal onClose={() => showError('')} message={error} />}
       {pluginContent && (

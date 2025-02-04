@@ -60,7 +60,7 @@ export default function Menu(props: {
             props.setOpen(false);
           }}
         >
-          <PluginUploadInfo />
+          <PluginUploadInfo onPluginInstalled={() => props.setOpen(false)} />
           <span>Install Plugin</span>
         </MenuRow>
         <MenuRow

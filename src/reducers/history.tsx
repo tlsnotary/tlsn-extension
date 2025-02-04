@@ -10,6 +10,7 @@ enum ActionType {
   '/history/addRequest' = '/history/addRequest',
   '/history/setRequests' = '/history/setRequests',
   '/history/deleteRequest' = '/history/deleteRequest',
+  '/history/addRequestCid' = '/history/addRequestCid',
 }
 
 type Action<payload> = {
@@ -42,6 +43,13 @@ export const setRequests = (requests: RequestHistory[]) => {
   return {
     type: ActionType['/history/setRequests'],
     payload: requests,
+  };
+};
+
+export const addRequestCid = (requestId: string, cid: string) => {
+  return {
+    type: ActionType['/history/addRequestCid'],
+    payload: { requestId, cid },
   };
 };
 
@@ -101,6 +109,20 @@ export default function history(
         ...state,
         map: newMap,
         order: newOrder,
+      };
+    }
+    case ActionType['/history/addRequestCid']: {
+      const { requestId, cid } = action.payload;
+      if (!state.map[requestId]) return state;
+      return {
+        ...state,
+        map: {
+          ...state.map,
+          [requestId]: {
+            ...state.map[requestId],
+            cid,
+          },
+        },
       };
     }
     default:

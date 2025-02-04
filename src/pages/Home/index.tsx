@@ -77,9 +77,13 @@ export default function Home(props: {
         scrollTop={scrollTop}
       />
       <div
-        className={classNames('flex flex-row justify-center items-center', {
-          'fixed top-9 w-full bg-white shadow lg:w-[598px] lg:mt-40': shouldFix,
-        })}
+        className={classNames(
+          'flex flex-row justify-center items-center z-10',
+          {
+            'fixed top-9 w-full bg-white shadow lg:w-[598px] lg:mt-40':
+              shouldFix,
+          },
+        )}
       >
         <TabSelector
           onClick={() => setTab('network')}

@@ -4,13 +4,18 @@ import React, {
   useState,
   useEffect,
   MouseEventHandler,
+  useCallback,
 } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import c from 'classnames';
-import { useRequestHistory } from '../../reducers/history';
+import {
+  deleteRequestHistory,
+  useRequestHistory,
+} from '../../reducers/history';
 import Icon from '../../components/Icon';
 import { download } from '../../utils/misc';
 import classNames from 'classnames';
+import { useDispatch } from 'react-redux';
 
 export default function ProofViewer(props?: {
   className?: string;
@@ -21,10 +26,18 @@ export default function ProofViewer(props?: {
     version: string;
   };
 }): ReactElement {
+  const dispatch = useDispatch();
   const { requestId } = useParams<{ requestId: string }>();
   const request = useRequestHistory(requestId);
   const navigate = useNavigate();
   const [tab, setTab] = useState('sent');
+
+  const onDelete = useCallback(async () => {
+    if (requestId) {
+      dispatch(deleteRequestHistory(requestId));
+      navigate(-1);
+    }
+  }, [requestId]);
   const [isPopup, setIsPopup] = useState(false);
 
   useEffect(() => {
@@ -79,6 +92,9 @@ export default function ProofViewer(props?: {
                 Download
               </button>
             )}
+            <button className="button !text-red-500" onClick={onDelete}>
+              Delete
+            </button>
           </div>
         </div>
       </div>

@@ -1,6 +1,6 @@
 import { Level } from 'level';
-import type { RequestHistory } from './rpc';
 import { PluginConfig, PluginMetadata, sha256, urlify } from '../../utils/misc';
+import { RequestHistory, RequestProgress } from './rpc';
 import mutex from './mutex';
 import { minimatch } from 'minimatch';
 const charwise = require('charwise');
@@ -105,6 +105,24 @@ export async function setNotaryRequestError(
     ...existing,
     error,
     status: 'error',
+  };
+
+  await historyDb.put(id, newReq);
+
+  return newReq;
+}
+
+export async function setNotaryRequestProgress(
+  id: string,
+  progress: RequestProgress,
+): Promise<RequestHistory | null> {
+  const existing = await historyDb.get(id);
+
+  if (!existing) return null;
+
+  const newReq: RequestHistory = {
+    ...existing,
+    progress,
   };
 
   await historyDb.put(id, newReq);
