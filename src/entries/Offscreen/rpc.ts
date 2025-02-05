@@ -12,7 +12,7 @@ import {
   Transcript,
   Verifier as TVerifier,
 } from 'tlsn-js';
-import { devlog, urlify } from '../../utils/misc';
+import { convertNotaryWsToHttp, devlog, urlify } from '../../utils/misc';
 import * as Comlink from 'comlink';
 import { PresentationJSON as PresentationJSONa7 } from 'tlsn-js/build/types';
 import { subtractRanges } from './utils';
@@ -176,7 +176,8 @@ export const onVerifyProof = async (request: any, sendResponse: any) => {
 
 export const onVerifyProofRequest = async (request: any) => {
   const proof: PresentationJSON = request.data.proof;
-  const result: { sent: string; recv: string } = await verifyProof(proof);
+  const result: { sent: string; recv: string; verifierKey?: string; notaryKey?: string } =
+    await verifyProof(proof);
 
   chrome.runtime.sendMessage<any, string>({
     type: BackgroundActiontype.finish_prove_request,
@@ -185,6 +186,8 @@ export const onVerifyProofRequest = async (request: any) => {
       verification: {
         sent: result.sent,
         recv: result.recv,
+        verifierKey: result.verifierKey,
+        notaryKey: result.notaryKey
       },
     },
   });
@@ -480,7 +483,12 @@ async function createProver(options: {
 async function verifyProof(
   proof: PresentationJSON,
 ): Promise<{ sent: string; recv: string }> {
-  let result: { sent: string; recv: string };
+  let result: {
+    sent: string;
+    recv: string;
+    verifierKey?: string;
+    notaryKey?: string;
+  };
 
   switch (proof.version) {
     case undefined: {
@@ -494,9 +502,19 @@ async function verifyProof(
         sent: verifierOutput.transcript.sent,
         recv: verifierOutput.transcript.recv,
       });
+      const vk = await presentation.verifyingKey();
+      const verifyingKey = Buffer.from(vk.data).toString('hex');
+      const notaryUrl = proof.meta.notaryUrl
+        ? convertNotaryWsToHttp(proof.meta.notaryUrl)
+        : '';
+      const publicKey = await new NotaryServer(notaryUrl)
+        .publicKey()
+        .catch(() => '');
       result = {
         sent: transcript.sent(),
         recv: transcript.recv(),
+        verifierKey: verifyingKey,
+        notaryKey: publicKey,
       };
       break;
     }

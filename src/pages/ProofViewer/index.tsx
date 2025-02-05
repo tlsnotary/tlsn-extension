@@ -13,7 +13,7 @@ import {
   useRequestHistory,
 } from '../../reducers/history';
 import Icon from '../../components/Icon';
-import { download } from '../../utils/misc';
+import { convertNotaryWsToHttp, download } from '../../utils/misc';
 import classNames from 'classnames';
 import { useDispatch } from 'react-redux';
 
@@ -21,6 +21,8 @@ export default function ProofViewer(props?: {
   className?: string;
   recv?: string;
   sent?: string;
+  verifierKey?: string;
+  notaryKey?: string;
   info?: {
     meta: { notaryUrl: string; websocketProxyUrl: string };
     version: string;
@@ -124,7 +126,7 @@ export default function ProofViewer(props?: {
               label="Notary URL"
               value={
                 //@ts-ignore
-                props?.info?.meta?.notaryUrl || request?.proof?.meta?.notaryUrl
+                props?.info?.meta?.notaryUrl || convertNotaryWsToHttp(request?.proof?.meta?.notaryUrl)
               }
             />
             <MetadataRow
@@ -135,7 +137,14 @@ export default function ProofViewer(props?: {
                 request?.proof?.meta?.websocketProxyUrl
               }
             />
-            <MetadataRow label="Verifying Key" value="" />
+            <MetadataRow
+              label="Verifying Key"
+              value={props?.verifierKey || request?.verification?.verifierKey}
+            />
+            <MetadataRow
+              label="Notary Key"
+              value={props?.notaryKey || request?.verification?.notaryKey}
+              />
           </div>
         )}
       </div>
@@ -162,11 +171,19 @@ function TabLabel(props: {
   );
 }
 
-function MetadataRow({ label, value }: { label: string; value: string }) {
+function MetadataRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | undefined;
+}) {
   return (
     <div>
       <div>{label}:</div>
-      <div className="text-sm font-semibold whitespace-pre-wrap">{value}</div>
+      <div className="text-sm font-semibold whitespace-pre-wrap">
+        {value || 'N/A'}
+      </div>
     </div>
   );
 }

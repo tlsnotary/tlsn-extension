@@ -7,11 +7,14 @@ import React, {
 import Icon from '../../components/Icon';
 import { BackgroundActiontype } from '../../entries/Background/rpc';
 import ProofViewer from '../ProofViewer';
+import { convertNotaryWsToHttp } from '../../utils/misc';
 
 export default function ProofUploader(): ReactElement {
   const [proof, setProof] = useState<{
     recv: string;
     sent: string;
+    verifierKey?: string;
+    notaryKey?: string;
   } | null>(null);
   const [uploading, setUploading] = useState(false);
   const [metadata, setMetaData] = useState<any>({ meta: '', version: '' });
@@ -26,9 +29,14 @@ export default function ProofUploader(): ReactElement {
           const result = event.target?.result;
           if (result) {
             const proof = JSON.parse(result as string);
+            const notaryUrl = convertNotaryWsToHttp(proof.meta.notaryUrl);
+            proof.meta.notaryUrl = notaryUrl;
             setMetaData({ meta: proof.meta, version: proof.version });
             const res = await chrome.runtime
-              .sendMessage<any, { recv: string; sent: string }>({
+              .sendMessage<
+                any,
+                { recv: string; sent: string; verifierKey?: string; notaryKey?: string }
+              >({
                 type: BackgroundActiontype.verify_proof,
                 data: proof,
               })
@@ -49,7 +57,15 @@ export default function ProofUploader(): ReactElement {
   );
 
   if (proof) {
-    return <ProofViewer recv={proof.recv} sent={proof.sent} info={metadata} />;
+    return (
+      <ProofViewer
+        recv={proof.recv}
+        sent={proof.sent}
+        verifierKey={proof.verifierKey}
+        notaryKey={proof.notaryKey}
+        info={metadata}
+      />
+    );
   }
 
   return (
