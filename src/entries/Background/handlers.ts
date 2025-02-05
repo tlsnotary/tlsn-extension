@@ -22,12 +22,14 @@ export const onSendHeaders = (
         details.requestHeaders.forEach((header) => {
           const { name, value } = header;
           if (/^cookie$/i.test(name) && value) {
-            value
-              .split(';')
-              .map((v) => v.split('='))
-              .forEach((cookie) => {
-                setCookies(link, cookie[0].trim(), cookie[1]);
-              });
+            value.split(';').forEach((cookieStr) => {
+              const index = cookieStr.indexOf('=');
+              if (index !== -1) {
+                const cookieName = cookieStr.slice(0, index).trim();
+                const cookieValue = cookieStr.slice(index + 1);
+                setCookies(link, cookieName, cookieValue);
+              }
+            });
           } else {
             setHeaders(link, name, value);
           }
