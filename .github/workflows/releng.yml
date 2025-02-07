@@ -1,4 +1,4 @@
-name: Publish tlsn-wasm to NPM
+name: Publish to Chrome Web Store
 
 on:
   workflow_dispatch:
