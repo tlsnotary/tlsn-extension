@@ -1,11 +1,12 @@
 import { addPlugin, addPluginConfig, addPluginMetadata } from '../db';
 import { getPluginConfig } from '../../../utils/misc';
+import { bytesSize, indexOfString } from '../../../utils/utf8';
 
 export async function installPlugin(
   urlOrBuffer: ArrayBuffer | string,
   origin = '',
   filePath = '',
-  metadata: {[key: string]: string} = {},
+  metadata: { [key: string]: string } = {},
 ) {
   let arrayBuffer;
 
@@ -31,11 +32,11 @@ export async function installPlugin(
 export function mapSecretsToRange(secrets: string[], text: string) {
   return secrets
     .map((secret: string) => {
-      const index = text.indexOf(secret);
-      return index > -1
+      const byteIdx = indexOfString(text, secret);
+      return byteIdx > -1
         ? {
-          start: index,
-          end: index + secret.length,
+          start: byteIdx,
+          end: byteIdx + bytesSize(secret)
         }
         : null;
     })
