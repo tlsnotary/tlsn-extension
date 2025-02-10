@@ -204,6 +204,8 @@ export type RequestHistory = {
   verification?: {
     sent: string;
     recv: string;
+    verifierKey: string;
+    notaryKey?: string;
   };
   secretHeaders?: string[];
   secretResps?: string[];
