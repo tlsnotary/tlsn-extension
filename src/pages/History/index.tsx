@@ -1,11 +1,7 @@
 import React, { ReactElement, useState, useCallback } from 'react';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router';
-import {
-  useHistoryOrder,
-  useRequestHistory,
-  deleteRequestHistory,
-} from '../../reducers/history';
+import { useHistoryOrder, useRequestHistory } from '../../reducers/history';
 import Icon from '../../components/Icon';
 import NotarizeIcon from '../../assets/img/notarize.png';
 import { getNotaryApi, getProxyApi } from '../../utils/storage';
@@ -110,12 +106,14 @@ export function OneRequestHistory(props: {
                 size={1}
               />
               <span className="">
-                {request?.progress
-                  ? `(${(
-                      ((request.progress + 1) / 6.06) *
-                      100
-                    ).toFixed()}%) ${progressText(request.progress)}`
-                  : 'Pending...'}
+                {request?.progress === 6
+                  ? 'Error: Notarization Failed'
+                  : request?.progress
+                    ? `(${(
+                        ((request.progress + 1) / 6.06) *
+                        100
+                      ).toFixed()}%) ${progressText(request.progress)}`
+                    : 'Pending...'}
               </span>
             </div>
           )}

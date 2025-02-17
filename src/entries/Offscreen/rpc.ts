@@ -451,32 +451,35 @@ async function createProver(options: {
 
   const hostname = urlify(url)?.hostname || '';
   const notary = NotaryServer.from(notaryUrl);
+  try {
+    updateRequestProgress(id, RequestProgress.CreatingProver);
+    const prover: TProver = await new Prover({
+      id,
+      serverDns: hostname,
+      maxSentData,
+      maxRecvData,
+    });
 
-  updateRequestProgress(id, RequestProgress.CreatingProver);
-  const prover: TProver = await new Prover({
-    id,
-    serverDns: hostname,
-    maxSentData,
-    maxRecvData,
-  });
+    updateRequestProgress(id, RequestProgress.GettingSession);
+    const sessionUrl = await notary.sessionUrl(maxSentData, maxRecvData);
 
-  updateRequestProgress(id, RequestProgress.GettingSession);
-  const sessionUrl = await notary.sessionUrl(maxSentData, maxRecvData);
+    updateRequestProgress(id, RequestProgress.SettingUpProver);
+    await prover.setup(sessionUrl);
 
-  updateRequestProgress(id, RequestProgress.SettingUpProver);
-  await prover.setup(sessionUrl);
+    updateRequestProgress(id, RequestProgress.SendingRequest);
+    await prover.sendRequest(websocketProxyUrl + `?token=${hostname}`, {
+      url,
+      method,
+      headers,
+      body,
+    });
 
-  updateRequestProgress(id, RequestProgress.SendingRequest);
-  await prover.sendRequest(websocketProxyUrl + `?token=${hostname}`, {
-    url,
-    method,
-    headers,
-    body,
-  });
-
-  return prover;
+    return prover;
+  } catch (error: any) {
+    updateRequestProgress(id, RequestProgress.Error);
+    throw error;
+  }
 }
-
 async function verifyProof(
   proof: PresentationJSON,
 ): Promise<{ sent: string; recv: string }> {

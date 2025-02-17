@@ -167,6 +167,7 @@ export enum RequestProgress {
   SendingRequest,
   ReadingTranscript,
   FinalizingOutputs,
+  Error,
 }
 
 export function progressText(progress: RequestProgress): string {
@@ -183,6 +184,8 @@ export function progressText(progress: RequestProgress): string {
       return 'Reading request transcript...';
     case RequestProgress.FinalizingOutputs:
       return 'Finalizing notarization outputs...';
+    case RequestProgress.Error:
+      return 'Notarization Failed';
   }
 }
 

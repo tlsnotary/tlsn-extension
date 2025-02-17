@@ -318,12 +318,14 @@ function StepContent(
       <button className="button mt-2 w-fit flex flex-row flex-nowrap items-center gap-2 cursor-default">
         <Icon className="animate-spin" fa="fa-solid fa-spinner" size={1} />
         <span className="text-sm">
-          {notaryRequest?.progress
-            ? `(${(
-                ((notaryRequest.progress + 1) / 6.06) *
-                100
-              ).toFixed()}%) ${progressText(notaryRequest.progress)}`
-            : 'Pending...'}
+          {notaryRequest?.progress === 6
+            ? 'Error: Notarization Failed'
+            : notaryRequest?.progress
+              ? `(${(
+                  ((notaryRequest.progress + 1) / 6.06) *
+                  100
+                ).toFixed()}%) ${progressText(notaryRequest.progress)}`
+              : 'Pending...'}
         </span>
       </button>
     );
