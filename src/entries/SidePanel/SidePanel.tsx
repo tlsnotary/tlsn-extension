@@ -319,7 +319,7 @@ function StepContent(
         <Icon className="animate-spin" fa="fa-solid fa-spinner" size={1} />
         <span className="text-sm">
           {notaryRequest?.progress === 6
-            ? 'Error: Notarization Failed'
+            ? `${progressText(notaryRequest.progress, notaryRequest?.errorMessage)}`
             : notaryRequest?.progress
               ? `(${(
                   ((notaryRequest.progress + 1) / 6.06) *

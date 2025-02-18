@@ -451,35 +451,50 @@ async function createProver(options: {
 
   const hostname = urlify(url)?.hostname || '';
   const notary = NotaryServer.from(notaryUrl);
-  try {
-    updateRequestProgress(id, RequestProgress.CreatingProver);
-    const prover: TProver = await new Prover({
+
+  let prover: TProver;
+  prover = await handleProgress(
+    id,
+    RequestProgress.CreatingProver,
+    () => new Prover({
       id,
       serverDns: hostname,
       maxSentData,
       maxRecvData,
-    });
+    }),
+    'Error creating prover'
+  );
 
-    updateRequestProgress(id, RequestProgress.GettingSession);
-    const sessionUrl = await notary.sessionUrl(maxSentData, maxRecvData);
+  const sessionUrl = await handleProgress(
+    id,
+    RequestProgress.GettingSession,
+    () => notary.sessionUrl(maxSentData, maxRecvData),
+    'Error getting session from Notary'
+  );
 
-    updateRequestProgress(id, RequestProgress.SettingUpProver);
-    await prover.setup(sessionUrl);
+  await handleProgress(
+    id,
+    RequestProgress.SettingUpProver,
+    () => prover.setup(sessionUrl),
+    'Error setting up prover'
+  );
 
-    updateRequestProgress(id, RequestProgress.SendingRequest);
-    await prover.sendRequest(websocketProxyUrl + `?token=${hostname}`, {
-      url,
-      method,
-      headers,
-      body,
-    });
+  await handleProgress(
+    id,
+    RequestProgress.SendingRequest,
+    () =>
+      prover.sendRequest(websocketProxyUrl + `?token=${hostname}`, {
+        url,
+        method,
+        headers,
+        body,
+      }),
+    'Error sending request'
+  );
 
-    return prover;
-  } catch (error: any) {
-    updateRequestProgress(id, RequestProgress.Error);
-    throw error;
-  }
+  return prover;
 }
+
 async function verifyProof(
   proof: PresentationJSON,
 ): Promise<{ sent: string; recv: string }> {
@@ -508,13 +523,39 @@ async function verifyProof(
   return result;
 }
 
-function updateRequestProgress(id: string, progress: RequestProgress) {
-  devlog(`Request ${id}: ${progressText(progress)}`);
+function updateRequestProgress(
+  id: string,
+  progress: RequestProgress,
+  errorMessage?: string,
+) {
+  const progressMessage =
+    progress === RequestProgress.Error
+      ? `${errorMessage || 'Notarization Failed'}`
+      : progressText(progress);
+  console.log('ERROR MESSAGE', progressMessage);
+  devlog(`Request ${id}: ${progressMessage}`);
+
   browser.runtime.sendMessage({
     type: BackgroundActiontype.update_request_progress,
     data: {
       id,
-      progress: progress,
+      progress,
+      errorMessage,
     },
   });
+}
+
+async function handleProgress<T>(
+  id: string,
+  progress: RequestProgress,
+  action: () => Promise<T>,
+  errorMessage: string,
+): Promise<T> {
+  try {
+    updateRequestProgress(id, progress);
+    return await action();
+  } catch (error: any) {
+    updateRequestProgress(id, RequestProgress.Error, errorMessage);
+    throw error;
+  }
 }

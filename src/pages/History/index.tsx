@@ -107,7 +107,7 @@ export function OneRequestHistory(props: {
               />
               <span className="">
                 {request?.progress === 6
-                  ? 'Error: Notarization Failed'
+                  ? `${progressText(request.progress, request.errorMessage)}`
                   : request?.progress
                     ? `(${(
                         ((request.progress + 1) / 6.06) *
