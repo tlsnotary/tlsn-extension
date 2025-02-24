@@ -161,9 +161,14 @@ export const makePlugin = async (
   const module = await WebAssembly.compile(arrayBuffer);
   const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
 
+  const document = await chrome.tabs.sendMessage(tab.id as number, {
+    type: BackgroundActiontype.get_document,
+  });
+
   const injectedConfig = {
     tabUrl: tab?.url || 'x://x',
     tabId: tab?.id,
+    document: document,
   };
 
   const approvedRequests = config?.requests || [];

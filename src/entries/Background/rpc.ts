@@ -118,6 +118,7 @@ export enum BackgroundActiontype {
   get_local_storage = 'get_local_storage',
   set_session_storage = 'set_session_storage',
   get_session_storage = 'get_session_storage',
+  get_document = 'get_document',
   connect_rendezvous = 'connect_rendezvous',
   disconnect_rendezvous = 'disconnect_rendezvous',
   send_pair_request = 'send_pair_request',
