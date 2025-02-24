@@ -25,6 +25,12 @@ import { urlify } from '../../utils/misc';
     }
   });
 
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === BackgroundActiontype.get_document) {
+      sendResponse(document.documentElement.outerHTML);
+    }
+  });
+
   server.on(ContentScriptTypes.connect, async () => {
     const connected = await browser.runtime.sendMessage({
       type: BackgroundActiontype.connect_request,
