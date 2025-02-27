@@ -23,6 +23,7 @@ export default function SidePanel(): ReactElement {
   const [hash, setHash] = useState('');
   const [hex, setHex] = useState('');
   const [p2p, setP2P] = useState(false);
+  const [params, setParams] = useState<Record<string, string> | undefined>();
   const [started, setStarted] = useState(false);
   const clientId = useClientId();
 
@@ -41,6 +42,7 @@ export default function SidePanel(): ReactElement {
         case SidePanelActionTypes.execute_plugin_request: {
           setConfig(await getPluginConfigByHash(data.pluginHash));
           setHash(data.pluginHash);
+          setParams(data.pluginParams);
           setStarted(true);
           break;
         }
@@ -83,6 +85,7 @@ export default function SidePanel(): ReactElement {
           config={config}
           p2p={p2p}
           clientId={clientId}
+          presetParameterValues={params}
         />
       )}
     </div>
@@ -95,12 +98,27 @@ function PluginBody(props: {
   hex?: string;
   clientId?: string;
   p2p?: boolean;
+  presetParameterValues?: Record<string, string>;
 }): ReactElement {
-  const { hash, hex, config, p2p, clientId } = props;
-  const { title, description, icon, steps } = config;
+  const { hash, hex, config, p2p, clientId, presetParameterValues } = props;
+  const { title, description, icon, steps, parameters } = config;
   const [responses, setResponses] = useState<any[]>([]);
   const [notarizationId, setNotarizationId] = useState('');
   const notaryRequest = useRequestHistory(notarizationId);
+
+  const [parameterValues, setParameterValues] = useState(
+    presetParameterValues ??
+      Object.fromEntries(Object.keys(parameters || {}).map((key) => [key, ''])),
+  );
+
+  const handleParameterChange = (key: string, value: string) => {
+    setParameterValues((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const hasParameters = parameters && Object.keys(parameters).length > 0;
+  const [paramsConfirmed, setParamsConfirmed] = useState(
+    !!presetParameterValues || !hasParameters,
+  );
 
   const setResponse = useCallback(
     (response: any, i: number) => {
@@ -145,23 +163,57 @@ function PluginBody(props: {
           <div className="text-slate-500 text-sm">{description}</div>
         </div>
       </div>
-      <div className="flex flex-col items-start gap-8 mt-8">
-        {steps?.map((step, i) => (
-          <StepContent
-            key={i}
-            hash={hash}
-            config={config}
-            hex={hex}
-            index={i}
-            setResponse={setResponse}
-            lastResponse={i > 0 ? responses[i - 1] : undefined}
-            responses={responses}
-            p2p={p2p}
-            clientId={clientId}
-            {...step}
-          />
-        ))}
-      </div>
+
+      {hasParameters && (
+        <div className="flex flex-col gap-4 mt-4">
+          {Object.entries(parameters).map(([key, param]) => (
+            <div key={key} className="flex flex-col gap-2">
+              <label className="font-medium text-sm" htmlFor={key}>
+                {param.name}
+              </label>
+              <input
+                id={key}
+                type="text"
+                value={parameterValues[key]}
+                onChange={(e) => handleParameterChange(key, e.target.value)}
+                className="input p-2 w-full"
+                placeholder={param.description}
+                disabled={paramsConfirmed}
+              />
+            </div>
+          ))}
+          {/* Only show the button if no preset values are provided and the params haven't been confirmed */}
+          {!presetParameterValues && !paramsConfirmed && (
+            <button
+              className="button button--primary"
+              onClick={() => setParamsConfirmed(true)}
+            >
+              Notarize
+            </button>
+          )}
+        </div>
+      )}
+
+      {paramsConfirmed && (
+        <div className="flex flex-col items-start gap-8 mt-8">
+          {steps?.map((step, i) => (
+            <StepContent
+              key={i}
+              hash={hash}
+              config={config}
+              hex={hex}
+              index={i}
+              setResponse={setResponse}
+              lastResponse={i > 0 ? responses[i - 1] : undefined}
+              responses={responses}
+              p2p={p2p}
+              clientId={clientId}
+              parameterValues={parameterValues}
+              {...step}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -177,6 +229,7 @@ function StepContent(
     lastResponse?: any;
     config: PluginConfig;
     p2p?: boolean;
+    parameterValues?: Record<string, string>;
   },
 ): ReactElement {
   const {
@@ -193,6 +246,7 @@ function StepContent(
     config,
     p2p = false,
     clientId = '',
+    parameterValues,
   } = props;
   const [completed, setCompleted] = useState(false);
   const [pending, setPending] = useState(false);
@@ -215,7 +269,13 @@ function StepContent(
     setError('');
 
     try {
-      const out = await plugin.call(action, JSON.stringify(lastResponse));
+      const out = await plugin.call(
+        action,
+        index > 0
+          ? JSON.stringify(lastResponse)
+          : JSON.stringify(parameterValues),
+      );
+      console.log(out);
       const val = JSON.parse(out.string());
       if (val && prover) {
         setNotarizationId(val);

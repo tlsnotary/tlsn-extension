@@ -19,6 +19,7 @@ export function RunPluginApproval(): ReactElement {
   const origin = params.get('origin');
   const favIconUrl = params.get('favIconUrl');
   const hash = params.get('hash');
+  const pluginParams = params.get('params');
   const hostname = urlify(origin || '')?.hostname;
   const [error, showError] = useState('');
   const [metadata, setPluginMetadata] = useState<PluginMetadata | null>(null);
@@ -60,6 +61,7 @@ export function RunPluginApproval(): ReactElement {
         type: SidePanelActionTypes.execute_plugin_request,
         data: {
           pluginHash: hash,
+          pluginParams: pluginParams ? JSON.parse(pluginParams) : undefined,
         },
       });
 
