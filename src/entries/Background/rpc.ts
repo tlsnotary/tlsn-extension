@@ -51,8 +51,6 @@ import { deferredPromise } from '../../utils/promise';
 import { minimatch } from 'minimatch';
 import { OffscreenActionTypes } from '../Offscreen/types';
 import { SidePanelActionTypes } from '../SidePanel/types';
-import { subtractRanges } from '../Offscreen/utils';
-import { mapSecretsToRange } from './plugins/utils';
 import { pushToRedux } from '../utils';
 import {
   connectSession,
@@ -64,6 +62,8 @@ import {
   sendMessage,
   sendPairedMessage,
 } from './ws';
+import { parseHttpMessage } from '../../utils/parser';
+import { mapStringToRange, subtractRanges } from 'tlsn-js';
 
 const charwise = require('charwise');
 
@@ -570,40 +570,33 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
       return;
     }
 
+    const transcript: { recv: number[]; sent: number[] } = data.transcript;
+
+    const { body: recvBody } = parseHttpMessage(
+      Buffer.from(transcript.recv),
+      'response',
+    );
+
     if (getSecretResponse) {
-      const body = data.transcript.recv.split('\r\n').reduce(
-        (state: { headerEnd: boolean; body: string[] }, line: string) => {
-          if (state.headerEnd) {
-            state.body.push(line);
-          } else if (!line) {
-            state.headerEnd = true;
-          }
-
-          return state;
-        },
-        { headerEnd: false, body: [] },
-      ).body;
-
-      if (body.length == 1) {
-        secretResps = await getSecretResponseFn(body[0]);
-      } else {
-        secretResps = await getSecretResponseFn(
-          body.filter((txt: string) => {
-            const json = safeParseJSON(txt);
-            return typeof json === 'object';
-          })[0],
-        );
-      }
+      secretResps = await getSecretResponseFn(
+        ...recvBody.map((body) => body.toString('utf-8')),
+      );
     }
 
     const commit = {
       sent: subtractRanges(
-        data.transcript.ranges.sent.all,
-        mapSecretsToRange(secretHeaders, data.transcript.sent),
+        { start: 0, end: transcript.sent.length },
+        mapStringToRange(
+          secretHeaders,
+          Buffer.from(transcript.sent).toString('utf-8'),
+        ),
       ),
       recv: subtractRanges(
-        data.transcript.ranges.recv.all,
-        mapSecretsToRange(secretResps, data.transcript.recv),
+        { start: 0, end: transcript.recv.length },
+        mapStringToRange(
+          secretResps,
+          Buffer.from(transcript.recv).toString('utf-8'),
+        ),
       ),
     };
 
@@ -646,32 +639,15 @@ async function handleGetSecretsFromTranscript(
   const config = await getPluginConfig(arrayBuffer);
   const plugin = await makePlugin(arrayBuffer, config, p2p);
 
-  const body = transcript.recv.split('\r\n').reduce(
-    (state: { headerEnd: boolean; body: string[] }, line: string) => {
-      if (state.headerEnd) {
-        state.body.push(line);
-      } else if (!line) {
-        state.headerEnd = true;
-      }
+  const { body: recvBody } = parseHttpMessage(
+    Buffer.from(transcript.recv),
+    'response',
+  );
 
-      return state;
-    },
-    { headerEnd: false, body: [] },
-  ).body;
-
-  let out;
-
-  if (body.length == 1) {
-    out = await plugin.call(method, body[0]);
-  } else {
-    out = await plugin.call(
-      method,
-      body.filter((txt: string) => {
-        const json = safeParseJSON(txt);
-        return typeof json === 'object';
-      })[0],
-    );
-  }
+  const out = await plugin.call(
+    method,
+    ...recvBody.map((body) => body.toString('utf-8')),
+  );
 
   const secretResps = JSON.parse(out.string());
   await browser.runtime.sendMessage({

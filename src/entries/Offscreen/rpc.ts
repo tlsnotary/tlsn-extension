@@ -6,17 +6,17 @@ import {
 } from '../Background/rpc';
 import { Method } from 'tlsn-wasm';
 import {
+  mapStringToRange,
   NotaryServer,
   Presentation as TPresentation,
   Prover as TProver,
+  subtractRanges,
   Transcript,
   Verifier as TVerifier,
 } from 'tlsn-js';
 import { devlog, urlify } from '../../utils/misc';
 import * as Comlink from 'comlink';
 import { PresentationJSON as PresentationJSONa7 } from 'tlsn-js/build/types';
-import { subtractRanges } from './utils';
-import { mapSecretsToRange } from '../Background/plugins/utils';
 import { OffscreenActionTypes } from './types';
 import { PresentationJSON } from '../../utils/types';
 import { verify } from 'tlsn-js-v5';
@@ -315,25 +315,18 @@ export const startP2PProver = async (request: any) => {
 
   const commit = {
     sent: subtractRanges(
-      transcript.ranges.sent.all,
-      mapSecretsToRange(secretHeaders, transcript.sent),
+      { start: 0, end: transcript.sent.length },
+      mapStringToRange(
+        secretHeaders,
+        Buffer.from(transcript.sent).toString('utf-8'),
+      ),
     ),
     recv: subtractRanges(
-      transcript.ranges.recv.all,
-      secretResps
-        .map((secret: string) => {
-          const index = transcript.recv.indexOf(secret);
-          return index > -1
-            ? {
-                start: index,
-                end: index + secret.length,
-              }
-            : null;
-        })
-        .filter((data: any) => !!data) as {
-        start: number;
-        end: number;
-      }[],
+      { start: 0, end: transcript.recv.length },
+      mapStringToRange(
+        secretResps,
+        Buffer.from(transcript.recv).toString('utf-8'),
+      ),
     ),
   };
 
@@ -401,12 +394,18 @@ async function createProof(options: {
 
   const commit = {
     sent: subtractRanges(
-      transcript.ranges.sent.all,
-      mapSecretsToRange(secretHeaders, transcript.sent),
+      { start: 0, end: transcript.sent.length },
+      mapStringToRange(
+        secretHeaders,
+        Buffer.from(transcript.sent).toString('utf-8'),
+      ),
     ),
     recv: subtractRanges(
-      transcript.ranges.recv.all,
-      mapSecretsToRange(secretResps, transcript.recv),
+      { start: 0, end: transcript.recv.length },
+      mapStringToRange(
+        secretResps,
+        Buffer.from(transcript.recv).toString('utf-8'),
+      ),
     ),
   };
 
