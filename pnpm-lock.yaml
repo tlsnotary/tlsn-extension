@@ -78,8 +78,8 @@ dependencies:
     specifier: ^3.3.3
     version: 3.4.3
   tlsn-js:
-    specifier: 0.1.0-alpha.7.1
-    version: 0.1.0-alpha.7.1
+    specifier: 0.1.0-alpha.7.2
+    version: 0.1.0-alpha.7.2
   tlsn-js-v5:
     specifier: npm:tlsn-js@0.1.0-alpha.5.4
     version: /tlsn-js@0.1.0-alpha.5.4
@@ -7990,8 +7990,8 @@ packages:
       comlink: 4.4.1
     dev: false
 
-  /tlsn-js@0.1.0-alpha.7.1:
-    resolution: {integrity: sha512-EWdRp1VQBfdre8jehJgmDjtDvt01ZL1JWbcscctnFTLIIwMYS7IBxU07UYG0NMZFXeTE8PlrUDEVwEl1+vla+g==}
+  /tlsn-js@0.1.0-alpha.7.2:
+    resolution: {integrity: sha512-G7xUog+HtDMRhw0fIRX9loUI6eUC9/4J+P0AzjBzpf8+8LAd3i8XgMkpqF8LqLUk5/vIm1b+ZakDYeCNMMiBeQ==}
     engines: {node: '>= 16.20.2'}
     dependencies:
       tlsn-wasm: 0.1.0-alpha.7.2
