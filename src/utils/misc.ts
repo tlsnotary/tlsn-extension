@@ -343,11 +343,6 @@ export type StepConfig = {
   prover?: boolean; // Boolean indicating if this step outputs a notarization (optional)
 };
 
-export type ParameterConfig = {
-  name: string;
-  description: string;
-};
-
 export type PluginConfig = {
   title: string; // The name of the plugin
   description: string; // A description of the plugin purpose
@@ -361,7 +356,6 @@ export type PluginConfig = {
   requests: { method: string; url: string }[]; // List of requests that the plugin is allowed to make
   notaryUrls?: string[]; // List of notary services that the plugin is allowed to use (optional)
   proxyUrls?: string[]; // List of websocket proxies that the plugin is allowed to use (optional)
-  parameters?: Record<string, ParameterConfig>;
 };
 
 export type PluginMetadata = {
