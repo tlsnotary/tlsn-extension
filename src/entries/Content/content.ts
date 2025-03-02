@@ -95,9 +95,10 @@ class TLSN {
     return resp;
   }
 
-  async runPlugin(hash: string) {
+  async runPlugin(hash: string, params?: Record<string, string>) {
     const resp = await client.call(ContentScriptTypes.run_plugin, {
       hash,
+      params,
     });
 
     return resp;

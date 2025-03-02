@@ -1343,7 +1343,7 @@ async function handleRunPluginCSRequest(request: BackgroundAction) {
   });
 
   const defer = deferredPromise();
-  const { origin, position, hash } = request.data;
+  const { origin, position, hash, params } = request.data;
 
   const plugin = await getPluginByHash(hash);
   const config = await getPluginConfigByHash(hash);
@@ -1355,7 +1355,7 @@ async function handleRunPluginCSRequest(request: BackgroundAction) {
   }
 
   const { popup, tab } = await openPopup(
-    `run-plugin-approval?hash=${hash}&origin=${encodeURIComponent(origin)}&favIconUrl=${encodeURIComponent(currentTab?.favIconUrl || '')}`,
+    `run-plugin-approval?hash=${hash}&origin=${encodeURIComponent(origin)}&favIconUrl=${encodeURIComponent(currentTab?.favIconUrl || '')}&params=${encodeURIComponent(JSON.stringify(params) || '')}`,
     position.left,
     position.top,
   );

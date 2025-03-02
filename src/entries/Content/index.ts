@@ -196,8 +196,13 @@ import { urlify } from '../../utils/misc';
 
   server.on(
     ContentScriptTypes.run_plugin,
-    async (request: ContentScriptRequest<{ hash: string }>) => {
-      const { hash } = request.params || {};
+    async (
+      request: ContentScriptRequest<{
+        hash: string;
+        params?: Record<string, string>;
+      }>,
+    ) => {
+      const { hash, params } = request.params || {};
 
       if (!hash) throw new Error('params must include hash');
 
@@ -206,6 +211,7 @@ import { urlify } from '../../utils/misc';
         data: {
           ...getPopupData(),
           hash,
+          params,
         },
       });
 
