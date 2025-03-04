@@ -188,9 +188,7 @@ export function progressText(
     case RequestProgress.FinalizingOutputs:
       return 'Finalizing notarization outputs...';
     case RequestProgress.Error:
-      return errorMessage
-        ? errorMessage
-        : 'Error: Notarization Failed';
+      return errorMessage ? errorMessage : 'Error: Notarization Failed';
   }
 }
 

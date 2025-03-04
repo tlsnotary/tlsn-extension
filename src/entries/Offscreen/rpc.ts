@@ -456,27 +456,28 @@ async function createProver(options: {
   prover = await handleProgress(
     id,
     RequestProgress.CreatingProver,
-    () => new Prover({
-      id,
-      serverDns: hostname,
-      maxSentData,
-      maxRecvData,
-    }),
-    'Error creating prover'
+    () =>
+      new Prover({
+        id,
+        serverDns: hostname,
+        maxSentData,
+        maxRecvData,
+      }),
+    'Error creating prover',
   );
 
   const sessionUrl = await handleProgress(
     id,
     RequestProgress.GettingSession,
     () => notary.sessionUrl(maxSentData, maxRecvData),
-    'Error getting session from Notary'
+    'Error getting session from Notary',
   );
 
   await handleProgress(
     id,
     RequestProgress.SettingUpProver,
     () => prover.setup(sessionUrl),
-    'Error setting up prover'
+    'Error setting up prover',
   );
 
   await handleProgress(
@@ -489,7 +490,7 @@ async function createProver(options: {
         headers,
         body,
       }),
-    'Error sending request'
+    'Error sending request',
   );
 
   return prover;
