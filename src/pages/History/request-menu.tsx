@@ -261,7 +261,7 @@ function ShareConfirmationModal({
   );
 }
 
-function RemoveHistory(props: {
+export function RemoveHistory(props: {
   onRemove: () => void;
   showRemovalModal: boolean;
   setShowRemoveModal: (show: boolean) => void;
@@ -272,7 +272,6 @@ function RemoveHistory(props: {
   const onCancel = useCallback(() => {
     setShowRemoveModal(false);
   }, [showRemovalModal]);
-  console.log('remove modal');
   return !showRemovalModal ? (
     <></>
   ) : (

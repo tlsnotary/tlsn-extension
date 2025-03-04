@@ -35,7 +35,12 @@ export default function ProofUploader(): ReactElement {
             const res = await chrome.runtime
               .sendMessage<
                 any,
-                { recv: string; sent: string; verifierKey?: string; notaryKey?: string }
+                {
+                  recv: string;
+                  sent: string;
+                  verifierKey?: string;
+                  notaryKey?: string;
+                }
               >({
                 type: BackgroundActiontype.verify_proof,
                 data: proof,

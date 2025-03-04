@@ -20,6 +20,7 @@ import History from '../../pages/History';
 import ProofUploader from '../../pages/ProofUploader';
 import browser from 'webextension-polyfill';
 import store from '../../utils/store';
+import { isPopupWindow } from '../../utils/misc';
 import PluginUploadInfo from '../../components/PluginInfo';
 import ConnectionDetailsModal from '../../components/ConnectionDetailsModal';
 import { ConnectionApproval } from '../../pages/ConnectionApproval';
@@ -41,7 +42,7 @@ import { fetchP2PState } from '../../reducers/p2p';
 const Popup = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-
+  const [isPopup, setIsPopup] = useState(isPopupWindow());
   useEffect(() => {
     fetchP2PState();
   }, []);
@@ -101,8 +102,12 @@ const Popup = () => {
           onClick={() => navigate('/')}
         />
         <div className="flex flex-row flex-grow items-center justify-end gap-4">
-          <AppConnectionLogo />
-          <MenuIcon />
+          {!isPopup && (
+            <>
+              <AppConnectionLogo />
+              <MenuIcon />
+            </>
+          )}
         </div>
       </div>
       <Routes>

@@ -13,9 +13,14 @@ import {
   useRequestHistory,
 } from '../../reducers/history';
 import Icon from '../../components/Icon';
-import { convertNotaryWsToHttp, download } from '../../utils/misc';
+import {
+  convertNotaryWsToHttp,
+  download,
+  isPopupWindow,
+} from '../../utils/misc';
 import classNames from 'classnames';
 import { useDispatch } from 'react-redux';
+import { RemoveHistory } from '../History/request-menu';
 
 export default function ProofViewer(props?: {
   className?: string;
@@ -33,23 +38,16 @@ export default function ProofViewer(props?: {
   const request = useRequestHistory(requestId);
   const navigate = useNavigate();
   const [tab, setTab] = useState('sent');
+  const [isPopup, setIsPopup] = useState(isPopupWindow());
+  const [showRemoveModal, setShowRemoveModal] = useState(false);
 
   const onDelete = useCallback(async () => {
     if (requestId) {
       dispatch(deleteRequestHistory(requestId));
+      if (isPopup) window.close();
       navigate(-1);
     }
   }, [requestId]);
-  const [isPopup, setIsPopup] = useState(false);
-
-  useEffect(() => {
-    if (
-      window.opener ||
-      window.matchMedia('(display-mode: standalone)').matches
-    ) {
-      setIsPopup(true);
-    }
-  }, []);
 
   return (
     <div
@@ -58,6 +56,12 @@ export default function ProofViewer(props?: {
         props?.className,
       )}
     >
+      <RemoveHistory
+        onRemove={onDelete}
+        showRemovalModal={showRemoveModal}
+        setShowRemoveModal={setShowRemoveModal}
+        onCancel={() => setShowRemoveModal(false)}
+      />
       <div className="flex flex-col px-2">
         <div className="flex flex-row gap-2 items-center">
           {!isPopup && (
@@ -94,7 +98,10 @@ export default function ProofViewer(props?: {
                 Download
               </button>
             )}
-            <button className="button !text-red-500" onClick={onDelete}>
+            <button
+              className="button !text-red-500"
+              onClick={() => setShowRemoveModal(true)}
+            >
               Delete
             </button>
           </div>
@@ -126,7 +133,8 @@ export default function ProofViewer(props?: {
               label="Notary URL"
               value={
                 //@ts-ignore
-                props?.info?.meta?.notaryUrl || convertNotaryWsToHttp(request?.proof?.meta?.notaryUrl)
+                props?.info?.meta?.notaryUrl ||
+                convertNotaryWsToHttp(request?.proof?.meta?.notaryUrl)
               }
             />
             <MetadataRow
@@ -144,7 +152,7 @@ export default function ProofViewer(props?: {
             <MetadataRow
               label="Notary Key"
               value={props?.notaryKey || request?.verification?.notaryKey}
-              />
+            />
           </div>
         )}
       </div>

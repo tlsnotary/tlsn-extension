@@ -176,8 +176,12 @@ export const onVerifyProof = async (request: any, sendResponse: any) => {
 
 export const onVerifyProofRequest = async (request: any) => {
   const proof: PresentationJSON = request.data.proof;
-  const result: { sent: string; recv: string; verifierKey?: string; notaryKey?: string } =
-    await verifyProof(proof);
+  const result: {
+    sent: string;
+    recv: string;
+    verifierKey?: string;
+    notaryKey?: string;
+  } = await verifyProof(proof);
 
   chrome.runtime.sendMessage<any, string>({
     type: BackgroundActiontype.finish_prove_request,
@@ -187,7 +191,7 @@ export const onVerifyProofRequest = async (request: any) => {
         sent: result.sent,
         recv: result.recv,
         verifierKey: result.verifierKey,
-        notaryKey: result.notaryKey
+        notaryKey: result.notaryKey,
       },
     },
   });
