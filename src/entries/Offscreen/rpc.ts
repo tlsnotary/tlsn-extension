@@ -452,8 +452,7 @@ async function createProver(options: {
   const hostname = urlify(url)?.hostname || '';
   const notary = NotaryServer.from(notaryUrl);
 
-  let prover: TProver;
-  prover = await handleProgress(
+  const prover: TProver = await handleProgress(
     id,
     RequestProgress.CreatingProver,
     () =>
