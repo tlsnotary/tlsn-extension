@@ -13,7 +13,11 @@ import logo from '../../assets/img/icon-128.png';
 import classNames from 'classnames';
 import Icon from '../../components/Icon';
 import { useRequestHistory } from '../../reducers/history';
-import { BackgroundActiontype, progressText, RequestProgress } from '../Background/rpc';
+import {
+  BackgroundActiontype,
+  progressText,
+  RequestProgress,
+} from '../Background/rpc';
 import { getPluginByHash, getPluginConfigByHash } from '../Background/db';
 import { SidePanelActionTypes } from './types';
 import { fetchP2PState, useClientId } from '../../reducers/p2p';
