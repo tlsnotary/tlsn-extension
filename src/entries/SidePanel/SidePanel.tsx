@@ -13,7 +13,7 @@ import logo from '../../assets/img/icon-128.png';
 import classNames from 'classnames';
 import Icon from '../../components/Icon';
 import { useRequestHistory } from '../../reducers/history';
-import { BackgroundActiontype, progressText } from '../Background/rpc';
+import { BackgroundActiontype, progressText, RequestProgress } from '../Background/rpc';
 import { getPluginByHash, getPluginConfigByHash } from '../Background/db';
 import { SidePanelActionTypes } from './types';
 import { fetchP2PState, useClientId } from '../../reducers/p2p';
@@ -318,7 +318,7 @@ function StepContent(
       <button className="button mt-2 w-fit flex flex-row flex-nowrap items-center gap-2 cursor-default">
         <Icon className="animate-spin" fa="fa-solid fa-spinner" size={1} />
         <span className="text-sm">
-          {notaryRequest?.progress === 6
+          {notaryRequest?.progress === RequestProgress.Error
             ? `${progressText(notaryRequest.progress, notaryRequest?.errorMessage)}`
             : notaryRequest?.progress
               ? `(${(
