@@ -2,6 +2,7 @@ import React, {
   ReactNode,
   ReactElement,
   useState,
+  useEffect,
   MouseEventHandler,
   useCallback,
 } from 'react';
@@ -12,24 +13,38 @@ import {
   useRequestHistory,
 } from '../../reducers/history';
 import Icon from '../../components/Icon';
-import { download } from '../../utils/misc';
+import {
+  convertNotaryWsToHttp,
+  download,
+  isPopupWindow,
+} from '../../utils/misc';
 import classNames from 'classnames';
 import { useDispatch } from 'react-redux';
+import { RemoveHistory } from '../History/request-menu';
 
 export default function ProofViewer(props?: {
   className?: string;
   recv?: string;
   sent?: string;
+  verifierKey?: string;
+  notaryKey?: string;
+  info?: {
+    meta: { notaryUrl: string; websocketProxyUrl: string };
+    version: string;
+  };
 }): ReactElement {
   const dispatch = useDispatch();
   const { requestId } = useParams<{ requestId: string }>();
   const request = useRequestHistory(requestId);
   const navigate = useNavigate();
   const [tab, setTab] = useState('sent');
+  const [isPopup, setIsPopup] = useState(isPopupWindow());
+  const [showRemoveModal, setShowRemoveModal] = useState(false);
 
   const onDelete = useCallback(async () => {
     if (requestId) {
       dispatch(deleteRequestHistory(requestId));
+      if (isPopup) window.close();
       navigate(-1);
     }
   }, [requestId]);
@@ -41,23 +56,37 @@ export default function ProofViewer(props?: {
         props?.className,
       )}
     >
+      <RemoveHistory
+        onRemove={onDelete}
+        showRemovalModal={showRemoveModal}
+        setShowRemoveModal={setShowRemoveModal}
+        onCancel={() => setShowRemoveModal(false)}
+      />
       <div className="flex flex-col px-2">
         <div className="flex flex-row gap-2 items-center">
-          <Icon
-            className={c(
-              'px-1 select-none cursor-pointer',
-              'text-slate-400 border-b-2 border-transparent hover:text-slate-500 active:text-slate-800',
-            )}
-            onClick={() => navigate(-1)}
-            fa="fa-solid fa-xmark"
-          />
+          {!isPopup && (
+            <Icon
+              className={c(
+                'px-1 select-none cursor-pointer',
+                'text-slate-400 border-b-2 border-transparent hover:text-slate-500 active:text-slate-800',
+              )}
+              onClick={() => navigate(-1)}
+              fa="fa-solid fa-xmark"
+            />
+          )}
           <TabLabel onClick={() => setTab('sent')} active={tab === 'sent'}>
             Sent
           </TabLabel>
           <TabLabel onClick={() => setTab('recv')} active={tab === 'recv'}>
             Recv
           </TabLabel>
-          <div className="flex flex-row flex-grow items-center justify-end gap-2">
+          <TabLabel
+            onClick={() => setTab('metadata')}
+            active={tab === 'metadata'}
+          >
+            Metadata
+          </TabLabel>
+          <div className="flex flex-row flex-grow items-center justify-end">
             {!props?.recv && (
               <button
                 className="button"
@@ -69,7 +98,10 @@ export default function ProofViewer(props?: {
                 Download
               </button>
             )}
-            <button className="button !text-red-500" onClick={onDelete}>
+            <button
+              className="button !text-red-500"
+              onClick={() => setShowRemoveModal(true)}
+            >
               Delete
             </button>
           </div>
@@ -89,6 +121,39 @@ export default function ProofViewer(props?: {
             value={props?.recv || request?.verification?.recv}
             readOnly
           ></textarea>
+        )}
+        {tab === 'metadata' && (
+          <div className="w-full resize-none bg-slate-100 text-slate-800 border p-2 text-[10px] break-all h-full outline-none font-mono">
+            <MetadataRow
+              label="Version"
+              //@ts-ignore
+              value={props?.info?.version || request?.proof?.version}
+            />
+            <MetadataRow
+              label="Notary URL"
+              value={
+                //@ts-ignore
+                props?.info?.meta?.notaryUrl ||
+                convertNotaryWsToHttp(request?.proof?.meta?.notaryUrl)
+              }
+            />
+            <MetadataRow
+              label="Websocket Proxy URL"
+              value={
+                props?.info?.meta?.websocketProxyUrl ||
+                //@ts-ignore
+                request?.proof?.meta?.websocketProxyUrl
+              }
+            />
+            <MetadataRow
+              label="Verifying Key"
+              value={props?.verifierKey || request?.verification?.verifierKey}
+            />
+            <MetadataRow
+              label="Notary Key"
+              value={props?.notaryKey || request?.verification?.notaryKey}
+            />
+          </div>
         )}
       </div>
     </div>
@@ -111,5 +176,22 @@ function TabLabel(props: {
     >
       {props.children}
     </button>
+  );
+}
+
+function MetadataRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | undefined;
+}) {
+  return (
+    <div>
+      <div>{label}:</div>
+      <div className="text-sm font-semibold whitespace-pre-wrap">
+        {value || 'N/A'}
+      </div>
+    </div>
   );
 }
