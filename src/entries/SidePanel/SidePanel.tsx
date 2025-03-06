@@ -60,6 +60,16 @@ export default function SidePanel(): ReactElement {
           setStarted(true);
           break;
         }
+        case SidePanelActionTypes.is_panel_open: {
+          return { isOpen: true };
+        }
+        case SidePanelActionTypes.reset_panel: {
+          setConfig(null);
+          setHash('');
+          setHex('');
+          setStarted(false);
+          break;
+        }
       }
     });
   }, []);
