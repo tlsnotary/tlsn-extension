@@ -167,9 +167,13 @@ export enum RequestProgress {
   SendingRequest,
   ReadingTranscript,
   FinalizingOutputs,
+  Error,
 }
 
-export function progressText(progress: RequestProgress): string {
+export function progressText(
+  progress: RequestProgress,
+  errorMessage?: string,
+): string {
   switch (progress) {
     case RequestProgress.CreatingProver:
       return 'Creating prover...';
@@ -183,6 +187,8 @@ export function progressText(progress: RequestProgress): string {
       return 'Reading request transcript...';
     case RequestProgress.FinalizingOutputs:
       return 'Finalizing notarization outputs...';
+    case RequestProgress.Error:
+      return errorMessage ? errorMessage : 'Error: Notarization Failed';
   }
 }
 
@@ -210,6 +216,7 @@ export type RequestHistory = {
   secretHeaders?: string[];
   secretResps?: string[];
   cid?: string;
+  errorMessage?: string;
   metadata?: {
     [k: string]: string;
   };
@@ -430,9 +437,9 @@ async function handleUpdateRequestProgress(
   request: BackgroundAction,
   sendResponse: (data?: any) => void,
 ) {
-  const { id, progress } = request.data;
+  const { id, progress, errorMessage } = request.data;
 
-  const newReq = await setNotaryRequestProgress(id, progress);
+  const newReq = await setNotaryRequestProgress(id, progress, errorMessage);
   if (!newReq) return;
   await pushToRedux(addRequestHistory(await getNotaryRequest(id)));
 
