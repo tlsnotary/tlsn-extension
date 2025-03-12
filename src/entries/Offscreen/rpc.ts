@@ -483,9 +483,12 @@ async function createProver(options: {
   return prover;
 }
 
-async function verifyProof(
-  proof: PresentationJSON,
-): Promise<{ sent: string; recv: string }> {
+async function verifyProof(proof: PresentationJSON): Promise<{
+  sent: string;
+  recv: string;
+  verifierKey?: string;
+  notaryKey?: string;
+}> {
   let result: {
     sent: string;
     recv: string;
@@ -498,7 +501,8 @@ async function verifyProof(
       result = await verify(proof);
       break;
     }
-    case '0.1.0-alpha.7': {
+    case '0.1.0-alpha.7':
+    case '0.1.0-alpha.8':
       const presentation: TPresentation = await new Presentation(proof.data);
       const verifierOutput = await presentation.verify();
       const transcript = new Transcript({
@@ -520,7 +524,6 @@ async function verifyProof(
         notaryKey: publicKey,
       };
       break;
-    }
   }
   return result;
 }

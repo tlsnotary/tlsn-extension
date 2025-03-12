@@ -78,11 +78,14 @@ dependencies:
     specifier: ^3.3.3
     version: 3.4.3
   tlsn-js:
-    specifier: 0.1.0-alpha.7.2
-    version: 0.1.0-alpha.7.2
+    specifier: /Users/q/Projects/tlsn-js
+    version: link:../tlsn-js
   tlsn-js-v5:
     specifier: npm:tlsn-js@0.1.0-alpha.5.4
     version: /tlsn-js@0.1.0-alpha.5.4
+  tlsn-js-v7:
+    specifier: npm:tlsn-js@0.1.0-alpha.7.2
+    version: /tlsn-js@0.1.0-alpha.7.2
 
 devDependencies:
   '@babel/core':
