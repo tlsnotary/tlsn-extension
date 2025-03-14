@@ -132,7 +132,12 @@ export async function setNotaryRequestProgress(
 
 export async function setNotaryRequestVerification(
   id: string,
-  verification: { sent: string; recv: string },
+  verification: {
+    sent: string;
+    recv: string;
+    verifierKey: string;
+    notaryKey?: string;
+  },
 ): Promise<RequestHistory | null> {
   const existing = await historyDb.get(id);
 

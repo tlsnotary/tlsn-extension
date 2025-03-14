@@ -21,6 +21,8 @@ import {
 import classNames from 'classnames';
 import { useDispatch } from 'react-redux';
 import { RemoveHistory } from '../History/request-menu';
+import { PresentationJSON } from 'tlsn-js/build/types';
+import { RequestHistory } from '../../entries/Background/rpc';
 
 export default function ProofViewer(props?: {
   className?: string;
@@ -48,6 +50,13 @@ export default function ProofViewer(props?: {
       navigate(-1);
     }
   }, [requestId]);
+
+  const notaryUrl = extractFromProps('notaryUrl', props, request);
+  const websocketProxyUrl = extractFromProps(
+    'websocketProxyUrl',
+    props,
+    request,
+  );
 
   return (
     <div
@@ -129,21 +138,10 @@ export default function ProofViewer(props?: {
               //@ts-ignore
               value={props?.info?.version || request?.proof?.version}
             />
-            <MetadataRow
-              label="Notary URL"
-              value={
-                //@ts-ignore
-                props?.info?.meta?.notaryUrl ||
-                convertNotaryWsToHttp(request?.proof?.meta?.notaryUrl)
-              }
-            />
+            <MetadataRow label="Notary URL" value={notaryUrl} />
             <MetadataRow
               label="Websocket Proxy URL"
-              value={
-                props?.info?.meta?.websocketProxyUrl ||
-                //@ts-ignore
-                request?.proof?.meta?.websocketProxyUrl
-              }
+              value={websocketProxyUrl}
             />
             <MetadataRow
               label="Verifying Key"
@@ -158,6 +156,34 @@ export default function ProofViewer(props?: {
       </div>
     </div>
   );
+}
+
+function extractFromProps(
+  key: 'notaryUrl' | 'websocketProxyUrl',
+  props?: {
+    className?: string;
+    recv?: string;
+    sent?: string;
+    verifierKey?: string;
+    notaryKey?: string;
+    info?: {
+      meta: { notaryUrl: string; websocketProxyUrl: string };
+      version: string;
+    };
+  },
+  request?: RequestHistory,
+) {
+  let value;
+
+  if (props?.info?.meta) {
+    value = props.info.meta[key];
+  } else if (request && (request?.proof as PresentationJSON)?.meta) {
+    value = (request.proof as PresentationJSON).meta[key];
+  } else {
+    value = '';
+  }
+
+  return value;
 }
 
 function TabLabel(props: {

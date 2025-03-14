@@ -1,4 +1,4 @@
-name: lint
+name: lint-and-test-build
 
 on:
   push:
@@ -44,3 +44,6 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      - name: Test Webpack Build
+        run: npm run build:webpack

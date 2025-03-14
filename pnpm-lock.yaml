@@ -86,6 +86,9 @@ dependencies:
   tlsn-js-v7:
     specifier: npm:tlsn-js@0.1.0-alpha.7.2
     version: /tlsn-js@0.1.0-alpha.7.2
+  tlsn-wasm:
+    specifier: 0.1.0-alpha.8
+    version: 0.1.0-alpha.8
 
 devDependencies:
   '@babel/core':
@@ -7997,7 +8000,7 @@ packages:
     resolution: {integrity: sha512-G7xUog+HtDMRhw0fIRX9loUI6eUC9/4J+P0AzjBzpf8+8LAd3i8XgMkpqF8LqLUk5/vIm1b+ZakDYeCNMMiBeQ==}
     engines: {node: '>= 16.20.2'}
     dependencies:
-      tlsn-wasm: 0.1.0-alpha.7.2
+      tlsn-wasm: 0.1.0-alpha.8
     dev: false
 
   /tlsn-js@0.1.0-alpha.8:
@@ -8005,10 +8008,6 @@ packages:
     engines: {node: '>= 16.20.2'}
     dependencies:
       tlsn-wasm: 0.1.0-alpha.8
-    dev: false
-
-  /tlsn-wasm@0.1.0-alpha.7.2:
-    resolution: {integrity: sha512-NzrDfOxmFtMHDb4lmMsx6RaS6F+IVXEHxK0zow8jpnx+NryuJ+qnp4380Lq0uj61w/Yuq+yzOhzFe6Bpeo59dA==}
     dev: false
 
   /tlsn-wasm@0.1.0-alpha.8:
