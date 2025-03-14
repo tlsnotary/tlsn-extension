@@ -37,7 +37,6 @@ import {
   hexToArrayBuffer,
   makePlugin,
   PluginConfig,
-  safeParseJSON,
 } from '../../utils/misc';
 import {
   getLoggingFilter,
@@ -64,6 +63,7 @@ import {
 } from './ws';
 import { parseHttpMessage } from '../../utils/parser';
 import { mapStringToRange, subtractRanges } from 'tlsn-js';
+import { PresentationJSON } from 'tlsn-js/build/types';
 
 const charwise = require('charwise');
 
@@ -199,7 +199,7 @@ export type RequestHistory = {
   status: '' | 'pending' | 'success' | 'error';
   progress?: RequestProgress;
   error?: any;
-  proof?: { session: any; substrings: any };
+  proof?: { session: any; substrings: any } | PresentationJSON;
   requestBody?: any;
   verification?: {
     sent: string;
