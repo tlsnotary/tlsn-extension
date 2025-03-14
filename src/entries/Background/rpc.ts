@@ -607,6 +607,8 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
       data: {
         id,
         commit,
+        notaryUrl,
+        websocketProxyUrl,
       },
     });
 
