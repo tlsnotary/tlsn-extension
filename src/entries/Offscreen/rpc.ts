@@ -105,7 +105,7 @@ export const onCreateProverRequest = async (request: any) => {
 };
 
 export const onCreatePresentationRequest = async (request: any) => {
-  const { id, commit } = request.data;
+  const { id, commit, notaryUrl, websocketProxyUrl } = request.data;
   const prover = provers[id];
 
   try {
@@ -121,13 +121,20 @@ export const onCreatePresentationRequest = async (request: any) => {
       websocketProxyUrl: notarizationOutputs.websocketProxyUrl,
       reveal: commit,
     })) as TPresentation;
-    const presentationJSON = await presentation.json();
+    const json = await presentation.json();
 
     browser.runtime.sendMessage({
       type: BackgroundActiontype.finish_prove_request,
       data: {
         id,
-        proof: presentationJSON,
+        proof: {
+          ...json,
+          meta: {
+            ...json.meta,
+            notaryUrl,
+            websocketProxyUrl,
+          },
+        },
       },
     });
 
@@ -427,7 +434,16 @@ async function createProof(options: {
     reveal: commit,
   })) as TPresentation;
 
-  return presentation.json();
+  const json = await presentation.json();
+
+  return {
+    ...json,
+    meta: {
+      ...json,
+      notaryUrl: notaryUrl,
+      websocketProxyUrl: websocketProxyUrl,
+    },
+  };
 }
 
 async function createProver(options: {
@@ -483,9 +499,12 @@ async function createProver(options: {
   return prover;
 }
 
-async function verifyProof(
-  proof: PresentationJSON,
-): Promise<{ sent: string; recv: string }> {
+async function verifyProof(proof: PresentationJSON): Promise<{
+  sent: string;
+  recv: string;
+  verifierKey?: string;
+  notaryKey?: string;
+}> {
   let result: {
     sent: string;
     recv: string;
@@ -498,7 +517,8 @@ async function verifyProof(
       result = await verify(proof);
       break;
     }
-    case '0.1.0-alpha.7': {
+    case '0.1.0-alpha.7':
+    case '0.1.0-alpha.8':
       const presentation: TPresentation = await new Presentation(proof.data);
       const verifierOutput = await presentation.verify();
       const transcript = new Transcript({
@@ -520,7 +540,6 @@ async function verifyProof(
         notaryKey: publicKey,
       };
       break;
-    }
   }
   return result;
 }

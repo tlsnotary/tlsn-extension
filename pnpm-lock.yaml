@@ -78,11 +78,14 @@ dependencies:
     specifier: ^3.3.3
     version: 3.4.3
   tlsn-js:
-    specifier: 0.1.0-alpha.7.2
-    version: 0.1.0-alpha.7.2
+    specifier: 0.1.0-alpha.8
+    version: 0.1.0-alpha.8
   tlsn-js-v5:
     specifier: npm:tlsn-js@0.1.0-alpha.5.4
     version: /tlsn-js@0.1.0-alpha.5.4
+  tlsn-js-v7:
+    specifier: npm:tlsn-js@0.1.0-alpha.7.2
+    version: /tlsn-js@0.1.0-alpha.7.2
 
 devDependencies:
   '@babel/core':
@@ -7997,8 +8000,19 @@ packages:
       tlsn-wasm: 0.1.0-alpha.7.2
     dev: false
 
+  /tlsn-js@0.1.0-alpha.8:
+    resolution: {integrity: sha512-2xHhn/RkJey+sw+Xu3AgUj6S+iEvWKXhwcAEOKzs6rNOyK3ZanAOaPpVgPWyT/FlPfZlagcDuDITnThgbqQkOA==}
+    engines: {node: '>= 16.20.2'}
+    dependencies:
+      tlsn-wasm: 0.1.0-alpha.8
+    dev: false
+
   /tlsn-wasm@0.1.0-alpha.7.2:
     resolution: {integrity: sha512-NzrDfOxmFtMHDb4lmMsx6RaS6F+IVXEHxK0zow8jpnx+NryuJ+qnp4380Lq0uj61w/Yuq+yzOhzFe6Bpeo59dA==}
+    dev: false
+
+  /tlsn-wasm@0.1.0-alpha.8:
+    resolution: {integrity: sha512-5Jakx7asg9BX+7owfNsLPTnRdI2uVug11sJ0hh0509w1dHJHAHQ2oi4i7PupACHKDlS/iQL3UNTv6vK6+QKctw==}
     dev: false
 
   /tmp@0.0.33:
