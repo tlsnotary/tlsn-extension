@@ -23,6 +23,7 @@ export default function SidePanel(): ReactElement {
   const [hash, setHash] = useState('');
   const [hex, setHex] = useState('');
   const [p2p, setP2P] = useState(false);
+  const [params, setParams] = useState<Record<string, string> | undefined>();
   const [started, setStarted] = useState(false);
   const clientId = useClientId();
 
@@ -41,6 +42,7 @@ export default function SidePanel(): ReactElement {
         case SidePanelActionTypes.execute_plugin_request: {
           setConfig(await getPluginConfigByHash(data.pluginHash));
           setHash(data.pluginHash);
+          setParams(data.pluginParams);
           setStarted(true);
           break;
         }
@@ -93,6 +95,7 @@ export default function SidePanel(): ReactElement {
           config={config}
           p2p={p2p}
           clientId={clientId}
+          presetParameterValues={params}
         />
       )}
     </div>
@@ -105,8 +108,9 @@ function PluginBody(props: {
   hex?: string;
   clientId?: string;
   p2p?: boolean;
+  presetParameterValues?: Record<string, string>;
 }): ReactElement {
-  const { hash, hex, config, p2p, clientId } = props;
+  const { hash, hex, config, p2p, clientId, presetParameterValues } = props;
   const { title, description, icon, steps } = config;
   const [responses, setResponses] = useState<any[]>([]);
   const [notarizationId, setNotarizationId] = useState('');
@@ -168,6 +172,7 @@ function PluginBody(props: {
             responses={responses}
             p2p={p2p}
             clientId={clientId}
+            parameterValues={presetParameterValues}
             {...step}
           />
         ))}
@@ -187,6 +192,7 @@ function StepContent(
     lastResponse?: any;
     config: PluginConfig;
     p2p?: boolean;
+    parameterValues?: Record<string, string>;
   },
 ): ReactElement {
   const {
@@ -203,6 +209,7 @@ function StepContent(
     config,
     p2p = false,
     clientId = '',
+    parameterValues,
   } = props;
   const [completed, setCompleted] = useState(false);
   const [pending, setPending] = useState(false);
@@ -225,7 +232,13 @@ function StepContent(
     setError('');
 
     try {
-      const out = await plugin.call(action, JSON.stringify(lastResponse));
+      const out = await plugin.call(
+        action,
+        index > 0
+          ? JSON.stringify(lastResponse)
+          : JSON.stringify(parameterValues),
+      );
+      console.log(out);
       const val = JSON.parse(out.string());
       if (val && prover) {
         setNotarizationId(val);
