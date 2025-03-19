@@ -336,7 +336,11 @@ export async function setConnection(origin: string) {
   return true;
 }
 
-export async function setCookies(host: string, name: string, value: string): Promise<boolean> {
+export async function setCookies(
+  host: string,
+  name: string,
+  value: string,
+): Promise<boolean> {
   return mutex.runExclusive(async () => {
     const timestamp = Date.now();
     const cookieStore = cookiesDb.sublevel(host);
@@ -379,25 +383,35 @@ export async function getCookies(link: string, name: string) {
   }
 }
 
-export async function getCookiesByHost(cookieLink: string): Promise<Record<string, any>> {
+export async function getCookiesByHost(
+  cookieLink: string,
+): Promise<Record<string, any>> {
   const latestCookies: Record<string, { value: any; timestamp: number }> = {};
 
   for await (const [key, value] of cookiesDb.sublevel(cookieLink).iterator()) {
     const parsed = parseCookieValue(value);
-    if (!latestCookies[key] || parsed.timestamp > latestCookies[key].timestamp) {
+    if (
+      !latestCookies[key] ||
+      parsed.timestamp > latestCookies[key].timestamp
+    ) {
       latestCookies[key] = parsed;
     }
   }
 
   return Object.fromEntries(
-    Object.entries(latestCookies).map(([key, { value }]) => [key, value])
+    Object.entries(latestCookies).map(([key, { value }]) => [key, value]),
   );
 }
 
 function parseCookieValue(rawValue: string): { value: any; timestamp: number } {
   try {
     const parsed = safeParseJSON(rawValue);
-    if (parsed && typeof parsed === 'object' && 'value' in parsed && 'timestamp' in parsed) {
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      'value' in parsed &&
+      'timestamp' in parsed
+    ) {
       return parsed;
     }
     return { value: parsed, timestamp: 0 };
@@ -414,7 +428,6 @@ export async function deleteConnection(origin: string) {
   });
 }
 
-
 export async function getConnection(origin: string) {
   try {
     const existing = await connectionDb.get(origin);
@@ -424,7 +437,11 @@ export async function getConnection(origin: string) {
   }
 }
 
-export async function setHeaders(link: string, name: string, value?: string): Promise<boolean | null> {
+export async function setHeaders(
+  link: string,
+  name: string,
+  value?: string,
+): Promise<boolean | null> {
   if (!value) return null;
 
   return mutex.runExclusive(async () => {
@@ -435,14 +452,17 @@ export async function setHeaders(link: string, name: string, value?: string): Pr
     try {
       const existingRaw = await sublevel.get(name).catch(() => null);
       if (existingRaw) {
-        const existing = JSON.parse(existingRaw) as { value: string; timestamp: number };
+        const existing = JSON.parse(existingRaw) as {
+          value: string;
+          timestamp: number;
+        };
         if (existing.value === value && existing.timestamp === timestamp) {
           return true;
         }
       }
       await Promise.all([
         sublevel.put(name, JSON.stringify(newEntry)),
-        sublevel.put("__timestamp__", timestamp.toString()),
+        sublevel.put('__timestamp__', timestamp.toString()),
       ]);
       return true;
     } catch (error) {
@@ -450,7 +470,6 @@ export async function setHeaders(link: string, name: string, value?: string): Pr
     }
   });
 }
-
 
 export async function clearHeaders(host: string) {
   return mutex.runExclusive(async () => {
@@ -468,13 +487,18 @@ export async function getHeaders(host: string, name: string) {
   }
 }
 
-export async function getHeadersByHost(link: string): Promise<Record<string, string>> {
+export async function getHeadersByHost(
+  link: string,
+): Promise<Record<string, string>> {
   const headers: Record<string, string> = {};
   const sublevel = headersDb.sublevel(link);
 
   try {
-    for await (const [key, value] of sublevel.iterator({ keyEncoding: "utf8", valueEncoding: "utf8" })) {
-      if (key === "__timestamp__") continue;
+    for await (const [key, value] of sublevel.iterator({
+      keyEncoding: 'utf8',
+      valueEncoding: 'utf8',
+    })) {
+      if (key === '__timestamp__') continue;
       const parsed = parseHeaderValue(value);
       headers[key] = parsed.value;
     }
@@ -483,10 +507,16 @@ export async function getHeadersByHost(link: string): Promise<Record<string, str
   return headers;
 }
 
-function parseHeaderValue(rawValue: string): { value: string; timestamp: number } {
+function parseHeaderValue(rawValue: string): {
+  value: string;
+  timestamp: number;
+} {
   try {
-    const parsed = safeParseJSON(rawValue) as { value: string; timestamp: number };
-    return { value: parsed.value || "", timestamp: parsed.timestamp };
+    const parsed = safeParseJSON(rawValue) as {
+      value: string;
+      timestamp: number;
+    };
+    return { value: parsed.value || '', timestamp: parsed.timestamp };
   } catch {
     return { value: rawValue, timestamp: 0 };
   }
