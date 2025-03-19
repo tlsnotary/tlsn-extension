@@ -374,15 +374,6 @@ export async function clearCookies(host: string) {
   });
 }
 
-export async function getCookies(link: string, name: string) {
-  try {
-    const existing = await cookiesDb.sublevel(link).get(name);
-    return existing;
-  } catch (e) {
-    return null;
-  }
-}
-
 export async function getCookiesByHost(
   cookieLink: string,
 ): Promise<Record<string, any>> {
@@ -476,15 +467,6 @@ export async function clearHeaders(host: string) {
     await headersDb.sublevel(host).clear();
     return true;
   });
-}
-
-export async function getHeaders(host: string, name: string) {
-  try {
-    const existing = await headersDb.sublevel(host).get(name);
-    return existing;
-  } catch (e) {
-    return null;
-  }
 }
 
 export async function getHeadersByHost(
