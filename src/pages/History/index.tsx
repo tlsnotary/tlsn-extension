@@ -153,7 +153,7 @@ export function OneRequestHistory(props: {
         onClose={closeAllModal}
       >
         <ModalContent className="flex justify-center items-center text-slate-500">
-          {msg || 'Something went wrong :('}
+          { msg || request?.errorMessage }
         </ModalContent>
         <button
           className="m-0 w-24 bg-red-100 text-red-300 hover:bg-red-200 hover:text-red-500"

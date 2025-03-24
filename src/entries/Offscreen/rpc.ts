@@ -532,7 +532,6 @@ function updateRequestProgress(
     progress === RequestProgress.Error
       ? `${errorMessage || 'Notarization Failed'}`
       : progressText(progress);
-  console.log('ERROR MESSAGE', progressMessage);
   devlog(`Request ${id}: ${progressMessage}`);
 
   browser.runtime.sendMessage({

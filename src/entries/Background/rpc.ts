@@ -537,6 +537,7 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
     maxSentData: _maxSentData,
     maxRecvData: _maxRecvData,
   } = request.data;
+
   const notaryUrl = _notaryUrl || (await getNotaryApi());
   const websocketProxyUrl = _websocketProxyUrl || (await getProxyApi());
   const maxSentData = _maxSentData || (await getMaxSent());
@@ -558,89 +559,107 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
   });
 
   await setNotaryRequestStatus(id, 'pending');
-
   await pushToRedux(addRequestHistory(await getNotaryRequest(id)));
 
-  const onProverResponse = async (request: any) => {
-    const { data, type } = request;
+  // Timeout after 3 minutes
+  const TIMEOUT_MS = 180000;
 
-    if (type !== OffscreenActionTypes.create_prover_response) {
-      return;
-    }
+  const timeoutPromise = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('Notarization timeout')), TIMEOUT_MS)
+  );
 
-    if (data.error) {
-      console.error(data.error);
-      return;
-    }
+  const proverPromise = new Promise<void>((resolve, reject) => {
+    const onProverResponse = async (request: any) => {
+      try {
+        const { data, type } = request;
 
-    if (data.id !== id) {
-      return;
-    }
+        if (type !== OffscreenActionTypes.create_prover_response) {
+          return;
+        }
 
-    if (getSecretResponse) {
-      const body = data.transcript.recv.split('\r\n').reduce(
-        (state: { headerEnd: boolean; body: string[] }, line: string) => {
-          if (state.headerEnd) {
-            state.body.push(line);
-          } else if (!line) {
-            state.headerEnd = true;
+        if (data.error) {
+          reject(new Error(data.error));
+          return;
+        }
+
+        if (data.id !== id) {
+          return;
+        }
+
+        if (getSecretResponse) {
+          const body = data.transcript.recv.split('\r\n').reduce(
+            (state: { headerEnd: boolean; body: string[] }, line: string) => {
+              if (state.headerEnd) {
+                state.body.push(line);
+              } else if (!line) {
+                state.headerEnd = true;
+              }
+              return state;
+            },
+            { headerEnd: false, body: [] }
+          ).body;
+
+          if (body.length == 1) {
+            secretResps = await getSecretResponseFn(body[0]);
+          } else {
+            secretResps = await getSecretResponseFn(
+              body.filter((txt: string) => {
+                const json = safeParseJSON(txt);
+                return typeof json === 'object';
+              })[0]
+            );
           }
+        }
 
-          return state;
-        },
-        { headerEnd: false, body: [] },
-      ).body;
+        const commit = {
+          sent: subtractRanges(
+            data.transcript.ranges.sent.all,
+            mapSecretsToRange(secretHeaders, data.transcript.sent)
+          ),
+          recv: subtractRanges(
+            data.transcript.ranges.recv.all,
+            mapSecretsToRange(secretResps, data.transcript.recv)
+          ),
+        };
 
-      if (body.length == 1) {
-        secretResps = await getSecretResponseFn(body[0]);
-      } else {
-        secretResps = await getSecretResponseFn(
-          body.filter((txt: string) => {
-            const json = safeParseJSON(txt);
-            return typeof json === 'object';
-          })[0],
-        );
+        await browser.runtime.sendMessage({
+          type: OffscreenActionTypes.create_presentation_request,
+          data: { id, commit },
+        });
+
+        resolve();
+      } catch (error) {
+        reject(error);
+      } finally {
+        browser.runtime.onMessage.removeListener(onProverResponse);
       }
-    }
-
-    const commit = {
-      sent: subtractRanges(
-        data.transcript.ranges.sent.all,
-        mapSecretsToRange(secretHeaders, data.transcript.sent),
-      ),
-      recv: subtractRanges(
-        data.transcript.ranges.recv.all,
-        mapSecretsToRange(secretResps, data.transcript.recv),
-      ),
     };
 
+    browser.runtime.onMessage.addListener(onProverResponse);
+
     browser.runtime.sendMessage({
-      type: OffscreenActionTypes.create_presentation_request,
+      type: OffscreenActionTypes.create_prover_request,
       data: {
         id,
-        commit,
+        url,
+        method,
+        headers,
+        body,
+        notaryUrl,
+        websocketProxyUrl,
+        maxRecvData,
+        maxSentData,
       },
     });
-
-    browser.runtime.onMessage.removeListener(onProverResponse);
-  };
-
-  browser.runtime.onMessage.addListener(onProverResponse);
-
-  browser.runtime.sendMessage({
-    type: OffscreenActionTypes.create_prover_request,
-    data: {
-      id,
-      url,
-      method,
-      headers,
-      body,
-      notaryUrl,
-      websocketProxyUrl,
-      maxRecvData,
-      maxSentData,
-    },
   });
+
+  try {
+    await Promise.race([proverPromise, timeoutPromise]);
+  } catch (error: any) {
+    await setNotaryRequestStatus(id, 'error');
+    await setNotaryRequestError(id, error.message);
+    await pushToRedux(addRequestHistory(await getNotaryRequest(id)));
+  }
 }
 
 async function handleGetSecretsFromTranscript(
