@@ -660,6 +660,7 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
         browser.runtime.onMessage.removeListener(responseListener);
         reject(new Error('Notarization Timed Out'));
       }
+      // 3 minute timeout
     }, 180000);
   });
 

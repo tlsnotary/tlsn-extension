@@ -1,6 +1,7 @@
 import {
   BackgroundActiontype,
   RequestHistory,
+  RequestProgress,
 } from '../entries/Background/rpc';
 import { useSelector } from 'react-redux';
 import { AppRootState } from './index';
@@ -76,6 +77,9 @@ export default function history(
       if (!payload) return state;
 
       const existing = state.map[payload.id];
+      if (existing?.progress === RequestProgress.Error) {
+        return state;
+      }
       const newMap = {
         ...state.map,
         [payload.id]: payload,
