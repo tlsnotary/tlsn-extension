@@ -65,7 +65,6 @@ import { parseHttpMessage } from '../../utils/parser';
 import { mapStringToRange, subtractRanges } from 'tlsn-js';
 import { PresentationJSON } from 'tlsn-js/build/types';
 
-
 const charwise = require('charwise');
 
 export enum BackgroundActiontype {
@@ -615,13 +614,13 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
           ),
         };
 
-    browser.runtime.sendMessage({
-      type: OffscreenActionTypes.create_presentation_request,
-      data: {
-        id,
-        commit,
-      },
-    });
+        browser.runtime.sendMessage({
+          type: OffscreenActionTypes.create_presentation_request,
+          data: {
+            id,
+            commit,
+          },
+        });
 
         resolve();
       } catch (error) {
