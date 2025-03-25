@@ -21,6 +21,10 @@ import { OffscreenActionTypes } from './types';
 import { PresentationJSON } from '../../utils/types';
 import { verify } from 'tlsn-js-v5';
 import { waitForEvent } from '../utils';
+import {
+  setNotaryRequestError,
+  setNotaryRequestStatus,
+} from '../Background/db';
 
 const { init, Prover, Presentation, Verifier }: any = Comlink.wrap(
   new Worker(new URL('./worker.ts', import.meta.url)),
@@ -473,48 +477,51 @@ async function createProver(options: {
 
   const hostname = urlify(url)?.hostname || '';
   const notary = NotaryServer.from(notaryUrl);
+  try {
+    const prover: TProver = await handleProgress(
+      id,
+      RequestProgress.CreatingProver,
+      () =>
+        new Prover({
+          id,
+          serverDns: hostname,
+          maxSentData,
+          maxRecvData,
+        }),
+      'Error creating prover',
+    );
 
-  const prover: TProver = await handleProgress(
-    id,
-    RequestProgress.CreatingProver,
-    () =>
-      new Prover({
-        id,
-        serverDns: hostname,
-        maxSentData,
-        maxRecvData,
-      }),
-    'Error creating prover',
-  );
+    const sessionUrl = await handleProgress(
+      id,
+      RequestProgress.GettingSession,
+      () => notary.sessionUrl(maxSentData, maxRecvData),
+      'Error getting session from Notary',
+    );
 
-  const sessionUrl = await handleProgress(
-    id,
-    RequestProgress.GettingSession,
-    () => notary.sessionUrl(maxSentData, maxRecvData),
-    'Error getting session from Notary',
-  );
+    await handleProgress(
+      id,
+      RequestProgress.SettingUpProver,
+      () => prover.setup(sessionUrl),
+      'Error setting up prover',
+    );
 
-  await handleProgress(
-    id,
-    RequestProgress.SettingUpProver,
-    () => prover.setup(sessionUrl),
-    'Error setting up prover',
-  );
+    await handleProgress(
+      id,
+      RequestProgress.SendingRequest,
+      () =>
+        prover.sendRequest(websocketProxyUrl + `?token=${hostname}`, {
+          url,
+          method,
+          headers,
+          body,
+        }),
+      'Error sending request',
+    );
 
-  await handleProgress(
-    id,
-    RequestProgress.SendingRequest,
-    () =>
-      prover.sendRequest(websocketProxyUrl + `?token=${hostname}`, {
-        url,
-        method,
-        headers,
-        body,
-      }),
-    'Error sending request',
-  );
-
-  return prover;
+    return prover;
+  } catch (error) {
+    throw error;
+  }
 }
 
 async function verifyProof(proof: PresentationJSON): Promise<{
@@ -594,6 +601,11 @@ async function handleProgress<T>(
     return await action();
   } catch (error: any) {
     updateRequestProgress(id, RequestProgress.Error, errorMessage);
+    await setNotaryRequestStatus(id, 'error');
+    await setNotaryRequestError(
+      id,
+      errorMessage || error.message || 'Unknown error',
+    );
     throw error;
   }
 }

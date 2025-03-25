@@ -65,6 +65,7 @@ import {
 import { parseHttpMessage } from '../../utils/parser';
 import { mapStringToRange, subtractRanges } from 'tlsn-js';
 
+
 const charwise = require('charwise');
 
 export enum BackgroundActiontype {
@@ -659,15 +660,26 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
         browser.runtime.onMessage.removeListener(responseListener);
         reject(new Error('Notarization Timed Out'));
       }
-    }, 3000);
+    }, 180000);
   });
 
   try {
     await Promise.race([proverPromise, timeoutPromise]);
   } catch (error: any) {
-    await setNotaryRequestStatus(id, 'error');
-    await setNotaryRequestError(id, error.message);
-    await pushToRedux(addRequestHistory(await getNotaryRequest(id)));
+    if (error.message === 'Notarization Timed Out') {
+      await setNotaryRequestStatus(id, 'error');
+      browser.runtime.sendMessage({
+        type: BackgroundActiontype.update_request_progress,
+        data: {
+          id,
+          progress: RequestProgress.Error,
+          error: error.message,
+        },
+      });
+      await pushToRedux(addRequestHistory(await getNotaryRequest(id)));
+      throw error;
+    }
+    throw error;
   }
 }
 

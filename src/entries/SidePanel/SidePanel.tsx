@@ -329,19 +329,27 @@ function StepContent(
     );
   } else if (notaryRequest?.status === 'pending' || pending || notarizationId) {
     btnContent = (
-      <button className="button mt-2 w-fit flex flex-row flex-nowrap items-center gap-2 cursor-default">
-        <Icon className="animate-spin" fa="fa-solid fa-spinner" size={1} />
-        <span className="text-sm">
-          {notaryRequest?.progress === RequestProgress.Error
-            ? `${progressText(notaryRequest.progress, notaryRequest?.errorMessage)}`
-            : notaryRequest?.progress
-              ? `(${(
-                  ((notaryRequest.progress + 1) / 6.06) *
-                  100
-                ).toFixed()}%) ${progressText(notaryRequest.progress)}`
-              : 'Pending...'}
-        </span>
-      </button>
+      <div className="flex flex-col gap-2">
+        {notaryRequest?.progress === RequestProgress.Error && (
+          <div className="flex flex-row items-center gap-2 text-red-600">
+            <Icon fa="fa-solid fa-triangle-exclamation" size={1} />
+            <span className="text-sm">
+              {notaryRequest?.errorMessage ||
+                progressText(notaryRequest.progress)}
+            </span>
+          </div>
+        )}
+        {notaryRequest?.progress !== RequestProgress.Error && (
+          <button className="button mt-2 w-fit flex flex-row flex-nowrap items-center gap-2 cursor-default">
+            <Icon className="animate-spin" fa="fa-solid fa-spinner" size={1} />
+            <span className="text-sm">
+              {notaryRequest?.progress !== undefined
+                ? `(${(((notaryRequest.progress + 1) / 6.06) * 100).toFixed()}%) ${progressText(notaryRequest.progress)}`
+                : 'Pending...'}
+            </span>
+          </button>
+        )}
+      </div>
     );
   } else {
     btnContent = (
