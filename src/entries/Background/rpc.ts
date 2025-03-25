@@ -37,7 +37,6 @@ import {
   hexToArrayBuffer,
   makePlugin,
   PluginConfig,
-  safeParseJSON,
 } from '../../utils/misc';
 import {
   getLoggingFilter,
@@ -64,6 +63,7 @@ import {
 } from './ws';
 import { parseHttpMessage } from '../../utils/parser';
 import { mapStringToRange, subtractRanges } from 'tlsn-js';
+import { PresentationJSON } from 'tlsn-js/build/types';
 
 
 const charwise = require('charwise');
@@ -206,7 +206,7 @@ export type RequestHistory = {
   status: '' | 'pending' | 'success' | 'error';
   progress?: RequestProgress;
   error?: any;
-  proof?: { session: any; substrings: any };
+  proof?: { session: any; substrings: any } | PresentationJSON;
   requestBody?: any;
   verification?: {
     sent: string;
@@ -615,15 +615,13 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
           ),
         };
 
-        await browser.runtime.sendMessage({
-          type: OffscreenActionTypes.create_presentation_request,
-          data: {
-            id,
-            commit,
-            notaryUrl,
-            websocketProxyUrl,
-          },
-        });
+    browser.runtime.sendMessage({
+      type: OffscreenActionTypes.create_presentation_request,
+      data: {
+        id,
+        commit,
+      },
+    });
 
         resolve();
       } catch (error) {
@@ -1375,7 +1373,7 @@ async function handleRunPluginCSRequest(request: BackgroundAction) {
   });
 
   const defer = deferredPromise();
-  const { origin, position, hash } = request.data;
+  const { origin, position, hash, params } = request.data;
 
   const plugin = await getPluginByHash(hash);
   const config = await getPluginConfigByHash(hash);
@@ -1387,7 +1385,7 @@ async function handleRunPluginCSRequest(request: BackgroundAction) {
   }
 
   const { popup, tab } = await openPopup(
-    `run-plugin-approval?hash=${hash}&origin=${encodeURIComponent(origin)}&favIconUrl=${encodeURIComponent(currentTab?.favIconUrl || '')}`,
+    `run-plugin-approval?hash=${hash}&origin=${encodeURIComponent(origin)}&favIconUrl=${encodeURIComponent(currentTab?.favIconUrl || '')}&params=${encodeURIComponent(JSON.stringify(params) || '')}`,
     position.left,
     position.top,
   );
