@@ -539,7 +539,6 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
     maxSentData: _maxSentData,
     maxRecvData: _maxRecvData,
   } = request.data;
-
   const notaryUrl = _notaryUrl || (await getNotaryApi());
   const websocketProxyUrl = _websocketProxyUrl || (await getProxyApi());
   const maxSentData = _maxSentData || (await getMaxSent());
@@ -563,95 +562,104 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
   await setNotaryRequestStatus(id, 'pending');
   await pushToRedux(addRequestHistory(await getNotaryRequest(id)));
 
-  // Timeout after 3 minutes
-  const TIMEOUT_MS = 180000;
-
-  const timeoutPromise = new Promise((_, reject) =>
-    setTimeout(() => reject(new Error('Notarization timeout')), TIMEOUT_MS)
-  );
+  let listenerActive = true;
+  let responseListener: (request: any) => void;
 
   const proverPromise = new Promise<void>((resolve, reject) => {
-    const onProverResponse = async (request: any) => {
+    responseListener = async (request: any) => {
+      if (!listenerActive) return;
+
+      const { data, type } = request;
+
+      if (type !== OffscreenActionTypes.create_prover_response) {
+        return;
+      }
+
+      if (data.id !== id) {
+        return;
+      }
+
       try {
-        const { data, type } = request;
-
-        if (type !== OffscreenActionTypes.create_prover_response) {
-          return;
-        }
-
         if (data.error) {
-          reject(new Error(data.error));
-          return;
+          throw new Error(data.error);
         }
 
-        if (data.id !== id) {
-          return;
+        const transcript: { recv: number[]; sent: number[] } = data.transcript;
+
+        const { body: recvBody } = parseHttpMessage(
+          Buffer.from(transcript.recv),
+          'response',
+        );
+
+        if (getSecretResponse) {
+          secretResps = await getSecretResponseFn(
+            ...recvBody.map((body) => body.toString('utf-8')),
+          );
         }
 
-    const transcript: { recv: number[]; sent: number[] } = data.transcript;
+        const commit = {
+          sent: subtractRanges(
+            { start: 0, end: transcript.sent.length },
+            mapStringToRange(
+              secretHeaders,
+              Buffer.from(transcript.sent).toString('utf-8'),
+            ),
+          ),
+          recv: subtractRanges(
+            { start: 0, end: transcript.recv.length },
+            mapStringToRange(
+              secretResps,
+              Buffer.from(transcript.recv).toString('utf-8'),
+            ),
+          ),
+        };
 
-    const { body: recvBody } = parseHttpMessage(
-      Buffer.from(transcript.recv),
-      'response',
-    );
-
-    if (getSecretResponse) {
-      secretResps = await getSecretResponseFn(
-        ...recvBody.map((body) => body.toString('utf-8')),
-      );
-    }
-
-    const commit = {
-      sent: subtractRanges(
-        { start: 0, end: transcript.sent.length },
-        mapStringToRange(
-          secretHeaders,
-          Buffer.from(transcript.sent).toString('utf-8'),
-        ),
-      ),
-      recv: subtractRanges(
-        { start: 0, end: transcript.recv.length },
-        mapStringToRange(
-          secretResps,
-          Buffer.from(transcript.recv).toString('utf-8'),
-        ),
-      ),
-    };
-
-    browser.runtime.sendMessage({
-      type: OffscreenActionTypes.create_presentation_request,
-      data: {
-        id,
-        commit,
-        notaryUrl,
-        websocketProxyUrl,
-      },
-    });
+        await browser.runtime.sendMessage({
+          type: OffscreenActionTypes.create_presentation_request,
+          data: {
+            id,
+            commit,
+            notaryUrl,
+            websocketProxyUrl,
+          },
+        });
 
         resolve();
       } catch (error) {
+        console.error('Prover response error:', error);
         reject(error);
       } finally {
-        browser.runtime.onMessage.removeListener(onProverResponse);
+        listenerActive = false;
+        browser.runtime.onMessage.removeListener(responseListener);
       }
     };
 
-    browser.runtime.onMessage.addListener(onProverResponse);
+    browser.runtime.onMessage.addListener(responseListener);
+  });
 
-    browser.runtime.sendMessage({
-      type: OffscreenActionTypes.create_prover_request,
-      data: {
-        id,
-        url,
-        method,
-        headers,
-        body,
-        notaryUrl,
-        websocketProxyUrl,
-        maxRecvData,
-        maxSentData,
-      },
-    });
+  browser.runtime.sendMessage({
+    type: OffscreenActionTypes.create_prover_request,
+    data: {
+      id,
+      url,
+      method,
+      headers,
+      body,
+      notaryUrl,
+      websocketProxyUrl,
+      maxRecvData,
+      maxSentData,
+    },
+  });
+
+  const timeoutPromise = new Promise((_, reject) => {
+    setTimeout(() => {
+      if (listenerActive) {
+        listenerActive = false;
+        browser.runtime.onMessage.removeListener(responseListener);
+        reject(new Error('Notarization Timed Out'));
+      }
+    }, 3000);
   });
 
   try {
