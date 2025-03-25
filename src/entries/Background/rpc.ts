@@ -669,6 +669,7 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
   } catch (error: any) {
     if (error.message === 'Notarization Timed Out') {
       await setNotaryRequestStatus(id, 'error');
+      await setNotaryRequestError(id, error.message);
       browser.runtime.sendMessage({
         type: BackgroundActiontype.update_request_progress,
         data: {
