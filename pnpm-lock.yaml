@@ -38,6 +38,9 @@ dependencies:
   fuse.js:
     specifier: ^6.6.2
     version: 6.6.2
+  http-parser-js:
+    specifier: ^0.5.9
+    version: 0.5.9
   level:
     specifier: ^8.0.0
     version: 8.0.1
@@ -75,11 +78,14 @@ dependencies:
     specifier: ^3.3.3
     version: 3.4.3
   tlsn-js:
-    specifier: 0.1.0-alpha.7.1
-    version: 0.1.0-alpha.7.1
+    specifier: 0.1.0-alpha.8
+    version: 0.1.0-alpha.8
   tlsn-js-v5:
     specifier: npm:tlsn-js@0.1.0-alpha.5.4
     version: /tlsn-js@0.1.0-alpha.5.4
+  tlsn-js-v7:
+    specifier: npm:tlsn-js@0.1.0-alpha.7.2
+    version: /tlsn-js@0.1.0-alpha.7.2
 
 devDependencies:
   '@babel/core':
@@ -5276,9 +5282,8 @@ packages:
       toidentifier: 1.0.1
     dev: true
 
-  /http-parser-js@0.5.8:
-    resolution: {integrity: sha512-SGeBX54F94Wgu5RH3X5jsDtf4eHyRogWX1XGT3b4HuW3tQPM4AaBzoUji/4AAJNXCEOWZ5O0DgZmJw1947gD5Q==}
-    dev: true
+  /http-parser-js@0.5.9:
+    resolution: {integrity: sha512-n1XsPy3rXVxlqxVioEWdC+0+M+SQw0DpJynwtOPo1X+ZlvdzTLtDBIJJlDQTnwZIFJrZSzSGmIOUdP8tu+SgLw==}
 
   /http-proxy-middleware@2.0.6(@types/express@4.17.21):
     resolution: {integrity: sha512-ya/UeJ6HVBYxrgYotAZo1KvPWlgB48kUJLDePFeneHsVujFaW5WNj2NgWCAE//B1Dl02BIfYlpNgBy8Kf8Rjmw==}
@@ -7988,15 +7993,26 @@ packages:
       comlink: 4.4.1
     dev: false
 
-  /tlsn-js@0.1.0-alpha.7.1:
-    resolution: {integrity: sha512-EWdRp1VQBfdre8jehJgmDjtDvt01ZL1JWbcscctnFTLIIwMYS7IBxU07UYG0NMZFXeTE8PlrUDEVwEl1+vla+g==}
+  /tlsn-js@0.1.0-alpha.7.2:
+    resolution: {integrity: sha512-G7xUog+HtDMRhw0fIRX9loUI6eUC9/4J+P0AzjBzpf8+8LAd3i8XgMkpqF8LqLUk5/vIm1b+ZakDYeCNMMiBeQ==}
     engines: {node: '>= 16.20.2'}
     dependencies:
       tlsn-wasm: 0.1.0-alpha.7.2
     dev: false
 
+  /tlsn-js@0.1.0-alpha.8:
+    resolution: {integrity: sha512-2xHhn/RkJey+sw+Xu3AgUj6S+iEvWKXhwcAEOKzs6rNOyK3ZanAOaPpVgPWyT/FlPfZlagcDuDITnThgbqQkOA==}
+    engines: {node: '>= 16.20.2'}
+    dependencies:
+      tlsn-wasm: 0.1.0-alpha.8
+    dev: false
+
   /tlsn-wasm@0.1.0-alpha.7.2:
     resolution: {integrity: sha512-NzrDfOxmFtMHDb4lmMsx6RaS6F+IVXEHxK0zow8jpnx+NryuJ+qnp4380Lq0uj61w/Yuq+yzOhzFe6Bpeo59dA==}
+    dev: false
+
+  /tlsn-wasm@0.1.0-alpha.8:
+    resolution: {integrity: sha512-5Jakx7asg9BX+7owfNsLPTnRdI2uVug11sJ0hh0509w1dHJHAHQ2oi4i7PupACHKDlS/iQL3UNTv6vK6+QKctw==}
     dev: false
 
   /tmp@0.0.33:
@@ -8491,7 +8507,7 @@ packages:
     resolution: {integrity: sha512-b17KeDIQVjvb0ssuSDF2cYXSg2iztliJ4B9WdsuB6J952qCPKmnVq4DyW5motImXHDC1cBT/1UezrJVsKw5zjg==}
     engines: {node: '>=0.8.0'}
     dependencies:
-      http-parser-js: 0.5.8
+      http-parser-js: 0.5.9
       safe-buffer: 5.2.1
       websocket-extensions: 0.1.4
     dev: true

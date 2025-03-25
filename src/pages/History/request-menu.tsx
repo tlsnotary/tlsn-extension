@@ -33,6 +33,7 @@ export default function RequestMenu({
   const request = useRequestHistory(requestId);
   const [showingShareConfirmation, setShowingShareConfirmation] =
     useState(false);
+  const [showRemoveModal, setShowRemoveModal] = useState(false);
 
   const onRetry = useCallback(async () => {
     const notaryUrl = await getNotaryApi();
@@ -64,6 +65,12 @@ export default function RequestMenu({
           showMenu={showMenu}
         />
       )}
+      <RemoveHistory
+        onRemove={onDelete}
+        showRemovalModal={showRemoveModal}
+        setShowRemoveModal={setShowRemoveModal}
+        onCancel={() => setShowRemoveModal(false)}
+      />
       <div
         className="fixed top-0 left-0 w-screen h-screen z-10 cursor-default"
         onClick={(e) => {
@@ -116,8 +123,7 @@ export default function RequestMenu({
             className="border-b border-slate-300 !text-red-500"
             onClick={(e) => {
               e.stopPropagation();
-              onDelete();
-              showMenu(false);
+              setShowRemoveModal(true);
             }}
           >
             Delete
@@ -251,6 +257,51 @@ function ShareConfirmationModal({
           </>
         )}
       </div>
+    </Modal>
+  );
+}
+
+export function RemoveHistory(props: {
+  onRemove: () => void;
+  showRemovalModal: boolean;
+  setShowRemoveModal: (show: boolean) => void;
+  onCancel: () => void;
+}): ReactElement {
+  const { onRemove, setShowRemoveModal, showRemovalModal } = props;
+
+  const onCancel = useCallback(() => {
+    setShowRemoveModal(false);
+  }, [showRemovalModal]);
+  return !showRemovalModal ? (
+    <></>
+  ) : (
+    <Modal
+      onClose={onCancel}
+      className="flex flex-col items-center text-base cursor-default justify-center !w-auto mx-4 my-[50%] p-4 gap-4"
+    >
+      <ModalContent className="flex flex-col w-full gap-4 items-center text-base justify-center">
+        <div className="text-base">
+          Are you sure you want to delete this attestation?
+        </div>
+        <div className="mb-1">
+          <span className="text-red-500 font-bold">Warning:</span> this cannot
+          be undone.
+        </div>
+        <div className="flex flex-row gap-2 justify-end">
+          <button
+            className="m-0 w-24 bg-slate-100 text-slate-300 hover:bg-slate-200 hover:text-slate-500"
+            onClick={onCancel}
+          >
+            Cancel
+          </button>
+          <button
+            className="m-0 w-24 bg-red-100 text-red-300 hover:bg-red-200 hover:text-red-500"
+            onClick={onRemove}
+          >
+            Delete
+          </button>
+        </div>
+      </ModalContent>
     </Modal>
   );
 }

@@ -23,6 +23,18 @@ export const openSidePanel = async () => {
   const { promise, resolve, reject } = deferredPromise();
 
   try {
+    const response = await browser.runtime.sendMessage({
+      type: SidePanelActionTypes.is_panel_open,
+    });
+
+    if (response?.isOpen) {
+      await browser.runtime.sendMessage({
+        type: SidePanelActionTypes.reset_panel,
+      });
+      resolve();
+      return promise;
+    }
+
     const [tab] = await browser.tabs.query({
       active: true,
       currentWindow: true,

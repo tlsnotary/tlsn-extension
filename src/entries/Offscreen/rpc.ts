@@ -6,17 +6,17 @@ import {
 } from '../Background/rpc';
 import { Method } from 'tlsn-wasm';
 import {
+  mapStringToRange,
   NotaryServer,
   Presentation as TPresentation,
   Prover as TProver,
+  subtractRanges,
   Transcript,
   Verifier as TVerifier,
 } from 'tlsn-js';
-import { devlog, urlify } from '../../utils/misc';
+import { convertNotaryWsToHttp, devlog, urlify } from '../../utils/misc';
 import * as Comlink from 'comlink';
 import { PresentationJSON as PresentationJSONa7 } from 'tlsn-js/build/types';
-import { subtractRanges } from './utils';
-import { mapSecretsToRange } from '../Background/plugins/utils';
 import { OffscreenActionTypes } from './types';
 import { PresentationJSON } from '../../utils/types';
 import { verify } from 'tlsn-js-v5';
@@ -105,7 +105,7 @@ export const onCreateProverRequest = async (request: any) => {
 };
 
 export const onCreatePresentationRequest = async (request: any) => {
-  const { id, commit } = request.data;
+  const { id, commit, notaryUrl, websocketProxyUrl } = request.data;
   const prover = provers[id];
 
   try {
@@ -121,13 +121,20 @@ export const onCreatePresentationRequest = async (request: any) => {
       websocketProxyUrl: notarizationOutputs.websocketProxyUrl,
       reveal: commit,
     })) as TPresentation;
-    const presentationJSON = await presentation.json();
+    const json = await presentation.json();
 
     browser.runtime.sendMessage({
       type: BackgroundActiontype.finish_prove_request,
       data: {
         id,
-        proof: presentationJSON,
+        proof: {
+          ...json,
+          meta: {
+            ...json.meta,
+            notaryUrl,
+            websocketProxyUrl,
+          },
+        },
       },
     });
 
@@ -176,7 +183,12 @@ export const onVerifyProof = async (request: any, sendResponse: any) => {
 
 export const onVerifyProofRequest = async (request: any) => {
   const proof: PresentationJSON = request.data.proof;
-  const result: { sent: string; recv: string } = await verifyProof(proof);
+  const result: {
+    sent: string;
+    recv: string;
+    verifierKey?: string;
+    notaryKey?: string;
+  } = await verifyProof(proof);
 
   chrome.runtime.sendMessage<any, string>({
     type: BackgroundActiontype.finish_prove_request,
@@ -185,6 +197,8 @@ export const onVerifyProofRequest = async (request: any) => {
       verification: {
         sent: result.sent,
         recv: result.recv,
+        verifierKey: result.verifierKey,
+        notaryKey: result.notaryKey,
       },
     },
   });
@@ -315,25 +329,18 @@ export const startP2PProver = async (request: any) => {
 
   const commit = {
     sent: subtractRanges(
-      transcript.ranges.sent.all,
-      mapSecretsToRange(secretHeaders, transcript.sent),
+      { start: 0, end: transcript.sent.length },
+      mapStringToRange(
+        secretHeaders,
+        Buffer.from(transcript.sent).toString('utf-8'),
+      ),
     ),
     recv: subtractRanges(
-      transcript.ranges.recv.all,
-      secretResps
-        .map((secret: string) => {
-          const index = transcript.recv.indexOf(secret);
-          return index > -1
-            ? {
-                start: index,
-                end: index + secret.length,
-              }
-            : null;
-        })
-        .filter((data: any) => !!data) as {
-        start: number;
-        end: number;
-      }[],
+      { start: 0, end: transcript.recv.length },
+      mapStringToRange(
+        secretResps,
+        Buffer.from(transcript.recv).toString('utf-8'),
+      ),
     ),
   };
 
@@ -401,12 +408,18 @@ async function createProof(options: {
 
   const commit = {
     sent: subtractRanges(
-      transcript.ranges.sent.all,
-      mapSecretsToRange(secretHeaders, transcript.sent),
+      { start: 0, end: transcript.sent.length },
+      mapStringToRange(
+        secretHeaders,
+        Buffer.from(transcript.sent).toString('utf-8'),
+      ),
     ),
     recv: subtractRanges(
-      transcript.ranges.recv.all,
-      mapSecretsToRange(secretResps, transcript.recv),
+      { start: 0, end: transcript.recv.length },
+      mapStringToRange(
+        secretResps,
+        Buffer.from(transcript.recv).toString('utf-8'),
+      ),
     ),
   };
 
@@ -421,7 +434,16 @@ async function createProof(options: {
     reveal: commit,
   })) as TPresentation;
 
-  return presentation.json();
+  const json = await presentation.json();
+
+  return {
+    ...json,
+    meta: {
+      ...json,
+      notaryUrl: notaryUrl,
+      websocketProxyUrl: websocketProxyUrl,
+    },
+  };
 }
 
 async function createProver(options: {
@@ -495,31 +517,48 @@ async function createProver(options: {
   return prover;
 }
 
-async function verifyProof(
-  proof: PresentationJSON,
-): Promise<{ sent: string; recv: string }> {
-  let result: { sent: string; recv: string };
+async function verifyProof(proof: PresentationJSON): Promise<{
+  sent: string;
+  recv: string;
+  verifierKey?: string;
+  notaryKey?: string;
+}> {
+  let result: {
+    sent: string;
+    recv: string;
+    verifierKey?: string;
+    notaryKey?: string;
+  };
 
   switch (proof.version) {
     case undefined: {
       result = await verify(proof);
       break;
     }
-    case '0.1.0-alpha.7': {
+    case '0.1.0-alpha.7':
+    case '0.1.0-alpha.8':
       const presentation: TPresentation = await new Presentation(proof.data);
       const verifierOutput = await presentation.verify();
       const transcript = new Transcript({
         sent: verifierOutput.transcript.sent,
         recv: verifierOutput.transcript.recv,
       });
+      const vk = await presentation.verifyingKey();
+      const verifyingKey = Buffer.from(vk.data).toString('hex');
+      const notaryUrl = proof.meta.notaryUrl
+        ? convertNotaryWsToHttp(proof.meta.notaryUrl)
+        : '';
+      const publicKey = await new NotaryServer(notaryUrl)
+        .publicKey()
+        .catch(() => '');
       result = {
         sent: transcript.sent(),
         recv: transcript.recv(),
+        verifierKey: verifyingKey,
+        notaryKey: publicKey,
       };
       break;
-    }
   }
-
   return result;
 }
 
