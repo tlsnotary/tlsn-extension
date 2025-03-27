@@ -8014,6 +8014,10 @@ packages:
     resolution: {integrity: sha512-5Jakx7asg9BX+7owfNsLPTnRdI2uVug11sJ0hh0509w1dHJHAHQ2oi4i7PupACHKDlS/iQL3UNTv6vK6+QKctw==}
     dev: false
 
+  /tlsn-wasm@0.1.0-alpha.8:
+    resolution: {integrity: sha512-5Jakx7asg9BX+7owfNsLPTnRdI2uVug11sJ0hh0509w1dHJHAHQ2oi4i7PupACHKDlS/iQL3UNTv6vK6+QKctw==}
+    dev: false
+
   /tmp@0.0.33:
     resolution: {integrity: sha512-jRCJlojKnZ3addtTOjdIqoRuPEKBvNXcGYqzO6zWZX8KfKEpnGY5jfggJQ3EjKuu8D4bJRr0y+cYJFmYbImXGw==}
     engines: {node: '>=0.6.0'}

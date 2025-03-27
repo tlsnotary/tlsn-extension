@@ -115,14 +115,15 @@ export async function setNotaryRequestError(
 export async function setNotaryRequestProgress(
   id: string,
   progress: RequestProgress,
+  errorMessage?: string,
 ): Promise<RequestHistory | null> {
   const existing = await historyDb.get(id);
-
   if (!existing) return null;
 
   const newReq: RequestHistory = {
     ...existing,
     progress,
+    errorMessage,
   };
 
   await historyDb.put(id, newReq);
