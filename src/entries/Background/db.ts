@@ -472,21 +472,29 @@ export async function clearHeaders(host: string) {
 export async function getHeadersByHost(
   link: string,
 ): Promise<Record<string, string>> {
-  const headers: Record<string, string> = {};
-  const sublevel = headersDb.sublevel(link);
+  const latestHeaders: Record<string, { value: string; timestamp: number }> = {};
 
   try {
-    for await (const [key, value] of sublevel.iterator({
+    for await (const [key, value] of headersDb.sublevel(link).iterator({
       keyEncoding: 'utf8',
       valueEncoding: 'utf8',
     })) {
       if (key === '__timestamp__') continue;
-      const parsed = parseHeaderValue(value);
-      headers[key] = parsed.value;
-    }
-  } catch (error) {}
 
-  return headers;
+      const parsed = parseHeaderValue(value);
+      if (
+        !latestHeaders[key] ||
+        parsed.timestamp > latestHeaders[key].timestamp
+      ) {
+        latestHeaders[key] = parsed;
+      }
+    }
+  } catch (error) {
+    console.error(`Error retrieving headers for ${link}:`, error);
+  }
+  return Object.fromEntries(
+    Object.entries(latestHeaders).map(([key, { value }]) => [key, value]),
+  );
 }
 
 function parseHeaderValue(rawValue: string): {
