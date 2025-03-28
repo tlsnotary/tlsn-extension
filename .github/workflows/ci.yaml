@@ -51,14 +51,12 @@ jobs:
           path: ./tlsn-extension-${{ github.ref_name }}.zip
 
       - name: 📦 Add extension zip file to release
-        uses: actions/upload-release-asset@v1
         env:
-          GITHUB_TOKEN: ${{ github.token }}
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: tlsn-extension-${{ github.ref_name }}.zip
-          asset_name: tlsn-extension-${{ github.ref_name }}.zip
-          asset_content_type: application/zip
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" \
+            ./tlsn-extension-${{ github.ref_name }}.zip \
+            --clobber
 
       # Get tokens as documented on 
       # * https://developer.chrome.com/docs/webstore/using-api#beforeyoubegin
