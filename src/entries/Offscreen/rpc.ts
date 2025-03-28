@@ -4,10 +4,10 @@ import {
   progressText,
   RequestProgress,
 } from '../Background/rpc';
-import { Method } from 'tlsn-wasm';
 import {
   mapStringToRange,
   NotaryServer,
+  Method,
   Presentation as TPresentation,
   Prover as TProver,
   subtractRanges,
