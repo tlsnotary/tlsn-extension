@@ -7,7 +7,6 @@ var webpack = require("webpack"),
   TerserPlugin = require("terser-webpack-plugin");
 var { CleanWebpackPlugin } = require("clean-webpack-plugin");
 var ReactRefreshWebpackPlugin = require("@pmmmwh/react-refresh-webpack-plugin");
-var ReactRefreshTypeScript = require("react-refresh-typescript");
 var ExtReloader = require('webpack-ext-reloader');
 
 const ASSET_PATH = process.env.ASSET_PATH || "/";
@@ -42,6 +41,9 @@ var options = {
     /Circular dependency between chunks with runtime/,
     /ResizeObserver loop completed with undelivered notifications/,
     /Should not import the named export/,
+    /Sass @import rules are deprecated and will be removed in Dart Sass 3.0.0/,
+    /Global built-in functions are deprecated and will be removed in Dart Sass 3.0.0./,
+    /repetitive deprecation warnings omitted/,
   ],
 
   entry: {
@@ -111,11 +113,6 @@ var options = {
           {
             loader: require.resolve("ts-loader"),
             options: {
-              getCustomTransformers: () => ({
-                before: [isDevelopment && ReactRefreshTypeScript()].filter(
-                  Boolean
-                ),
-              }),
               transpileOnly: isDevelopment,
             },
           },
