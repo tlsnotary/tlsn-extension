@@ -22,8 +22,7 @@ import browser from 'webextension-polyfill';
 import { OffscreenActionTypes } from '../Offscreen/types';
 import { getMaxRecv, getMaxSent, getRendezvousApi } from '../../utils/storage';
 import { SidePanelActionTypes } from '../SidePanel/types';
-import { Transcript } from 'tlsn-js';
-import { VerifierOutput } from 'tlsn-wasm';
+import { Transcript, VerifierOutput } from 'tlsn-js';
 
 const state: {
   clientId: string;

@@ -4,10 +4,10 @@ import {
   progressText,
   RequestProgress,
 } from '../Background/rpc';
-import { Method } from 'tlsn-wasm';
 import {
   mapStringToRange,
   NotaryServer,
+  Method,
   Presentation as TPresentation,
   Prover as TProver,
   subtractRanges,
@@ -544,6 +544,7 @@ async function verifyProof(proof: PresentationJSON): Promise<{
     }
     case '0.1.0-alpha.7':
     case '0.1.0-alpha.8':
+    case '0.1.0-alpha.9':
       const presentation: TPresentation = await new Presentation(proof.data);
       const verifierOutput = await presentation.verify();
       const transcript = new Transcript({
