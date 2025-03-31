@@ -94,14 +94,17 @@ export default function history(
     }
     case ActionType['/history/setRequests']: {
       const payload: RequestHistory[] = action.payload;
-      const newMap = payload.reduce((map: { [id: string]: RequestHistory }, req) => {
-        if (state.map[req.id]?.progress === RequestProgress.Error) {
-          map[req.id] = state.map[req.id];
-        } else {
-          map[req.id] = req;
-        }
-        return map;
-      }, {});
+      const newMap = payload.reduce(
+        (map: { [id: string]: RequestHistory }, req) => {
+          if (state.map[req.id]?.progress === RequestProgress.Error) {
+            map[req.id] = state.map[req.id];
+          } else {
+            map[req.id] = req;
+          }
+          return map;
+        },
+        {},
+      );
       return {
         ...state,
         map: newMap,

@@ -664,18 +664,18 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
   try {
     await Promise.race([proverPromise, timeoutPromise]);
   } catch (error: any) {
-      await setNotaryRequestStatus(id, 'error');
-      await setNotaryRequestError(id, error.message);
-      browser.runtime.sendMessage({
-        type: BackgroundActiontype.update_request_progress,
-        data: {
-          id,
-          progress: RequestProgress.Error,
-          error: error.message,
-        },
-      });
-      await pushToRedux(addRequestHistory(await getNotaryRequest(id)));
-      throw error;
+    await setNotaryRequestStatus(id, 'error');
+    await setNotaryRequestError(id, error.message);
+    browser.runtime.sendMessage({
+      type: BackgroundActiontype.update_request_progress,
+      data: {
+        id,
+        progress: RequestProgress.Error,
+        error: error.message,
+      },
+    });
+    await pushToRedux(addRequestHistory(await getNotaryRequest(id)));
+    throw error;
   }
 }
 
