@@ -472,7 +472,8 @@ export async function clearHeaders(host: string) {
 export async function getHeadersByHost(
   link: string,
 ): Promise<Record<string, string>> {
-  const latestHeaders: Record<string, { value: string; timestamp: number }> = {};
+  const latestHeaders: Record<string, { value: string; timestamp: number }> =
+    {};
 
   try {
     for await (const [key, value] of headersDb.sublevel(link).iterator({
