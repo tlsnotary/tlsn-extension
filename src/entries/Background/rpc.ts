@@ -664,7 +664,6 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
   try {
     await Promise.race([proverPromise, timeoutPromise]);
   } catch (error: any) {
-    if (error.message === 'Notarization Timed Out') {
       await setNotaryRequestStatus(id, 'error');
       await setNotaryRequestError(id, error.message);
       browser.runtime.sendMessage({
@@ -677,8 +676,6 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
       });
       await pushToRedux(addRequestHistory(await getNotaryRequest(id)));
       throw error;
-    }
-    throw error;
   }
 }
 
