@@ -126,7 +126,6 @@ export const onCreatePresentationRequest = async (request: any) => {
       reveal: commit,
     })) as TPresentation;
     const json = await presentation.json();
-
     browser.runtime.sendMessage({
       type: BackgroundActiontype.finish_prove_request,
       data: {
@@ -439,7 +438,6 @@ async function createProof(options: {
   })) as TPresentation;
 
   const json = await presentation.json();
-
   return {
     ...json,
     meta: {
