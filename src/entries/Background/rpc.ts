@@ -167,9 +167,13 @@ export enum RequestProgress {
   SendingRequest,
   ReadingTranscript,
   FinalizingOutputs,
+  Error,
 }
 
-export function progressText(progress: RequestProgress): string {
+export function progressText(
+  progress: RequestProgress,
+  errorMessage?: string,
+): string {
   switch (progress) {
     case RequestProgress.CreatingProver:
       return 'Creating prover...';
@@ -183,6 +187,8 @@ export function progressText(progress: RequestProgress): string {
       return 'Reading request transcript...';
     case RequestProgress.FinalizingOutputs:
       return 'Finalizing notarization outputs...';
+    case RequestProgress.Error:
+      return errorMessage ? errorMessage : 'Error: Notarization Failed';
   }
 }
 
@@ -210,6 +216,7 @@ export type RequestHistory = {
   secretHeaders?: string[];
   secretResps?: string[];
   cid?: string;
+  errorMessage?: string;
   metadata?: {
     [k: string]: string;
   };
@@ -430,9 +437,9 @@ async function handleUpdateRequestProgress(
   request: BackgroundAction,
   sendResponse: (data?: any) => void,
 ) {
-  const { id, progress } = request.data;
+  const { id, progress, errorMessage } = request.data;
 
-  const newReq = await setNotaryRequestProgress(id, progress);
+  const newReq = await setNotaryRequestProgress(id, progress, errorMessage);
   if (!newReq) return;
   await pushToRedux(addRequestHistory(await getNotaryRequest(id)));
 
@@ -553,69 +560,82 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
   });
 
   await setNotaryRequestStatus(id, 'pending');
-
   await pushToRedux(addRequestHistory(await getNotaryRequest(id)));
 
-  const onProverResponse = async (request: any) => {
-    const { data, type } = request;
+  let listenerActive = true;
+  let responseListener: (request: any) => void;
 
-    if (type !== OffscreenActionTypes.create_prover_response) {
-      return;
-    }
+  const proverPromise = new Promise<void>((resolve, reject) => {
+    responseListener = async (request: any) => {
+      if (!listenerActive) return;
 
-    if (data.error) {
-      console.error(data.error);
-      return;
-    }
+      const { data, type } = request;
 
-    if (data.id !== id) {
-      return;
-    }
+      if (type !== OffscreenActionTypes.create_prover_response) {
+        return;
+      }
 
-    const transcript: { recv: number[]; sent: number[] } = data.transcript;
+      if (data.id !== id) {
+        return;
+      }
 
-    const { body: recvBody } = parseHttpMessage(
-      Buffer.from(transcript.recv),
-      'response',
-    );
+      try {
+        if (data.error) {
+          throw new Error(data.error);
+        }
 
-    if (getSecretResponse) {
-      secretResps = await getSecretResponseFn(
-        ...recvBody.map((body) => body.toString('utf-8')),
-      );
-    }
+        const transcript: { recv: number[]; sent: number[] } = data.transcript;
 
-    const commit = {
-      sent: subtractRanges(
-        { start: 0, end: transcript.sent.length },
-        mapStringToRange(
-          secretHeaders,
-          Buffer.from(transcript.sent).toString('utf-8'),
-        ),
-      ),
-      recv: subtractRanges(
-        { start: 0, end: transcript.recv.length },
-        mapStringToRange(
-          secretResps,
-          Buffer.from(transcript.recv).toString('utf-8'),
-        ),
-      ),
+        const { body: recvBody } = parseHttpMessage(
+          Buffer.from(transcript.recv),
+          'response',
+        );
+
+        if (getSecretResponse) {
+          secretResps = await getSecretResponseFn(
+            ...recvBody.map((body) => body.toString('utf-8')),
+          );
+        }
+
+        const commit = {
+          sent: subtractRanges(
+            { start: 0, end: transcript.sent.length },
+            mapStringToRange(
+              secretHeaders,
+              Buffer.from(transcript.sent).toString('utf-8'),
+            ),
+          ),
+          recv: subtractRanges(
+            { start: 0, end: transcript.recv.length },
+            mapStringToRange(
+              secretResps,
+              Buffer.from(transcript.recv).toString('utf-8'),
+            ),
+          ),
+        };
+
+        browser.runtime.sendMessage({
+          type: OffscreenActionTypes.create_presentation_request,
+          data: {
+            id,
+            commit,
+            notaryUrl,
+            websocketProxyUrl,
+          },
+        });
+
+        resolve();
+      } catch (error) {
+        console.error('Prover response error:', error);
+        reject(error);
+      } finally {
+        listenerActive = false;
+        browser.runtime.onMessage.removeListener(responseListener);
+      }
     };
 
-    browser.runtime.sendMessage({
-      type: OffscreenActionTypes.create_presentation_request,
-      data: {
-        id,
-        commit,
-        notaryUrl,
-        websocketProxyUrl,
-      },
-    });
-
-    browser.runtime.onMessage.removeListener(onProverResponse);
-  };
-
-  browser.runtime.onMessage.addListener(onProverResponse);
+    browser.runtime.onMessage.addListener(responseListener);
+  });
 
   browser.runtime.sendMessage({
     type: OffscreenActionTypes.create_prover_request,
@@ -631,6 +651,34 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
       maxSentData,
     },
   });
+
+  const timeoutPromise = new Promise((_, reject) => {
+    setTimeout(() => {
+      if (listenerActive) {
+        listenerActive = false;
+        browser.runtime.onMessage.removeListener(responseListener);
+        reject(new Error('Notarization Timed Out'));
+      }
+      // 3 minute timeout
+    }, 180000);
+  });
+
+  try {
+    await Promise.race([proverPromise, timeoutPromise]);
+  } catch (error: any) {
+    await setNotaryRequestStatus(id, 'error');
+    await setNotaryRequestError(id, error.message);
+    browser.runtime.sendMessage({
+      type: BackgroundActiontype.update_request_progress,
+      data: {
+        id,
+        progress: RequestProgress.Error,
+        error: error.message,
+      },
+    });
+    await pushToRedux(addRequestHistory(await getNotaryRequest(id)));
+    throw error;
+  }
 }
 
 async function handleGetSecretsFromTranscript(

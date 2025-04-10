@@ -1,23 +1,20 @@
 import React, { ReactElement, useState, useCallback } from 'react';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router';
-import {
-  useHistoryOrder,
-  useRequestHistory,
-  deleteRequestHistory,
-} from '../../reducers/history';
+import { useHistoryOrder, useRequestHistory } from '../../reducers/history';
 import Icon from '../../components/Icon';
 import NotarizeIcon from '../../assets/img/notarize.png';
-import { getNotaryApi, getProxyApi } from '../../utils/storage';
 import { urlify } from '../../utils/misc';
 import {
   BackgroundActiontype,
   progressText,
+  RequestProgress,
 } from '../../entries/Background/rpc';
 import Modal, { ModalContent } from '../../components/Modal/Modal';
 import classNames from 'classnames';
 import dayjs from 'dayjs';
 import RequestMenu from './request-menu';
+
 const charwise = require('charwise');
 
 export default function History(): ReactElement {
@@ -110,12 +107,14 @@ export function OneRequestHistory(props: {
                 size={1}
               />
               <span className="">
-                {request?.progress
-                  ? `(${(
-                      ((request.progress + 1) / 6.06) *
-                      100
-                    ).toFixed()}%) ${progressText(request.progress)}`
-                  : 'Pending...'}
+                {request?.progress === RequestProgress.Error
+                  ? `${progressText(request.progress, request.errorMessage)}`
+                  : request?.progress
+                    ? `(${(
+                        ((request.progress + 1) / 6.06) *
+                        100
+                      ).toFixed()}%) ${progressText(request.progress)}`
+                    : 'Pending...'}
               </span>
             </div>
           )}
@@ -155,7 +154,7 @@ export function OneRequestHistory(props: {
         onClose={closeAllModal}
       >
         <ModalContent className="flex justify-center items-center text-slate-500">
-          {msg || 'Something went wrong :('}
+          {msg || request?.errorMessage}
         </ModalContent>
         <button
           className="m-0 w-24 bg-red-100 text-red-300 hover:bg-red-200 hover:text-red-500"
