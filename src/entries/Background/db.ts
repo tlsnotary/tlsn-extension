@@ -4,6 +4,7 @@ import { RequestHistory, RequestProgress } from './rpc';
 import mutex from './mutex';
 import { minimatch } from 'minimatch';
 const charwise = require('charwise');
+import { safeParseJSON } from '../../utils/misc';
 
 export const db = new Level('./ext-db', {
   valueEncoding: 'json',
@@ -23,10 +24,10 @@ const pluginMetadataDb = db.sublevel<string, PluginMetadata>('pluginMetadata', {
 const connectionDb = db.sublevel<string, boolean>('connections', {
   valueEncoding: 'json',
 });
-const cookiesDb = db.sublevel<string, boolean>('cookies', {
+export const cookiesDb = db.sublevel<string, boolean>('cookies', {
   valueEncoding: 'json',
 });
-const headersDb = db.sublevel<string, boolean>('headers', {
+export const headersDb = db.sublevel<string, boolean>('headers', {
   valueEncoding: 'json',
 });
 const localStorageDb = db.sublevel<string, any>('sessionStorage', {
@@ -335,49 +336,40 @@ export async function setConnection(origin: string) {
   return true;
 }
 
-export async function setCookies(host: string, name: string, value: string) {
+async function setValue(
+  db: typeof cookiesDb | typeof headersDb,
+  key: string,
+  name: string,
+  value: string,
+): Promise<boolean> {
   return mutex.runExclusive(async () => {
-    await cookiesDb.sublevel(host).put(name, value);
+    const sublevel = db.sublevel(key);
+    const timestampSublevel = sublevel.sublevel('timestamp');
+    const timestamp = Date.now();
+
+    await Promise.all([
+      sublevel.put(name, value),
+      timestampSublevel.put(name, timestamp.toString()),
+    ]);
     return true;
   });
 }
 
-export async function clearCookies(host: string) {
-  return mutex.runExclusive(async () => {
-    await cookiesDb.sublevel(host).clear();
-    return true;
-  });
+export async function setCookies(
+  host: string,
+  name: string,
+  value: string,
+): Promise<boolean> {
+  return setValue(cookiesDb, host, name, value);
 }
 
-export async function getCookies(link: string, name: string) {
-  try {
-    const existing = await cookiesDb.sublevel(link).get(name);
-    return existing;
-  } catch (e) {
-    return null;
-  }
-}
-
-export async function getCookiesByHost(link: string) {
-  const ret: { [key: string]: string } = {};
-  const links: { [k: string]: boolean } = {};
-  const url = urlify(link);
-
-  for await (const sublevel of cookiesDb.keys({ keyEncoding: 'utf8' })) {
-    const l = sublevel.split('!')[1];
-    links[l] = true;
-  }
-
-  const cookieLink = url
-    ? Object.keys(links).filter((l) => minimatch(l, link))[0]
-    : Object.keys(links).filter((l) => urlify(l)?.host === link)[0];
-
-  if (!cookieLink) return ret;
-
-  for await (const [key, value] of cookiesDb.sublevel(cookieLink).iterator()) {
-    ret[key] = value;
-  }
-  return ret;
+export async function setHeaders(
+  link: string,
+  name: string,
+  value?: string,
+): Promise<boolean | null> {
+  if (!value) return null;
+  return setValue(headersDb, link, name, value);
 }
 
 export async function deleteConnection(origin: string) {
@@ -397,14 +389,6 @@ export async function getConnection(origin: string) {
   }
 }
 
-export async function setHeaders(link: string, name: string, value?: string) {
-  if (!value) return null;
-  return mutex.runExclusive(async () => {
-    await headersDb.sublevel(link).put(name, value);
-    return true;
-  });
-}
-
 export async function clearHeaders(host: string) {
   return mutex.runExclusive(async () => {
     await headersDb.sublevel(host).clear();
@@ -412,34 +396,67 @@ export async function clearHeaders(host: string) {
   });
 }
 
-export async function getHeaders(host: string, name: string) {
+function parseValue(rawValue: string): string {
   try {
-    const existing = await headersDb.sublevel(host).get(name);
-    return existing;
-  } catch (e) {
-    return null;
+    const parsed = safeParseJSON(rawValue);
+    return parsed && typeof parsed === 'object' && 'value' in parsed
+      ? parsed.value
+      : rawValue;
+  } catch {
+    return rawValue;
   }
 }
-export async function getHeadersByHost(link: string) {
-  const ret: { [key: string]: string } = {};
+
+async function getValuesByHost(
+  db: typeof cookiesDb | typeof headersDb,
+  link: string,
+  type: 'cookie' | 'header',
+): Promise<{ [key: string]: string }> {
+  const ret: { [key: string]: { value: string; timestamp: number } } = {};
+  const links: { [k: string]: boolean } = {};
   const url = urlify(link);
 
-  const links: { [k: string]: boolean } = {};
-  for await (const sublevel of headersDb.keys({ keyEncoding: 'utf8' })) {
-    const l = sublevel.split('!')[1];
+  for await (const sublevel of db.keys({ keyEncoding: 'utf8' })) {
+    const l = sublevel.split('!')[1] || sublevel;
     links[l] = true;
   }
 
-  const headerLink = url
-    ? Object.keys(links).filter((l) => minimatch(l, link))[0]
+  const matchedLink = url
+    ? Object.keys(links).filter((l) => l === link || minimatch(l, link))[0]
     : Object.keys(links).filter((l) => urlify(l)?.host === link)[0];
 
-  if (!headerLink) return ret;
+  if (!matchedLink) return {};
 
-  for await (const [key, value] of headersDb.sublevel(headerLink).iterator()) {
-    ret[key] = value;
+  const sublevel = db.sublevel(matchedLink);
+  const timestampSublevel = sublevel.sublevel('timestamp');
+
+  for await (const [key, rawValue] of sublevel.iterator({
+    valueEncoding: 'utf8',
+  })) {
+    if (key === 'timestamp' || key.startsWith('!timestamp!')) continue;
+
+    const timestamp =
+      parseInt(await timestampSublevel.get(key).catch(() => '0'), 10) || 0;
+    const value = parseValue(rawValue);
+
+    if (!ret[key] || timestamp > ret[key].timestamp) {
+      ret[key] = { value, timestamp };
+    }
   }
-  return ret;
+
+  return Object.fromEntries(Object.entries(ret).map(([k, v]) => [k, v.value]));
+}
+
+export async function getCookiesByHost(
+  link: string,
+): Promise<{ [key: string]: string }> {
+  return getValuesByHost(cookiesDb, link, 'cookie');
+}
+
+export async function getHeadersByHost(
+  link: string,
+): Promise<{ [key: string]: string }> {
+  return getValuesByHost(headersDb, link, 'header');
 }
 
 export async function setLocalStorage(
