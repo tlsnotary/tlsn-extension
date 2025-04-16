@@ -25,7 +25,11 @@ at your option.
 
 ## Installing and Running
 
-### Procedures:
+The easiest way to install the TLSN browser extension is to use the [Chrome Web Store](https://chromewebstore.google.com/detail/tlsn-extension/gcfkkledipjbgdbimfpijgbkhajiaaph).
+
+You can also build and run it locally as explained in the following steps.
+
+### Procedure:
 
 1. Check if your [Node.js](https://nodejs.org/) version is >= **18**.
 2. Clone this repository.
