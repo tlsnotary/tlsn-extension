@@ -225,11 +225,12 @@ export const makePlugin = async (
 
         if (meta?.p2p) {
           const pluginHex = Buffer.from(arrayBuffer).toString('hex');
+          const pluginUrl = await sha256(pluginHex);
           handleExecP2PPluginProver({
             type: BackgroundActiontype.execute_p2p_plugin_prover,
             data: {
               ...params,
-              pluginHash: await sha256(pluginHex),
+              pluginUrl,
               pluginHex,
               body: reqBody,
               now,
@@ -246,7 +247,7 @@ export const makePlugin = async (
                 return new Promise((resolve) => {
                   setTimeout(async () => {
                     const out = await plugin.call(getSecretResponse, body);
-                    resolve(JSON.parse(out.string()));
+                    resolve(JSON.parse(out?.string() || '{}'));
                   }, 0);
                 });
               },

@@ -249,7 +249,7 @@ export const startP2PVerifier = async (request: any) => {
 
 export const startP2PProver = async (request: any) => {
   const {
-    pluginHash,
+    pluginUrl,
     pluginHex,
     url,
     method,
@@ -266,7 +266,7 @@ export const startP2PProver = async (request: any) => {
   const hostname = urlify(url)?.hostname || '';
 
   const prover: TProver = await new Prover({
-    id: pluginHash,
+    id: pluginUrl,
     serverDns: hostname,
     maxSentData,
     maxRecvData,
@@ -275,7 +275,7 @@ export const startP2PProver = async (request: any) => {
   browser.runtime.sendMessage({
     type: BackgroundActiontype.prover_instantiated,
     data: {
-      pluginHash,
+      pluginUrl,
     },
   });
 
@@ -288,7 +288,7 @@ export const startP2PProver = async (request: any) => {
   browser.runtime.sendMessage({
     type: BackgroundActiontype.prover_setup,
     data: {
-      pluginHash,
+      pluginUrl,
     },
   });
 
@@ -296,7 +296,7 @@ export const startP2PProver = async (request: any) => {
   browser.runtime.sendMessage({
     type: BackgroundActiontype.prover_started,
     data: {
-      pluginHash,
+      pluginUrl,
     },
   });
   await proofRequestStart;
@@ -315,7 +315,7 @@ export const startP2PProver = async (request: any) => {
     browser.runtime.sendMessage({
       type: BackgroundActiontype.get_secrets_from_transcript,
       data: {
-        pluginHash,
+        pluginUrl,
         pluginHex,
         method: getSecretResponse,
         transcript,

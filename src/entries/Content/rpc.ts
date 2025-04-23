@@ -1,13 +1,8 @@
 import { deferredPromise, PromiseResolvers } from '../../utils/promise';
 
 export enum ContentScriptTypes {
-  connect = 'tlsn/cs/connect',
-  get_history = 'tlsn/cs/get_history',
-  get_proof = 'tlsn/cs/get_proof',
   notarize = 'tlsn/cs/notarize',
-  install_plugin = 'tlsn/cs/install_plugin',
-  get_plugins = 'tlsn/cs/get_plugins',
-  run_plugin = 'tlsn/cs/run_plugin',
+  run_plugin_by_url = 'tlsn/cs/run_plugin_by_url',
 }
 
 export type ContentScriptRequest<params> = {

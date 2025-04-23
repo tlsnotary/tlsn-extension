@@ -17,7 +17,7 @@ import {
   setPairing,
 } from '../../reducers/p2p';
 import { pushToRedux } from '../utils';
-import { getPluginByHash } from './db';
+import { getPluginByUrl } from './db';
 import browser from 'webextension-polyfill';
 import { OffscreenActionTypes } from '../Offscreen/types';
 import { getMaxRecv, getMaxSent, getRendezvousApi } from '../../utils/storage';
@@ -185,7 +185,7 @@ export const connectSession = async () => {
       }
       case 'request_proof_by_hash': {
         const { pluginHash, from } = message.params;
-        const plugin = await getPluginByHash(pluginHash);
+        const plugin = await getPluginByUrl(pluginHash);
         if (plugin) {
           state.incomingProofRequests = [
             ...new Set(state.incomingProofRequests.concat(plugin)),
@@ -336,7 +336,7 @@ async function handleRemoveIncomingProofRequest(message: {
   params: { pluginHash: string };
 }) {
   const { pluginHash } = message.params;
-  const plugin = await getPluginByHash(pluginHash);
+  const plugin = await getPluginByUrl(pluginHash);
   const incomingProofRequest = [];
   for (const hex of state.incomingProofRequests) {
     if (plugin) {
@@ -424,7 +424,7 @@ export async function sendPairedMessage(method: string, params?: any) {
 }
 
 export const requestProof = async (pluginHash: string) => {
-  const pluginHex = await getPluginByHash(pluginHash);
+  const pluginHex = await getPluginByUrl(pluginHash);
   sendPairedMessage('request_proof', {
     plugin: pluginHex,
     pluginHash,

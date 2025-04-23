@@ -18,13 +18,13 @@ import {
   progressText,
   RequestProgress,
 } from '../Background/rpc';
-import { getPluginByHash, getPluginConfigByHash } from '../Background/db';
+import { getPluginByUrl, getPluginConfigByUrl } from '../Background/db';
 import { SidePanelActionTypes } from './types';
 import { fetchP2PState, useClientId } from '../../reducers/p2p';
 
 export default function SidePanel(): ReactElement {
   const [config, setConfig] = useState<PluginConfig | null>(null);
-  const [hash, setHash] = useState('');
+  const [url, setUrl] = useState('');
   const [hex, setHex] = useState('');
   const [p2p, setP2P] = useState(false);
   const [params, setParams] = useState<Record<string, string> | undefined>();
@@ -44,8 +44,8 @@ export default function SidePanel(): ReactElement {
 
       switch (type) {
         case SidePanelActionTypes.execute_plugin_request: {
-          setConfig(await getPluginConfigByHash(data.pluginHash));
-          setHash(data.pluginHash);
+          setConfig(await getPluginConfigByUrl(data.pluginUrl));
+          setUrl(data.pluginUrl);
           setParams(data.pluginParams);
           setStarted(true);
           break;
@@ -53,10 +53,10 @@ export default function SidePanel(): ReactElement {
         case SidePanelActionTypes.run_p2p_plugin_request: {
           const { pluginHash, plugin } = data;
           const config =
-            (await getPluginConfigByHash(pluginHash)) ||
+            (await getPluginConfigByUrl(pluginHash)) ||
             (await getPluginConfig(hexToArrayBuffer(plugin)));
 
-          setHash(pluginHash);
+          setUrl(pluginHash);
           setHex(plugin);
           setP2P(true);
           setConfig(config);
@@ -71,7 +71,7 @@ export default function SidePanel(): ReactElement {
         }
         case SidePanelActionTypes.reset_panel: {
           setConfig(null);
-          setHash('');
+          setUrl('');
           setHex('');
           setStarted(false);
           break;
@@ -94,7 +94,7 @@ export default function SidePanel(): ReactElement {
       {/*{!config && <PluginList />}*/}
       {started && config && (
         <PluginBody
-          hash={hash}
+          url={url}
           hex={hex}
           config={config}
           p2p={p2p}
@@ -106,15 +106,21 @@ export default function SidePanel(): ReactElement {
   );
 }
 
-function PluginBody(props: {
+function PluginBody({
+  url,
+  hex,
+  config,
+  p2p,
+  clientId,
+  presetParameterValues,
+}: {
   config: PluginConfig;
-  hash: string;
+  url: string;
   hex?: string;
   clientId?: string;
   p2p?: boolean;
   presetParameterValues?: Record<string, string>;
 }): ReactElement {
-  const { hash, hex, config, p2p, clientId, presetParameterValues } = props;
   const { title, description, icon, steps } = config;
   const [responses, setResponses] = useState<any[]>([]);
   const [notarizationId, setNotarizationId] = useState('');
@@ -129,7 +135,7 @@ function PluginBody(props: {
         setNotarizationId(response);
       }
     },
-    [hash, responses],
+    [url, responses],
   );
 
   useEffect(() => {
@@ -137,7 +143,7 @@ function PluginBody(props: {
       browser.runtime.sendMessage({
         type: SidePanelActionTypes.execute_plugin_response,
         data: {
-          hash,
+          url,
           proof: notaryRequest.proof,
         },
       });
@@ -145,12 +151,12 @@ function PluginBody(props: {
       browser.runtime.sendMessage({
         type: SidePanelActionTypes.execute_plugin_response,
         data: {
-          hash,
+          url,
           error: notaryRequest.error,
         },
       });
     }
-  }, [hash, notaryRequest?.status]);
+  }, [url, notaryRequest?.status]);
 
   return (
     <div className="flex flex-col p-4">
@@ -167,7 +173,7 @@ function PluginBody(props: {
         {steps?.map((step, i) => (
           <StepContent
             key={i}
-            hash={hash}
+            url={url}
             config={config}
             hex={hex}
             index={i}
@@ -187,7 +193,7 @@ function PluginBody(props: {
 
 function StepContent(
   props: StepConfig & {
-    hash: string;
+    url: string;
     hex?: string;
     clientId?: string;
     index: number;
@@ -208,7 +214,7 @@ function StepContent(
     setResponse,
     lastResponse,
     prover,
-    hash,
+    url,
     hex: _hex,
     config,
     p2p = false,
@@ -222,10 +228,10 @@ function StepContent(
   const notaryRequest = useRequestHistory(notarizationId);
 
   const getPlugin = useCallback(async () => {
-    const hex = (await getPluginByHash(hash)) || _hex;
+    const hex = (await getPluginByUrl(url)) || _hex;
     const arrayBuffer = hexToArrayBuffer(hex!);
     return makePlugin(arrayBuffer, config, { p2p, clientId });
-  }, [hash, _hex, config, p2p, clientId]);
+  }, [url, _hex, config, p2p, clientId]);
 
   const processStep = useCallback(async () => {
     const plugin = await getPlugin();
@@ -242,7 +248,6 @@ function StepContent(
           ? JSON.stringify(lastResponse)
           : JSON.stringify(parameterValues),
       );
-      console.log(out);
       const val = JSON.parse(out.string());
       if (val && prover) {
         setNotarizationId(val);

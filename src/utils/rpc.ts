@@ -2,10 +2,10 @@ import browser from 'webextension-polyfill';
 import { BackgroundActiontype } from '../entries/Background/rpc';
 import { PluginConfig } from './misc';
 
-export async function addPlugin(hex: string) {
+export async function addPlugin(hex: string, url: string) {
   return browser.runtime.sendMessage({
     type: BackgroundActiontype.add_plugin,
-    data: hex,
+    data: { hex, url },
   });
 }
 

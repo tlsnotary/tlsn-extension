@@ -23,7 +23,7 @@ import {
   PluginInfoModalContent,
   PluginInfoModalHeader,
 } from '../PluginInfo';
-import { getPluginConfigByHash } from '../../entries/Background/db';
+import { getPluginConfigByUrl } from '../../entries/Background/db';
 import { SidePanelActionTypes } from '../../entries/SidePanel/types';
 import { openSidePanel } from '../../entries/utils';
 
@@ -110,7 +110,7 @@ export function Plugin({
       if (hex) {
         setConfig(await getPluginConfig(hexToArrayBuffer(hex)));
       } else {
-        setConfig(await getPluginConfigByHash(hash));
+        setConfig(await getPluginConfigByUrl(hash));
       }
     })();
   }, [hash, hex]);

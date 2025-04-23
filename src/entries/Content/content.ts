@@ -95,9 +95,9 @@ class TLSN {
     return resp;
   }
 
-  async runPlugin(hash: string, params?: Record<string, string>) {
-    const resp = await client.call(ContentScriptTypes.run_plugin, {
-      hash,
+  async runPlugin(url: string, params?: Record<string, string>) {
+    const resp = await client.call(ContentScriptTypes.run_plugin_by_url, {
+      url,
       params,
     });
 
@@ -106,11 +106,7 @@ class TLSN {
 }
 
 const connect = async () => {
-  const resp = await client.call(ContentScriptTypes.connect);
-
-  if (resp) {
-    return new TLSN();
-  }
+  return new TLSN();
 };
 
 // @ts-ignore
