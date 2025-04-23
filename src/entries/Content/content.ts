@@ -1,40 +1,9 @@
 import { ContentScriptTypes, RPCClient } from './rpc';
-import { RequestHistory } from '../Background/rpc';
-import { PluginConfig, PluginMetadata } from '../../utils/misc';
 import { PresentationJSON } from '../../utils/types';
 
 const client = new RPCClient();
 
 class TLSN {
-  async getHistory(
-    method: string,
-    url: string,
-    metadata?: {
-      [key: string]: string;
-    },
-  ): Promise<
-    (Pick<
-      RequestHistory,
-      'id' | 'method' | 'notaryUrl' | 'url' | 'websocketProxyUrl'
-    > & { time: Date })[]
-  > {
-    const resp = await client.call(ContentScriptTypes.get_history, {
-      method,
-      url,
-      metadata,
-    });
-
-    return resp || [];
-  }
-
-  async getProof(id: string): Promise<PresentationJSON | null> {
-    const resp = await client.call(ContentScriptTypes.get_proof, {
-      id,
-    });
-
-    return resp || null;
-  }
-
   async notarize(
     url: string,
     requestOptions?: {
@@ -62,34 +31,6 @@ class TLSN {
       notaryUrl: proofOptions?.notaryUrl,
       websocketProxyUrl: proofOptions?.websocketProxyUrl,
       metadata: proofOptions?.metadata,
-    });
-
-    return resp;
-  }
-
-  async installPlugin(
-    url: string,
-    metadata?: { [k: string]: string },
-  ): Promise<string> {
-    const resp = await client.call(ContentScriptTypes.install_plugin, {
-      url,
-      metadata,
-    });
-
-    return resp;
-  }
-
-  async getPlugins(
-    url: string,
-    origin?: string,
-    metadata?: {
-      [key: string]: string;
-    },
-  ): Promise<(PluginConfig & { hash: string; metadata: PluginMetadata })[]> {
-    const resp = await client.call(ContentScriptTypes.get_plugins, {
-      url,
-      origin,
-      metadata,
     });
 
     return resp;
