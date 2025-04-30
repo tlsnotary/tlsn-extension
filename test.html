@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>TLSNotary Plugin test page</title>
+</head>
+
+<body>
+    <h1>TLSNotary Plugin test page</h1>
+    <p>
+        This page is used to test the TLSNotary plugin. It will load the TLSNotary client and run a plugin to fetch
+        Twitter profile information.
+    </p>
+    <ol>
+        <li>A TLSNotary extension popup will open.</li>
+        <li>Click <strong>accept</strong> to allow the plugin to run.</li>
+        <li>The plugin will open the <strong>TLSNotary Extension sidebar</strong> and the Twitter web page in a new tab.
+        </li>
+        <li>Log in to Twitter if you are not already logged in.</li>
+        <li>The plugin will then notarize the Twitter profile (with the notary configured in your TLSNotary extension).
+        </li>
+        <li>If notarization does not happen automatically, you can click the <strong>Collect credentials</strong> button
+            in the sidebar.</li>
+        <li>Once notarization has started, you can close the sidebar and the Twitter tab.</li>
+        <li>After successful notarization, the raw attestation and metadata will show up on this page.</li>
+    </ol>
+
+    <script>
+        window.addEventListener('tlsn_loaded', async () => {
+            try {
+                const client = await tlsn.connect();
+                const result = await client.runPlugin(
+                    'https://github.com/tlsnotary/tlsn-extension/raw/refs/tags/0.1.0.900/src/assets/plugins/twitter_profile.wasm'
+                );
+                console.dir(result);
+                document.body.innerHTML += `<pre>${JSON.stringify(result, null, 2)}</pre>`;
+            } catch (err) {
+                console.error(err);
+                document.body.innerHTML += `<pre style="color: red;">${err.message}</pre>`;
+            }
+        });
+    </script>
+</body>
+
+</html>
