@@ -38,7 +38,6 @@ import browser from 'webextension-polyfill';
 import { sha256 } from '../../utils/misc';
 import { openSidePanel } from '../../entries/utils';
 import { SidePanelActionTypes } from '../../entries/SidePanel/types';
-import { verify } from 'tlsn-js-v5';
 import ProofViewer from '../ProofViewer';
 
 export function P2PHome(): ReactElement {
