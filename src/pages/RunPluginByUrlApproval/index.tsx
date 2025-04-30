@@ -7,39 +7,58 @@ import { BackgroundActiontype } from '../../entries/Background/rpc';
 import { BaseApproval } from '../BaseApproval';
 import { PluginPermissions } from '../../components/PluginInfo';
 import {
-  getPluginConfigByHash,
-  getPluginMetadataByHash,
+  getPluginConfigByUrl,
+  getPluginMetadataByUrl,
+  getPluginByUrl,
 } from '../../entries/Background/db';
-import { runPlugin } from '../../utils/rpc';
 import { SidePanelActionTypes } from '../../entries/SidePanel/types';
 import { deferredPromise } from '../../utils/promise';
+import { installPlugin } from '../../entries/Background/plugins/utils';
 
-export function RunPluginApproval(): ReactElement {
+export function RunPluginByUrlApproval(): ReactElement {
   const [params] = useSearchParams();
   const origin = params.get('origin');
   const favIconUrl = params.get('favIconUrl');
-  const hash = params.get('hash');
+  const url = params.get('url');
   const pluginParams = params.get('params');
   const hostname = urlify(origin || '')?.hostname;
   const [error, showError] = useState('');
   const [metadata, setPluginMetadata] = useState<PluginMetadata | null>(null);
   const [pluginContent, setPluginContent] = useState<PluginConfig | null>(null);
 
+  useEffect(() => {
+    if (!url) return;
+    (async () => {
+      try {
+        const hex = await getPluginByUrl(url);
+
+        if (!hex) {
+          await installPlugin(url);
+        }
+
+        const config = await getPluginConfigByUrl(url);
+        const metadata = await getPluginMetadataByUrl(url);
+        setPluginContent(config);
+        setPluginMetadata(metadata);
+      } catch (e: any) {
+        showError(e?.message || 'Invalid Plugin');
+      }
+    })();
+  }, [url]);
+
   const onCancel = useCallback(() => {
     browser.runtime.sendMessage({
-      type: BackgroundActiontype.run_plugin_response,
+      type: BackgroundActiontype.run_plugin_by_url_response,
       data: false,
     });
   }, []);
 
   const onAccept = useCallback(async () => {
-    if (!hash) return;
+    if (!url) return;
     try {
       const tab = await browser.tabs.create({
         active: true,
       });
-
-      await browser.storage.local.set({ plugin_hash: hash });
 
       const { promise, resolve } = deferredPromise();
 
@@ -60,33 +79,19 @@ export function RunPluginApproval(): ReactElement {
       browser.runtime.sendMessage({
         type: SidePanelActionTypes.execute_plugin_request,
         data: {
-          pluginHash: hash,
+          pluginUrl: url,
           pluginParams: pluginParams ? JSON.parse(pluginParams) : undefined,
         },
       });
 
       browser.runtime.sendMessage({
-        type: BackgroundActiontype.run_plugin_response,
+        type: BackgroundActiontype.run_plugin_by_url_response,
         data: true,
       });
     } catch (e: any) {
       showError(e.message);
     }
-  }, [hash]);
-
-  useEffect(() => {
-    (async () => {
-      if (!hash) return;
-      try {
-        const config = await getPluginConfigByHash(hash);
-        const metadata = await getPluginMetadataByHash(hash);
-        setPluginContent(config);
-        setPluginMetadata(metadata);
-      } catch (e: any) {
-        showError(e?.message || 'Invalid Plugin');
-      }
-    })();
-  }, [hash]);
+  }, [url]);
 
   return (
     <BaseApproval

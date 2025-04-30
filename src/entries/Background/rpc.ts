@@ -12,16 +12,11 @@ import {
   setNotaryRequestVerification,
   addPlugin,
   getPluginHashes,
-  getPluginByHash,
+  getPluginByUrl,
   removePlugin,
   addPluginConfig,
-  getPluginConfigByHash,
+  getPluginConfigByUrl,
   removePluginConfig,
-  getConnection,
-  setConnection,
-  deleteConnection,
-  addPluginMetadata,
-  getPlugins,
   getCookiesByHost,
   getHeadersByHost,
   getAppState,
@@ -36,7 +31,6 @@ import {
   getPluginConfig,
   hexToArrayBuffer,
   makePlugin,
-  PluginConfig,
 } from '../../utils/misc';
 import {
   getLoggingFilter,
@@ -47,7 +41,6 @@ import {
   getRendezvousApi,
 } from '../../utils/storage';
 import { deferredPromise } from '../../utils/promise';
-import { minimatch } from 'minimatch';
 import { OffscreenActionTypes } from '../Offscreen/types';
 import { SidePanelActionTypes } from '../SidePanel/types';
 import { pushToRedux } from '../utils';
@@ -95,20 +88,10 @@ export enum BackgroundActiontype {
   // Content Script
   open_popup = 'open_popup',
   change_route = 'change_route',
-  connect_request = 'connect_request',
-  connect_response = 'connect_response',
-  get_history_request = 'get_history_request',
-  get_history_response = 'get_history_response',
-  get_proof_request = 'get_proof_request',
-  get_proof_response = 'get_proof_response',
   notarize_request = 'notarize_request',
   notarize_response = 'notarize_response',
-  install_plugin_request = 'install_plugin_request',
-  install_plugin_response = 'install_plugin_response',
-  get_plugins_request = 'get_plugins_request',
-  get_plugins_response = 'get_plugins_response',
-  run_plugin_request = 'run_plugin_request',
-  run_plugin_response = 'run_plugin_response',
+  run_plugin_by_url_request = 'run_plugin_by_url_request',
+  run_plugin_by_url_response = 'run_plugin_by_url_response',
   get_secrets_from_transcript = 'get_secrets_from_transcript',
   // App State
   get_logging_level = 'get_logging_level',
@@ -270,20 +253,10 @@ export const initRPC = () => {
           return handleExecP2PPluginProver(request);
         case BackgroundActiontype.open_popup:
           return handleOpenPopup(request);
-        case BackgroundActiontype.connect_request:
-          return handleConnect(request);
-        case BackgroundActiontype.get_history_request:
-          return handleGetHistory(request);
-        case BackgroundActiontype.get_proof_request:
-          return handleGetProof(request);
         case BackgroundActiontype.notarize_request:
           return handleNotarizeRequest(request);
-        case BackgroundActiontype.install_plugin_request:
-          return handleInstallPluginRequest(request);
-        case BackgroundActiontype.get_plugins_request:
-          return handleGetPluginsRequest(request);
-        case BackgroundActiontype.run_plugin_request:
-          return handleRunPluginCSRequest(request);
+        case BackgroundActiontype.run_plugin_by_url_request:
+          return handleRunPluginByURLRequest(request);
         case BackgroundActiontype.get_logging_level:
           getLoggingFilter().then(sendResponse);
           return true;
@@ -686,7 +659,7 @@ async function handleGetSecretsFromTranscript(
   sendResponse: (data?: any) => void,
 ) {
   const { pluginHash, pluginHex, p2p, transcript, method } = request.data;
-  const hex = (await getPluginByHash(pluginHash)) || pluginHex;
+  const hex = (await getPluginByUrl(pluginHash)) || pluginHex;
   const arrayBuffer = hexToArrayBuffer(hex!);
   const config = await getPluginConfig(arrayBuffer);
   const plugin = await makePlugin(arrayBuffer, config, p2p);
@@ -701,7 +674,7 @@ async function handleGetSecretsFromTranscript(
     ...recvBody.map((body) => body.toString('utf-8')),
   );
 
-  const secretResps = JSON.parse(out.string());
+  const secretResps = JSON.parse(out?.string() || '{}');
   await browser.runtime.sendMessage({
     type: OffscreenActionTypes.get_secrets_from_transcript_success,
     data: {
@@ -712,7 +685,7 @@ async function handleGetSecretsFromTranscript(
 
 async function runP2PPluginProver(request: BackgroundAction, now = Date.now()) {
   const {
-    pluginHash,
+    pluginUrl,
     pluginHex,
     url,
     method,
@@ -734,7 +707,7 @@ async function runP2PPluginProver(request: BackgroundAction, now = Date.now()) {
   await browser.runtime.sendMessage({
     type: OffscreenActionTypes.start_p2p_prover,
     data: {
-      pluginHash,
+      pluginUrl,
       pluginHex,
       url,
       method,
@@ -824,10 +797,10 @@ async function handleAddPlugin(
   sendResponse: (data?: any) => void,
 ) {
   try {
-    const config = await getPluginConfig(hexToArrayBuffer(request.data));
+    const config = await getPluginConfig(hexToArrayBuffer(request.data.hex));
 
     if (config) {
-      const hash = await addPlugin(request.data);
+      const hash = await addPlugin(request.data.hex, request.data.url);
 
       if (hash) {
         await addPluginConfig(hash, config);
@@ -867,7 +840,7 @@ async function handleGetPluginByHash(
   sendResponse: (data?: any) => void,
 ) {
   const hash = request.data;
-  const hex = await getPluginByHash(hash);
+  const hex = await getPluginByUrl(hash);
   return hex;
 }
 
@@ -876,7 +849,7 @@ async function handleGetPluginConfigByHash(
   sendResponse: (data?: any) => void,
 ) {
   const hash = request.data;
-  const config = await getPluginConfigByHash(hash);
+  const config = await getPluginConfigByUrl(hash);
   return config;
 }
 
@@ -886,14 +859,14 @@ function handleRunPlugin(
 ) {
   (async () => {
     const { hash, method, params, meta } = request.data;
-    const hex = await getPluginByHash(hash);
+    const hex = await getPluginByUrl(hash);
     const arrayBuffer = hexToArrayBuffer(hex!);
     const config = await getPluginConfig(arrayBuffer);
     const plugin = await makePlugin(arrayBuffer, config, meta?.p2p);
     devlog(`plugin::${method}`, params);
     const out = await plugin.call(method, params);
-    devlog(`plugin response: `, out.string());
-    sendResponse(JSON.parse(out.string()));
+    devlog(`plugin response: `, out?.string());
+    sendResponse(JSON.parse(out?.string() || '{}'));
   })();
 
   return true;
@@ -946,180 +919,6 @@ async function handleOpenPopup(request: BackgroundAction) {
 
     browser.windows.onRemoved.addListener(onPopUpClose);
   }
-}
-
-async function handleConnect(request: BackgroundAction) {
-  const connection = await getConnection(request.data.origin);
-  const [currentTab] = await browser.tabs.query({
-    active: true,
-    currentWindow: true,
-  });
-
-  if (!connection) {
-    const defer = deferredPromise();
-
-    const { popup, tab } = await openPopup(
-      `connection-approval?origin=${encodeURIComponent(request.data.origin)}&favIconUrl=${encodeURIComponent(currentTab?.favIconUrl || '')}`,
-      request.data.position.left,
-      request.data.position.top,
-    );
-
-    const onMessage = async (req: BackgroundAction) => {
-      if (req.type === BackgroundActiontype.connect_response) {
-        defer.resolve(req.data);
-        if (req.data) {
-          await setConnection(request.data.origin);
-        } else {
-          await deleteConnection(request.data.origin);
-        }
-        browser.runtime.onMessage.removeListener(onMessage);
-        browser.tabs.remove(tab.id!);
-      }
-    };
-
-    const onPopUpClose = (windowId: number) => {
-      if (windowId === popup.id) {
-        defer.resolve(false);
-        browser.windows.onRemoved.removeListener(onPopUpClose);
-      }
-    };
-
-    browser.runtime.onMessage.addListener(onMessage);
-    browser.windows.onRemoved.addListener(onPopUpClose);
-
-    return defer.promise;
-  }
-
-  return true;
-}
-
-async function handleGetHistory(request: BackgroundAction) {
-  const [currentTab] = await browser.tabs.query({
-    active: true,
-    currentWindow: true,
-  });
-
-  const defer = deferredPromise();
-  const {
-    origin,
-    position,
-    method: filterMethod,
-    url: filterUrl,
-    metadata: filterMetadata,
-  } = request.data;
-
-  const { popup, tab } = await openPopup(
-    `get-history-approval?${filterMetadata ? `metadata=${JSON.stringify(filterMetadata)}&` : ''}method=${filterMethod}&url=${filterUrl}&origin=${encodeURIComponent(origin)}&favIconUrl=${encodeURIComponent(currentTab?.favIconUrl || '')}`,
-    position.left,
-    position.top,
-  );
-
-  const onMessage = async (req: BackgroundAction) => {
-    if (req.type === BackgroundActiontype.get_history_response) {
-      if (req.data) {
-        const response = await getNotaryRequests();
-
-        const result = response
-          .map(
-            ({ id, method, url, notaryUrl, websocketProxyUrl, metadata }) => ({
-              id,
-              time: new Date(charwise.decode(id)),
-              method,
-              url,
-              notaryUrl,
-              websocketProxyUrl,
-              metadata,
-            }),
-          )
-          .filter(({ method, url, metadata }) => {
-            let matchedMetadata = true;
-            if (filterMetadata) {
-              matchedMetadata = Object.entries(
-                filterMetadata as { [k: string]: string },
-              ).reduce((bool, [k, v]) => {
-                try {
-                  return bool && minimatch(metadata![k], v);
-                } catch (e) {
-                  return false;
-                }
-              }, matchedMetadata);
-            }
-            return (
-              minimatch(method, filterMethod, { nocase: true }) &&
-              minimatch(url, filterUrl) &&
-              matchedMetadata
-            );
-          });
-
-        defer.resolve(result);
-      } else {
-        defer.reject(new Error('user rejected.'));
-      }
-
-      browser.runtime.onMessage.removeListener(onMessage);
-      browser.tabs.remove(tab.id!);
-    }
-  };
-
-  const onPopUpClose = (windowId: number) => {
-    if (windowId === popup.id) {
-      defer.reject(new Error('user rejected.'));
-      browser.windows.onRemoved.removeListener(onPopUpClose);
-    }
-  };
-
-  browser.runtime.onMessage.addListener(onMessage);
-  browser.windows.onRemoved.addListener(onPopUpClose);
-
-  return defer.promise;
-}
-
-async function handleGetProof(request: BackgroundAction) {
-  const [currentTab] = await browser.tabs.query({
-    active: true,
-    currentWindow: true,
-  });
-
-  const defer = deferredPromise();
-  const { origin, position, id } = request.data;
-
-  const response = await getNotaryRequest(id);
-
-  if (!response) {
-    defer.reject(new Error('proof id not found.'));
-    return defer.promise;
-  }
-
-  const { popup, tab } = await openPopup(
-    `get-proof-approval?id=${id}&origin=${encodeURIComponent(origin)}&favIconUrl=${encodeURIComponent(currentTab?.favIconUrl || '')}`,
-    position.left,
-    position.top,
-  );
-
-  const onMessage = async (req: BackgroundAction) => {
-    if (req.type === BackgroundActiontype.get_proof_response) {
-      if (req.data) {
-        defer.resolve(response?.proof || null);
-      } else {
-        defer.reject(new Error('user rejected.'));
-      }
-
-      browser.runtime.onMessage.removeListener(onMessage);
-      browser.tabs.remove(tab.id!);
-    }
-  };
-
-  const onPopUpClose = (windowId: number) => {
-    if (windowId === popup.id) {
-      defer.reject(new Error('user rejected.'));
-      browser.windows.onRemoved.removeListener(onPopUpClose);
-    }
-  };
-
-  browser.runtime.onMessage.addListener(onMessage);
-  browser.windows.onRemoved.addListener(onPopUpClose);
-
-  return defer.promise;
 }
 
 async function handleNotarizeRequest(request: BackgroundAction) {
@@ -1226,171 +1025,33 @@ async function handleNotarizeRequest(request: BackgroundAction) {
   return defer.promise;
 }
 
-async function handleInstallPluginRequest(request: BackgroundAction) {
+async function handleRunPluginByURLRequest(request: BackgroundAction) {
   const [currentTab] = await browser.tabs.query({
     active: true,
     currentWindow: true,
   });
 
   const defer = deferredPromise();
-  const { origin, position, url, metadata } = request.data;
+  const { origin, position, url, params } = request.data;
 
-  let arrayBuffer: ArrayBuffer, config: PluginConfig;
-
-  try {
-    const resp = await fetch(url);
-    arrayBuffer = await resp.arrayBuffer();
-    config = await getPluginConfig(arrayBuffer);
-  } catch (e) {
-    defer.reject(e);
-    return defer.promise;
-  }
-
-  const { popup, tab } = await openPopup(
-    `install-plugin-approval?${metadata ? `metadata=${JSON.stringify(metadata)}&` : ''}url=${url}&origin=${encodeURIComponent(origin)}&favIconUrl=${encodeURIComponent(currentTab?.favIconUrl || '')}`,
-    position.left,
-    position.top,
-  );
-
-  const onMessage = async (req: BackgroundAction) => {
-    if (req.type === BackgroundActiontype.install_plugin_response) {
-      if (req.data) {
-        try {
-          const hex = Buffer.from(arrayBuffer).toString('hex');
-          const hash = await addPlugin(hex);
-
-          if (!hash) {
-            throw new Error('Plugin already exist.');
-          }
-
-          await addPluginConfig(hash!, config);
-          await addPluginMetadata(hash!, {
-            ...metadata,
-            origin,
-            filePath: url,
-          });
-          defer.resolve(hash);
-        } catch (e) {
-          defer.reject(e);
-        }
-      } else {
-        defer.reject(new Error('user rejected.'));
-      }
-
-      browser.runtime.onMessage.removeListener(onMessage);
-      browser.tabs.remove(tab.id!);
-    }
-  };
-
-  const onPopUpClose = (windowId: number) => {
-    if (windowId === popup.id) {
-      defer.reject(new Error('user rejected.'));
-      browser.windows.onRemoved.removeListener(onPopUpClose);
-    }
-  };
-
-  browser.runtime.onMessage.addListener(onMessage);
-  browser.windows.onRemoved.addListener(onPopUpClose);
-
-  return defer.promise;
-}
-
-async function handleGetPluginsRequest(request: BackgroundAction) {
-  const [currentTab] = await browser.tabs.query({
-    active: true,
-    currentWindow: true,
-  });
-
-  const defer = deferredPromise();
-  const {
-    origin,
-    position,
-    origin: filterOrigin,
-    url: filterUrl,
-    metadata: filterMetadata,
-  } = request.data;
-
-  const { popup, tab } = await openPopup(
-    `get-plugins-approval?${filterMetadata ? `metadata=${JSON.stringify(filterMetadata)}&` : ''}&filterOrigin=${filterOrigin}&url=${filterUrl}&origin=${encodeURIComponent(origin)}&favIconUrl=${encodeURIComponent(currentTab?.favIconUrl || '')}`,
-    position.left,
-    position.top,
-  );
-
-  const onMessage = async (req: BackgroundAction) => {
-    if (req.type === BackgroundActiontype.get_plugins_response) {
-      if (req.data) {
-        const response = await getPlugins();
-
-        const result = response.filter(({ metadata }) => {
-          let matchedMetadata = true;
-          if (filterMetadata) {
-            matchedMetadata = Object.entries(
-              filterMetadata as { [k: string]: string },
-            ).reduce((bool, [k, v]) => {
-              try {
-                return bool && minimatch(metadata![k], v);
-              } catch (e) {
-                return false;
-              }
-            }, matchedMetadata);
-          }
-          return (
-            minimatch(metadata.filePath, filterUrl) &&
-            minimatch(metadata.origin, filterOrigin || '**') &&
-            matchedMetadata
-          );
-        });
-
-        defer.resolve(result);
-      } else {
-        defer.reject(new Error('user rejected.'));
-      }
-
-      browser.runtime.onMessage.removeListener(onMessage);
-      browser.tabs.remove(tab.id!);
-    }
-  };
-
-  const onPopUpClose = (windowId: number) => {
-    if (windowId === popup.id) {
-      defer.reject(new Error('user rejected.'));
-      browser.windows.onRemoved.removeListener(onPopUpClose);
-    }
-  };
-
-  browser.runtime.onMessage.addListener(onMessage);
-  browser.windows.onRemoved.addListener(onPopUpClose);
-
-  return defer.promise;
-}
-
-async function handleRunPluginCSRequest(request: BackgroundAction) {
-  const [currentTab] = await browser.tabs.query({
-    active: true,
-    currentWindow: true,
-  });
-
-  const defer = deferredPromise();
-  const { origin, position, hash, params } = request.data;
-
-  const plugin = await getPluginByHash(hash);
-  const config = await getPluginConfigByHash(hash);
+  // const plugin = await getPluginByHash(hash);
+  // const config = await getPluginConfigByHash(hash);
   let isUserClose = true;
 
-  if (!plugin || !config) {
-    defer.reject(new Error('plugin not found.'));
-    return defer.promise;
-  }
+  // if (!plugin || !config) {
+  //   defer.reject(new Error('plugin not found.'));
+  //   return defer.promise;
+  // }
 
   const { popup, tab } = await openPopup(
-    `run-plugin-approval?hash=${hash}&origin=${encodeURIComponent(origin)}&favIconUrl=${encodeURIComponent(currentTab?.favIconUrl || '')}&params=${encodeURIComponent(JSON.stringify(params) || '')}`,
+    `run-plugin-approval?url=${url}&origin=${encodeURIComponent(origin)}&favIconUrl=${encodeURIComponent(currentTab?.favIconUrl || '')}&params=${encodeURIComponent(JSON.stringify(params) || '')}`,
     position.left,
     position.top,
   );
 
   const onPluginRequest = async (req: any) => {
     if (req.type !== SidePanelActionTypes.execute_plugin_response) return;
-    if (req.data.hash !== hash) return;
+    if (req.data.url !== url) return;
 
     if (req.data.error) defer.reject(req.data.error);
     if (req.data.proof) defer.resolve(req.data.proof);
@@ -1399,7 +1060,7 @@ async function handleRunPluginCSRequest(request: BackgroundAction) {
   };
 
   const onMessage = async (req: BackgroundAction) => {
-    if (req.type === BackgroundActiontype.run_plugin_response) {
+    if (req.type === BackgroundActiontype.run_plugin_by_url_response) {
       if (req.data) {
         browser.runtime.onMessage.addListener(onPluginRequest);
       } else {

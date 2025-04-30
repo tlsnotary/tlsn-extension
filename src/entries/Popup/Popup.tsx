@@ -1,14 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useNavigate } from 'react-router';
 import { useDispatch } from 'react-redux';
-import {
-  setActiveTab,
-  setRequests,
-  useActiveTab,
-  useActiveTabUrl,
-} from '../../reducers/requests';
+import { setActiveTab, setRequests } from '../../reducers/requests';
 import { BackgroundActiontype } from '../Background/rpc';
-import Requests from '../../pages/Requests';
 import Options from '../../pages/Options';
 import Request from '../../pages/Requests/Request';
 import Home from '../../pages/Home';
@@ -16,28 +10,15 @@ import logo from '../../assets/img/icon-128.png';
 import RequestBuilder from '../../pages/RequestBuilder';
 import Notarize from '../../pages/Notarize';
 import ProofViewer from '../../pages/ProofViewer';
-import History from '../../pages/History';
 import ProofUploader from '../../pages/ProofUploader';
 import browser from 'webextension-polyfill';
 import store from '../../utils/store';
 import { isPopupWindow } from '../../utils/misc';
-import PluginUploadInfo from '../../components/PluginInfo';
-import ConnectionDetailsModal from '../../components/ConnectionDetailsModal';
-import { ConnectionApproval } from '../../pages/ConnectionApproval';
-import { GetHistoryApproval } from '../../pages/GetHistoryApproval';
-import { GetProofApproval } from '../../pages/GetProofApproval';
 import { NotarizeApproval } from '../../pages/NotarizeApproval';
-import { InstallPluginApproval } from '../../pages/InstallPluginApproval';
-import { GetPluginsApproval } from '../../pages/GetPluginsApproval';
-import { RunPluginApproval } from '../../pages/RunPluginApproval';
-import Icon from '../../components/Icon';
-import classNames from 'classnames';
-import { getConnection } from '../Background/db';
-import { useIsConnected, setConnection } from '../../reducers/requests';
 import { MenuIcon } from '../../components/Menu';
-import Plugins from '../../pages/Plugins';
 import { P2PHome } from '../../pages/PeerToPeer';
 import { fetchP2PState } from '../../reducers/p2p';
+import { RunPluginByUrlApproval } from '../../pages/RunPluginByUrlApproval';
 
 const Popup = () => {
   const dispatch = useDispatch();
@@ -104,7 +85,6 @@ const Popup = () => {
         <div className="flex flex-row flex-grow items-center justify-end gap-4">
           {!isPopup && (
             <>
-              <AppConnectionLogo />
               <MenuIcon />
             </>
           )}
@@ -119,20 +99,13 @@ const Popup = () => {
         <Route path="/requests" element={<Home tab="network" />} />
         <Route path="/custom/*" element={<RequestBuilder />} />
         <Route path="/options" element={<Options />} />
-        <Route path="/plugins" element={<Plugins />} />
         <Route path="/home" element={<Home />} />
-        <Route path="/plugininfo" element={<PluginUploadInfo />} />
-        <Route path="/connection-approval" element={<ConnectionApproval />} />
-        <Route path="/get-history-approval" element={<GetHistoryApproval />} />
-        <Route path="/get-proof-approval" element={<GetProofApproval />} />
         <Route path="/notarize-approval" element={<NotarizeApproval />} />
-        <Route path="/get-plugins-approval" element={<GetPluginsApproval />} />
-        <Route path="/run-plugin-approval" element={<RunPluginApproval />} />
-        <Route path="/p2p" element={<P2PHome />} />
         <Route
-          path="/install-plugin-approval"
-          element={<InstallPluginApproval />}
+          path="/run-plugin-approval"
+          element={<RunPluginByUrlApproval />}
         />
+        <Route path="/p2p" element={<P2PHome />} />
         <Route path="*" element={<Navigate to="/home" />} />
       </Routes>
     </div>
@@ -140,58 +113,3 @@ const Popup = () => {
 };
 
 export default Popup;
-
-function AppConnectionLogo() {
-  const dispatch = useDispatch();
-  const activeTab = useActiveTab();
-  const url = useActiveTabUrl();
-  const [showConnectionDetails, setShowConnectionDetails] = useState(false);
-  const connected = useIsConnected();
-
-  useEffect(() => {
-    (async () => {
-      if (url) {
-        const isConnected: boolean | null = await getConnection(url?.origin);
-        dispatch(setConnection(!!isConnected));
-      }
-    })();
-  }, [url]);
-
-  return (
-    <div
-      className="flex flex-nowrap flex-row items-center gap-1 justify-center w-fit cursor-pointer"
-      onClick={() => setShowConnectionDetails(true)}
-    >
-      <div className="flex flex-row relative bg-black border-[1px] border-black rounded-full">
-        {!!activeTab?.favIconUrl ? (
-          <img
-            src={activeTab?.favIconUrl}
-            className="h-5 rounded-full"
-            alt="logo"
-          />
-        ) : (
-          <Icon
-            fa="fa-solid fa-globe"
-            className="bg-white text-slate-400 rounded-full"
-            size={1.25}
-          />
-        )}
-        <div
-          className={classNames(
-            'absolute right-[-2px] bottom-[-2px] rounded-full h-[10px] w-[10px] border-[2px]',
-            {
-              'bg-green-500': connected,
-              'bg-slate-500': !connected,
-            },
-          )}
-        />
-      </div>
-      {showConnectionDetails && (
-        <ConnectionDetailsModal
-          showConnectionDetails={showConnectionDetails}
-          setShowConnectionDetails={setShowConnectionDetails}
-        />
-      )}
-    </div>
-  );
-}

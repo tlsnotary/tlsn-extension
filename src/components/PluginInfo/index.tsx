@@ -1,14 +1,4 @@
-import React, {
-  ChangeEvent,
-  Children,
-  MouseEventHandler,
-  ReactElement,
-  ReactNode,
-  useCallback,
-  useState,
-} from 'react';
-import { makePlugin, getPluginConfig } from '../../utils/misc';
-import { addPlugin } from '../../utils/rpc';
+import React, { Children, MouseEventHandler, ReactNode } from 'react';
 import Modal, {
   ModalHeader,
   ModalContent,
@@ -22,76 +12,8 @@ import {
   MultipleParts,
   PermissionDescription,
 } from '../../utils/plugins';
-import { ErrorModal } from '../ErrorModal';
 import classNames from 'classnames';
 import DefaultPluginIcon from '../../assets/img/default-plugin-icon.png';
-
-export default function PluginUploadInfo({
-  onPluginInstalled,
-}: {
-  onPluginInstalled?: () => void;
-}): ReactElement {
-  const [error, showError] = useState('');
-  const [pluginBuffer, setPluginBuffer] = useState<ArrayBuffer | any>(null);
-  const [pluginContent, setPluginContent] = useState<PluginConfig | null>(null);
-
-  const onAddPlugin = useCallback(
-    async (evt: React.MouseEvent<HTMLButtonElement>) => {
-      try {
-        await addPlugin(Buffer.from(pluginBuffer).toString('hex'));
-        setPluginContent(null);
-        onPluginInstalled?.();
-      } catch (e: any) {
-        showError(e?.message || 'Invalid Plugin');
-      }
-    },
-    [pluginContent, pluginBuffer],
-  );
-
-  const onPluginInfo = useCallback(
-    async (evt: ChangeEvent<HTMLInputElement>) => {
-      if (!evt.target.files) return;
-      try {
-        const [file] = evt.target.files;
-        const arrayBuffer = await file.arrayBuffer();
-        const plugin = await makePlugin(arrayBuffer);
-        setPluginContent(await getPluginConfig(plugin));
-        setPluginBuffer(arrayBuffer);
-      } catch (e: any) {
-        showError(e?.message || 'Invalid Plugin');
-      } finally {
-        evt.target.value = '';
-      }
-    },
-    [setPluginContent, setPluginBuffer],
-  );
-
-  const onClose = useCallback(() => {
-    setPluginContent(null);
-    setPluginBuffer(null);
-  }, []);
-
-  return (
-    <>
-      <input
-        className="opacity-0 absolute top-0 right-0 h-full w-full cursor-pointer"
-        type="file"
-        onChange={onPluginInfo}
-        onClick={(e) => {
-          e.stopPropagation();
-        }}
-      />
-      {error && <ErrorModal onClose={() => showError('')} message={error} />}
-      {pluginContent && (
-        <PluginInfoModal
-          pluginContent={pluginContent}
-          onClose={onClose}
-          onAddPlugin={onAddPlugin}
-        />
-      )}
-    </>
-  );
-}
 
 export function PluginInfoModalHeader(props: {
   className?: string;

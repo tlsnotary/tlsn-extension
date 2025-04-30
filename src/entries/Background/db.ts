@@ -188,41 +188,44 @@ export async function getPluginHashes(): Promise<string[]> {
   return retVal;
 }
 
-export async function getPluginByHash(hash: string): Promise<string | null> {
+export async function getPluginByUrl(url: string): Promise<string | null> {
   try {
-    const plugin = await pluginDb.get(hash);
+    const plugin = await pluginDb.get(url);
     return plugin;
   } catch (e) {
     return null;
   }
 }
 
-export async function addPlugin(hex: string): Promise<string | null> {
+export async function addPlugin(
+  hex: string,
+  url: string,
+): Promise<string | null> {
   const hash = await sha256(hex);
 
-  if (await getPluginByHash(hash)) {
-    return null;
+  if (await getPluginByUrl(url)) {
+    return url;
   }
 
-  await pluginDb.put(hash, hex);
+  await pluginDb.put(url, hex);
   return hash;
 }
 
-export async function removePlugin(hash: string): Promise<string | null> {
-  const existing = await pluginDb.get(hash);
+export async function removePlugin(url: string): Promise<string | null> {
+  const existing = await pluginDb.get(url);
 
   if (!existing) return null;
 
-  await pluginDb.del(hash);
+  await pluginDb.del(url);
 
-  return hash;
+  return url;
 }
 
-export async function getPluginConfigByHash(
-  hash: string,
+export async function getPluginConfigByUrl(
+  url: string,
 ): Promise<PluginConfig | null> {
   try {
-    const config = await pluginConfigDb.get(hash);
+    const config = await pluginConfigDb.get(url);
     return config;
   } catch (e) {
     return null;
@@ -230,25 +233,25 @@ export async function getPluginConfigByHash(
 }
 
 export async function addPluginConfig(
-  hash: string,
+  url: string,
   config: PluginConfig,
 ): Promise<PluginConfig | null> {
-  if (await getPluginConfigByHash(hash)) {
+  if (await getPluginConfigByUrl(url)) {
     return null;
   }
 
-  await pluginConfigDb.put(hash, config);
+  await pluginConfigDb.put(url, config);
   return config;
 }
 
 export async function removePluginConfig(
-  hash: string,
+  url: string,
 ): Promise<PluginConfig | null> {
-  const existing = await pluginConfigDb.get(hash);
+  const existing = await pluginConfigDb.get(url);
 
   if (!existing) return null;
 
-  await pluginConfigDb.del(hash);
+  await pluginConfigDb.del(url);
 
   return existing;
 }
@@ -259,8 +262,8 @@ export async function getPlugins(): Promise<
   const hashes = await getPluginHashes();
   const ret: (PluginConfig & { hash: string; metadata: PluginMetadata })[] = [];
   for (const hash of hashes) {
-    const config = await getPluginConfigByHash(hash);
-    const metadata = await getPluginMetadataByHash(hash);
+    const config = await getPluginConfigByUrl(hash);
+    const metadata = await getPluginMetadataByUrl(hash);
     if (config) {
       ret.push({
         ...config,
@@ -281,11 +284,11 @@ export async function getPlugins(): Promise<
   return ret;
 }
 
-export async function getPluginMetadataByHash(
-  hash: string,
+export async function getPluginMetadataByUrl(
+  url: string,
 ): Promise<PluginMetadata | null> {
   try {
-    const metadata = await pluginMetadataDb.get(hash);
+    const metadata = await pluginMetadataDb.get(url);
     return metadata;
   } catch (e) {
     return null;
@@ -293,21 +296,21 @@ export async function getPluginMetadataByHash(
 }
 
 export async function addPluginMetadata(
-  hash: string,
+  url: string,
   metadata: PluginMetadata,
 ): Promise<PluginMetadata | null> {
-  await pluginMetadataDb.put(hash, metadata);
+  await pluginMetadataDb.put(url, metadata);
   return metadata;
 }
 
 export async function removePluginMetadata(
-  hash: string,
+  url: string,
 ): Promise<PluginMetadata | null> {
-  const existing = await pluginMetadataDb.get(hash);
+  const existing = await pluginMetadataDb.get(url);
 
   if (!existing) return null;
 
-  await pluginMetadataDb.del(hash);
+  await pluginMetadataDb.del(url);
 
   return existing;
 }

@@ -1,13 +1,9 @@
 import { useSelector } from 'react-redux';
 import { AppRootState } from './index';
 import deepEqual from 'fast-deep-equal';
-import { useCallback, useEffect, useState } from 'react';
-import { getPluginConfigByHash } from '../entries/Background/db';
+import { useEffect, useState } from 'react';
+import { getPluginConfigByUrl } from '../entries/Background/db';
 import { PluginConfig } from '../utils/misc';
-import { runPlugin } from '../utils/rpc';
-import browser from 'webextension-polyfill';
-import { openSidePanel } from '../entries/utils';
-import { SidePanelActionTypes } from '../entries/SidePanel/types';
 
 enum ActionType {
   '/plugin/addPlugin' = '/plugin/addPlugin',
@@ -64,27 +60,8 @@ export const usePluginConfig = (hash: string) => {
   const [config, setConfig] = useState<PluginConfig | null>(null);
   useEffect(() => {
     (async function () {
-      setConfig(await getPluginConfigByHash(hash));
+      setConfig(await getPluginConfigByUrl(hash));
     })();
   }, [hash]);
   return config;
-};
-
-export const useOnPluginClick = (hash: string) => {
-  return useCallback(async () => {
-    await browser.storage.local.set({ plugin_hash: hash });
-
-    await openSidePanel();
-
-    browser.runtime.sendMessage({
-      type: SidePanelActionTypes.execute_plugin_request,
-      data: {
-        pluginHash: hash,
-      },
-    });
-
-    await runPlugin(hash, 'start');
-
-    window.close();
-  }, [hash]);
 };

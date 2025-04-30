@@ -9,7 +9,6 @@ import Icon from '../Icon';
 import browser from 'webextension-polyfill';
 import classNames from 'classnames';
 import { useNavigate } from 'react-router';
-import PluginUploadInfo from '../PluginInfo';
 
 export function MenuIcon(): ReactElement {
   const [opened, setOpen] = useState(false);
@@ -54,24 +53,34 @@ export default function Menu(props: {
     <div className="absolute top-[100%] right-0 rounded-md z-20">
       <div className="flex flex-col bg-slate-200 w-40 shadow rounded-md py">
         <MenuRow
-          fa="fa-solid fa-plus"
+          fa="fa-solid fa-hammer"
+          className="relative"
+          onClick={() => {
+            navigate('/custom');
+            props.setOpen(false);
+          }}
+        >
+          <span>Custom</span>
+        </MenuRow>
+        <MenuRow
+          fa="fa-solid fa-certificate"
           className="relative"
           onClick={() => {
             props.setOpen(false);
+            navigate('/verify');
           }}
         >
-          <PluginUploadInfo onPluginInstalled={() => props.setOpen(false)} />
-          <span>Install Plugin</span>
+          Verify
         </MenuRow>
         <MenuRow
-          fa="fa-solid fa-toolbox"
+          fa="fa-solid fa-network-wired"
           className="border-b border-slate-300"
           onClick={() => {
             props.setOpen(false);
-            navigate('/plugins');
+            navigate('/p2p');
           }}
         >
-          Plugins
+          P2P
         </MenuRow>
         <MenuRow
           className="lg:hidden"
