@@ -19,7 +19,6 @@ import * as Comlink from 'comlink';
 import { PresentationJSON as PresentationJSONa7 } from 'tlsn-js/build/types';
 import { OffscreenActionTypes } from './types';
 import { PresentationJSON } from '../../utils/types';
-import { verify } from 'tlsn-js-v5';
 import { waitForEvent } from '../utils';
 import {
   setNotaryRequestError,
@@ -37,7 +36,10 @@ export const initThreads = async () => {
     type: BackgroundActiontype.get_logging_level,
     hardwareConcurrency: navigator.hardwareConcurrency,
   });
-  await init({ loggingLevel });
+  await init({
+    loggingLevel,
+    hardwareConcurrency: navigator.hardwareConcurrency,
+  });
 };
 export const onNotarizationRequest = async (request: any) => {
   const { id } = request.data;
@@ -536,36 +538,47 @@ async function verifyProof(proof: PresentationJSON): Promise<{
   };
 
   switch (proof.version) {
-    case undefined: {
-      result = await verify(proof);
-      break;
-    }
+    case undefined:
     case '0.1.0-alpha.7':
     case '0.1.0-alpha.8':
     case '0.1.0-alpha.9':
-      const presentation: TPresentation = await new Presentation(proof.data);
-      const verifierOutput = await presentation.verify();
-      const transcript = new Transcript({
-        sent: verifierOutput.transcript.sent,
-        recv: verifierOutput.transcript.recv,
-      });
-      const vk = await presentation.verifyingKey();
-      const verifyingKey = Buffer.from(vk.data).toString('hex');
-      const notaryUrl = proof.meta.notaryUrl
-        ? convertNotaryWsToHttp(proof.meta.notaryUrl)
-        : '';
-      const publicKey = await new NotaryServer(notaryUrl)
-        .publicKey()
-        .catch(() => '');
       result = {
-        sent: transcript.sent(),
-        recv: transcript.recv(),
-        verifierKey: verifyingKey,
-        notaryKey: publicKey,
+        sent: 'version not supported',
+        recv: 'version not supported',
       };
       break;
+    case '0.1.0-alpha.10':
+      result = await verify(proof);
+      break;
   }
-  return result;
+
+  return result!;
+}
+
+async function verify(proof: PresentationJSON) {
+  if (proof.version !== '0.1.0-alpha.10') {
+    throw new Error('wrong version');
+  }
+  const presentation: TPresentation = await new Presentation(proof.data);
+  const verifierOutput = await presentation.verify();
+  const transcript = new Transcript({
+    sent: verifierOutput.transcript.sent,
+    recv: verifierOutput.transcript.recv,
+  });
+  const vk = await presentation.verifyingKey();
+  const verifyingKey = Buffer.from(vk.data).toString('hex');
+  const notaryUrl = proof.meta.notaryUrl
+    ? convertNotaryWsToHttp(proof.meta.notaryUrl)
+    : '';
+  const publicKey = await new NotaryServer(notaryUrl)
+    .publicKey()
+    .catch(() => '');
+  return {
+    sent: transcript.sent(),
+    recv: transcript.recv(),
+    verifierKey: verifyingKey,
+    notaryKey: publicKey,
+  };
 }
 
 function updateRequestProgress(
