@@ -1032,16 +1032,52 @@ async function handleRunPluginByURLRequest(request: BackgroundAction) {
   });
 
   const defer = deferredPromise();
-  const { origin, position, url, params } = request.data;
+  const {
+    origin,
+    position,
+    url,
+    params,
+    skipConfirmation,
+    verifierApiUrl,
+    proxyApiUrl,
+    headers,
+  } = request.data;
 
-  // const plugin = await getPluginByHash(hash);
-  // const config = await getPluginConfigByHash(hash);
+  if (skipConfirmation) {
+    try {
+      browser.runtime.onMessage.addListener(async (req: any) => {
+        if (req.type !== SidePanelActionTypes.execute_plugin_response) return;
+        if (req.data.url !== url) return;
+
+        if (req.data.error) defer.reject(req.data.error);
+        if (req.data.proof) defer.resolve(req.data.proof);
+      });
+
+      const now = Date.now();
+      const id = charwise.encode(now).toString('hex');
+
+      await browser.runtime.sendMessage({
+        type: OffscreenActionTypes.create_prover_request,
+        data: {
+          id,
+          url,
+          params,
+          headers,
+          verifierApiUrl,
+          proxyApiUrl,
+          maxRecvData: await getMaxRecv(),
+          maxSentData: await getMaxSent(),
+        },
+      });
+
+      return defer.promise;
+    } catch (error) {
+      defer.reject(error);
+      return defer.promise;
+    }
+  }
+
   let isUserClose = true;
-
-  // if (!plugin || !config) {
-  //   defer.reject(new Error('plugin not found.'));
-  //   return defer.promise;
-  // }
 
   const { popup, tab } = await openPopup(
     `run-plugin-approval?url=${url}&origin=${encodeURIComponent(origin)}&favIconUrl=${encodeURIComponent(currentTab?.favIconUrl || '')}&params=${encodeURIComponent(JSON.stringify(params) || '')}`,

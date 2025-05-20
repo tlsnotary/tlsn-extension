@@ -1,5 +1,14 @@
 import { deferredPromise, PromiseResolvers } from '../../utils/promise';
 
+export interface RunPluginByUrlData {
+  url: string;
+  params?: Record<string, string>;
+  skipConfirmation?: boolean;
+  verifierApiUrl?: string;
+  proxyApiUrl?: string;
+  headers?: { [key: string]: string };
+}
+
 export enum ContentScriptTypes {
   notarize = 'tlsn/cs/notarize',
   run_plugin_by_url = 'tlsn/cs/run_plugin_by_url',
