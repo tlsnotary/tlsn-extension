@@ -24,6 +24,7 @@ import {
   setNotaryRequestError,
   setNotaryRequestStatus,
 } from '../Background/db';
+import { getNotaryApi, getProxyApi } from '../../utils/storage';
 
 const { init, Prover, Presentation, Verifier }: any = Comlink.wrap(
   new Worker(new URL('./worker.ts', import.meta.url)),
@@ -452,8 +453,9 @@ async function createProof(options: {
 
 async function createProver(options: {
   url: string;
-  notaryUrl: string;
-  websocketProxyUrl: string;
+  verifierApiUrl?: string;
+  proxyApiUrl?: string;
+  notaryUrl?: string;
   method?: Method;
   headers?: {
     [name: string]: string;
@@ -470,13 +472,13 @@ async function createProver(options: {
     body,
     maxSentData,
     maxRecvData,
-    notaryUrl,
-    websocketProxyUrl,
+    verifierApiUrl,
+    proxyApiUrl,
     id,
   } = options;
 
   const hostname = urlify(url)?.hostname || '';
-  const notary = NotaryServer.from(notaryUrl);
+
   try {
     const prover: TProver = await handleProgress(
       id,
@@ -494,8 +496,17 @@ async function createProver(options: {
     const sessionUrl = await handleProgress(
       id,
       RequestProgress.GettingSession,
-      () => notary.sessionUrl(maxSentData, maxRecvData),
-      'Error getting session from Notary',
+      async () => {
+        if (verifierApiUrl) {
+          return verifierApiUrl;
+        } else {
+          const notary = NotaryServer.from(
+            options.notaryUrl || (await getNotaryApi()),
+          );
+          return notary.sessionUrl(maxSentData, maxRecvData);
+        }
+      },
+      'Error getting session from Verifier/Notary',
     );
 
     await handleProgress(
@@ -505,11 +516,13 @@ async function createProver(options: {
       'Error setting up prover',
     );
 
+    const proxyUrl = proxyApiUrl || (await getProxyApi());
+
     await handleProgress(
       id,
       RequestProgress.SendingRequest,
       () =>
-        prover.sendRequest(websocketProxyUrl + `?token=${hostname}`, {
+        prover.sendRequest(proxyUrl + `?token=${hostname}`, {
           url,
           method,
           headers,

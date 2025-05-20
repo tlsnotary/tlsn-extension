@@ -1053,14 +1053,20 @@ async function handleRunPluginByURLRequest(request: BackgroundAction) {
         if (req.data.proof) defer.resolve(req.data.proof);
       });
 
+      const now = Date.now();
+      const id = charwise.encode(now).toString('hex');
+
       await browser.runtime.sendMessage({
-        type: SidePanelActionTypes.execute_plugin_request,
+        type: OffscreenActionTypes.create_prover_request,
         data: {
+          id,
           url,
           params,
+          headers,
           verifierApiUrl,
           proxyApiUrl,
-          headers,
+          maxRecvData: await getMaxRecv(),
+          maxSentData: await getMaxSent(),
         },
       });
 
