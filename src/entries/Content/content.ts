@@ -44,6 +44,27 @@ class TLSN {
 
     return resp;
   }
+
+  async runPluginWithVerifier(
+    url: string,
+    verifierOptions: {
+      verifierApiUrl: string;
+      proxyApiUrl: string;
+      headers?: { [key: string]: string };
+    },
+    params?: Record<string, string>,
+  ) {
+    const resp = await client.call(ContentScriptTypes.run_plugin_by_url, {
+      url,
+      params,
+      skipConfirmation: true, // Signal to skip confirmation window
+      verifierApiUrl: verifierOptions.verifierApiUrl,
+      proxyApiUrl: verifierOptions.proxyApiUrl,
+      headers: verifierOptions.headers,
+    });
+
+    return resp;
+  }
 }
 
 const connect = async () => {

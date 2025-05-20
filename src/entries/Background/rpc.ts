@@ -1032,16 +1032,48 @@ async function handleRunPluginByURLRequest(request: BackgroundAction) {
   });
 
   const defer = deferredPromise();
-  const { origin, position, url, params } = request.data;
+  const {
+    origin,
+    position,
+    url,
+    params,
+    skipConfirmation,
+    verifierApiUrl,
+    proxyApiUrl,
+    headers,
+  } = request.data;
 
-  // const plugin = await getPluginByHash(hash);
-  // const config = await getPluginConfigByHash(hash);
+  if (skipConfirmation) {
+    try {
+      browser.runtime.onMessage.addListener(async (req: any) => {
+        if (req.type !== SidePanelActionTypes.execute_plugin_response) return;
+        if (req.data.url !== url) return;
+
+        if (req.data.error) defer.reject(req.data.error);
+        if (req.data.proof) defer.resolve(req.data.proof);
+      });
+
+      // Execute plugin directly with verifier settings
+      await browser.runtime.sendMessage({
+        type: SidePanelActionTypes.execute_plugin_request,
+        data: {
+          url,
+          params,
+          verifierApiUrl, // Use verifier API instead of notary
+          proxyApiUrl,
+          headers,
+        },
+      });
+
+      return defer.promise;
+    } catch (error) {
+      defer.reject(error);
+      return defer.promise;
+    }
+  }
+
+  // Original confirmation window flow for non-skipConfirmation cases
   let isUserClose = true;
-
-  // if (!plugin || !config) {
-  //   defer.reject(new Error('plugin not found.'));
-  //   return defer.promise;
-  // }
 
   const { popup, tab } = await openPopup(
     `run-plugin-approval?url=${url}&origin=${encodeURIComponent(origin)}&favIconUrl=${encodeURIComponent(currentTab?.favIconUrl || '')}&params=${encodeURIComponent(JSON.stringify(params) || '')}`,
