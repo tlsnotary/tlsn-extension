@@ -1053,13 +1053,12 @@ async function handleRunPluginByURLRequest(request: BackgroundAction) {
         if (req.data.proof) defer.resolve(req.data.proof);
       });
 
-      // Execute plugin directly with verifier settings
       await browser.runtime.sendMessage({
         type: SidePanelActionTypes.execute_plugin_request,
         data: {
           url,
           params,
-          verifierApiUrl, // Use verifier API instead of notary
+          verifierApiUrl,
           proxyApiUrl,
           headers,
         },
@@ -1072,7 +1071,6 @@ async function handleRunPluginByURLRequest(request: BackgroundAction) {
     }
   }
 
-  // Original confirmation window flow for non-skipConfirmation cases
   let isUserClose = true;
 
   const { popup, tab } = await openPopup(
