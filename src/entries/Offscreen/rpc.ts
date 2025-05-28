@@ -562,8 +562,8 @@ async function verify(proof: PresentationJSON) {
   const presentation: TPresentation = await new Presentation(proof.data);
   const verifierOutput = await presentation.verify();
   const transcript = new Transcript({
-    sent: verifierOutput.transcript.sent,
-    recv: verifierOutput.transcript.recv,
+    sent: verifierOutput?.transcript?.sent || [],
+    recv: verifierOutput?.transcript?.recv || [],
   });
   const vk = await presentation.verifyingKey();
   const verifyingKey = Buffer.from(vk.data).toString('hex');
