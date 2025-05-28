@@ -547,7 +547,7 @@ async function verifyProof(proof: PresentationJSON): Promise<{
         recv: 'version not supported',
       };
       break;
-    case '0.1.0-alpha.10':
+    case '0.1.0-alpha.11':
       result = await verify(proof);
       break;
   }
@@ -556,7 +556,7 @@ async function verifyProof(proof: PresentationJSON): Promise<{
 }
 
 async function verify(proof: PresentationJSON) {
-  if (proof.version !== '0.1.0-alpha.10') {
+  if (proof.version !== '0.1.0-alpha.11') {
     throw new Error('wrong version');
   }
   const presentation: TPresentation = await new Presentation(proof.data);
