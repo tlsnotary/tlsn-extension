@@ -22,6 +22,28 @@ config.plugins = (config.plugins || []).concat(
   }),
 );
 
-webpack(config, function (err) {
-  if (err) throw err;
+webpack(config, function (err, stats) {
+  if (err) {
+    console.error('Webpack error:', err);
+    process.exit(1);
+  }
+
+  if (stats.hasErrors()) {
+    console.error('Build failed with errors:');
+    const info = stats.toJson();
+    console.error(info.errors.map((e) => e.message).join('\n\n'));
+    process.exit(1);
+  }
+
+  if (stats.hasWarnings()) {
+    console.warn('Build completed with warnings:');
+    const info = stats.toJson();
+    console.warn(info.warnings.map((w) => w.message).join('\n\n'));
+  }
+
+  console.log('Build completed successfully!');
+  console.log(`Output: ${path.join(__dirname, '../', 'build')}`);
+  console.log(
+    `Zip: ${path.join(__dirname, '../', 'zip', `${packageInfo.name}-${packageInfo.version}.zip`)}`,
+  );
 });
