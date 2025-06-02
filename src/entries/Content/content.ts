@@ -1,5 +1,5 @@
 import { ContentScriptTypes, RPCClient } from './rpc';
-import { PresentationJSON } from '../../utils/types';
+import { PresentationJSON } from 'tlsn-js/build/types';
 
 const client = new RPCClient();
 
