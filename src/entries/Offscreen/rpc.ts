@@ -542,12 +542,13 @@ async function verifyProof(proof: PresentationJSON): Promise<{
     case '0.1.0-alpha.7':
     case '0.1.0-alpha.8':
     case '0.1.0-alpha.9':
+    case '0.1.0-alpha.10':
       result = {
         sent: 'version not supported',
         recv: 'version not supported',
       };
       break;
-    case '0.1.0-alpha.10':
+    case '0.1.0-alpha.11':
       result = await verify(proof);
       break;
   }
@@ -556,14 +557,14 @@ async function verifyProof(proof: PresentationJSON): Promise<{
 }
 
 async function verify(proof: PresentationJSON) {
-  if (proof.version !== '0.1.0-alpha.10') {
+  if (proof.version !== '0.1.0-alpha.11') {
     throw new Error('wrong version');
   }
   const presentation: TPresentation = await new Presentation(proof.data);
   const verifierOutput = await presentation.verify();
   const transcript = new Transcript({
-    sent: verifierOutput.transcript.sent,
-    recv: verifierOutput.transcript.recv,
+    sent: verifierOutput.transcript?.sent || [],
+    recv: verifierOutput.transcript?.recv || [],
   });
   const vk = await presentation.verifyingKey();
   const verifyingKey = Buffer.from(vk.data).toString('hex');
