@@ -49,7 +49,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: tlsn-extension-${{ github.ref_name }}.zip
-          path: ./tlsn-extension-${{ github.ref_name }}.zip
+          path: .
 
       - name: 📦 Add extension zip file to release
         env:
