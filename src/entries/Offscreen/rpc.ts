@@ -16,9 +16,8 @@ import {
 } from 'tlsn-js';
 import { convertNotaryWsToHttp, devlog, urlify } from '../../utils/misc';
 import * as Comlink from 'comlink';
-import { PresentationJSON as PresentationJSONa7 } from 'tlsn-js/build/types';
 import { OffscreenActionTypes } from './types';
-import { PresentationJSON } from '../../utils/types';
+import { PresentationJSON } from 'tlsn-js/build/types';
 import { waitForEvent } from '../utils';
 import {
   setNotaryRequestError,
@@ -368,7 +367,7 @@ async function createProof(options: {
   id: string;
   secretHeaders: string[];
   secretResps: string[];
-}): Promise<PresentationJSONa7> {
+}): Promise<PresentationJSON> {
   const {
     url,
     method = 'GET',
@@ -538,18 +537,14 @@ async function verifyProof(proof: PresentationJSON): Promise<{
   };
 
   switch (proof.version) {
-    case undefined:
-    case '0.1.0-alpha.7':
-    case '0.1.0-alpha.8':
-    case '0.1.0-alpha.9':
-    case '0.1.0-alpha.10':
+    case '0.1.0-alpha.11':
+      result = await verify(proof);
+      break;
+    default:
       result = {
         sent: 'version not supported',
         recv: 'version not supported',
       };
-      break;
-    case '0.1.0-alpha.11':
-      result = await verify(proof);
       break;
   }
 
