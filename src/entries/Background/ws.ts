@@ -436,8 +436,8 @@ export const endProofRequest = async (data: {
   proof: VerifierOutput;
 }) => {
   const transcript = new Transcript({
-    sent: data.proof.transcript.sent,
-    recv: data.proof.transcript.recv,
+    sent: data.proof.transcript?.sent || [],
+    recv: data.proof.transcript?.recv || [],
   });
 
   state.presentation = {
