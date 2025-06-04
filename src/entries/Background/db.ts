@@ -515,3 +515,14 @@ export async function getAppState() {
     defaultPluginsInstalled: await getDefaultPluginsInstalled(),
   };
 }
+
+export async function resetDB() {
+  return mutex.runExclusive(async () => {
+    return Promise.all([
+      cookiesDb.clear(),
+      headersDb.clear(),
+      localStorageDb.clear(),
+      sessionStorageDb.clear(),
+    ]);
+  });
+}

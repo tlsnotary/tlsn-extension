@@ -32,6 +32,11 @@ import Modal, { ModalContent } from '../../components/Modal/Modal';
 import browser from 'webextension-polyfill';
 import { LoggingLevel } from 'tlsn-js';
 import { version } from '../../../package.json';
+import {
+  clearCookies,
+  clearHeaders,
+  resetDB,
+} from '../../entries/Background/db';
 
 export default function Options(): ReactElement {
   const [notary, setNotary] = useState(NOTARY_API);
@@ -191,6 +196,9 @@ export default function Options(): ReactElement {
           onClick={() => openInTab('https://discord.gg/9XwESXtcN7')}
         >
           Join our Discord
+        </button>
+        <button className="button" onClick={resetDB}>
+          Clean Cache
         </button>
       </div>
     </div>
