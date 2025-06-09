@@ -70,29 +70,7 @@ export const connectSession = async () => {
 
   const rendezvousAPI = await getRendezvousApi();
 
-  try {
-    const url = new URL(rendezvousAPI);
-    if (!url.protocol.startsWith('ws')) {
-      throw new Error(
-        'Invalid websocket URL: must use ws:// or wss:// protocol',
-      );
-    }
-  } catch (error) {
-    console.error('Invalid rendezvous API URL:', error);
-    pushToRedux(setP2PError(`Invalid rendezvous server URL: ${rendezvousAPI}`));
-    return;
-  }
-
-  let socket: WebSocket;
-  try {
-    socket = new WebSocket(rendezvousAPI);
-  } catch (error) {
-    console.error('Failed to create WebSocket:', error);
-    pushToRedux(
-      setP2PError(`Failed to connect to rendezvous server: ${error}`),
-    );
-    return;
-  }
+  const socket = new WebSocket(rendezvousAPI);
 
   socket.onopen = () => {
     devlog('Connected to websocket');
