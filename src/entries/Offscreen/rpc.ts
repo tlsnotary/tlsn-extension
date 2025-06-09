@@ -442,7 +442,7 @@ async function createProof(options: {
   return {
     ...json,
     meta: {
-      ...json,
+      ...json.meta,
       notaryUrl: notaryUrl,
       websocketProxyUrl: websocketProxyUrl,
     },
