@@ -69,7 +69,30 @@ export const connectSession = async () => {
   if (state.socket) return;
 
   const rendezvousAPI = await getRendezvousApi();
-  const socket = new WebSocket(rendezvousAPI);
+
+  try {
+    const url = new URL(rendezvousAPI);
+    if (!url.protocol.startsWith('ws')) {
+      throw new Error(
+        'Invalid websocket URL: must use ws:// or wss:// protocol',
+      );
+    }
+  } catch (error) {
+    console.error('Invalid rendezvous API URL:', error);
+    pushToRedux(setP2PError(`Invalid rendezvous server URL: ${rendezvousAPI}`));
+    return;
+  }
+
+  let socket: WebSocket;
+  try {
+    socket = new WebSocket(rendezvousAPI);
+  } catch (error) {
+    console.error('Failed to create WebSocket:', error);
+    pushToRedux(
+      setP2PError(`Failed to connect to rendezvous server: ${error}`),
+    );
+    return;
+  }
 
   socket.onopen = () => {
     devlog('Connected to websocket');
@@ -316,9 +339,26 @@ export const connectSession = async () => {
         break;
     }
   };
-  socket.onerror = () => {
-    console.error('Error connecting to websocket');
+  socket.onerror = (error) => {
+    console.error('Error connecting to websocket:', error);
     pushToRedux(setConnected(false));
+    pushToRedux(
+      setP2PError(
+        'Failed to connect to rendezvous server. Please check your connection and server URL.',
+      ),
+    );
+  };
+
+  socket.onclose = (event) => {
+    console.log('WebSocket connection closed:', event.code, event.reason);
+    pushToRedux(setConnected(false));
+    if (event.code !== 1000 && event.code !== 1001) {
+      pushToRedux(
+        setP2PError(
+          `WebSocket connection lost: ${event.reason || 'Unknown error'}`,
+        ),
+      );
+    }
   };
 };
 
