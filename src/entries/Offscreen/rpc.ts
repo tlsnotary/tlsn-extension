@@ -133,11 +133,6 @@ export const onCreatePresentationRequest = async (request: any) => {
         id,
         proof: {
           ...json,
-          meta: {
-            ...json.meta,
-            notaryUrl,
-            websocketProxyUrl,
-          },
         },
       },
     });
@@ -441,11 +436,6 @@ async function createProof(options: {
   const json = await presentation.json();
   return {
     ...json,
-    meta: {
-      ...json.meta,
-      notaryUrl: notaryUrl,
-      websocketProxyUrl: websocketProxyUrl,
-    },
   };
 }
 
