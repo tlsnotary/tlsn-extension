@@ -32,6 +32,12 @@ import Modal, { ModalContent } from '../../components/Modal/Modal';
 import browser from 'webextension-polyfill';
 import { LoggingLevel } from 'tlsn-js';
 import { version } from '../../../package.json';
+import {
+  clearCookies,
+  clearHeaders,
+  getDBSize,
+  resetDB,
+} from '../../entries/Background/db';
 
 export default function Options(): ReactElement {
   const [notary, setNotary] = useState(NOTARY_API);
@@ -45,6 +51,16 @@ export default function Options(): ReactElement {
   const [shouldReload, setShouldReload] = useState(false);
   const [advanced, setAdvanced] = useState(false);
   const [showReloadModal, setShowReloadModal] = useState(false);
+  const [dbSize, setDbSize] = useState(0);
+  const [isCalculatingDbSize, setIsCalculatingDbSize] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      setIsCalculatingDbSize(true);
+      setDbSize(await getDBSize());
+      setIsCalculatingDbSize(false);
+    })();
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -101,6 +117,13 @@ export default function Options(): ReactElement {
 
   const openInTab = useCallback((url: string) => {
     browser.tabs.create({ url });
+  }, []);
+
+  const onCleanCache = useCallback(async () => {
+    setIsCalculatingDbSize(true);
+    await resetDB();
+    setDbSize(await getDBSize());
+    setIsCalculatingDbSize(false);
   }, []);
 
   return (
@@ -191,6 +214,15 @@ export default function Options(): ReactElement {
           onClick={() => openInTab('https://discord.gg/9XwESXtcN7')}
         >
           Join our Discord
+        </button>
+        <button className="button" onClick={onCleanCache}>
+          <span>Clean Cache (</span>
+          {isCalculatingDbSize ? (
+            <i className="fa-solid fa-spinner fa-spin"></i>
+          ) : (
+            <span>{(dbSize / 1024 / 1024).toFixed(2)} MB</span>
+          )}
+          <span>)</span>
         </button>
       </div>
     </div>

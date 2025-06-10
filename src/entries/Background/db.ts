@@ -1,4 +1,5 @@
 import { Level } from 'level';
+import { AbstractSublevel } from 'abstract-level';
 import { PluginConfig, PluginMetadata, sha256, urlify } from '../../utils/misc';
 import { RequestHistory, RequestProgress } from './rpc';
 import mutex from './mutex';
@@ -514,4 +515,43 @@ export async function getAppState() {
   return {
     defaultPluginsInstalled: await getDefaultPluginsInstalled(),
   };
+}
+
+export async function resetDB() {
+  return mutex.runExclusive(async () => {
+    return Promise.all([
+      cookiesDb.clear(),
+      headersDb.clear(),
+      localStorageDb.clear(),
+      sessionStorageDb.clear(),
+    ]);
+  });
+}
+
+export async function getDBSizeByRoot(
+  rootDB: AbstractSublevel<Level, any, any, any>,
+): Promise<number> {
+  return new Promise(async (resolve, reject) => {
+    let size = 0;
+
+    for await (const sublevel of rootDB.keys({ keyEncoding: 'utf8' })) {
+      const link = sublevel.split('!')[1];
+      const sub = rootDB.sublevel(link);
+      for await (const [key, value] of sub.iterator()) {
+        size += key.length + value.length;
+      }
+    }
+
+    resolve(size);
+  });
+}
+
+export async function getDBSize(): Promise<number> {
+  const sizes = await Promise.all([
+    getDBSizeByRoot(cookiesDb),
+    getDBSizeByRoot(headersDb),
+    getDBSizeByRoot(localStorageDb),
+    getDBSizeByRoot(sessionStorageDb),
+  ]);
+  return sizes.reduce((a, b) => a + b, 0);
 }
