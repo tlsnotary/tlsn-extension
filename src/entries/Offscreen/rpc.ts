@@ -301,6 +301,7 @@ export const startP2PProver = async (request: any) => {
     },
   });
   await proofRequestStart;
+
   await prover.sendRequest(websocketProxyUrl + `?token=${hostname}`, {
     url,
     method,
@@ -399,13 +400,18 @@ async function createProof(options: {
   updateRequestProgress(id, RequestProgress.SettingUpProver);
   await prover.setup(sessionUrl);
 
-  updateRequestProgress(id, RequestProgress.SendingRequest);
-  await prover.sendRequest(websocketProxyUrl + `?token=${hostname}`, {
-    url,
-    method,
-    headers,
-    body,
-  });
+  await handleProgress(
+    id,
+    RequestProgress.SendingRequest,
+    () =>
+      prover.sendRequest(websocketProxyUrl + `?token=${hostname}`, {
+        url,
+        method,
+        headers,
+        body,
+      }),
+    `Error connecting to websocket proxy: ${websocketProxyUrl}. Please check the proxy URL and ensure it's accessible.`,
+  );
 
   updateRequestProgress(id, RequestProgress.ReadingTranscript);
   const transcript = await prover.transcript();
@@ -514,7 +520,7 @@ async function createProver(options: {
           headers,
           body,
         }),
-      'Error sending request',
+      `Error connecting to websocket proxy: ${websocketProxyUrl}. Please check the proxy URL and ensure it's accessible.`,
     );
 
     return prover;
@@ -598,6 +604,75 @@ function updateRequestProgress(
   });
 }
 
+function getWebsocketErrorMessage(
+  lowerError: string,
+  fallbackMessage: string,
+): string {
+  const isWebsocketError =
+    lowerError.includes('websocket') ||
+    lowerError.includes('proxy') ||
+    lowerError.includes('connection') ||
+    lowerError.includes('network') ||
+    lowerError.includes('prover error') ||
+    lowerError.includes('io error') ||
+    lowerError.includes('certificate') ||
+    lowerError.includes('cert') ||
+    lowerError.includes('ssl') ||
+    lowerError.includes('tls');
+
+  if (!isWebsocketError) {
+    return fallbackMessage;
+  }
+
+  const errorPatterns = [
+    {
+      patterns: ['protocol', 'must use ws://', 'must use wss://'],
+      message:
+        'Invalid websocket proxy URL protocol. Please use ws:// or wss:// protocol in your websocket proxy URL settings.',
+    },
+    {
+      patterns: [
+        'not allowed',
+        'not whitelisted',
+        'forbidden',
+        'unauthorized',
+        'permission denied',
+        'access denied',
+      ],
+      message:
+        'Target domain not allowed by websocket proxy. Please check if the website domain is supported by your proxy service.',
+    },
+    {
+      patterns: ['dns', 'resolve'],
+      message:
+        'Cannot resolve websocket proxy domain. Please check your websocket proxy URL in settings.',
+    },
+    {
+      patterns: ['timeout'],
+      message:
+        'Websocket proxy connection timeout. Please check your websocket proxy URL in settings and ensure the server is accessible.',
+    },
+    {
+      patterns: ['refused', 'unreachable'],
+      message:
+        'Cannot reach websocket proxy server. Please check your websocket proxy URL in settings and ensure the server is accessible.',
+    },
+    {
+      patterns: ['cert', 'certificate', 'certnotvalidforname'],
+      message:
+        'Cannot connect to websocket proxy server. Please check your websocket proxy URL in settings and ensure it points to a valid websocket proxy service.',
+    },
+  ];
+
+  for (const { patterns, message } of errorPatterns) {
+    if (patterns.some((pattern) => lowerError.includes(pattern))) {
+      return message;
+    }
+  }
+
+  return 'Websocket proxy connection failed. Please check your websocket proxy URL in settings and ensure the server is accessible.';
+}
+
 async function handleProgress<T>(
   id: string,
   progress: RequestProgress,
@@ -608,12 +683,17 @@ async function handleProgress<T>(
     updateRequestProgress(id, progress);
     return await action();
   } catch (error: any) {
-    updateRequestProgress(id, RequestProgress.Error, errorMessage);
-    await setNotaryRequestStatus(id, 'error');
-    await setNotaryRequestError(
-      id,
-      errorMessage || error.message || 'Unknown error',
+    const specificError = error?.message || '';
+    const lowerError = specificError.toLowerCase();
+
+    const finalErrorMessage = getWebsocketErrorMessage(
+      lowerError,
+      errorMessage,
     );
+
+    updateRequestProgress(id, RequestProgress.Error, finalErrorMessage);
+    await setNotaryRequestStatus(id, 'error');
+    await setNotaryRequestError(id, finalErrorMessage);
     throw error;
   }
 }

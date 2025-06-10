@@ -92,6 +92,7 @@ export default function SidePanel(): ReactElement {
         </button>
       </div>
       {/*{!config && <PluginList />}*/}
+
       {started && config && (
         <PluginBody
           url={url}
@@ -152,7 +153,10 @@ function PluginBody({
         type: SidePanelActionTypes.execute_plugin_response,
         data: {
           url,
-          error: notaryRequest.error,
+          error:
+            notaryRequest.errorMessage ||
+            notaryRequest.error ||
+            'Notarization failed',
         },
       });
     }
@@ -248,7 +252,7 @@ function StepContent(
           ? JSON.stringify(lastResponse)
           : JSON.stringify(parameterValues),
       );
-      const val = JSON.parse(out.string());
+      const val = JSON.parse(out!.string());
       if (val && prover) {
         setNotarizationId(val);
       } else {
@@ -257,7 +261,7 @@ function StepContent(
       setResponse(val, index);
     } catch (e: any) {
       console.error(e);
-      setError(e?.message || 'Unkonwn error');
+      setError(e?.message || 'Unknown error');
     } finally {
       setPending(false);
     }
@@ -349,12 +353,18 @@ function StepContent(
     btnContent = (
       <div className="flex flex-col gap-2">
         {notaryRequest?.progress === RequestProgress.Error && (
-          <div className="flex flex-row items-center gap-2 text-red-600">
-            <Icon fa="fa-solid fa-triangle-exclamation" size={1} />
-            <span className="text-sm">
-              {notaryRequest?.errorMessage ||
-                progressText(notaryRequest.progress)}
-            </span>
+          <div className="flex flex-col gap-1">
+            <div className="flex flex-row items-start gap-2 text-red-600">
+              <Icon
+                fa="fa-solid fa-triangle-exclamation"
+                size={1}
+                className="mt-0.5"
+              />
+              <span className="text-sm">
+                {notaryRequest?.errorMessage ||
+                  progressText(notaryRequest.progress)}
+              </span>
+            </div>
           </div>
         )}
         {notaryRequest?.progress !== RequestProgress.Error && (
@@ -397,7 +407,18 @@ function StepContent(
         {!!description && (
           <div className="text-slate-500 text-sm">{description}</div>
         )}
-        {!!error && <div className="text-red-500 text-sm">{error}</div>}
+        {!!error && (
+          <div className="flex flex-col gap-1">
+            <div className="flex flex-row items-start gap-2 text-red-600">
+              <Icon
+                fa="fa-solid fa-triangle-exclamation"
+                size={1}
+                className="mt-0.5"
+              />
+              <div className="text-red-500 text-sm">{error}</div>
+            </div>
+          </div>
+        )}
         {btnContent}
       </div>
     </div>

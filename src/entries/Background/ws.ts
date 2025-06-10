@@ -69,6 +69,7 @@ export const connectSession = async () => {
   if (state.socket) return;
 
   const rendezvousAPI = await getRendezvousApi();
+
   const socket = new WebSocket(rendezvousAPI);
 
   socket.onopen = () => {
@@ -316,9 +317,26 @@ export const connectSession = async () => {
         break;
     }
   };
-  socket.onerror = () => {
-    console.error('Error connecting to websocket');
+  socket.onerror = (error) => {
+    console.error('Error connecting to websocket:', error);
     pushToRedux(setConnected(false));
+    pushToRedux(
+      setP2PError(
+        'Failed to connect to rendezvous server. Please check your connection and server URL.',
+      ),
+    );
+  };
+
+  socket.onclose = (event) => {
+    console.log('WebSocket connection closed:', event.code, event.reason);
+    pushToRedux(setConnected(false));
+    if (event.code !== 1000 && event.code !== 1001) {
+      pushToRedux(
+        setP2PError(
+          `WebSocket connection lost: ${event.reason || 'Unknown error'}`,
+        ),
+      );
+    }
   };
 };
 

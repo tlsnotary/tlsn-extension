@@ -54,6 +54,7 @@ import {
   sendMessage,
   sendPairedMessage,
 } from './ws';
+
 import { parseHttpMessage } from '../../utils/parser';
 import { mapStringToRange, subtractRanges } from 'tlsn-js';
 import { PresentationJSON } from 'tlsn-js/build/types';
@@ -337,6 +338,7 @@ export const initRPC = () => {
             pluginHash: request.data,
           }).then(sendResponse);
           return;
+
         case BackgroundActiontype.get_p2p_state:
           getP2PState();
           return;
