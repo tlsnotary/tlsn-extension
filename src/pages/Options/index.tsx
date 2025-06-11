@@ -271,7 +271,15 @@ function NormalOptions(props: {
   developerMode: boolean;
   setDeveloperMode: (value: boolean) => void;
 }) {
-  const { notary, setNotary, proxy, setProxy, setDirty, developerMode, setDeveloperMode } = props;
+  const {
+    notary,
+    setNotary,
+    proxy,
+    setProxy,
+    setDirty,
+    developerMode,
+    setDeveloperMode,
+  } = props;
 
   return (
     <div>
@@ -318,12 +326,14 @@ function NormalOptions(props: {
           />
           <label
             htmlFor="developer-mode"
-            className={`block h-5 rounded-full cursor-pointer transition-all duration-300 ease-in-out ${developerMode ? 'bg-blue-500' : 'bg-gray-300'
-              }`}
+            className={`block h-5 rounded-full cursor-pointer transition-all duration-300 ease-in-out ${
+              developerMode ? 'bg-blue-500' : 'bg-gray-300'
+            }`}
           >
             <span
-              className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transform transition-all duration-300 ease-in-out ${developerMode ? 'translate-x-4' : 'translate-x-0'
-                }`}
+              className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transform transition-all duration-300 ease-in-out ${
+                developerMode ? 'translate-x-4' : 'translate-x-0'
+              }`}
             />
           </label>
         </div>

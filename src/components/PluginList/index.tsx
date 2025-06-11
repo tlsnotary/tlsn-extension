@@ -5,7 +5,12 @@ import React, {
   useEffect,
   useState,
 } from 'react';
-import { fetchPluginHashes, removePlugin, runPlugin, addPlugin } from '../../utils/rpc';
+import {
+  fetchPluginHashes,
+  removePlugin,
+  runPlugin,
+  addPlugin,
+} from '../../utils/rpc';
 import { usePluginHashes } from '../../reducers/plugins';
 import {
   getPluginConfig,
@@ -45,31 +50,33 @@ export function PluginList({
     fetchPluginHashes();
   }, []);
 
-  const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleFileUpload = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
 
-    if (!file.name.endsWith('.wasm')) {
-      alert('Please select a .wasm file');
-      return;
-    }
+      if (!file.name.endsWith('.wasm')) {
+        alert('Please select a .wasm file');
+        return;
+      }
 
-    setUploading(true);
-    try {
-      const arrayBuffer = await file.arrayBuffer();
-      const hex = Buffer.from(arrayBuffer).toString('hex');
-      const url = `file://${file.name}`;
+      setUploading(true);
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const hex = Buffer.from(arrayBuffer).toString('hex');
+        const url = `file://${file.name}`;
 
-      await addPlugin(hex, url);
-      await fetchPluginHashes();
-    } catch (error: any) {
-      alert(`Failed to add plugin: ${error.message}`);
-    } finally {
-      setUploading(false);
-      // Reset the input
-      e.target.value = '';
-    }
-  }, []);
+        await addPlugin(hex, url);
+        await fetchPluginHashes();
+      } catch (error: any) {
+        alert(`Failed to add plugin: ${error.message}`);
+      } finally {
+        setUploading(false);
+        e.target.value = '';
+      }
+    },
+    [],
+  );
 
   return (
     <div className={classNames('flex flex-col flex-nowrap gap-1', className)}>
@@ -113,7 +120,6 @@ export function PluginList({
           onClick={onClick}
         />
       ))}
-
     </div>
   );
 }
