@@ -1,5 +1,4 @@
 import browser from 'webextension-polyfill';
-// import { clearCache, getCacheByTabId } from './cache';
 import { addRequestHistory, setRequests } from '../../reducers/history';
 import {
   addNotaryRequest,
@@ -25,6 +24,7 @@ import {
   setSessionStorage,
   setNotaryRequestProgress,
   getRequestLogsByTabId,
+  clearAllRequestLogs,
 } from './db';
 import { addOnePlugin, removeOnePlugin } from '../../reducers/plugins';
 import {
@@ -231,7 +231,7 @@ export const initRPC = () => {
         case BackgroundActiontype.get_requests:
           return handleGetRequests(request, sendResponse);
         case BackgroundActiontype.clear_requests:
-          // clearCache();
+          clearAllRequestLogs().then(() => pushToRedux(setRequests([])));
           return sendResponse();
         case BackgroundActiontype.get_prove_requests:
           return handleGetProveRequests(request, sendResponse);

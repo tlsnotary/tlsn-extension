@@ -109,6 +109,10 @@ export async function getRequestLogsByHost(host: string) {
   return ret;
 }
 
+export async function clearAllRequestLogs() {
+  await requestDb.clear();
+}
+
 export async function addNotaryRequest(
   now = Date.now(),
   request: Omit<RequestHistory, 'status' | 'id'>,
