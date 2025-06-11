@@ -19,6 +19,8 @@ import {
   LOGGING_FILTER_KEY,
   getRendezvousApi,
   RENDEZVOUS_API_LS_KEY,
+  getDeveloperMode,
+  DEVELOPER_MODE_LS_KEY,
 } from '../../utils/storage';
 import {
   EXPLORER_API,
@@ -46,6 +48,7 @@ export default function Options(): ReactElement {
   const [maxReceived, setMaxReceived] = useState(MAX_RECV);
   const [loggingLevel, setLoggingLevel] = useState<LoggingLevel>('Info');
   const [rendezvous, setRendezvous] = useState(RENDEZVOUS_API);
+  const [developerMode, setDeveloperMode] = useState(false);
 
   const [dirty, setDirty] = useState(false);
   const [shouldReload, setShouldReload] = useState(false);
@@ -66,6 +69,7 @@ export default function Options(): ReactElement {
     (async () => {
       setNotary(await getNotaryApi());
       setProxy(await getProxyApi());
+      setDeveloperMode(await getDeveloperMode());
     })();
   }, []);
 
@@ -90,6 +94,7 @@ export default function Options(): ReactElement {
       await set(MAX_RECEIVED_LS_KEY, maxReceived.toString());
       await set(LOGGING_FILTER_KEY, loggingLevel);
       await set(RENDEZVOUS_API_LS_KEY, rendezvous);
+      await set(DEVELOPER_MODE_LS_KEY, developerMode.toString());
       setDirty(false);
     },
     [
@@ -99,6 +104,7 @@ export default function Options(): ReactElement {
       maxReceived,
       loggingLevel,
       rendezvous,
+      developerMode,
       shouldReload,
     ],
   );
@@ -162,6 +168,8 @@ export default function Options(): ReactElement {
         proxy={proxy}
         setProxy={setProxy}
         setDirty={setDirty}
+        developerMode={developerMode}
+        setDeveloperMode={setDeveloperMode}
       />
       <div className="justify-left px-2 pt-3 gap-2">
         <button className="font-bold" onClick={onAdvanced}>
@@ -260,8 +268,10 @@ function NormalOptions(props: {
   proxy: string;
   setProxy: (value: string) => void;
   setDirty: (value: boolean) => void;
+  developerMode: boolean;
+  setDeveloperMode: (value: boolean) => void;
 }) {
-  const { notary, setNotary, proxy, setProxy, setDirty } = props;
+  const { notary, setNotary, proxy, setProxy, setDirty, developerMode, setDeveloperMode } = props;
 
   return (
     <div>
@@ -292,6 +302,31 @@ function NormalOptions(props: {
       <div className="flex flex-col flex-nowrap py-1 px-2 gap-2 cursor-default">
         <div className="font-semibold">Explorer URL</div>
         <div className="input border bg-slate-100">{EXPLORER_API}</div>
+      </div>
+      <div className="flex flex-row items-center py-3 px-2 gap-2">
+        <div className="font-semibold">Developer Mode</div>
+        <div className="relative inline-block w-9 h-5">
+          <input
+            type="checkbox"
+            id="developer-mode"
+            checked={developerMode}
+            onChange={(e) => {
+              setDeveloperMode(e.target.checked);
+              setDirty(true);
+            }}
+            className="sr-only"
+          />
+          <label
+            htmlFor="developer-mode"
+            className={`block h-5 rounded-full cursor-pointer transition-all duration-300 ease-in-out ${developerMode ? 'bg-blue-500' : 'bg-gray-300'
+              }`}
+          >
+            <span
+              className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transform transition-all duration-300 ease-in-out ${developerMode ? 'translate-x-4' : 'translate-x-0'
+                }`}
+            />
+          </label>
+        </div>
       </div>
     </div>
   );

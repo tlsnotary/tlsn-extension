@@ -11,17 +11,34 @@ import History from '../History';
 import './index.scss';
 import Requests from '../Requests';
 import { fetchPluginHashes } from '../../utils/rpc';
+import { PluginList } from '../../components/PluginList';
+import { getDeveloperMode } from '../../utils/storage';
 
 export default function Home(props: {
   tab?: 'history' | 'network';
 }): ReactElement {
   const [error, showError] = useState('');
-  const [tab, setTab] = useState<'history' | 'network'>(props.tab || 'history');
+  const [tab, setTab] = useState<'history' | 'network' | 'plugins'>(props.tab || 'history');
   const scrollableContent = useRef<HTMLDivElement | null>(null);
   const [shouldFix, setFix] = useState(false);
+  const [developerMode, setDeveloperMode] = useState(false);
 
   useEffect(() => {
     fetchPluginHashes();
+    (async () => {
+      setDeveloperMode(await getDeveloperMode());
+    })();
+    const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }) => {
+      if (changes['developer-mode']) {
+        setDeveloperMode(changes['developer-mode'].newValue === 'true');
+      }
+    };
+
+    chrome.storage.onChanged.addListener(handleStorageChange);
+
+    return () => {
+      chrome.storage.onChanged.removeListener(handleStorageChange);
+    };
   }, []);
 
   useEffect(() => {
@@ -71,10 +88,19 @@ export default function Home(props: {
         >
           History
         </TabSelector>
+        {developerMode && (
+          <TabSelector
+            onClick={() => setTab('plugins')}
+            selected={tab === 'plugins'}
+          >
+            Plugins
+          </TabSelector>
+        )}
       </div>
       <div className="flex-grow">
         {tab === 'history' && <History />}
         {tab === 'network' && <Requests shouldFix={shouldFix} />}
+        {tab === 'plugins' && <PluginList className="p-2 overflow-y-auto" showAddButton={developerMode} />}
       </div>
     </div>
   );
