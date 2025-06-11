@@ -1,7 +1,12 @@
 import { Level } from 'level';
 import { AbstractSublevel } from 'abstract-level';
 import { PluginConfig, PluginMetadata, sha256, urlify } from '../../utils/misc';
-import { RequestHistory, RequestProgress } from './rpc';
+import {
+  RequestHistory,
+  RequestLog,
+  RequestProgress,
+  UpsertRequestLog,
+} from './rpc';
 import mutex from './mutex';
 import { minimatch } from 'minimatch';
 const charwise = require('charwise');
@@ -24,12 +29,6 @@ const pluginMetadataDb = db.sublevel<string, PluginMetadata>('pluginMetadata', {
 const connectionDb = db.sublevel<string, boolean>('connections', {
   valueEncoding: 'json',
 });
-const cookiesDb = db.sublevel<string, boolean>('cookies', {
-  valueEncoding: 'json',
-});
-const headersDb = db.sublevel<string, boolean>('headers', {
-  valueEncoding: 'json',
-});
 const localStorageDb = db.sublevel<string, any>('sessionStorage', {
   valueEncoding: 'json',
 });
@@ -39,8 +38,75 @@ const sessionStorageDb = db.sublevel<string, any>('localStorage', {
 const appDb = db.sublevel<string, any>('app', {
   valueEncoding: 'json',
 });
+const requestDb = db.sublevel<string, any>('requests', {
+  valueEncoding: 'json',
+});
+
 enum AppDatabaseKey {
   DefaultPluginsInstalled = 'DefaultPluginsInstalled',
+}
+
+export async function upsertRequestLog(request: UpsertRequestLog) {
+  const existing = await getRequestLog(request.requestId);
+
+  if (existing) {
+    await requestDb.put(request.requestId, {
+      ...existing,
+      ...request,
+    });
+  } else if (request.url) {
+    const host = urlify(request.url)?.host;
+    if (host) {
+      await requestDb.put(request.requestId, request);
+      await requestDb
+        .sublevel(request.tabId.toString())
+        .put(request.requestId, '');
+      await requestDb.sublevel(host).put(request.requestId, '');
+    }
+  }
+}
+
+export async function getRequestLog(
+  requestId: string,
+): Promise<RequestLog | null> {
+  return requestDb.get(requestId).catch(() => null);
+}
+
+export async function removeRequestLog(requestId: string) {
+  const existing = await getRequestLog(requestId);
+  if (existing) {
+    await requestDb.del(requestId);
+    await requestDb.sublevel(existing.tabId.toString()).del(requestId);
+    const host = urlify(existing.url)?.host;
+    if (host) {
+      await requestDb.sublevel(host).del(requestId);
+    }
+  }
+}
+
+export async function removeRequestLogsByTabId(tabId: number) {
+  const requests = requestDb.sublevel(tabId.toString());
+  for await (const [requestId] of requests.iterator()) {
+    await removeRequestLog(requestId);
+  }
+}
+
+export async function getRequestLogsByTabId(tabId: number) {
+  const requests = requestDb.sublevel(tabId.toString());
+  const ret: RequestLog[] = [];
+  for await (const [requestId] of requests.iterator()) {
+    ret.push(await requestDb.get(requestId));
+  }
+  return ret;
+}
+
+export async function getRequestLogsByHost(host: string) {
+  const requests = requestDb.sublevel(host);
+  const ret: RequestLog[] = [];
+  for await (const [requestId] of requests.iterator()) {
+    ret.push(await requestDb.get(requestId));
+  }
+  return ret;
 }
 
 export async function addNotaryRequest(
@@ -340,48 +406,43 @@ export async function setConnection(origin: string) {
   return true;
 }
 
-export async function setCookies(host: string, name: string, value: string) {
-  return mutex.runExclusive(async () => {
-    await cookiesDb.sublevel(host).put(name, value);
-    return true;
-  });
-}
-
-export async function clearCookies(host: string) {
-  return mutex.runExclusive(async () => {
-    await cookiesDb.sublevel(host).clear();
-    return true;
-  });
-}
-
-export async function getCookies(link: string, name: string) {
-  try {
-    const existing = await cookiesDb.sublevel(link).get(name);
-    return existing;
-  } catch (e) {
-    return null;
-  }
-}
-
-export async function getCookiesByHost(link: string) {
+export async function getCookiesByHost(linkOrHost: string) {
   const ret: { [key: string]: string } = {};
   const links: { [k: string]: boolean } = {};
-  const url = urlify(link);
+  const url = urlify(linkOrHost);
+  const isHost = !url;
+  const host = isHost ? linkOrHost : url.host;
+  const requests = await getRequestLogsByHost(host);
 
-  for await (const sublevel of cookiesDb.keys({ keyEncoding: 'utf8' })) {
-    const l = sublevel.split('!')[1];
-    links[l] = true;
+  let filteredRequest: RequestLog | null = null;
+
+  for (const request of requests) {
+    if (isHost) {
+      if (!filteredRequest || filteredRequest.updatedAt > request.updatedAt) {
+        filteredRequest = request;
+      }
+    } else {
+      if (
+        !filteredRequest ||
+        (filteredRequest.updatedAt > request.updatedAt &&
+          minimatch(request.url, linkOrHost))
+      ) {
+        filteredRequest = request;
+      }
+    }
   }
 
-  const cookieLink = url
-    ? Object.keys(links).filter((l) => minimatch(l, link))[0]
-    : Object.keys(links).filter((l) => urlify(l)?.host === link)[0];
+  if (!filteredRequest) return ret;
 
-  if (!cookieLink) return ret;
-
-  for await (const [key, value] of cookiesDb.sublevel(cookieLink).iterator()) {
-    ret[key] = value;
+  for (const header of filteredRequest.requestHeaders) {
+    if (header.name.toLowerCase() === 'cookie') {
+      header.value?.split(';').forEach((cookie) => {
+        const [name, value] = cookie.split('=');
+        ret[name.trim()] = value.trim();
+      });
+    }
   }
+
   return ret;
 }
 
@@ -401,49 +462,39 @@ export async function getConnection(origin: string) {
     return null;
   }
 }
-
-export async function setHeaders(link: string, name: string, value?: string) {
-  if (!value) return null;
-  return mutex.runExclusive(async () => {
-    await headersDb.sublevel(link).put(name, value);
-    return true;
-  });
-}
-
-export async function clearHeaders(host: string) {
-  return mutex.runExclusive(async () => {
-    await headersDb.sublevel(host).clear();
-    return true;
-  });
-}
-
-export async function getHeaders(host: string, name: string) {
-  try {
-    const existing = await headersDb.sublevel(host).get(name);
-    return existing;
-  } catch (e) {
-    return null;
-  }
-}
-export async function getHeadersByHost(link: string) {
+export async function getHeadersByHost(linkOrHost: string) {
   const ret: { [key: string]: string } = {};
-  const url = urlify(link);
+  const url = urlify(linkOrHost);
+  const isHost = !url;
+  const host = isHost ? linkOrHost : url.host;
+  const requests = await getRequestLogsByHost(host);
 
-  const links: { [k: string]: boolean } = {};
-  for await (const sublevel of headersDb.keys({ keyEncoding: 'utf8' })) {
-    const l = sublevel.split('!')[1];
-    links[l] = true;
+  let filteredRequest: RequestLog | null = null;
+
+  for (const request of requests) {
+    if (isHost) {
+      if (!filteredRequest || filteredRequest.updatedAt > request.updatedAt) {
+        filteredRequest = request;
+      }
+    } else {
+      if (
+        !filteredRequest ||
+        (filteredRequest.updatedAt > request.updatedAt &&
+          minimatch(request.url, linkOrHost))
+      ) {
+        filteredRequest = request;
+      }
+    }
   }
 
-  const headerLink = url
-    ? Object.keys(links).filter((l) => minimatch(l, link))[0]
-    : Object.keys(links).filter((l) => urlify(l)?.host === link)[0];
+  if (!filteredRequest) return ret;
 
-  if (!headerLink) return ret;
-
-  for await (const [key, value] of headersDb.sublevel(headerLink).iterator()) {
-    ret[key] = value;
+  for (const header of filteredRequest.requestHeaders) {
+    if (header.name.toLowerCase() !== 'cookie') {
+      ret[header.name] = header.value || '';
+    }
   }
+
   return ret;
 }
 
@@ -520,10 +571,9 @@ export async function getAppState() {
 export async function resetDB() {
   return mutex.runExclusive(async () => {
     return Promise.all([
-      cookiesDb.clear(),
-      headersDb.clear(),
       localStorageDb.clear(),
       sessionStorageDb.clear(),
+      requestDb.clear(),
     ]);
   });
 }
@@ -546,12 +596,33 @@ export async function getDBSizeByRoot(
   });
 }
 
+export async function getRecursiveDBSize(
+  db: AbstractSublevel<Level, any, any, any>,
+): Promise<number> {
+  return new Promise(async (resolve, reject) => {
+    let size = 0;
+    for await (const sublevel of db.keys({ keyEncoding: 'utf8' })) {
+      const parts = sublevel.split('!');
+      if (parts.length === 1) {
+        const value = await db.get(parts[0]);
+        size += parts[0].length + (value ? JSON.stringify(value).length : 0);
+      } else {
+        const sub = db.sublevel(parts[1]);
+        size +=
+          (await getRecursiveDBSize(
+            sub as unknown as AbstractSublevel<Level, any, any, any>,
+          )) + parts[1].length;
+      }
+    }
+    resolve(size);
+  });
+}
+
 export async function getDBSize(): Promise<number> {
   const sizes = await Promise.all([
-    getDBSizeByRoot(cookiesDb),
-    getDBSizeByRoot(headersDb),
     getDBSizeByRoot(localStorageDb),
     getDBSizeByRoot(sessionStorageDb),
+    getRecursiveDBSize(requestDb),
   ]);
   return sizes.reduce((a, b) => a + b, 0);
 }

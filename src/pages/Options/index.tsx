@@ -32,12 +32,7 @@ import Modal, { ModalContent } from '../../components/Modal/Modal';
 import browser from 'webextension-polyfill';
 import { LoggingLevel } from 'tlsn-js';
 import { version } from '../../../package.json';
-import {
-  clearCookies,
-  clearHeaders,
-  getDBSize,
-  resetDB,
-} from '../../entries/Background/db';
+import { getDBSize, resetDB } from '../../entries/Background/db';
 
 export default function Options(): ReactElement {
   const [notary, setNotary] = useState(NOTARY_API);

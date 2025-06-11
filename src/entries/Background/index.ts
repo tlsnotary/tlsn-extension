@@ -1,7 +1,11 @@
 import { onBeforeRequest, onResponseStarted, onSendHeaders } from './handlers';
-import { deleteCacheByTabId } from './cache';
 import browser from 'webextension-polyfill';
-import { getAppState, removePlugin, setDefaultPluginsInstalled } from './db';
+import {
+  getAppState,
+  removePlugin,
+  removeRequestLogsByTabId,
+  setDefaultPluginsInstalled,
+} from './db';
 import { installPlugin } from './plugins/utils';
 
 (async () => {
@@ -30,7 +34,7 @@ import { installPlugin } from './plugins/utils';
   );
 
   browser.tabs.onRemoved.addListener((tabId) => {
-    deleteCacheByTabId(tabId);
+    removeRequestLogsByTabId(tabId);
   });
 
   const { defaultPluginsInstalled } = await getAppState();

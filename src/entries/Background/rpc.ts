@@ -1,5 +1,5 @@
 import browser from 'webextension-polyfill';
-import { clearCache, getCacheByTabId } from './cache';
+// import { clearCache, getCacheByTabId } from './cache';
 import { addRequestHistory, setRequests } from '../../reducers/history';
 import {
   addNotaryRequest,
@@ -24,6 +24,7 @@ import {
   setLocalStorage,
   setSessionStorage,
   setNotaryRequestProgress,
+  getRequestLogsByTabId,
 } from './db';
 import { addOnePlugin, removeOnePlugin } from '../../reducers/plugins';
 import {
@@ -142,6 +143,23 @@ export type RequestLog = {
     [k: string]: string[];
   };
   responseHeaders?: browser.WebRequest.HttpHeaders;
+  updatedAt: number;
+};
+
+export type UpsertRequestLog = {
+  requestId: string;
+  tabId: number;
+  method?: string;
+  type?: string;
+  url?: string;
+  initiator?: string | null;
+  requestHeaders?: browser.WebRequest.HttpHeaders;
+  requestBody?: string;
+  formData?: {
+    [k: string]: string[];
+  };
+  responseHeaders?: browser.WebRequest.HttpHeaders;
+  updatedAt: number;
 };
 
 export enum RequestProgress {
@@ -213,7 +231,7 @@ export const initRPC = () => {
         case BackgroundActiontype.get_requests:
           return handleGetRequests(request, sendResponse);
         case BackgroundActiontype.clear_requests:
-          clearCache();
+          // clearCache();
           return sendResponse();
         case BackgroundActiontype.get_prove_requests:
           return handleGetProveRequests(request, sendResponse);
@@ -353,10 +371,7 @@ function handleGetRequests(
   request: BackgroundAction,
   sendResponse: (data?: any) => void,
 ): boolean {
-  const cache = getCacheByTabId(request.data);
-  const keys = cache.keys() || [];
-  const data = keys.map((key) => cache.get(key));
-  sendResponse(data);
+  getRequestLogsByTabId(request.data).then(sendResponse);
   return true;
 }
 
