@@ -44,8 +44,9 @@ export default function SidePanel(): ReactElement {
 
       switch (type) {
         case SidePanelActionTypes.execute_plugin_request: {
-          setConfig(await getPluginConfigByUrl(data.pluginUrl));
-          setUrl(data.pluginUrl);
+          const pluginIdentifier = data.pluginUrl || data.pluginHash;
+          setConfig(await getPluginConfigByUrl(pluginIdentifier));
+          setUrl(pluginIdentifier);
           setParams(data.pluginParams);
           setStarted(true);
           break;

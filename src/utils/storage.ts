@@ -8,6 +8,7 @@ export const MAX_SENT_LS_KEY = 'max-sent';
 export const MAX_RECEIVED_LS_KEY = 'max-received';
 export const LOGGING_FILTER_KEY = 'logging-filter-2';
 export const RENDEZVOUS_API_LS_KEY = 'rendezvous-api';
+export const DEVELOPER_MODE_LS_KEY = 'developer-mode';
 
 export async function set(key: string, value: string) {
   return chrome.storage.sync.set({ [key]: value });
@@ -42,4 +43,9 @@ export async function getLoggingFilter(): Promise<LoggingLevel> {
 
 export async function getRendezvousApi(): Promise<string> {
   return await get(RENDEZVOUS_API_LS_KEY, RENDEZVOUS_API);
+}
+
+export async function getDeveloperMode(): Promise<boolean> {
+  const value = await get(DEVELOPER_MODE_LS_KEY, 'false');
+  return value === 'true';
 }
