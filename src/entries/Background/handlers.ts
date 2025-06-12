@@ -1,10 +1,10 @@
-import { getCacheByTabId } from './cache';
-import { BackgroundActiontype, RequestLog } from './rpc';
+import { BackgroundActiontype } from './rpc';
 import mutex from './mutex';
 import browser from 'webextension-polyfill';
 import { addRequest } from '../../reducers/requests';
 import { urlify } from '../../utils/misc';
-import { getHeadersByHost, setCookies, setHeaders } from './db';
+import { getRequestLog, upsertRequestLog } from './db';
+
 export const onSendHeaders = (
   details: browser.WebRequest.OnSendHeadersDetailsType,
 ) => {
@@ -12,40 +12,22 @@ export const onSendHeaders = (
     const { method, tabId, requestId } = details;
 
     if (method !== 'OPTIONS') {
-      const cache = getCacheByTabId(tabId);
-      const existing = cache.get<RequestLog>(requestId);
       const { origin, pathname } = urlify(details.url) || {};
 
       const link = [origin, pathname].join('');
 
       if (link && details.requestHeaders) {
-        details.requestHeaders.forEach((header) => {
-          const { name, value } = header;
-          if (/^cookie$/i.test(name) && value) {
-            value.split(';').forEach((cookieStr) => {
-              const index = cookieStr.indexOf('=');
-              if (index !== -1) {
-                const cookieName = cookieStr.slice(0, index).trim();
-                const cookieValue = cookieStr.slice(index + 1);
-                setCookies(link, cookieName, cookieValue);
-              }
-            });
-          } else {
-            setHeaders(link, name, value);
-          }
+        upsertRequestLog({
+          method: details.method as 'GET' | 'POST',
+          type: details.type,
+          url: details.url,
+          initiator: details.initiator || null,
+          requestHeaders: details.requestHeaders || [],
+          tabId: tabId,
+          requestId: requestId,
+          updatedAt: Date.now(),
         });
       }
-
-      cache.set(requestId, {
-        ...existing,
-        method: details.method as 'GET' | 'POST',
-        type: details.type,
-        url: details.url,
-        initiator: details.initiator || null,
-        requestHeaders: details.requestHeaders || [],
-        tabId: tabId,
-        requestId: requestId,
-      });
     }
   });
 };
@@ -59,24 +41,30 @@ export const onBeforeRequest = (
     if (method === 'OPTIONS') return;
 
     if (requestBody) {
-      const cache = getCacheByTabId(tabId);
-      const existing = cache.get<RequestLog>(requestId);
-
       if (requestBody.raw && requestBody.raw[0]?.bytes) {
         try {
-          cache.set(requestId, {
-            ...existing,
+          await upsertRequestLog({
             requestBody: Buffer.from(requestBody.raw[0].bytes).toString(
               'utf-8',
             ),
+            requestId: requestId,
+            tabId: tabId,
+            updatedAt: Date.now(),
           });
         } catch (e) {
           console.error(e);
         }
       } else if (requestBody.formData) {
-        cache.set(requestId, {
-          ...existing,
-          formData: requestBody.formData,
+        await upsertRequestLog({
+          formData: Object.fromEntries(
+            Object.entries(requestBody.formData).map(([key, value]) => [
+              key,
+              Array.isArray(value) ? value : [value],
+            ]),
+          ),
+          requestId: requestId,
+          tabId: tabId,
+          updatedAt: Date.now(),
         });
       }
     }
@@ -91,12 +79,7 @@ export const onResponseStarted = (
 
     if (method === 'OPTIONS') return;
 
-    const cache = getCacheByTabId(tabId);
-
-    const existing = cache.get<RequestLog>(requestId);
-    const newLog: RequestLog = {
-      requestHeaders: [],
-      ...existing,
+    await upsertRequestLog({
       method: details.method,
       type: details.type,
       url: details.url,
@@ -104,9 +87,15 @@ export const onResponseStarted = (
       tabId: tabId,
       requestId: requestId,
       responseHeaders,
-    };
+      updatedAt: Date.now(),
+    });
 
-    cache.set(requestId, newLog);
+    const newLog = await getRequestLog(requestId);
+
+    if (!newLog) {
+      console.error('Request log not found', requestId);
+      return;
+    }
 
     chrome.runtime.sendMessage({
       type: BackgroundActiontype.push_action,
