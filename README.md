@@ -12,7 +12,7 @@
 # Chrome Extension (MV3) for TLSNotary
 
 > [!IMPORTANT]
-> ⚠️ When running the extension against a [notary server](https://github.com/tlsnotary/tlsn/tree/dev/notary-server), please ensure that the server's version is the same as the version of this extension
+> ⚠️ When running the extension against a [notary server](https://github.com/tlsnotary/tlsn/tree/main/crates/notary/server), please ensure that the server's version is the same as the version of this extension
 
 ## License
 This repository is licensed under either of
