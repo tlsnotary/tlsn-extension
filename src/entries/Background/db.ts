@@ -412,7 +412,6 @@ export async function setConnection(origin: string) {
 
 export async function getCookiesByHost(linkOrHost: string) {
   const ret: { [key: string]: string } = {};
-  const links: { [k: string]: boolean } = {};
   const url = urlify(linkOrHost);
   const isHost = !url;
   const host = isHost ? linkOrHost : url.host;
@@ -427,9 +426,8 @@ export async function getCookiesByHost(linkOrHost: string) {
       }
     } else {
       if (
-        !filteredRequest ||
-        (filteredRequest.updatedAt > request.updatedAt &&
-          minimatch(request.url, linkOrHost))
+        minimatch(request.url, linkOrHost) &&
+        (!filteredRequest || filteredRequest.updatedAt > request.updatedAt)
       ) {
         filteredRequest = request;
       }
@@ -482,9 +480,8 @@ export async function getHeadersByHost(linkOrHost: string) {
       }
     } else {
       if (
-        !filteredRequest ||
-        (filteredRequest.updatedAt > request.updatedAt &&
-          minimatch(request.url, linkOrHost))
+        minimatch(request.url, linkOrHost) &&
+        (!filteredRequest || filteredRequest.updatedAt > request.updatedAt)
       ) {
         filteredRequest = request;
       }
