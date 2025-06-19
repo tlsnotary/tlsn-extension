@@ -425,8 +425,10 @@ export async function getCookiesByHost(linkOrHost: string) {
         filteredRequest = request;
       }
     } else {
+      const { origin, pathname } = urlify(request.url) || {};
+      const link = [origin, pathname].join('');
       if (
-        minimatch(request.url, linkOrHost) &&
+        minimatch(link, linkOrHost) &&
         (!filteredRequest || filteredRequest.updatedAt > request.updatedAt)
       ) {
         filteredRequest = request;
@@ -479,8 +481,10 @@ export async function getHeadersByHost(linkOrHost: string) {
         filteredRequest = request;
       }
     } else {
+      const { origin, pathname } = urlify(request.url) || {};
+      const link = [origin, pathname].join('');
       if (
-        minimatch(request.url, linkOrHost) &&
+        minimatch(link, linkOrHost) &&
         (!filteredRequest || filteredRequest.updatedAt > request.updatedAt)
       ) {
         filteredRequest = request;
