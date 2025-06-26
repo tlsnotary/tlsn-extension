@@ -124,7 +124,7 @@ export const onCreatePresentationRequest = async (request: any) => {
       secretsHex: notarizationOutputs.secrets,
       notaryUrl: notarizationOutputs.notaryUrl,
       websocketProxyUrl: notarizationOutputs.websocketProxyUrl,
-      reveal: commit,
+      reveal: { ...commit, server_identity: false },
     })) as TPresentation;
     const json = await presentation.json();
     browser.runtime.sendMessage({
@@ -345,7 +345,7 @@ export const startP2PProver = async (request: any) => {
   };
 
   const endRequest = waitForEvent(OffscreenActionTypes.end_p2p_proof_request);
-  await prover.reveal(commit);
+  await prover.reveal({ ...commit, server_identity: true });
   await endRequest;
 };
 
@@ -436,7 +436,7 @@ async function createProof(options: {
     secretsHex: notarizationOutputs.secrets,
     notaryUrl: notarizationOutputs.notaryUrl,
     websocketProxyUrl: notarizationOutputs.websocketProxyUrl,
-    reveal: commit,
+    reveal: { ...commit, server_identity: false },
   })) as TPresentation;
 
   const json = await presentation.json();
@@ -533,7 +533,7 @@ async function verifyProof(proof: PresentationJSON): Promise<{
   };
 
   switch (proof.version) {
-    case '0.1.0-alpha.11':
+    case '0.1.0-alpha.12':
       result = await verify(proof);
       break;
     default:
@@ -548,7 +548,7 @@ async function verifyProof(proof: PresentationJSON): Promise<{
 }
 
 async function verify(proof: PresentationJSON) {
-  if (proof.version !== '0.1.0-alpha.11') {
+  if (proof.version !== '0.1.0-alpha.12') {
     throw new Error('wrong version');
   }
   const presentation: TPresentation = await new Presentation(proof.data);
