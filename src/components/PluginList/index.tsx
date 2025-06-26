@@ -5,7 +5,12 @@ import React, {
   useEffect,
   useState,
 } from 'react';
-import { fetchPluginHashes, removePlugin, runPlugin } from '../../utils/rpc';
+import {
+  fetchPluginHashes,
+  removePlugin,
+  runPlugin,
+  addPlugin,
+} from '../../utils/rpc';
 import { usePluginHashes } from '../../reducers/plugins';
 import {
   getPluginConfig,
@@ -31,20 +36,78 @@ export function PluginList({
   className,
   unremovable,
   onClick,
+  showAddButton = false,
 }: {
   className?: string;
   unremovable?: boolean;
   onClick?: (hash: string) => void;
+  showAddButton?: boolean;
 }): ReactElement {
   const hashes = usePluginHashes();
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     fetchPluginHashes();
   }, []);
 
+  const handleFileUpload = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      if (!file.name.endsWith('.wasm')) {
+        alert('Please select a .wasm file');
+        return;
+      }
+
+      setUploading(true);
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const hex = Buffer.from(arrayBuffer).toString('hex');
+        const url = `file://${file.name}`;
+
+        await addPlugin(hex, url);
+        await fetchPluginHashes();
+      } catch (error: any) {
+        alert(`Failed to add plugin: ${error.message}`);
+      } finally {
+        setUploading(false);
+        e.target.value = '';
+      }
+    },
+    [],
+  );
+
   return (
     <div className={classNames('flex flex-col flex-nowrap gap-1', className)}>
-      {!hashes.length && (
+      {showAddButton && (
+        <div className="relative">
+          <input
+            type="file"
+            accept=".wasm"
+            onChange={handleFileUpload}
+            disabled={uploading}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+          />
+          <button
+            className="flex flex-row items-center justify-center gap-2 p-3 border-2 border-dashed border-slate-300 rounded-lg text-slate-500 hover:text-slate-700 hover:border-slate-400 transition-colors cursor-pointer w-full"
+            disabled={uploading}
+          >
+            {uploading ? (
+              <>
+                <Icon fa="fa-solid fa-spinner" className="animate-spin" />
+                <span>Adding Plugin...</span>
+              </>
+            ) : (
+              <>
+                <Icon fa="fa-solid fa-plus" />
+                <span>Add Plugin (.wasm file)</span>
+              </>
+            )}
+          </button>
+        </div>
+      )}
+      {!hashes.length && !showAddButton && (
         <div className="flex flex-col items-center justify-center text-slate-400 cursor-default select-none">
           <div>No available plugins</div>
         </div>
