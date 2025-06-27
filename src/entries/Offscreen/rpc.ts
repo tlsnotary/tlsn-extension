@@ -345,7 +345,7 @@ export const startP2PProver = async (request: any) => {
   };
 
   const endRequest = waitForEvent(OffscreenActionTypes.end_p2p_proof_request);
-  await prover.reveal({ ...commit, server_identity: true });
+  await prover.reveal({ ...commit, server_identity: false });
   await endRequest;
 };
 
