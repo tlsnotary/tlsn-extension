@@ -117,25 +117,29 @@ export const onCreatePresentationRequest = async (request: any) => {
     if (!prover) throw new Error(`Cannot find prover ${id}.`);
 
     updateRequestProgress(id, RequestProgress.FinalizingOutputs);
-    const notarizationOutputs = await prover.notarize(commit);
-
-    const presentation = (await new Presentation({
-      attestationHex: notarizationOutputs.attestation,
-      secretsHex: notarizationOutputs.secrets,
-      notaryUrl: notarizationOutputs.notaryUrl,
-      websocketProxyUrl: notarizationOutputs.websocketProxyUrl,
-      reveal: { ...commit, server_identity: false },
-    })) as TPresentation;
-    const json = await presentation.json();
-    browser.runtime.sendMessage({
-      type: BackgroundActiontype.finish_prove_request,
-      data: {
-        id,
-        proof: {
-          ...json,
-        },
-      },
+    const notarizationOutputs = await prover.reveal({
+      ...commit,
+      server_identity: true,
     });
+
+    console.log('notarizationOutputs', notarizationOutputs);
+    // const presentation = (await new Presentation({
+    //   attestationHex: notarizationOutputs.attestation,
+    //   secretsHex: notarizationOutputs.secrets,
+    //   notaryUrl: notarizationOutputs.notaryUrl,
+    //   websocketProxyUrl: notarizationOutputs.websocketProxyUrl,
+    //   reveal: { ...commit, server_identity: false },
+    // })) as TPresentation;
+    // const json = await presentation.json();
+    // browser.runtime.sendMessage({
+    //   type: BackgroundActiontype.finish_prove_request,
+    //   data: {
+    //     id,
+    //     proof: {
+    //       ...json,
+    //     },
+    //   },
+    // });
 
     delete provers[id];
   } catch (error: any) {
@@ -390,7 +394,22 @@ async function createProof(options: {
   });
 
   updateRequestProgress(id, RequestProgress.GettingSession);
-  const sessionUrl = await notary.sessionUrl(maxSentData, maxRecvData);
+  const resp = await fetch(`${notaryUrl}/session`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      clientType: 'Websocket',
+      maxRecvData,
+      maxSentData,
+      plugin: 'plugin_rs',
+    }),
+  });
+  const { sessionId } = await resp.json();
+  const sessionUrl = `${notaryUrl}/notarize?sessionId=${sessionId}`;
+  console.log('sessionUrl', sessionUrl);
+  // const sessionUrl = await notary.sessionUrl(maxSentData, maxRecvData);
 
   updateRequestProgress(id, RequestProgress.SettingUpProver);
   await prover.setup(sessionUrl);
@@ -482,6 +501,7 @@ async function createProver(options: {
           serverDns: hostname,
           maxSentData,
           maxRecvData,
+          serverIdentity: false,
         }),
       'Error creating prover',
     );
@@ -489,7 +509,30 @@ async function createProver(options: {
     const sessionUrl = await handleProgress(
       id,
       RequestProgress.GettingSession,
-      () => notary.sessionUrl(maxSentData, maxRecvData),
+      async () => {
+        const resp = await fetch(`${notaryUrl}/session`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            clientType: 'Websocket',
+            maxRecvData,
+            maxSentData,
+            plugin: 'plugin_rs',
+          }),
+        });
+        const { sessionId } = await resp.json();
+
+        const url = new URL(notaryUrl);
+        const protocol = url.protocol === 'https:' ? 'wss' : 'ws';
+        const pathname = url.pathname;
+        console.log(
+          'sessionId',
+          `${protocol}://${url.host}${pathname === '/' ? '' : pathname}/notarize?sessionId=${sessionId!}`,
+        );
+        return `${protocol}://${url.host}${pathname === '/' ? '' : pathname}/notarize?sessionId=${sessionId!}`;
+      },
       'Error getting session from Notary',
     );
 
