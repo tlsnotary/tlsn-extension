@@ -316,6 +316,8 @@ function StepContent(
 
   let btnContent = null;
 
+  console.log('notaryRequest', notaryRequest);
+  console.log('notarizationId', notarizationId);
   if (prover && p2p) {
     btnContent = (
       <button

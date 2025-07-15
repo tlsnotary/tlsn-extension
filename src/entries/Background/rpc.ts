@@ -713,10 +713,9 @@ async function runP2PPluginProver(request: BackgroundAction, now = Date.now()) {
     websocketProxyUrl: _websocketProxyUrl,
     maxSentData: _maxSentData,
     maxRecvData: _maxRecvData,
-    clientId,
+    verifierPlugin,
+    notaryUrl,
   } = request.data;
-  const rendezvousApi = await getRendezvousApi();
-  const proverUrl = `${rendezvousApi}?clientId=${clientId}:proof`;
   const websocketProxyUrl = _websocketProxyUrl || (await getProxyApi());
   const maxSentData = _maxSentData || (await getMaxSent());
   const maxRecvData = _maxRecvData || (await getMaxRecv());
@@ -730,7 +729,8 @@ async function runP2PPluginProver(request: BackgroundAction, now = Date.now()) {
       method,
       headers,
       body,
-      proverUrl,
+      proverUrl: notaryUrl,
+      verifierPlugin,
       websocketProxyUrl,
       maxRecvData,
       maxSentData,

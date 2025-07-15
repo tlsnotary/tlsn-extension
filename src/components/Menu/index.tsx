@@ -73,16 +73,6 @@ export default function Menu(props: {
           Verify
         </MenuRow>
         <MenuRow
-          fa="fa-solid fa-network-wired"
-          className="border-b border-slate-300"
-          onClick={() => {
-            props.setOpen(false);
-            navigate('/p2p');
-          }}
-        >
-          P2P
-        </MenuRow>
-        <MenuRow
           className="lg:hidden"
           fa="fa-solid fa-up-right-and-down-left-from-center"
           onClick={openExtensionInPage}

@@ -384,15 +384,6 @@ function AdvancedOptions(props: {
           setDirty(true);
         }}
       />
-      <InputField
-        label="Rendezvous API (for P2P)"
-        value={rendezvous}
-        type="text"
-        onChange={(e) => {
-          setRendezvous(e.target.value);
-          setDirty(true);
-        }}
-      />
       <div className="flex flex-col flex-nowrap py-1 px-2 gap-2">
         <div className="font-semibold">Logging Level</div>
         <select
