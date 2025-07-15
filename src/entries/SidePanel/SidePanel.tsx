@@ -149,6 +149,14 @@ function PluginBody({
           proof: notaryRequest.proof,
         },
       });
+    } else if (notaryRequest?.sessionId) {
+      browser.runtime.sendMessage({
+        type: SidePanelActionTypes.execute_plugin_response,
+        data: {
+          url,
+          sessionId: notaryRequest.sessionId,
+        },
+      });
     } else if (notaryRequest?.status === 'error') {
       browser.runtime.sendMessage({
         type: SidePanelActionTypes.execute_plugin_response,
@@ -161,7 +169,7 @@ function PluginBody({
         },
       });
     }
-  }, [url, notaryRequest?.status]);
+  }, [url, notaryRequest?.status, notaryRequest?.sessionId]);
 
   return (
     <div className="flex flex-col p-4">
@@ -329,7 +337,7 @@ function StepContent(
         <span className="text-sm">View in P2P</span>
       </button>
     );
-  } else if (completed) {
+  } else if (completed || notaryRequest?.sessionId) {
     btnContent = (
       <button
         className={classNames(

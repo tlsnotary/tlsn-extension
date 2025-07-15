@@ -25,6 +25,7 @@ import {
   setNotaryRequestProgress,
   getRequestLogsByTabId,
   clearAllRequestLogs,
+  setNotaryRequestSessionId,
 } from './db';
 import { addOnePlugin, removeOnePlugin } from '../../reducers/plugins';
 import {
@@ -71,6 +72,7 @@ export enum BackgroundActiontype {
   get_prove_requests = 'get_prove_requests',
   prove_request_start = 'prove_request_start',
   process_prove_request = 'process_prove_request',
+  add_notary_request = 'add_notary_request',
   finish_prove_request = 'finish_prove_request',
   update_request_progress = 'update_request_progress',
   verify_prove_request = 'verify_prove_request',
@@ -222,6 +224,7 @@ export type RequestHistory = {
   metadata?: {
     [k: string]: string;
   };
+  sessionId?: string;
 };
 
 export const initRPC = () => {
@@ -235,6 +238,8 @@ export const initRPC = () => {
           return sendResponse();
         case BackgroundActiontype.get_prove_requests:
           return handleGetProveRequests(request, sendResponse);
+        case BackgroundActiontype.add_notary_request:
+          return handleAddNotaryRequest(request, sendResponse);
         case BackgroundActiontype.finish_prove_request:
           return handleFinishProveRequest(request, sendResponse);
         case BackgroundActiontype.update_request_progress:
@@ -397,8 +402,9 @@ async function handleFinishProveRequest(
   request: BackgroundAction,
   sendResponse: (data?: any) => void,
 ) {
-  const { id, proof, error, verification } = request.data;
+  const { id, proof, error, verification, sessionId } = request.data;
 
+  console.log('handleFinishProveRequest', request.data);
   if (proof) {
     const newReq = await addNotaryRequestProofs(id, proof);
     if (!newReq) return;
@@ -417,6 +423,12 @@ async function handleFinishProveRequest(
     const newReq = await setNotaryRequestVerification(id, verification);
     if (!newReq) return;
 
+    await pushToRedux(addRequestHistory(await getNotaryRequest(id)));
+  }
+
+  if (sessionId) {
+    const newReq = await setNotaryRequestSessionId(id, sessionId);
+    if (!newReq) return;
     await pushToRedux(addRequestHistory(await getNotaryRequest(id)));
   }
 
@@ -720,9 +732,23 @@ async function runP2PPluginProver(request: BackgroundAction, now = Date.now()) {
   const maxSentData = _maxSentData || (await getMaxSent());
   const maxRecvData = _maxRecvData || (await getMaxRecv());
 
+  const { id } = await addNotaryRequest(now, {
+    url,
+    method,
+    headers,
+    body,
+    notaryUrl,
+    websocketProxyUrl,
+    maxRecvData,
+    maxSentData,
+    secretHeaders,
+    secretResps: [],
+  });
+
   await browser.runtime.sendMessage({
     type: OffscreenActionTypes.start_p2p_prover,
     data: {
+      id,
       pluginUrl,
       pluginHex,
       url,
@@ -1068,10 +1094,11 @@ async function handleRunPluginByURLRequest(request: BackgroundAction) {
 
   const onPluginRequest = async (req: any) => {
     if (req.type !== SidePanelActionTypes.execute_plugin_response) return;
+    console.log('onPluginRequest', req.data);
     if (req.data.url !== url) return;
-
     if (req.data.error) defer.reject(req.data.error);
     if (req.data.proof) defer.resolve(req.data.proof);
+    if (req.data.sessionId) defer.resolve(req.data.sessionId);
 
     browser.runtime.onMessage.removeListener(onPluginRequest);
   };

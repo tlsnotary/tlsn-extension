@@ -245,6 +245,7 @@ export const startP2PVerifier = async (request: any) => {
 
 export const startP2PProver = async (request: any) => {
   const {
+    id,
     pluginUrl,
     pluginHex,
     url,
@@ -260,8 +261,6 @@ export const startP2PProver = async (request: any) => {
     verifierPlugin,
   } = request.data;
 
-  console.log('startP2PProver', request.data);
-  const id = pluginUrl;
   const hostname = urlify(url)?.hostname || '';
 
   updateRequestProgress(id, RequestProgress.CreatingProver);
@@ -350,7 +349,7 @@ export const startP2PProver = async (request: any) => {
   };
 
   await prover.reveal({ ...commit, server_identity: true });
-
+  updateRequestProgress(id, RequestProgress.FinalizingOutputs);
   browser.runtime.sendMessage({
     type: BackgroundActiontype.finish_prove_request,
     data: {
