@@ -403,12 +403,11 @@ async function createProof(options: {
       clientType: 'Websocket',
       maxRecvData,
       maxSentData,
-      plugin: 'plugin_rs',
+      plugin: 'plugin-js',
     }),
   });
   const { sessionId } = await resp.json();
   const sessionUrl = `${notaryUrl}/notarize?sessionId=${sessionId}`;
-  console.log('sessionUrl', sessionUrl);
   // const sessionUrl = await notary.sessionUrl(maxSentData, maxRecvData);
 
   updateRequestProgress(id, RequestProgress.SettingUpProver);
@@ -519,7 +518,7 @@ async function createProver(options: {
             clientType: 'Websocket',
             maxRecvData,
             maxSentData,
-            plugin: 'plugin_rs',
+            plugin: 'plugin-js',
           }),
         });
         const { sessionId } = await resp.json();
@@ -527,10 +526,6 @@ async function createProver(options: {
         const url = new URL(notaryUrl);
         const protocol = url.protocol === 'https:' ? 'wss' : 'ws';
         const pathname = url.pathname;
-        console.log(
-          'sessionId',
-          `${protocol}://${url.host}${pathname === '/' ? '' : pathname}/notarize?sessionId=${sessionId!}`,
-        );
         return `${protocol}://${url.host}${pathname === '/' ? '' : pathname}/notarize?sessionId=${sessionId!}`;
       },
       'Error getting session from Notary',
