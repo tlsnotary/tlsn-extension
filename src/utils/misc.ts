@@ -349,12 +349,23 @@ export const makePlugin = async (
   return plugin;
 };
 
+export type InputFieldConfig = {
+  name: string; // Unique identifier for the input field
+  label: string; // Display label for the input
+  type: 'text' | 'password' | 'email' | 'number' | 'textarea' | 'select'; // Input field type
+  placeholder?: string; // Optional placeholder text
+  required?: boolean; // Whether the field is required
+  defaultValue?: string; // Default value for the field
+  options?: { value: string; label: string }[]; // Options for select type
+};
+
 export type StepConfig = {
   title: string; // Text for the step's title
   description?: string; // Text for the step's description (optional)
   cta: string; // Text for the step's call-to-action button
   action: string; // The function name that this step will execute
   prover?: boolean; // Boolean indicating if this step outputs a notarization (optional)
+  inputs?: InputFieldConfig[]; // Input fields for user data collection (optional)
 };
 
 export type PluginConfig = {
@@ -439,6 +450,27 @@ export const getPluginConfig = async (
       assert(typeof step.cta === 'string' && step.cta.length);
       assert(typeof step.action === 'string' && step.action.length);
       assert(!step.prover || typeof step.prover === 'boolean');
+
+      if (step.inputs) {
+        for (const input of step.inputs) {
+          assert(typeof input.name === 'string' && input.name.length);
+          assert(typeof input.label === 'string' && input.label.length);
+          assert(['text', 'password', 'email', 'number', 'textarea', 'select'].includes(input.type));
+          assert(!input.placeholder || typeof input.placeholder === 'string');
+          assert(!input.required || typeof input.required === 'boolean');
+          assert(!input.defaultValue || typeof input.defaultValue === 'string');
+
+          if (input.type === 'select') {
+            assert(Array.isArray(input.options) && input.options.length > 0);
+            if (input.options) {
+              for (const option of input.options) {
+                assert(typeof option.value === 'string');
+                assert(typeof option.label === 'string');
+              }
+            }
+          }
+        }
+      }
     }
   }
 
