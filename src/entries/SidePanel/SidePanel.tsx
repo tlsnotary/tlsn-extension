@@ -23,8 +23,6 @@ import { getPluginByUrl, getPluginConfigByUrl } from '../Background/db';
 import { SidePanelActionTypes } from './types';
 import { fetchP2PState, useClientId } from '../../reducers/p2p';
 
-
-
 export default function SidePanel(): ReactElement {
   const [config, setConfig] = useState<PluginConfig | null>(null);
   const [url, setUrl] = useState('');
@@ -263,7 +261,10 @@ function StepContent(
     // Validate required input fields
     if (inputs) {
       for (const input of inputs) {
-        if (input.required && (!inputValues[input.name] || inputValues[input.name].trim() === '')) {
+        if (
+          input.required &&
+          (!inputValues[input.name] || inputValues[input.name].trim() === '')
+        ) {
           setError(`${input.label} is required`);
           return;
         }
@@ -295,7 +296,16 @@ function StepContent(
     } finally {
       setPending(false);
     }
-  }, [action, index, lastResponse, prover, getPlugin, inputs, inputValues, parameterValues]);
+  }, [
+    action,
+    index,
+    lastResponse,
+    prover,
+    getPlugin,
+    inputs,
+    inputValues,
+    parameterValues,
+  ]);
 
   const onClick = useCallback(() => {
     if (
@@ -461,7 +471,7 @@ function StepContent(
                 onChange={(value) =>
                   setInputValues((prev) => ({ ...prev, [input.name]: value }))
                 }
-                disabled={pending || (notaryRequest?.status === 'pending')}
+                disabled={pending || notaryRequest?.status === 'pending'}
               />
             ))}
           </div>
@@ -488,7 +498,7 @@ function InputField({
   const { name, label, type, placeholder, required, options } = config;
 
   const baseClasses =
-    "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent";
+    'w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent';
 
   const renderInput = () => {
     switch (type) {
@@ -502,7 +512,7 @@ function InputField({
             placeholder={placeholder}
             required={required}
             disabled={disabled}
-            className={classNames(baseClasses, "resize-y min-h-[80px]")}
+            className={classNames(baseClasses, 'resize-y min-h-[80px]')}
             rows={3}
           />
         );

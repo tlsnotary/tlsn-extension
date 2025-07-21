@@ -537,7 +537,7 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
 
   let secretResps: string[] = [];
 
-    const { id } = await addNotaryRequest(now, {
+  const { id } = await addNotaryRequest(now, {
     url,
     method,
     headers,

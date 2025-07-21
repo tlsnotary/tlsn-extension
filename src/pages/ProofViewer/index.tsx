@@ -152,20 +152,24 @@ export default function ProofViewer(props?: {
               value={props?.notaryKey || request?.verification?.notaryKey}
             />
 
-            {request?.metadata && Object.entries(request.metadata).map(([key, value]) => (
-              <MetadataRow
-                key={`req-${key}`}
-                label={`Custom: ${key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1')}`}
-                value={String(value)}
-              />
-            ))}
-            {(request?.proof as any)?.metadata && Object.entries((request?.proof as any).metadata).map(([key, value]) => (
-              <MetadataRow
-                key={`proof-${key}`}
-                label={`Proof: ${key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1')}`}
-                value={String(value)}
-              />
-            ))}
+            {request?.metadata &&
+              Object.entries(request.metadata).map(([key, value]) => (
+                <MetadataRow
+                  key={`req-${key}`}
+                  label={`Custom: ${key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1')}`}
+                  value={String(value)}
+                />
+              ))}
+            {(request?.proof as any)?.metadata &&
+              Object.entries((request?.proof as any).metadata).map(
+                ([key, value]) => (
+                  <MetadataRow
+                    key={`proof-${key}`}
+                    label={`Proof: ${key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1')}`}
+                    value={String(value)}
+                  />
+                ),
+              )}
           </div>
         )}
       </div>

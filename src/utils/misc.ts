@@ -455,7 +455,16 @@ export const getPluginConfig = async (
         for (const input of step.inputs) {
           assert(typeof input.name === 'string' && input.name.length);
           assert(typeof input.label === 'string' && input.label.length);
-          assert(['text', 'password', 'email', 'number', 'textarea', 'select'].includes(input.type));
+          assert(
+            [
+              'text',
+              'password',
+              'email',
+              'number',
+              'textarea',
+              'select',
+            ].includes(input.type),
+          );
           assert(!input.placeholder || typeof input.placeholder === 'string');
           assert(!input.required || typeof input.required === 'boolean');
           assert(!input.defaultValue || typeof input.defaultValue === 'string');
