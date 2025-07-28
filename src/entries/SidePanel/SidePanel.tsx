@@ -472,7 +472,7 @@ function StepContent(
                 onChange={(value) =>
                   setInputValues((prev) => ({ ...prev, [input.name]: value }))
                 }
-                disabled={pending || notaryRequest?.status === 'pending'}
+                disabled={pending || notaryRequest?.status !== ''}
               />
             ))}
           </div>
