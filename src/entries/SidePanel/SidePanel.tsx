@@ -350,6 +350,7 @@ function StepContent(
   }, []);
 
   useEffect(() => {
+    // only auto-progress if this step does need inputs
     if (!inputs || inputs.length === 0) {
       processStep();
     }
