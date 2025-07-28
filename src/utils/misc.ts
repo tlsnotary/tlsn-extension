@@ -459,14 +459,8 @@ export const getPluginConfig = async (
 
       if (step.inputs) {
         for (const input of step.inputs) {
-          assert(
-            typeof input.name === 'string' && input.name.length,
-            'Input name must be a non-empty string',
-          );
-          assert(
-            typeof input.label === 'string' && input.label.length,
-            'Input label must be a non-empty string',
-          );
+          assert(typeof input.name === 'string' && input.name.length);
+          assert(typeof input.label === 'string' && input.label.length);
           assert(!input.placeholder || typeof input.placeholder === 'string');
           assert(!input.required || typeof input.required === 'boolean');
           assert(!input.defaultValue || typeof input.defaultValue === 'string');
