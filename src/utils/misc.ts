@@ -188,11 +188,13 @@ export const makePlugin = async (
   } = {
     redirect: function (context: CallContext, off: bigint) {
       const r = context.read(off);
+      if (!r) throw new Error('Failed to read context');
       const url = r.text();
       browser.tabs.update(tab.id, { url });
     },
     notarize: function (context: CallContext, off: bigint) {
       const r = context.read(off);
+      if (!r) throw new Error('Failed to read context');
       const params = JSON.parse(r.text());
       const now = Date.now();
       const id = charwise.encode(now).toString('hex');
@@ -338,7 +340,10 @@ export const makePlugin = async (
 
   const pluginConfig: ExtismPluginOptions = {
     useWasi: true,
-    config: injectedConfig,
+    config: {
+      ...injectedConfig,
+      tabId: tab.id?.toString() || '',
+    },
     // allowedHosts: approvedRequests.map((r) => urlify(r.url)?.origin),
     functions: {
       'extism:host/user': funcs,
@@ -393,6 +398,7 @@ export const getPluginConfig = async (
 ): Promise<PluginConfig> => {
   const plugin = data instanceof ArrayBuffer ? await makePlugin(data) : data;
   const out = await plugin.call('config');
+  if (!out) throw new Error('Plugin config call returned null');
   const config: PluginConfig = JSON.parse(out.string());
 
   assert(typeof config.title === 'string' && config.title.length);
@@ -453,29 +459,22 @@ export const getPluginConfig = async (
 
       if (step.inputs) {
         for (const input of step.inputs) {
-          assert(typeof input.name === 'string' && input.name.length);
-          assert(typeof input.label === 'string' && input.label.length);
           assert(
-            [
-              'text',
-              'password',
-              'email',
-              'number',
-              'textarea',
-              'select',
-            ].includes(input.type),
+            typeof input.name === 'string' && input.name.length,
+            'Input name must be a non-empty string',
+          );
+          assert(
+            typeof input.label === 'string' && input.label.length,
+            'Input label must be a non-empty string',
           );
           assert(!input.placeholder || typeof input.placeholder === 'string');
           assert(!input.required || typeof input.required === 'boolean');
           assert(!input.defaultValue || typeof input.defaultValue === 'string');
-
           if (input.type === 'select') {
             assert(Array.isArray(input.options) && input.options.length > 0);
-            if (input.options) {
-              for (const option of input.options) {
-                assert(typeof option.value === 'string');
-                assert(typeof option.label === 'string');
-              }
+            for (const option of input.options!) {
+              assert(typeof option.value === 'string');
+              assert(typeof option.label === 'string');
             }
           }
         }
