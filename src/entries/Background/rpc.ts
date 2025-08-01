@@ -72,7 +72,6 @@ export enum BackgroundActiontype {
   get_prove_requests = 'get_prove_requests',
   prove_request_start = 'prove_request_start',
   process_prove_request = 'process_prove_request',
-  add_notary_request = 'add_notary_request',
   finish_prove_request = 'finish_prove_request',
   update_request_progress = 'update_request_progress',
   verify_prove_request = 'verify_prove_request',
@@ -238,8 +237,6 @@ export const initRPC = () => {
           return sendResponse();
         case BackgroundActiontype.get_prove_requests:
           return handleGetProveRequests(request, sendResponse);
-        case BackgroundActiontype.add_notary_request:
-          return handleAddNotaryRequest(request, sendResponse);
         case BackgroundActiontype.finish_prove_request:
           return handleFinishProveRequest(request, sendResponse);
         case BackgroundActiontype.update_request_progress:
