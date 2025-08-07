@@ -187,7 +187,7 @@ function RequestPayload(props: Props): ReactElement {
   useEffect(() => {
     try {
       setUrl(new URL(data!.url));
-    } catch (e) { }
+    } catch (e) {}
 
     try {
       if (data?.requestBody) {

@@ -96,7 +96,9 @@ export default function Home(props: {
       </div>
       <div className="flex-grow">
         {tab === 'history' && <History />}
-        {tab === 'network' && developerMode && <Requests shouldFix={shouldFix} />}
+        {tab === 'network' && developerMode && (
+          <Requests shouldFix={shouldFix} />
+        )}
         {tab === 'plugins' && (
           <PluginList
             className="p-2 overflow-y-auto"
