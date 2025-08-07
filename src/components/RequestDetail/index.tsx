@@ -24,6 +24,7 @@ import {
   MAX_RECEIVED_LS_KEY,
   getMaxRecv,
   getMaxSent,
+  getDeveloperMode,
 } from '../../utils/storage';
 import { MAX_RECV, MAX_SENT } from '../../utils/constants';
 
@@ -186,7 +187,7 @@ function RequestPayload(props: Props): ReactElement {
   useEffect(() => {
     try {
       setUrl(new URL(data!.url));
-    } catch (e) {}
+    } catch (e) { }
 
     try {
       if (data?.requestBody) {
