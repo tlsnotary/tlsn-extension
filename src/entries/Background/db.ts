@@ -42,9 +42,6 @@ const requestDb = db.sublevel<string, any>('requests', {
   valueEncoding: 'json',
 });
 
-enum AppDatabaseKey {
-  DefaultPluginsInstalled = 'DefaultPluginsInstalled',
-}
 
 export async function upsertRequestLog(request: UpsertRequestLog) {
   const existing = await getRequestLog(request.requestId);
@@ -555,23 +552,7 @@ export async function getSessionStorageByHost(host: string) {
   return ret;
 }
 
-async function getDefaultPluginsInstalled(): Promise<string | boolean> {
-  return appDb.get(AppDatabaseKey.DefaultPluginsInstalled).catch(() => false);
-}
 
-export async function setDefaultPluginsInstalled(
-  installed: string | boolean = false,
-) {
-  return mutex.runExclusive(async () => {
-    await appDb.put(AppDatabaseKey.DefaultPluginsInstalled, installed);
-  });
-}
-
-export async function getAppState() {
-  return {
-    defaultPluginsInstalled: await getDefaultPluginsInstalled(),
-  };
-}
 
 export async function resetDB() {
   return mutex.runExclusive(async () => {
