@@ -19,7 +19,6 @@ import {
   getCookiesByHost,
   getHeadersByHost,
   getAppState,
-  setDefaultPluginsInstalled,
   setLocalStorage,
   setSessionStorage,
   setNotaryRequestProgress,
