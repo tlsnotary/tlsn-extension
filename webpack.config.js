@@ -205,16 +205,6 @@ var options = {
           to: path.join(__dirname, "build"),
           force: true,
         },
-        {
-          from: "src/assets/plugins/discord_dm.wasm",
-          to: path.join(__dirname, "build"),
-          force: true,
-        },
-        {
-          from: "src/assets/plugins/twitter_profile.wasm",
-          to: path.join(__dirname, "build"),
-          force: true,
-        },
       ],
     }),
     new HtmlWebpackPlugin({
