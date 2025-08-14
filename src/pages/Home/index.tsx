@@ -31,6 +31,12 @@ export default function Home(props: {
   }, []);
 
   useEffect(() => {
+    if (props.tab === 'network' && !developerMode) {
+      setTab('history');
+    }
+  }, [props.tab, developerMode]);
+
+  useEffect(() => {
     const element = scrollableContent.current;
     if (!element) return;
 
@@ -65,12 +71,14 @@ export default function Home(props: {
           },
         )}
       >
-        <TabSelector
-          onClick={() => setTab('network')}
-          selected={tab === 'network'}
-        >
-          Network
-        </TabSelector>
+        {developerMode && (
+          <TabSelector
+            onClick={() => setTab('network')}
+            selected={tab === 'network'}
+          >
+            Network
+          </TabSelector>
+        )}
         <TabSelector
           onClick={() => setTab('history')}
           selected={tab === 'history'}
@@ -88,7 +96,9 @@ export default function Home(props: {
       </div>
       <div className="flex-grow">
         {tab === 'history' && <History />}
-        {tab === 'network' && <Requests shouldFix={shouldFix} />}
+        {tab === 'network' && developerMode && (
+          <Requests shouldFix={shouldFix} />
+        )}
         {tab === 'plugins' && (
           <PluginList
             className="p-2 overflow-y-auto"

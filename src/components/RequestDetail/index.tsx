@@ -24,6 +24,7 @@ import {
   MAX_RECEIVED_LS_KEY,
   getMaxRecv,
   getMaxSent,
+  getDeveloperMode,
 } from '../../utils/storage';
 import { MAX_RECV, MAX_SENT } from '../../utils/constants';
 
