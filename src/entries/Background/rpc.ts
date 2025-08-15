@@ -277,9 +277,6 @@ export const initRPC = () => {
         case BackgroundActiontype.get_logging_level:
           getLoggingFilter().then(sendResponse);
           return true;
-        case BackgroundActiontype.set_default_plugins_installed:
-          setDefaultPluginsInstalled(request.data).then(sendResponse);
-          return true;
         case BackgroundActiontype.set_local_storage:
           return handleSetLocalStorage(request, sender, sendResponse);
         case BackgroundActiontype.set_session_storage:
