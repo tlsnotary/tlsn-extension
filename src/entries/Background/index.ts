@@ -3,7 +3,6 @@ import browser from 'webextension-polyfill';
 import {
   removePlugin,
   removeRequestLogsByTabId,
-  setDefaultPluginsInstalled,
 } from './db';
 import { installPlugin } from './plugins/utils';
 
