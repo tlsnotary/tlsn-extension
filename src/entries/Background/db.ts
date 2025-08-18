@@ -146,6 +146,17 @@ export async function addNotaryRequestProofs(
   return newReq;
 }
 
+export async function setNotaryRequestSessionId(
+  id: string,
+  sessionId: string,
+): Promise<RequestHistory | null> {
+  const existing = await historyDb.get(id);
+  if (!existing) return null;
+  const newReq: RequestHistory = { ...existing, sessionId };
+  await historyDb.put(id, newReq);
+  return newReq;
+}
+
 export async function setNotaryRequestStatus(
   id: string,
   status: '' | 'pending' | 'success' | 'error',

@@ -25,6 +25,7 @@ import {
   setNotaryRequestProgress,
   getRequestLogsByTabId,
   clearAllRequestLogs,
+  setNotaryRequestSessionId,
 } from './db';
 import { addOnePlugin, removeOnePlugin } from '../../reducers/plugins';
 import {
@@ -222,6 +223,7 @@ export type RequestHistory = {
   metadata?: {
     [k: string]: string;
   };
+  sessionId?: string;
 };
 
 export const initRPC = () => {
@@ -397,8 +399,9 @@ async function handleFinishProveRequest(
   request: BackgroundAction,
   sendResponse: (data?: any) => void,
 ) {
-  const { id, proof, error, verification } = request.data;
+  const { id, proof, error, verification, sessionId } = request.data;
 
+  console.log('handleFinishProveRequest', request.data);
   if (proof) {
     const newReq = await addNotaryRequestProofs(id, proof);
     if (!newReq) return;
@@ -417,6 +420,12 @@ async function handleFinishProveRequest(
     const newReq = await setNotaryRequestVerification(id, verification);
     if (!newReq) return;
 
+    await pushToRedux(addRequestHistory(await getNotaryRequest(id)));
+  }
+
+  if (sessionId) {
+    const newReq = await setNotaryRequestSessionId(id, sessionId);
+    if (!newReq) return;
     await pushToRedux(addRequestHistory(await getNotaryRequest(id)));
   }
 
@@ -713,24 +722,38 @@ async function runP2PPluginProver(request: BackgroundAction, now = Date.now()) {
     websocketProxyUrl: _websocketProxyUrl,
     maxSentData: _maxSentData,
     maxRecvData: _maxRecvData,
-    clientId,
+    verifierPlugin,
+    notaryUrl,
   } = request.data;
-  const rendezvousApi = await getRendezvousApi();
-  const proverUrl = `${rendezvousApi}?clientId=${clientId}:proof`;
   const websocketProxyUrl = _websocketProxyUrl || (await getProxyApi());
   const maxSentData = _maxSentData || (await getMaxSent());
   const maxRecvData = _maxRecvData || (await getMaxRecv());
 
+  const { id } = await addNotaryRequest(now, {
+    url,
+    method,
+    headers,
+    body,
+    notaryUrl,
+    websocketProxyUrl,
+    maxRecvData,
+    maxSentData,
+    secretHeaders,
+    secretResps: [],
+  });
+
   await browser.runtime.sendMessage({
     type: OffscreenActionTypes.start_p2p_prover,
     data: {
+      id,
       pluginUrl,
       pluginHex,
       url,
       method,
       headers,
       body,
-      proverUrl,
+      proverUrl: notaryUrl,
+      verifierPlugin,
       websocketProxyUrl,
       maxRecvData,
       maxSentData,
@@ -1068,10 +1091,11 @@ async function handleRunPluginByURLRequest(request: BackgroundAction) {
 
   const onPluginRequest = async (req: any) => {
     if (req.type !== SidePanelActionTypes.execute_plugin_response) return;
+    console.log('onPluginRequest', req.data);
     if (req.data.url !== url) return;
-
     if (req.data.error) defer.reject(req.data.error);
     if (req.data.proof) defer.resolve(req.data.proof);
+    if (req.data.sessionId) defer.resolve(req.data.sessionId);
 
     browser.runtime.onMessage.removeListener(onPluginRequest);
   };

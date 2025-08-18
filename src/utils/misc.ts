@@ -221,11 +221,20 @@ export const makePlugin = async (
       }
 
       (async () => {
-        const { getSecretResponse, body: reqBody } = params;
+        const {
+          getSecretResponse,
+          body: reqBody,
+          interactive,
+          verifierPlugin,
+        } = params;
 
-        if (meta?.p2p) {
+        console.log('interactive', interactive);
+        console.log('verifierPlugin', verifierPlugin);
+        console.log('params', params);
+        if (interactive) {
           const pluginHex = Buffer.from(arrayBuffer).toString('hex');
           const pluginUrl = await sha256(pluginHex);
+
           handleExecP2PPluginProver({
             type: BackgroundActiontype.execute_p2p_plugin_prover,
             data: {
@@ -234,7 +243,7 @@ export const makePlugin = async (
               pluginHex,
               body: reqBody,
               now,
-              clientId: meta.clientId,
+              verifierPlugin,
             },
           });
         } else {

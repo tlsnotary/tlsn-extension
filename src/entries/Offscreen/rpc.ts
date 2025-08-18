@@ -245,6 +245,7 @@ export const startP2PVerifier = async (request: any) => {
 
 export const startP2PProver = async (request: any) => {
   const {
+    id,
     pluginUrl,
     pluginHex,
     url,
@@ -257,53 +258,56 @@ export const startP2PProver = async (request: any) => {
     maxSentData,
     secretHeaders,
     getSecretResponse,
+    verifierPlugin,
   } = request.data;
 
   const hostname = urlify(url)?.hostname || '';
 
+  updateRequestProgress(id, RequestProgress.CreatingProver);
   const prover: TProver = await new Prover({
-    id: pluginUrl,
+    id,
     serverDns: hostname,
     maxSentData,
     maxRecvData,
+    serverIdentity: true,
   });
 
-  browser.runtime.sendMessage({
-    type: BackgroundActiontype.prover_instantiated,
-    data: {
-      pluginUrl,
+  updateRequestProgress(id, RequestProgress.GettingSession);
+  const resp = await fetch(`${proverUrl}/session`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
     },
+    body: JSON.stringify({
+      clientType: 'Websocket',
+      maxRecvData,
+      maxSentData,
+      plugin: 'plugin-js',
+    }),
   });
+  const { sessionId } = await resp.json();
+  const _url = new URL(proverUrl);
+  const protocol = _url.protocol === 'https:' ? 'wss' : 'ws';
+  const pathname = _url.pathname;
+  const sessionUrl = `${protocol}://${_url.host}${pathname === '/' ? '' : pathname}/notarize?sessionId=${sessionId!}`;
 
-  const proofRequestStart = waitForEvent(
-    OffscreenActionTypes.start_p2p_proof_request,
+  updateRequestProgress(id, RequestProgress.SettingUpProver);
+  await prover.setup(sessionUrl);
+
+  await handleProgress(
+    id,
+    RequestProgress.SendingRequest,
+    () =>
+      prover.sendRequest(websocketProxyUrl + `?token=${hostname}`, {
+        url,
+        method,
+        headers,
+        body,
+      }),
+    `Error connecting to websocket proxy: ${websocketProxyUrl}. Please check the proxy URL and ensure it's accessible.`,
   );
 
-  const proverSetup = prover.setup(proverUrl);
-  await new Promise((r) => setTimeout(r, 5000));
-  browser.runtime.sendMessage({
-    type: BackgroundActiontype.prover_setup,
-    data: {
-      pluginUrl,
-    },
-  });
-
-  await proverSetup;
-  browser.runtime.sendMessage({
-    type: BackgroundActiontype.prover_started,
-    data: {
-      pluginUrl,
-    },
-  });
-  await proofRequestStart;
-
-  await prover.sendRequest(websocketProxyUrl + `?token=${hostname}`, {
-    url,
-    method,
-    headers,
-    body,
-  });
-
+  updateRequestProgress(id, RequestProgress.ReadingTranscript);
   const transcript = await prover.transcript();
 
   let secretResps: string[] = [];
@@ -344,9 +348,15 @@ export const startP2PProver = async (request: any) => {
     ),
   };
 
-  const endRequest = waitForEvent(OffscreenActionTypes.end_p2p_proof_request);
-  await prover.reveal({ ...commit, server_identity: false });
-  await endRequest;
+  await prover.reveal({ ...commit, server_identity: true });
+  updateRequestProgress(id, RequestProgress.FinalizingOutputs);
+  browser.runtime.sendMessage({
+    type: BackgroundActiontype.finish_prove_request,
+    data: {
+      id,
+      sessionId: sessionId,
+    },
+  });
 };
 
 async function createProof(options: {
