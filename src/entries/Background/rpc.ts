@@ -18,8 +18,6 @@ import {
   removePluginConfig,
   getCookiesByHost,
   getHeadersByHost,
-  getAppState,
-  setDefaultPluginsInstalled,
   setLocalStorage,
   setSessionStorage,
   setNotaryRequestProgress,
@@ -280,12 +278,6 @@ export const initRPC = () => {
           return handleRunPluginByURLRequest(request);
         case BackgroundActiontype.get_logging_level:
           getLoggingFilter().then(sendResponse);
-          return true;
-        case BackgroundActiontype.get_app_state:
-          getAppState().then(sendResponse);
-          return true;
-        case BackgroundActiontype.set_default_plugins_installed:
-          setDefaultPluginsInstalled(request.data).then(sendResponse);
           return true;
         case BackgroundActiontype.set_local_storage:
           return handleSetLocalStorage(request, sender, sendResponse);
