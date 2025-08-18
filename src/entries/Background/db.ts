@@ -42,7 +42,6 @@ const requestDb = db.sublevel<string, any>('requests', {
   valueEncoding: 'json',
 });
 
-
 export async function upsertRequestLog(request: UpsertRequestLog) {
   const existing = await getRequestLog(request.requestId);
 
@@ -551,8 +550,6 @@ export async function getSessionStorageByHost(host: string) {
   }
   return ret;
 }
-
-
 
 export async function resetDB() {
   return mutex.runExclusive(async () => {
