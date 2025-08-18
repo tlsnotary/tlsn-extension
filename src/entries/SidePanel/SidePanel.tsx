@@ -7,6 +7,7 @@ import {
   makePlugin,
   PluginConfig,
   StepConfig,
+  InputFieldConfig,
 } from '../../utils/misc';
 import DefaultPluginIcon from '../../assets/img/default-plugin-icon.png';
 import logo from '../../assets/img/icon-128.png';
@@ -233,12 +234,26 @@ function StepContent(
     p2p = false,
     clientId = '',
     parameterValues,
+    inputs,
   } = props;
   const [completed, setCompleted] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const [notarizationId, setNotarizationId] = useState('');
+  const [inputValues, setInputValues] = useState<Record<string, string>>({});
   const notaryRequest = useRequestHistory(notarizationId);
+
+  useEffect(() => {
+    if (inputs) {
+      const initialValues: Record<string, string> = {};
+      inputs.forEach((input) => {
+        if (input.defaultValue) {
+          initialValues[input.name] = input.defaultValue;
+        }
+      });
+      setInputValues(initialValues);
+    }
+  }, [inputs]);
 
   const getPlugin = useCallback(async () => {
     const hex = (await getPluginByUrl(url)) || _hex;
@@ -251,16 +266,31 @@ function StepContent(
     if (!plugin) return;
     if (index > 0 && !lastResponse) return;
 
+    // Validate required input fields
+    if (inputs) {
+      for (const input of inputs) {
+        if (
+          input.required &&
+          (!inputValues[input.name] || inputValues[input.name].trim() === '')
+        ) {
+          setError(`${input.label} is required`);
+          return;
+        }
+      }
+    }
+
     setPending(true);
     setError('');
 
     try {
-      const out = await plugin.call(
-        action,
-        index > 0
-          ? JSON.stringify(lastResponse)
-          : JSON.stringify(parameterValues),
-      );
+      let stepData: any;
+      if (index > 0) {
+        stepData = lastResponse;
+      } else {
+        stepData = { ...parameterValues, ...inputValues };
+      }
+
+      const out = await plugin.call(action, JSON.stringify(stepData));
       const val = JSON.parse(out!.string());
       if (val && prover) {
         setNotarizationId(val);
@@ -274,7 +304,16 @@ function StepContent(
     } finally {
       setPending(false);
     }
-  }, [action, index, lastResponse, prover, getPlugin]);
+  }, [
+    action,
+    index,
+    lastResponse,
+    prover,
+    getPlugin,
+    inputs,
+    inputValues,
+    parameterValues,
+  ]);
 
   const onClick = useCallback(() => {
     if (
@@ -319,8 +358,11 @@ function StepContent(
   }, []);
 
   useEffect(() => {
-    processStep();
-  }, [processStep]);
+    // only auto-progress if this step does need inputs
+    if (!inputs || inputs.length === 0) {
+      processStep();
+    }
+  }, [processStep, inputs]);
 
   let btnContent = null;
 
@@ -430,8 +472,105 @@ function StepContent(
             </div>
           </div>
         )}
+        {inputs && inputs.length > 0 && !completed && (
+          <div className="flex flex-col gap-3 mt-3">
+            {inputs.map((input) => (
+              <InputField
+                key={input.name}
+                config={input}
+                value={inputValues[input.name] || ''}
+                onChange={(value) =>
+                  setInputValues((prev) => ({ ...prev, [input.name]: value }))
+                }
+              />
+            ))}
+          </div>
+        )}
         {btnContent}
       </div>
+    </div>
+  );
+}
+
+interface InputFieldProps {
+  config: InputFieldConfig;
+  value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+}
+
+function InputField({
+  config,
+  value,
+  onChange,
+  disabled = false,
+}: InputFieldProps): ReactElement {
+  const { name, label, type, placeholder, required, options } = config;
+
+  const baseClasses =
+    'w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent';
+
+  const renderInput = () => {
+    switch (type) {
+      case 'textarea':
+        return (
+          <textarea
+            id={name}
+            name={name}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={placeholder}
+            required={required}
+            disabled={disabled}
+            className={classNames(baseClasses, 'resize-y min-h-[80px]')}
+            rows={3}
+          />
+        );
+
+      case 'select':
+        return (
+          <select
+            id={name}
+            name={name}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            required={required}
+            disabled={disabled}
+            className={baseClasses}
+          >
+            <option value="">{placeholder || 'Select an option'}</option>
+            {options?.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        );
+
+      default:
+        return (
+          <input
+            type={type}
+            id={name}
+            name={name}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={placeholder}
+            required={required}
+            disabled={disabled}
+            className={baseClasses}
+          />
+        );
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-1">
+      <label htmlFor={name} className="text-sm font-medium text-gray-700">
+        {label}
+        {required && <span className="text-red-500 ml-1">*</span>}
+      </label>
+      {renderInput()}
     </div>
   );
 }

@@ -529,6 +529,7 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
     websocketProxyUrl: _websocketProxyUrl,
     maxSentData: _maxSentData,
     maxRecvData: _maxRecvData,
+    metadata,
   } = request.data;
   const notaryUrl = _notaryUrl || (await getNotaryApi());
   const websocketProxyUrl = _websocketProxyUrl || (await getProxyApi());
@@ -548,6 +549,7 @@ async function runPluginProver(request: BackgroundAction, now = Date.now()) {
     maxSentData,
     secretHeaders,
     secretResps,
+    metadata,
   });
 
   await setNotaryRequestStatus(id, 'pending');

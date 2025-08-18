@@ -151,6 +151,15 @@ export default function ProofViewer(props?: {
               label="Notary Key"
               value={props?.notaryKey || request?.verification?.notaryKey}
             />
+
+            {request?.metadata &&
+              Object.entries(request.metadata).map(([key, value]) => (
+                <MetadataRow
+                  key={`req-${key}`}
+                  label={`Custom: ${key}`}
+                  value={String(value)}
+                />
+              ))}
           </div>
         )}
       </div>
