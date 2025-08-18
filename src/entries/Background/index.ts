@@ -1,9 +1,6 @@
 import { onBeforeRequest, onResponseStarted, onSendHeaders } from './handlers';
 import browser from 'webextension-polyfill';
-import {
-  removePlugin,
-  removeRequestLogsByTabId,
-} from './db';
+import { removePlugin, removeRequestLogsByTabId } from './db';
 import { installPlugin } from './plugins/utils';
 
 (async () => {
