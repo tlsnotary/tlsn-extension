@@ -448,8 +448,11 @@ export async function getCookiesByHost(linkOrHost: string) {
   for (const header of filteredRequest.requestHeaders) {
     if (header.name.toLowerCase() === 'cookie') {
       header.value?.split(';').forEach((cookie) => {
-        const [name, value] = cookie.split('=');
-        ret[name.trim()] = value.trim();
+        const i = cookie.indexOf('=');
+        if (i !== -1) {
+          const name = cookie.slice(0, i).trim();
+          ret[name] = cookie.slice(i + 1).trim();
+        }
       });
     }
   }
