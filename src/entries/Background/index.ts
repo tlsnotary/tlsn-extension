@@ -1,47 +1,37 @@
-import { onBeforeRequest, onResponseStarted, onSendHeaders } from './handlers';
 import browser from 'webextension-polyfill';
-import { removePlugin, removeRequestLogsByTabId } from './db';
-import { installPlugin } from './plugins/utils';
 
-(async () => {
-  browser.webRequest.onSendHeaders.addListener(
-    onSendHeaders,
-    {
-      urls: ['<all_urls>'],
-    },
-    ['requestHeaders', 'extraHeaders'],
-  );
+// Basic background script setup
+console.log('Background script loaded');
 
-  browser.webRequest.onBeforeRequest.addListener(
-    onBeforeRequest,
-    {
-      urls: ['<all_urls>'],
-    },
-    ['requestBody'],
-  );
+// Handle extension install/update
+browser.runtime.onInstalled.addListener((details) => {
+  console.log('Extension installed/updated:', details.reason);
+});
 
-  browser.webRequest.onResponseStarted.addListener(
-    onResponseStarted,
-    {
-      urls: ['<all_urls>'],
-    },
-    ['responseHeaders', 'extraHeaders'],
-  );
+// Basic message handler
+browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  console.log('Message received in background:', request);
 
-  browser.tabs.onRemoved.addListener((tabId) => {
-    removeRequestLogsByTabId(tabId);
-  });
+  // Example response
+  if (request.type === 'PING') {
+    sendResponse({ type: 'PONG' });
+  }
 
-  const { initRPC } = await import('./rpc');
-  await createOffscreenDocument();
-  initRPC();
-})();
+  return true; // Keep message channel open for async response
+});
 
-let creatingOffscreen: any;
+// Create offscreen document if needed (Chrome 109+)
 async function createOffscreenDocument() {
+  // Check if we're in a Chrome environment that supports offscreen documents
+  if (!chrome?.offscreen) {
+    console.log('Offscreen API not available');
+    return;
+  }
+
   const offscreenUrl = browser.runtime.getURL('offscreen.html');
-  // @ts-ignore
-  const existingContexts = await browser.runtime.getContexts({
+
+  // Check if offscreen document already exists
+  const existingContexts = await chrome.runtime.getContexts({
     contextTypes: ['OFFSCREEN_DOCUMENT'],
     documentUrls: [offscreenUrl],
   });
@@ -50,15 +40,15 @@ async function createOffscreenDocument() {
     return;
   }
 
-  if (creatingOffscreen) {
-    await creatingOffscreen;
-  } else {
-    creatingOffscreen = (chrome as any).offscreen.createDocument({
-      url: 'offscreen.html',
-      reasons: ['WORKERS'],
-      justification: 'workers for multithreading',
-    });
-    await creatingOffscreen;
-    creatingOffscreen = null;
-  }
+  // Create offscreen document
+  await chrome.offscreen.createDocument({
+    url: 'offscreen.html',
+    reasons: ['DOM_SCRAPING' as chrome.offscreen.Reason],
+    justification: 'Offscreen document for background processing',
+  });
 }
+
+// Initialize offscreen document
+createOffscreenDocument().catch(console.error);
+
+export {};

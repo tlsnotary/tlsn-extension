@@ -7,7 +7,6 @@ var webpack = require("webpack"),
   TerserPlugin = require("terser-webpack-plugin");
 var { CleanWebpackPlugin } = require("clean-webpack-plugin");
 var ReactRefreshWebpackPlugin = require("@pmmmwh/react-refresh-webpack-plugin");
-var ExtReloader = require('webpack-ext-reloader');
 
 const ASSET_PATH = process.env.ASSET_PATH || "/";
 
@@ -37,27 +36,13 @@ const isDevelopment = process.env.NODE_ENV !== "production";
 
 var options = {
   mode: process.env.NODE_ENV || "development",
-  ignoreWarnings: [
-    /Circular dependency between chunks with runtime/,
-    /ResizeObserver loop completed with undelivered notifications/,
-    /Should not import the named export/,
-    /Sass @import rules are deprecated and will be removed in Dart Sass 3.0.0/,
-    /Global built-in functions are deprecated and will be removed in Dart Sass 3.0.0./,
-    /repetitive deprecation warnings omitted/,
-  ],
-
   entry: {
-    options: path.join(__dirname, "src", "entries", "Options", "index.tsx"),
     popup: path.join(__dirname, "src", "entries", "Popup", "index.tsx"),
     background: path.join(__dirname, "src", "entries", "Background", "index.ts"),
     contentScript: path.join(__dirname, "src", "entries", "Content", "index.ts"),
     content: path.join(__dirname, "src", "entries", "Content", "content.ts"),
     offscreen: path.join(__dirname, "src", "entries", "Offscreen", "index.tsx"),
-    sidePanel: path.join(__dirname, "src", "entries", "SidePanel", "index.tsx"),
   },
-  // chromeExtensionBoilerplate: {
-  //   notHotReload: ["background", "contentScript", "devtools"],
-  // },
   output: {
     filename: "[name].bundle.js",
     path: path.resolve(__dirname, "build"),
@@ -85,9 +70,6 @@ var options = {
             loader: "sass-loader",
             options: {
               sourceMap: true,
-              sassOptions: {
-                silenceDeprecations: ["legacy-js-api"],
-              }
             },
           },
         ],
@@ -96,10 +78,6 @@ var options = {
         test: new RegExp(".(" + fileExtensions.join("|") + ")$"),
         type: "asset/resource",
         exclude: /node_modules/,
-        // loader: 'file-loader',
-        // options: {
-        //   name: '[name].[ext]',
-        // },
       },
       {
         test: /\.html$/,
@@ -149,9 +127,6 @@ var options = {
     new webpack.ProgressPlugin(),
     // expose and write the allowed env vars on the compiled bundle
     new webpack.EnvironmentPlugin(["NODE_ENV"]),
-    // new ExtReloader({
-    //   manifest: path.resolve(__dirname, "src/manifest.json")
-    // }),
     new CopyWebpackPlugin({
       patterns: [
         {
@@ -198,21 +173,6 @@ var options = {
         },
       ],
     }),
-    new CopyWebpackPlugin({
-      patterns: [
-        {
-          from: "node_modules/tlsn-js/build",
-          to: path.join(__dirname, "build"),
-          force: true,
-        },
-      ],
-    }),
-    new HtmlWebpackPlugin({
-      template: path.join(__dirname, "src", "entries", "Options", "index.html"),
-      filename: "options.html",
-      chunks: ["options"],
-      cache: false,
-    }),
     new HtmlWebpackPlugin({
       template: path.join(__dirname, "src", "entries", "Popup", "index.html"),
       filename: "popup.html",
@@ -225,28 +185,9 @@ var options = {
       chunks: ["offscreen"],
       cache: false,
     }),
-    new HtmlWebpackPlugin({
-      template: path.join(__dirname, "src", "entries", "SidePanel", "index.html"),
-      filename: "sidePanel.html",
-      chunks: ["sidePanel"],
-      cache: false,
-    }),
-    new webpack.ProvidePlugin({
-      Buffer: ['buffer', 'Buffer'],
-    }),
   ].filter(Boolean),
   infrastructureLogging: {
     level: "info",
-  },
-  // Required by wasm-bindgen-rayon, in order to use SharedArrayBuffer on the Web
-  // Ref:
-  //  - https://github.com/GoogleChromeLabs/wasm-bindgen-rayon#setting-up
-  //  - https://web.dev/i18n/en/coop-coep/
-  devServer: {
-    headers: {
-      'Cross-Origin-Embedder-Policy': 'require-corp',
-      'Cross-Origin-Opener-Policy': 'same-origin',
-    }
   },
 };
 
