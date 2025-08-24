@@ -1,58 +1,42 @@
-import { ContentScriptTypes, RPCClient } from './rpc';
-import { PresentationJSON } from 'tlsn-js/build/types';
+// Script injected into the page context
+console.log('Page script injected');
 
-const client = new RPCClient();
-
-class TLSN {
-  async notarize(
-    url: string,
-    requestOptions?: {
-      method?: string;
-      headers?: { [key: string]: string };
-      body?: string;
-    },
-    proofOptions?: {
-      notaryUrl?: string;
-      websocketProxyUrl?: string;
-      maxSentData?: number;
-      maxRecvData?: number;
-      metadata?: {
-        [k: string]: string;
-      };
-    },
-  ): Promise<PresentationJSON> {
-    const resp = await client.call(ContentScriptTypes.notarize, {
-      url,
-      method: requestOptions?.method,
-      headers: requestOptions?.headers,
-      body: requestOptions?.body,
-      maxSentData: proofOptions?.maxSentData,
-      maxRecvData: proofOptions?.maxRecvData,
-      notaryUrl: proofOptions?.notaryUrl,
-      websocketProxyUrl: proofOptions?.websocketProxyUrl,
-      metadata: proofOptions?.metadata,
-    });
-
-    return resp;
-  }
-
-  async runPlugin(url: string, params?: Record<string, string>) {
-    const resp = await client.call(ContentScriptTypes.run_plugin_by_url, {
-      url,
-      params,
-    });
-
-    return resp;
+// Simple API exposed to the page
+class ExtensionAPI {
+  sendMessage(data: any) {
+    window.postMessage(
+      {
+        type: 'FROM_PAGE',
+        payload: data,
+      },
+      window.location.origin,
+    );
   }
 }
 
-const connect = async () => {
-  return new TLSN();
-};
+// Expose API to the page
+(window as any).extensionAPI = new ExtensionAPI();
 
-// @ts-ignore
-window.tlsn = {
-  connect,
-};
+// Listen for messages from the page
+window.addEventListener('message', (event) => {
+  // Only accept messages from the same origin
+  if (event.origin !== window.location.origin) return;
 
-window.dispatchEvent(new CustomEvent('tlsn_loaded'));
+  if (event.data?.type === 'FROM_PAGE') {
+    console.log('Received message from page:', event.data);
+
+    // Forward to content script/extension
+    window.postMessage(
+      {
+        type: 'TO_EXTENSION',
+        payload: event.data.payload,
+      },
+      window.location.origin,
+    );
+  }
+});
+
+// Dispatch event to notify page that extension is loaded
+window.dispatchEvent(new CustomEvent('extension_loaded'));
+
+export {};
