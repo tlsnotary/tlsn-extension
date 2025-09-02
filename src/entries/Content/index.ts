@@ -12,7 +12,7 @@ function injectScript() {
 }
 
 // Listen for messages from the extension
-browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
+browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
   console.log('Content script received message:', request);
 
   if (request.type === 'GET_PAGE_INFO') {
@@ -34,6 +34,20 @@ browser.runtime
     url: window.location.href,
   })
   .catch(console.error);
+
+// Listen for messages from the page
+window.addEventListener('message', (event) => {
+  // Only accept messages from the same origin
+  if (event.origin !== window.location.origin) return;
+
+  if (event.data?.type === 'TLSN_CONTENT_SCRIPT_MESSAGE') {
+    // Forward to content script/extension
+    browser.runtime.sendMessage({
+      type: 'TLSN_CONTENT_TO_EXTENSION',
+      payload: event.data.payload,
+    });
+  }
+});
 
 // Inject script if document is ready
 if (document.readyState === 'loading') {

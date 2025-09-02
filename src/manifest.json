@@ -29,6 +29,8 @@
     }
   ],
   "permissions": [
+    "offscreen",
+    "webRequest",
     "storage",
     "activeTab"
   ]

@@ -36,6 +36,15 @@ const isDevelopment = process.env.NODE_ENV !== "production";
 
 var options = {
   mode: process.env.NODE_ENV || "development",
+  ignoreWarnings: [
+    /Circular dependency between chunks with runtime/,
+    /ResizeObserver loop completed with undelivered notifications/,
+    /Should not import the named export/,
+    /Sass @import rules are deprecated and will be removed in Dart Sass 3.0.0/,
+    /Global built-in functions are deprecated and will be removed in Dart Sass 3.0.0./,
+    /repetitive deprecation warnings omitted/,
+    /Dart Sass 2.0.0/,
+  ],
   entry: {
     popup: path.join(__dirname, "src", "entries", "Popup", "index.tsx"),
     background: path.join(__dirname, "src", "entries", "Background", "index.ts"),
