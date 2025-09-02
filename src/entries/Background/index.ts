@@ -1,5 +1,6 @@
 import browser from 'webextension-polyfill';
 
+const chrome = global.chrome as any;
 // Basic background script setup
 console.log('Background script loaded');
 
@@ -9,7 +10,7 @@ browser.runtime.onInstalled.addListener((details) => {
 });
 
 // Basic message handler
-browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
+browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
   console.log('Message received in background:', request);
 
   // Example response
@@ -43,7 +44,7 @@ async function createOffscreenDocument() {
   // Create offscreen document
   await chrome.offscreen.createDocument({
     url: 'offscreen.html',
-    reasons: ['DOM_SCRAPING' as chrome.offscreen.Reason],
+    reasons: ['DOM_SCRAPING'],
     justification: 'Offscreen document for background processing',
   });
 }
