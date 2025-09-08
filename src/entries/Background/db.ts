@@ -357,7 +357,7 @@ export async function getPlugins(): Promise<
         ...config,
         hash,
         metadata: metadata
-         ? {
+          ? {
               ...metadata,
               hash,
             }
