@@ -357,15 +357,15 @@ export async function getPlugins(): Promise<
         ...config,
         hash,
         metadata: metadata
-          ? {
-            ...metadata,
-            hash,
-          }
+         ? {
+              ...metadata,
+              hash,
+            }
           : {
-            filePath: '',
-            origin: '',
-            hash,
-          },
+              filePath: '',
+              origin: '',
+              hash,
+            },
       });
     }
   }
