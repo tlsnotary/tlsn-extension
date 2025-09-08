@@ -18,6 +18,52 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
     sendResponse({ type: 'PONG' });
   }
 
+  if (request.type === 'TLSN_CONTENT_TO_EXTENSION') {
+    console.log('TLSN request received, opening new window');
+
+    // Open a new window with x.com
+    browser.windows
+      .create({
+        url: 'https://x.com',
+        type: 'popup',
+        width: 800,
+        height: 600,
+      })
+      .then((window) => {
+        console.log('New window created:', window.id);
+
+        // Store the window ID and wait for the tab to load
+        if (window.tabs && window.tabs[0]) {
+          const tabId = window.tabs[0].id;
+
+          // Wait for the page to load then inject the overlay
+          browser.tabs.onUpdated.addListener(
+            function listener(updatedTabId, changeInfo) {
+              if (updatedTabId === tabId && changeInfo.status === 'complete') {
+                // Remove the listener
+                browser.tabs.onUpdated.removeListener(listener);
+
+                // Send message to content script to show overlay
+                browser.tabs
+                  .sendMessage(tabId, {
+                    type: 'SHOW_TLSN_OVERLAY',
+                  })
+                  .catch((error) => {
+                    console.error(
+                      'Error sending message to content script:',
+                      error,
+                    );
+                  });
+              }
+            },
+          );
+        }
+      })
+      .catch((error) => {
+        console.error('Error creating window:', error);
+      });
+  }
+
   return true; // Keep message channel open for async response
 });
 

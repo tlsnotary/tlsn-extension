@@ -32,6 +32,7 @@
     "offscreen",
     "webRequest",
     "storage",
-    "activeTab"
+    "activeTab",
+    "tabs"
   ]
 }
