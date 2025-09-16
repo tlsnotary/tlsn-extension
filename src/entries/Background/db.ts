@@ -73,9 +73,19 @@ export async function removeRequestLog(requestId: string) {
   if (existing) {
     await requestDb.del(requestId);
     await requestDb.sublevel(existing.tabId.toString()).del(requestId);
+
+    // Removing requestId for asset url
     const host = urlify(existing.url)?.host;
     if (host) {
       await requestDb.sublevel(host).del(requestId);
+    }
+
+    // Removing requestId for initiator url
+    if (existing.initiator) {
+      const host = urlify(existing.initiator)?.host;
+      if (host) {
+        await requestDb.sublevel(host).del(requestId);
+      }
     }
   }
 }
