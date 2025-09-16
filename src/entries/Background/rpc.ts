@@ -1094,6 +1094,14 @@ async function handleRunPluginByURLRequest(request: BackgroundAction) {
     browser.runtime.onMessage.removeListener(onPluginRequest);
   };
 
+  const onSidePanelClosing = async (req: any) => {
+    if (req.type === SidePanelActionTypes.panel_closing) {
+        browser.runtime.onMessage.removeListener(onSidePanelClosing);
+        defer.reject(new Error('user rejected.'));
+    }
+
+  };
+
   const onMessage = async (req: BackgroundAction) => {
     if (req.type === BackgroundActiontype.run_plugin_by_url_response) {
       if (req.data) {
@@ -1116,6 +1124,7 @@ async function handleRunPluginByURLRequest(request: BackgroundAction) {
   };
 
   browser.runtime.onMessage.addListener(onMessage);
+  browser.runtime.onMessage.addListener(onSidePanelClosing);
   browser.windows.onRemoved.addListener(onPopUpClose);
 
   return defer.promise;

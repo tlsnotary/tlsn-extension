@@ -1,5 +1,6 @@
 export enum SidePanelActionTypes {
   panel_opened = 'sidePanel/panel_opened',
+  panel_closing = 'sidePanel/panel_closing',
   execute_plugin_request = 'sidePanel/execute_plugin_request',
   execute_plugin_response = 'sidePanel/execute_plugin_response',
   run_p2p_plugin_request = 'sidePanel/run_p2p_plugin_request',
