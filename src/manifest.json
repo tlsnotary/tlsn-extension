@@ -33,6 +33,7 @@
     "webRequest",
     "storage",
     "activeTab",
-    "tabs"
+    "tabs",
+    "windows"
   ]
 }
