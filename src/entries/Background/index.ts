@@ -4,9 +4,61 @@ const chrome = global.chrome as any;
 // Basic background script setup
 console.log('Background script loaded');
 
+// Storage for TLSN window requests
+interface StoredRequest {
+  method: string;
+  url: string;
+  timestamp: number;
+}
+
+let tlsnWindowId: number | null = null;
+let tlsnTabId: number | null = null;
+let tlsnRequests: StoredRequest[] = [];
+
 // Handle extension install/update
 browser.runtime.onInstalled.addListener((details) => {
   console.log('Extension installed/updated:', details.reason);
+});
+
+// Set up webRequest listener to intercept all requests
+browser.webRequest.onBeforeRequest.addListener(
+  (details) => {
+    // Only store requests from the TLSN window/tab
+    if (tlsnTabId && details.tabId === tlsnTabId) {
+      const request: StoredRequest = {
+        method: details.method,
+        url: details.url,
+        timestamp: Date.now(),
+      };
+
+      tlsnRequests.push(request);
+
+      // Send updated requests to the content script
+      browser.tabs
+        .sendMessage(tlsnTabId, {
+          type: 'UPDATE_TLSN_REQUESTS',
+          requests: tlsnRequests,
+        })
+        .catch(() => {
+          // Ignore errors if content script not ready
+        });
+    }
+
+    // Always allow the request to proceed
+    return {};
+  },
+  { urls: ['<all_urls>'] },
+  [],
+);
+
+// Listen for window removal
+browser.windows.onRemoved.addListener((windowId) => {
+  if (windowId === tlsnWindowId) {
+    console.log('TLSN window closed, clearing stored requests');
+    tlsnWindowId = null;
+    tlsnTabId = null;
+    tlsnRequests = [];
+  }
 });
 
 // Basic message handler
@@ -21,20 +73,28 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
   if (request.type === 'TLSN_CONTENT_TO_EXTENSION') {
     console.log('TLSN request received, opening new window');
 
+    // Clear any previous TLSN data
+    tlsnWindowId = null;
+    tlsnTabId = null;
+    tlsnRequests = [];
+
     // Open a new window with x.com
     browser.windows
       .create({
         url: 'https://x.com',
         type: 'popup',
-        width: 800,
-        height: 600,
+        width: 900,
+        height: 700,
       })
       .then((window) => {
         console.log('New window created:', window.id);
 
-        // Store the window ID and wait for the tab to load
+        // Store the window and tab IDs for request tracking
+        tlsnWindowId = window.id!;
+
         if (window.tabs && window.tabs[0]) {
-          const tabId = window.tabs[0].id;
+          const tabId = window.tabs[0].id!;
+          tlsnTabId = tabId;
 
           // Wait for the page to load then inject the overlay
           browser.tabs.onUpdated.addListener(
@@ -43,10 +103,11 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
                 // Remove the listener
                 browser.tabs.onUpdated.removeListener(listener);
 
-                // Send message to content script to show overlay
+                // Send message to content script to show overlay with initial requests
                 browser.tabs
                   .sendMessage(tabId, {
                     type: 'SHOW_TLSN_OVERLAY',
+                    requests: tlsnRequests,
                   })
                   .catch((error) => {
                     console.error(
