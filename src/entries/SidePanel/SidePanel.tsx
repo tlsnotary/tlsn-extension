@@ -80,12 +80,12 @@ export default function SidePanel(): ReactElement {
         }
       }
     });
-   document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'hidden') {
-          browser.runtime.sendMessage({
-                type: SidePanelActionTypes.panel_closing,
-          });
-        }
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') {
+        browser.runtime.sendMessage({
+          type: SidePanelActionTypes.panel_closing,
+        });
+      }
     });
   }, []);
 

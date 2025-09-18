@@ -1096,10 +1096,9 @@ async function handleRunPluginByURLRequest(request: BackgroundAction) {
 
   const onSidePanelClosing = async (req: any) => {
     if (req.type === SidePanelActionTypes.panel_closing) {
-        browser.runtime.onMessage.removeListener(onSidePanelClosing);
-        defer.reject(new Error('user rejected.'));
+      browser.runtime.onMessage.removeListener(onSidePanelClosing);
+      defer.reject(new Error('user rejected.'));
     }
-
   };
 
   const onMessage = async (req: BackgroundAction) => {
