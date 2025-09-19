@@ -214,6 +214,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
   }
 
   if (request.type === 'UPDATE_TLSN_REQUESTS') {
+    console.log('updateTLSNOverlay', request.requests);
     updateTLSNOverlay(request.requests || []);
     sendResponse({ success: true });
   }
