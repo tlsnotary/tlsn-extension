@@ -20,9 +20,19 @@ browser.runtime.onInstalled.addListener((details) => {
   console.log('Extension installed/updated:', details.reason);
 });
 
+browser.webRequest.onBeforeSendHeaders.addListener(
+  (details) => {
+    console.log('details', details.tabId);
+    console.log('tlsnTabId', tlsnTabId);
+  },
+  { urls: ['<all_urls>'] },
+  ['requestHeaders'],
+);
 // Set up webRequest listener to intercept all requests
 browser.webRequest.onBeforeRequest.addListener(
   (details) => {
+    console.log('details', details.tabId);
+    console.log('tlsnTabId', tlsnTabId);
     // Only store requests from the TLSN window/tab
     if (tlsnTabId && details.tabId === tlsnTabId) {
       const request: StoredRequest = {
@@ -33,6 +43,7 @@ browser.webRequest.onBeforeRequest.addListener(
 
       tlsnRequests.push(request);
 
+      console.log('tlsnRequests', tlsnRequests);
       // Send updated requests to the content script
       browser.tabs
         .sendMessage(tlsnTabId, {
@@ -43,12 +54,9 @@ browser.webRequest.onBeforeRequest.addListener(
           // Ignore errors if content script not ready
         });
     }
-
-    // Always allow the request to proceed
-    return {};
   },
   { urls: ['<all_urls>'] },
-  [],
+  ['requestBody'],
 );
 
 // Listen for window removal
