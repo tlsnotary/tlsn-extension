@@ -9,3 +9,5 @@ build
 tlsn/
 zip
 .vscode
+.claude
+coverage
