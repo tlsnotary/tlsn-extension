@@ -62,24 +62,21 @@ describe('WindowManager', () => {
       expect(window1.uuid).not.toBe(window2.uuid);
     });
 
-    it('should show overlay by default when showOverlay not specified', async () => {
+    it('should set showOverlayWhenReady by default when showOverlay not specified', async () => {
       const config: WindowRegistration = {
         id: 123,
         tabId: 456,
         url: 'https://example.com',
       };
 
-      await windowManager.registerWindow(config);
+      const window = await windowManager.registerWindow(config);
 
-      expect(browser.tabs.sendMessage).toHaveBeenCalledWith(
-        456,
-        expect.objectContaining({
-          type: 'SHOW_TLSN_OVERLAY',
-        }),
-      );
+      expect(window.showOverlayWhenReady).toBe(true);
+      expect(window.overlayVisible).toBe(false);
+      // Overlay will be shown by tabs.onUpdated listener when tab becomes 'complete'
     });
 
-    it('should not show overlay when showOverlay is false', async () => {
+    it('should not set showOverlayWhenReady when showOverlay is false', async () => {
       const config: WindowRegistration = {
         id: 123,
         tabId: 456,
@@ -87,9 +84,10 @@ describe('WindowManager', () => {
         showOverlay: false,
       };
 
-      await windowManager.registerWindow(config);
+      const window = await windowManager.registerWindow(config);
 
-      expect(browser.tabs.sendMessage).not.toHaveBeenCalled();
+      expect(window.showOverlayWhenReady).toBe(false);
+      expect(window.overlayVisible).toBe(false);
     });
   });
 
