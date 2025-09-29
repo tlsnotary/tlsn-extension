@@ -1,5 +1,3 @@
-import browser from 'webextension-polyfill';
-// Script injected into the page context
 console.log('Page script injected');
 
 // Simple API exposed to the page
@@ -16,7 +14,7 @@ class ExtensionAPI {
 }
 
 // Expose API to the page
-(window as any).extensionAPI = new ExtensionAPI();
+(window as any).tlsn = new ExtensionAPI();
 
 // Dispatch event to notify page that extension is loaded
 window.dispatchEvent(new CustomEvent('extension_loaded'));
