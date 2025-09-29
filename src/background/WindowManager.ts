@@ -59,18 +59,14 @@ export class WindowManager implements IWindowManager {
       createdAt: new Date(),
       requests: [],
       overlayVisible: false,
+      showOverlayWhenReady: config.showOverlay !== false, // Default: true
     };
 
     this.windows.set(config.id, managedWindow);
 
     console.log(
-      `[WindowManager] Window registered: ${managedWindow.uuid} (ID: ${managedWindow.id}, Tab: ${managedWindow.tabId})`,
+      `[WindowManager] Window registered: ${managedWindow.uuid} (ID: ${managedWindow.id}, Tab: ${managedWindow.tabId}, showOverlayWhenReady: ${managedWindow.showOverlayWhenReady})`,
     );
-
-    // Show overlay if requested (default: true)
-    if (config.showOverlay !== false) {
-      await this.showOverlay(config.id);
-    }
 
     return managedWindow;
   }
@@ -272,6 +268,7 @@ export class WindowManager implements IWindowManager {
       });
 
       window.overlayVisible = true;
+      window.showOverlayWhenReady = false; // Clear the pending flag
       console.log(`[WindowManager] Overlay shown for window ${windowId}`);
     } catch (error) {
       console.warn(
@@ -279,6 +276,7 @@ export class WindowManager implements IWindowManager {
         error,
       );
       // Don't throw - content script may not be ready yet
+      // Keep showOverlayWhenReady=true so we can retry when tab loads
     }
   }
 

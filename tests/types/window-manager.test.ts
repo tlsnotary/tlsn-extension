@@ -91,6 +91,7 @@ describe('WindowManager Type Definitions', () => {
         createdAt: new Date(),
         requests: [],
         overlayVisible: false,
+        showOverlayWhenReady: true,
       };
 
       expect(window.id).toBe(123);
@@ -99,6 +100,7 @@ describe('WindowManager Type Definitions', () => {
       );
       expect(window.requests).toEqual([]);
       expect(window.overlayVisible).toBe(false);
+      expect(window.showOverlayWhenReady).toBe(true);
     });
 
     it('should allow requests array to contain InterceptedRequests', () => {
@@ -118,6 +120,7 @@ describe('WindowManager Type Definitions', () => {
           },
         ],
         overlayVisible: true,
+        showOverlayWhenReady: false,
       };
 
       expect(window.requests).toHaveLength(1);
@@ -138,6 +141,7 @@ describe('WindowManager Type Definitions', () => {
           createdAt: new Date(),
           requests: [],
           overlayVisible: false,
+          showOverlayWhenReady: config.showOverlay !== false,
         }),
         closeWindow: async (windowId: number) => {},
         getWindow: (windowId: number) => undefined,
@@ -174,6 +178,7 @@ describe('WindowManager Type Definitions', () => {
           createdAt: new Date(),
           requests: [],
           overlayVisible: false,
+          showOverlayWhenReady: config.showOverlay !== false,
         }),
         closeWindow: async (windowId) => {},
         getWindow: (windowId) => undefined,
@@ -201,6 +206,7 @@ describe('WindowManager Type Definitions', () => {
       expect(result).toHaveProperty('createdAt');
       expect(result).toHaveProperty('requests');
       expect(result).toHaveProperty('overlayVisible');
+      expect(result).toHaveProperty('showOverlayWhenReady');
 
       // Test getWindowRequests returns array
       const requests = mockWindowManager.getWindowRequests(123);
@@ -222,6 +228,7 @@ describe('WindowManager Type Definitions', () => {
         createdAt: new Date(),
         requests: [],
         overlayVisible: false,
+        showOverlayWhenReady: false,
       };
 
       const request: InterceptedRequest = {
@@ -262,6 +269,7 @@ describe('WindowManager Type Definitions', () => {
           },
         ],
         overlayVisible: true,
+        showOverlayWhenReady: false,
       };
 
       expect(window.requests).toHaveLength(2);

@@ -54,6 +54,28 @@ browser.windows.onRemoved.addListener(async (windowId) => {
   }
 });
 
+// Listen for tab updates to show overlay when tab is ready (Task 3.4)
+browser.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  // Only act when tab becomes complete
+  if (changeInfo.status !== 'complete') {
+    return;
+  }
+
+  // Check if this tab belongs to a managed window
+  const managedWindow = windowManager.getWindowByTabId(tabId);
+  if (!managedWindow) {
+    return;
+  }
+
+  // If overlay should be shown but isn't visible yet, show it now
+  if (managedWindow.showOverlayWhenReady && !managedWindow.overlayVisible) {
+    console.log(
+      `[Background] Tab ${tabId} complete, showing overlay for window ${managedWindow.id}`,
+    );
+    await windowManager.showOverlay(managedWindow.id);
+  }
+});
+
 // Basic message handler
 browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
   console.log('[Background] Message received:', request.type);
@@ -61,6 +83,53 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
   // Example response
   if (request.type === 'PING') {
     sendResponse({ type: 'PONG' });
+    return true;
+  }
+
+  // Backward compatibility: Handle legacy TLSN_CONTENT_TO_EXTENSION message (Task 3.5)
+  // This maintains compatibility with existing code that uses the old API
+  if (request.type === 'TLSN_CONTENT_TO_EXTENSION') {
+    console.log(
+      '[Background] Legacy TLSN_CONTENT_TO_EXTENSION received, opening x.com window',
+    );
+
+    // Open x.com window using the new WindowManager system
+    browser.windows
+      .create({
+        url: 'https://x.com',
+        type: 'popup',
+        width: 900,
+        height: 700,
+      })
+      .then(async (window) => {
+        if (
+          !window.id ||
+          !window.tabs ||
+          !window.tabs[0] ||
+          !window.tabs[0].id
+        ) {
+          throw new Error('Failed to create window or get tab ID');
+        }
+
+        const windowId = window.id;
+        const tabId = window.tabs[0].id;
+
+        console.log(
+          `[Background] Legacy window created: ${windowId}, Tab: ${tabId}`,
+        );
+
+        // Register with WindowManager (overlay will be shown when tab loads)
+        await windowManager.registerWindow({
+          id: windowId,
+          tabId: tabId,
+          url: 'https://x.com',
+          showOverlay: true,
+        });
+      })
+      .catch((error) => {
+        console.error('[Background] Error creating legacy window:', error);
+      });
+
     return true;
   }
 
