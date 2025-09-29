@@ -1,6 +1,7 @@
 import browser from 'webextension-polyfill';
 import { WindowManager } from '../../background/WindowManager';
 import type { InterceptedRequest } from '../../types/window-manager';
+import { validateUrl } from '../../utils/url-validator';
 
 const chrome = global.chrome as any;
 // Basic background script setup
@@ -137,30 +138,15 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
   if (request.type === 'OPEN_WINDOW') {
     console.log('[Background] OPEN_WINDOW request received:', request.url);
 
-    // Validate URL protocol (only allow http and https)
-    let parsedUrl: URL;
-    try {
-      parsedUrl = new URL(request.url);
-      if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-        console.error(
-          `[Background] Invalid protocol: ${parsedUrl.protocol}. Only http and https are allowed.`,
-        );
-        sendResponse({
-          type: 'WINDOW_ERROR',
-          payload: {
-            error: 'Invalid protocol',
-            details: `Only HTTP and HTTPS URLs are supported. Received: ${parsedUrl.protocol}`,
-          },
-        });
-        return true;
-      }
-    } catch (error) {
-      console.error('[Background] Invalid URL:', request.url);
+    // Validate URL using comprehensive validator
+    const urlValidation = validateUrl(request.url);
+    if (!urlValidation.valid) {
+      console.error('[Background] URL validation failed:', urlValidation.error);
       sendResponse({
         type: 'WINDOW_ERROR',
         payload: {
           error: 'Invalid URL',
-          details: String(error),
+          details: urlValidation.error || 'URL validation failed',
         },
       });
       return true;
@@ -189,25 +175,42 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
 
         console.log(`[Background] Window created: ${windowId}, Tab: ${tabId}`);
 
-        // Register window with WindowManager
-        const managedWindow = await windowManager.registerWindow({
-          id: windowId,
-          tabId: tabId,
-          url: request.url,
-          showOverlay: request.showOverlay !== false, // Default to true
-        });
+        try {
+          // Register window with WindowManager
+          const managedWindow = await windowManager.registerWindow({
+            id: windowId,
+            tabId: tabId,
+            url: request.url,
+            showOverlay: request.showOverlay !== false, // Default to true
+          });
 
-        console.log(`[Background] Window registered: ${managedWindow.uuid}`);
+          console.log(`[Background] Window registered: ${managedWindow.uuid}`);
 
-        // Send success response
-        sendResponse({
-          type: 'WINDOW_OPENED',
-          payload: {
-            windowId: managedWindow.id,
-            uuid: managedWindow.uuid,
-            tabId: managedWindow.tabId,
-          },
-        });
+          // Send success response
+          sendResponse({
+            type: 'WINDOW_OPENED',
+            payload: {
+              windowId: managedWindow.id,
+              uuid: managedWindow.uuid,
+              tabId: managedWindow.tabId,
+            },
+          });
+        } catch (registrationError) {
+          // Registration failed (e.g., window limit exceeded)
+          // Close the window we just created
+          console.error('[Background] Window registration failed:', registrationError);
+          await browser.windows.remove(windowId).catch(() => {
+            // Ignore errors if window already closed
+          });
+
+          sendResponse({
+            type: 'WINDOW_ERROR',
+            payload: {
+              error: 'Window registration failed',
+              details: String(registrationError),
+            },
+          });
+        }
       })
       .catch((error) => {
         console.error('[Background] Error creating window:', error);

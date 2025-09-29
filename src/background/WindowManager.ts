@@ -13,6 +13,12 @@ import type {
   ManagedWindow,
   IWindowManager,
 } from '../types/window-manager';
+import {
+  MAX_MANAGED_WINDOWS,
+  MAX_REQUESTS_PER_WINDOW,
+  OVERLAY_RETRY_DELAY_MS,
+  MAX_OVERLAY_RETRY_ATTEMPTS,
+} from '../constants/limits';
 
 /**
  * WindowManager implementation
@@ -51,6 +57,13 @@ export class WindowManager implements IWindowManager {
    * ```
    */
   async registerWindow(config: WindowRegistration): Promise<ManagedWindow> {
+    // Check maximum window limit
+    if (this.windows.size >= MAX_MANAGED_WINDOWS) {
+      const error = `Maximum window limit reached (${MAX_MANAGED_WINDOWS}). Currently managing ${this.windows.size} windows. Please close some windows before opening new ones.`;
+      console.error(`[WindowManager] ${error}`);
+      throw new Error(error);
+    }
+
     const managedWindow: ManagedWindow = {
       id: config.id,
       uuid: uuidv4(),
@@ -65,7 +78,7 @@ export class WindowManager implements IWindowManager {
     this.windows.set(config.id, managedWindow);
 
     console.log(
-      `[WindowManager] Window registered: ${managedWindow.uuid} (ID: ${managedWindow.id}, Tab: ${managedWindow.tabId}, showOverlayWhenReady: ${managedWindow.showOverlayWhenReady})`,
+      `[WindowManager] Window registered: ${managedWindow.uuid} (ID: ${managedWindow.id}, Tab: ${managedWindow.tabId}, showOverlayWhenReady: ${managedWindow.showOverlayWhenReady}) [${this.windows.size}/${MAX_MANAGED_WINDOWS}]`,
     );
 
     return managedWindow;
@@ -206,6 +219,15 @@ export class WindowManager implements IWindowManager {
 
     window.requests.push(request);
 
+    // Enforce request limit per window to prevent unbounded memory growth
+    if (window.requests.length > MAX_REQUESTS_PER_WINDOW) {
+      const removed = window.requests.length - MAX_REQUESTS_PER_WINDOW;
+      window.requests.splice(0, removed);
+      console.warn(
+        `[WindowManager] Request limit reached for window ${windowId}. Removed ${removed} oldest request(s). Current: ${window.requests.length}/${MAX_REQUESTS_PER_WINDOW}`,
+      );
+    }
+
     console.log(
       `[WindowManager] Request added to window ${windowId}: ${request.method} ${request.url}`,
     );
@@ -252,7 +274,7 @@ export class WindowManager implements IWindowManager {
    * await windowManager.showOverlay(123);
    * ```
    */
-  async showOverlay(windowId: number): Promise<void> {
+  async showOverlay(windowId: number, retryCount: number = 0): Promise<void> {
     const window = this.windows.get(windowId);
     if (!window) {
       console.error(
@@ -271,12 +293,30 @@ export class WindowManager implements IWindowManager {
       window.showOverlayWhenReady = false; // Clear the pending flag
       console.log(`[WindowManager] Overlay shown for window ${windowId}`);
     } catch (error) {
-      console.warn(
-        `[WindowManager] Failed to show overlay for window ${windowId}:`,
-        error,
-      );
-      // Don't throw - content script may not be ready yet
-      // Keep showOverlayWhenReady=true so we can retry when tab loads
+      // Retry if content script not ready
+      if (retryCount < MAX_OVERLAY_RETRY_ATTEMPTS) {
+        console.log(
+          `[WindowManager] Overlay display failed for window ${windowId}, retry ${retryCount + 1}/${MAX_OVERLAY_RETRY_ATTEMPTS} in ${OVERLAY_RETRY_DELAY_MS}ms`,
+        );
+
+        // Wait and retry
+        await new Promise((resolve) => setTimeout(resolve, OVERLAY_RETRY_DELAY_MS));
+
+        // Check if window still exists before retrying
+        if (this.windows.has(windowId)) {
+          return this.showOverlay(windowId, retryCount + 1);
+        } else {
+          console.warn(
+            `[WindowManager] Window ${windowId} closed during retry, aborting overlay display`,
+          );
+        }
+      } else {
+        console.warn(
+          `[WindowManager] Failed to show overlay for window ${windowId} after ${MAX_OVERLAY_RETRY_ATTEMPTS} attempts:`,
+          error,
+        );
+        // Keep showOverlayWhenReady=true so tabs.onUpdated can try again
+      }
     }
   }
 

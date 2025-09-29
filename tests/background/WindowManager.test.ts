@@ -19,6 +19,12 @@ describe('WindowManager', () => {
   beforeEach(() => {
     windowManager = new WindowManager();
     vi.clearAllMocks();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.useRealTimers();
   });
 
   describe('Window Registration', () => {
@@ -301,7 +307,7 @@ describe('WindowManager', () => {
       windowManager.addRequest(123, request);
 
       // Give async updateOverlay time to execute
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await vi.runAllTimersAsync();
 
       expect(browser.tabs.sendMessage).toHaveBeenCalledWith(
         456,
@@ -379,11 +385,18 @@ describe('WindowManager', () => {
     });
 
     it('should handle overlay show error gracefully', async () => {
-      vi.mocked(browser.tabs.sendMessage).mockRejectedValueOnce(
+      // Mock sendMessage to fail for all retry attempts
+      vi.mocked(browser.tabs.sendMessage).mockRejectedValue(
         new Error('Tab not found'),
       );
 
-      await expect(windowManager.showOverlay(123)).resolves.not.toThrow();
+      // Start showOverlay (which will retry with delays)
+      const showPromise = windowManager.showOverlay(123);
+
+      // Advance timers through all retry delays (10 retries × 500ms = 5000ms)
+      await vi.advanceTimersByTimeAsync(5500);
+
+      await expect(showPromise).resolves.not.toThrow();
       expect(windowManager.isOverlayVisible(123)).toBe(false);
     });
 
