@@ -1,58 +1,42 @@
 import browser from 'webextension-polyfill';
+import { WindowManager } from '../../background/WindowManager';
+import type { InterceptedRequest } from '../../types/window-manager';
 
 const chrome = global.chrome as any;
 // Basic background script setup
 console.log('Background script loaded');
 
-// Storage for TLSN window requests
-interface StoredRequest {
-  method: string;
-  url: string;
-  timestamp: number;
-}
-
-let tlsnWindowId: number | null = null;
-let tlsnTabId: number | null = null;
-let tlsnRequests: StoredRequest[] = [];
+// Initialize WindowManager for multi-window support
+const windowManager = new WindowManager();
 
 // Handle extension install/update
 browser.runtime.onInstalled.addListener((details) => {
   console.log('Extension installed/updated:', details.reason);
 });
 
-browser.webRequest.onBeforeSendHeaders.addListener(
-  (details) => {
-    console.log('details', details.tabId);
-    console.log('tlsnTabId', tlsnTabId);
-  },
-  { urls: ['<all_urls>'] },
-  ['requestHeaders'],
-);
 // Set up webRequest listener to intercept all requests
 browser.webRequest.onBeforeRequest.addListener(
   (details) => {
-    console.log('details', details.tabId);
-    console.log('tlsnTabId', tlsnTabId);
-    // Only store requests from the TLSN window/tab
-    if (tlsnTabId && details.tabId === tlsnTabId) {
-      const request: StoredRequest = {
+    // Check if this tab belongs to a managed window
+    const managedWindow = windowManager.getWindowByTabId(details.tabId);
+
+    if (managedWindow && details.tabId !== undefined) {
+      const request: InterceptedRequest = {
+        id: `${details.requestId}`,
         method: details.method,
         url: details.url,
         timestamp: Date.now(),
+        tabId: details.tabId,
       };
 
-      tlsnRequests.push(request);
+      console.log(
+        `[Background] Request intercepted for window ${managedWindow.id}:`,
+        details.method,
+        details.url,
+      );
 
-      console.log('tlsnRequests', tlsnRequests);
-      // Send updated requests to the content script
-      browser.tabs
-        .sendMessage(tlsnTabId, {
-          type: 'UPDATE_TLSN_REQUESTS',
-          requests: tlsnRequests,
-        })
-        .catch(() => {
-          // Ignore errors if content script not ready
-        });
+      // Add request to window's request history
+      windowManager.addRequest(managedWindow.id, request);
     }
   },
   { urls: ['<all_urls>'] },
@@ -60,77 +44,114 @@ browser.webRequest.onBeforeRequest.addListener(
 );
 
 // Listen for window removal
-browser.windows.onRemoved.addListener((windowId) => {
-  if (windowId === tlsnWindowId) {
-    console.log('TLSN window closed, clearing stored requests');
-    tlsnWindowId = null;
-    tlsnTabId = null;
-    tlsnRequests = [];
+browser.windows.onRemoved.addListener(async (windowId) => {
+  const managedWindow = windowManager.getWindow(windowId);
+  if (managedWindow) {
+    console.log(
+      `[Background] Managed window closed: ${managedWindow.uuid} (ID: ${windowId})`,
+    );
+    await windowManager.closeWindow(windowId);
   }
 });
 
 // Basic message handler
 browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
-  console.log('Message received in background:', request);
+  console.log('[Background] Message received:', request.type);
 
   // Example response
   if (request.type === 'PING') {
     sendResponse({ type: 'PONG' });
+    return true;
   }
 
-  if (request.type === 'TLSN_CONTENT_TO_EXTENSION') {
-    console.log('TLSN request received, opening new window');
+  // Handle OPEN_WINDOW requests from content scripts
+  if (request.type === 'OPEN_WINDOW') {
+    console.log('[Background] OPEN_WINDOW request received:', request.url);
 
-    // Clear any previous TLSN data
-    tlsnWindowId = null;
-    tlsnTabId = null;
-    tlsnRequests = [];
+    // Validate URL protocol (only allow http and https)
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(request.url);
+      if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+        console.error(
+          `[Background] Invalid protocol: ${parsedUrl.protocol}. Only http and https are allowed.`,
+        );
+        sendResponse({
+          type: 'WINDOW_ERROR',
+          payload: {
+            error: 'Invalid protocol',
+            details: `Only HTTP and HTTPS URLs are supported. Received: ${parsedUrl.protocol}`,
+          },
+        });
+        return true;
+      }
+    } catch (error) {
+      console.error('[Background] Invalid URL:', request.url);
+      sendResponse({
+        type: 'WINDOW_ERROR',
+        payload: {
+          error: 'Invalid URL',
+          details: String(error),
+        },
+      });
+      return true;
+    }
 
-    // Open a new window with x.com
+    // Open a new window with the requested URL
     browser.windows
       .create({
-        url: 'https://x.com',
+        url: request.url,
         type: 'popup',
-        width: 900,
-        height: 700,
+        width: request.width || 900,
+        height: request.height || 700,
       })
-      .then((window) => {
-        console.log('New window created:', window.id);
-
-        // Store the window and tab IDs for request tracking
-        tlsnWindowId = window.id!;
-
-        if (window.tabs && window.tabs[0]) {
-          const tabId = window.tabs[0].id!;
-          tlsnTabId = tabId;
-
-          // Wait for the page to load then inject the overlay
-          browser.tabs.onUpdated.addListener(
-            function listener(updatedTabId, changeInfo) {
-              if (updatedTabId === tabId && changeInfo.status === 'complete') {
-                // Remove the listener
-                browser.tabs.onUpdated.removeListener(listener);
-
-                // Send message to content script to show overlay with initial requests
-                browser.tabs
-                  .sendMessage(tabId, {
-                    type: 'SHOW_TLSN_OVERLAY',
-                    requests: tlsnRequests,
-                  })
-                  .catch((error) => {
-                    console.error(
-                      'Error sending message to content script:',
-                      error,
-                    );
-                  });
-              }
-            },
-          );
+      .then(async (window) => {
+        if (
+          !window.id ||
+          !window.tabs ||
+          !window.tabs[0] ||
+          !window.tabs[0].id
+        ) {
+          throw new Error('Failed to create window or get tab ID');
         }
+
+        const windowId = window.id;
+        const tabId = window.tabs[0].id;
+
+        console.log(`[Background] Window created: ${windowId}, Tab: ${tabId}`);
+
+        // Register window with WindowManager
+        const managedWindow = await windowManager.registerWindow({
+          id: windowId,
+          tabId: tabId,
+          url: request.url,
+          showOverlay: request.showOverlay !== false, // Default to true
+        });
+
+        console.log(`[Background] Window registered: ${managedWindow.uuid}`);
+
+        // Send success response
+        sendResponse({
+          type: 'WINDOW_OPENED',
+          payload: {
+            windowId: managedWindow.id,
+            uuid: managedWindow.uuid,
+            tabId: managedWindow.tabId,
+          },
+        });
       })
       .catch((error) => {
-        console.error('Error creating window:', error);
+        console.error('[Background] Error creating window:', error);
+        sendResponse({
+          type: 'WINDOW_ERROR',
+          payload: {
+            error: 'Failed to create window',
+            details: String(error),
+          },
+        });
       });
+
+    return true; // Keep message channel open for async response
   }
 
   return true; // Keep message channel open for async response
@@ -166,5 +187,21 @@ async function createOffscreenDocument() {
 
 // Initialize offscreen document
 createOffscreenDocument().catch(console.error);
+
+// Periodic cleanup of invalid windows (every 5 minutes)
+const CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+setInterval(() => {
+  console.log('[Background] Running periodic window cleanup...');
+  windowManager.cleanupInvalidWindows().catch((error) => {
+    console.error('[Background] Error during cleanup:', error);
+  });
+}, CLEANUP_INTERVAL_MS);
+
+// Run initial cleanup after 10 seconds
+setTimeout(() => {
+  windowManager.cleanupInvalidWindows().catch((error) => {
+    console.error('[Background] Error during initial cleanup:', error);
+  });
+}, 10000);
 
 export {};

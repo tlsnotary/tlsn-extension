@@ -244,6 +244,31 @@ window.addEventListener('message', (event) => {
   // Only accept messages from the same origin
   if (event.origin !== window.location.origin) return;
 
+  // Handle TLSN window.tlsn.open() calls
+  if (event.data?.type === 'TLSN_OPEN_WINDOW') {
+    console.log(
+      '[Content Script] Received TLSN_OPEN_WINDOW request:',
+      event.data.payload,
+    );
+
+    // Forward to background script with OPEN_WINDOW type
+    browser.runtime
+      .sendMessage({
+        type: 'OPEN_WINDOW',
+        url: event.data.payload.url,
+        width: event.data.payload.width,
+        height: event.data.payload.height,
+        showOverlay: event.data.payload.showOverlay,
+      })
+      .catch((error) => {
+        console.error(
+          '[Content Script] Failed to send OPEN_WINDOW message:',
+          error,
+        );
+      });
+  }
+
+  // Handle legacy TLSN_CONTENT_SCRIPT_MESSAGE
   if (event.data?.type === 'TLSN_CONTENT_SCRIPT_MESSAGE') {
     // Forward to content script/extension
     browser.runtime.sendMessage({

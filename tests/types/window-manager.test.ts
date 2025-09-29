@@ -94,7 +94,9 @@ describe('WindowManager Type Definitions', () => {
       };
 
       expect(window.id).toBe(123);
-      expect(window.uuid).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+      expect(window.uuid).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+      );
       expect(window.requests).toEqual([]);
       expect(window.overlayVisible).toBe(false);
     });
