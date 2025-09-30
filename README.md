@@ -7,9 +7,13 @@
 [actions-badge]: https://github.com/tlsnotary/tlsn-extension/actions/workflows/build.yaml/badge.svg
 [actions-url]: https://github.com/tlsnotary/tlsn-extension/actions?query=workflow%3Abuild+branch%3Amain++
 
-<img src="src/assets/img/icon-128.png" width="64"/>
+<img src="packages/extension/src/assets/img/icon-128.png" width="64"/>
 
-# Chrome Extension (MV3) for TLSNotary
+# TLSN Extension Monorepo
+
+This repository contains:
+- **extension**: Chrome Extension (MV3) for TLSNotary
+- **plugin-sdk**: SDK for developing WASM plugins
 
 > [!IMPORTANT]
 > ⚠️ When running the extension against a [notary server](https://github.com/tlsnotary/tlsn/tree/main/crates/notary/server), please ensure that the server's version is the same as the version of this extension

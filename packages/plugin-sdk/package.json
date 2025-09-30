@@ -1,0 +1,36 @@
+{
+  "name": "@tlsn/plugin-sdk",
+  "version": "0.1.0",
+  "description": "SDK for developing and running TLSN WebAssembly plugins",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "build": "echo 'Build not yet implemented'",
+    "test": "echo 'Tests not yet implemented'"
+  },
+  "keywords": [
+    "tlsn",
+    "wasm",
+    "plugin",
+    "component-model",
+    "sdk"
+  ],
+  "author": "TLSN Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tlsnotary/tlsn-extension.git",
+    "directory": "packages/plugin-sdk"
+  },
+  "files": [
+    "dist",
+    "src",
+    "examples",
+    "README.md"
+  ],
+  "peerDependencies": {},
+  "devDependencies": {
+    "typescript": "^4.9.4"
+  }
+}
