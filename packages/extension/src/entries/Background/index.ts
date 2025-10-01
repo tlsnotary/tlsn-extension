@@ -134,6 +134,32 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
     return true;
   }
 
+  // Handle code execution requests
+  if (request.type === 'EXEC_CODE') {
+    console.log('[Background] EXEC_CODE request received');
+
+    // Ensure offscreen document exists
+    createOffscreenDocument()
+      .then(async () => {
+        // Forward to offscreen document
+        const response = await chrome.runtime.sendMessage({
+          type: 'EXEC_CODE_OFFSCREEN',
+          code: request.code,
+          requestId: request.requestId,
+        });
+        sendResponse(response);
+      })
+      .catch((error) => {
+        console.error('[Background] Error executing code:', error);
+        sendResponse({
+          success: false,
+          error: error.message || 'Code execution failed',
+        });
+      });
+
+    return true; // Keep message channel open for async response
+  }
+
   // Handle OPEN_WINDOW requests from content scripts
   if (request.type === 'OPEN_WINDOW') {
     console.log('[Background] OPEN_WINDOW request received:', request.url);

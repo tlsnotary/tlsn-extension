@@ -238,6 +238,84 @@
       height: 18px;
       cursor: pointer;
     }
+
+    /* Code editor styles */
+    .code-editor {
+      width: 100%;
+      min-height: 200px;
+      padding: 12px;
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 13px;
+      line-height: 1.5;
+      border: 2px solid #e0e0e0;
+      border-radius: 6px;
+      resize: vertical;
+      transition: border-color 0.2s;
+      background: #f8f9fa;
+      color: #333;
+    }
+
+    .code-editor:focus {
+      outline: none;
+      border-color: #667eea;
+      background: white;
+    }
+
+    .console-output {
+      width: 100%;
+      min-height: 150px;
+      max-height: 300px;
+      overflow-y: auto;
+      padding: 12px;
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 12px;
+      line-height: 1.4;
+      background: #1e1e2e;
+      color: #00ff00;
+      border-radius: 6px;
+      margin-top: 15px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .console-output.error {
+      color: #ff6b6b;
+    }
+
+    .console-output::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .console-output::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .console-output::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.3);
+      border-radius: 4px;
+    }
+
+    .code-examples {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 10px 0;
+    }
+
+    .code-examples button {
+      background: #28a745;
+      font-size: 12px;
+      padding: 8px 16px;
+    }
+
+    .code-examples button:hover {
+      background: #218838;
+    }
+
+    .clear-button {
+      background: #6c757d;
+      margin-top: 10px;
+    }
   </style>
 </head>
 <body>
@@ -370,6 +448,45 @@
       <button class="secondary" onclick="testLegacyAPI()">
         Test Legacy sendMessage API
       </button>
+    </div>
+
+    <!-- Code Execution Test -->
+    <div class="section">
+      <h2>7. Code Execution</h2>
+      <p>Execute JavaScript code in a sandboxed environment with QuickJS</p>
+
+      <div class="code-examples">
+        <button onclick="loadExample('simple')">Simple Math</button>
+        <button onclick="loadExample('string')">String Operations</button>
+        <button onclick="loadExample('complex')">Complex Example</button>
+        <button onclick="loadExample('error')">Error Example</button>
+        <button onclick="loadExample('utilities')">Utilities</button>
+      </div>
+
+      <textarea
+        id="codeEditor"
+        class="code-editor"
+        placeholder="// Enter JavaScript code here...
+// Available functions:
+// - add(a, b)
+// - subtract(a, b)
+// - multiply(a, b)
+// - divide(a, b)
+// - log(...args)
+// - concat(...strings)
+// - uppercase(str)
+// - lowercase(str)
+// - random()
+// - timestamp()"
+      >// Example: Simple calculation
+add(10, 20)</textarea>
+
+      <div class="button-group">
+        <button onclick="executeCode()">▶️ Run Code</button>
+        <button class="clear-button" onclick="clearConsole()">Clear Console</button>
+      </div>
+
+      <div id="consoleOutput" class="console-output">&gt; Ready to execute code...</div>
     </div>
 
     <!-- Status Display -->
@@ -558,9 +675,170 @@
       }
     }
 
+    // Code Execution Functions
+    const codeExamples = {
+      simple: `// Simple math operations
+const result = add(10, 20);
+log("10 + 20 =", result);
+
+const product = multiply(5, 6);
+log("5 * 6 =", product);
+
+const quotient = divide(100, 4);
+log("100 / 4 =", quotient);
+
+// Return final result
+result + product + quotient`,
+
+      string: `// String manipulation
+const greeting = concat("Hello", " ", "World", "!");
+log("Concatenated:", greeting);
+
+const upper = uppercase("make me uppercase");
+log("Uppercase:", upper);
+
+const lower = lowercase("MAKE ME LOWERCASE");
+log("Lowercase:", lower);
+
+// Return combined result
+concat(upper, " | ", lower)`,
+
+      complex: `// Complex calculation example
+function factorial(n) {
+  if (n <= 1) return 1;
+  return multiply(n, factorial(subtract(n, 1)));
+}
+
+const fact5 = factorial(5);
+log("5! =", fact5);
+
+// Generate random numbers
+const nums = [];
+for (let i = 0; i < 5; i++) {
+  const r = multiply(random(), 100);
+  nums.push(Math.floor(r));
+}
+log("Random numbers:", nums.join(", "));
+
+// Calculate average
+const sum = nums.reduce((a, b) => add(a, b), 0);
+const avg = divide(sum, nums.length);
+log("Average:", avg);
+
+// Return results
+{ factorial: fact5, numbers: nums, average: avg }`,
+
+      error: `// This will throw an error
+log("Attempting division by zero...");
+const result = divide(10, 0);
+log("This won't be logged");
+result`,
+
+      utilities: `// Utility functions demo
+const now = timestamp();
+log("Current timestamp:", now);
+
+const rand = random();
+log("Random number:", rand);
+
+// Date calculation
+const date = new Date(now);
+log("Current date:", date.toISOString());
+
+// Return info object
+{
+  timestamp: now,
+  random: rand,
+  date: date.toISOString()
+}`
+    };
+
+    function loadExample(type) {
+      const editor = document.getElementById('codeEditor');
+      if (codeExamples[type]) {
+        editor.value = codeExamples[type];
+        appendToConsole(`> Example loaded: ${type}`);
+      }
+    }
+
+    async function executeCode() {
+      const code = document.getElementById('codeEditor').value.trim();
+
+      if (!code) {
+        appendToConsole('> No code to execute', true);
+        return;
+      }
+
+      if (!window.tlsn || !window.tlsn.execCode) {
+        appendToConsole('> Error: window.tlsn.execCode not available. Is the extension installed?', true);
+        showStatus('Extension not detected or execCode not available', 'error');
+        return;
+      }
+
+      appendToConsole(`> Executing code...`);
+      const startTime = performance.now();
+
+      try {
+        const result = await window.tlsn.execCode(code);
+        const executionTime = (performance.now() - startTime).toFixed(2);
+
+        appendToConsole(`> Execution completed in ${executionTime}ms`);
+
+        if (result !== undefined) {
+          if (typeof result === 'object') {
+            appendToConsole(`> Result:\n${JSON.stringify(result, null, 2)}`);
+          } else {
+            appendToConsole(`> Result: ${result}`);
+          }
+        } else {
+          appendToConsole('> Code executed successfully (no return value)');
+        }
+
+        showStatus('✅ Code executed successfully', 'success');
+      } catch (error) {
+        const executionTime = (performance.now() - startTime).toFixed(2);
+        appendToConsole(`> Error after ${executionTime}ms:\n${error.message}`, true);
+        showStatus(`❌ Execution error: ${error.message}`, 'error');
+      }
+    }
+
+    function clearConsole() {
+      const consoleOutput = document.getElementById('consoleOutput');
+      consoleOutput.textContent = '> Console cleared';
+      consoleOutput.classList.remove('error');
+    }
+
+    function appendToConsole(text, isError = false) {
+      const consoleOutput = document.getElementById('consoleOutput');
+      const timestamp = new Date().toLocaleTimeString();
+      const formattedText = `[${timestamp}] ${text}\n`;
+
+      if (consoleOutput.textContent === '> Ready to execute code...') {
+        consoleOutput.textContent = formattedText;
+      } else {
+        consoleOutput.textContent += formattedText;
+      }
+
+      if (isError) {
+        consoleOutput.classList.add('error');
+      } else {
+        consoleOutput.classList.remove('error');
+      }
+
+      // Auto-scroll to bottom
+      consoleOutput.scrollTop = consoleOutput.scrollHeight;
+    }
+
     // Log to console when page loads
     console.log('[Test Page] TLSN Integration Test Page Loaded');
     console.log('[Test Page] Waiting for window.tlsn API...');
+
+    // Check for execCode availability
+    setTimeout(() => {
+      if (window.tlsn && window.tlsn.execCode) {
+        appendToConsole('> window.tlsn.execCode is available!');
+      }
+    }, 1500);
   </script>
 </body>
 </html>

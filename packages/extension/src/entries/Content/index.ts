@@ -268,6 +268,47 @@ window.addEventListener('message', (event) => {
       });
   }
 
+  // Handle code execution requests
+  if (event.data?.type === 'TLSN_EXEC_CODE') {
+    console.log(
+      '[Content Script] Received TLSN_EXEC_CODE request:',
+      event.data.payload,
+    );
+
+    // Forward to background script
+    browser.runtime
+      .sendMessage({
+        type: 'EXEC_CODE',
+        code: event.data.payload.code,
+        requestId: event.data.payload.requestId,
+      })
+      .then((response) => {
+        // Send response back to page
+        window.postMessage(
+          {
+            type: 'TLSN_EXEC_CODE_RESPONSE',
+            requestId: event.data.payload.requestId,
+            success: true,
+            result: response.result,
+          },
+          window.location.origin,
+        );
+      })
+      .catch((error) => {
+        console.error('[Content Script] Failed to execute code:', error);
+        // Send error back to page
+        window.postMessage(
+          {
+            type: 'TLSN_EXEC_CODE_RESPONSE',
+            requestId: event.data.payload.requestId,
+            success: false,
+            error: error.message || 'Code execution failed',
+          },
+          window.location.origin,
+        );
+      });
+  }
+
   // Handle legacy TLSN_CONTENT_SCRIPT_MESSAGE
   if (event.data?.type === 'TLSN_CONTENT_SCRIPT_MESSAGE') {
     // Forward to content script/extension

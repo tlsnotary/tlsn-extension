@@ -16,6 +16,33 @@ const OffscreenApp: React.FC = () => {
       if (request.type === 'PROCESS_DATA') {
         // Process data in offscreen context
         sendResponse({ success: true, data: 'Processed in offscreen' });
+        return true;
+      }
+
+      // Handle code execution requests
+      if (request.type === 'EXEC_CODE_OFFSCREEN') {
+        console.log('Offscreen executing code:', request.code);
+
+        // Execute code using SessionManager
+        sessionManager.executePlugin(request.code)
+          .then(result => {
+            console.log('Code execution result:', result);
+            sendResponse({
+              success: true,
+              result: result,
+              requestId: request.requestId,
+            });
+          })
+          .catch(error => {
+            console.error('Code execution error:', error);
+            sendResponse({
+              success: false,
+              error: error.message || 'Code execution failed',
+              requestId: request.requestId,
+            });
+          });
+
+        return true; // Keep message channel open for async response
       }
     });
   }, []);
