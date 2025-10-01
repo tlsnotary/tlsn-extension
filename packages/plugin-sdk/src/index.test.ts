@@ -23,7 +23,7 @@ describe('Host', () => {
 
   it('should run code with errors', async () => {
     try {
-      await host.run('throw new Error("test");')
+      await host.run('throw new Error("test");');
     } catch (error) {
       expect(error).toBeInstanceOf(Error);
       expect(error.message).toBe('test');
@@ -31,7 +31,7 @@ describe('Host', () => {
   });
 
   it('should run code with invalid arguments', async () => {
-    try { 
+    try {
       await host.run('add("1", 2)');
     } catch (error) {
       expect(error).toBeInstanceOf(Error);

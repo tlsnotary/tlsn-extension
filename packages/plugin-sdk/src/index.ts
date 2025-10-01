@@ -4,10 +4,11 @@
  * SDK for developing and running TLSN WebAssembly plugins
  */
 
-import { getQuickJS } from "quickjs-emscripten"
+import { getQuickJS } from 'quickjs-emscripten';
 
 export class Host {
   private quickJsInstance: Awaited<ReturnType<typeof getQuickJS>> | null = null;
+
   private capabilities: Map<string, (...args: any[]) => any> = new Map();
 
   async waitForQuickJS(): Promise<Awaited<ReturnType<typeof getQuickJS>>> {
@@ -24,13 +25,13 @@ export class Host {
 
   async run(code: string): Promise<any> {
     const QuickJS = await this.waitForQuickJS();
-    const vm = QuickJS.newContext()
+    const vm = QuickJS.newContext();
 
     // Register capabilities as functions in QuickJS context
     for (const [name, handler] of this.capabilities) {
       const fnHandle = vm.newFunction(name, (...args) => {
         // Convert QuickJS handles to JS values
-        const jsArgs = args.map(arg => vm.dump(arg));
+        const jsArgs = args.map((arg) => vm.dump(arg));
 
         // Call the handler with JS values
         try {
@@ -68,9 +69,11 @@ export class Host {
         vm.dispose();
 
         // Create and throw a proper JavaScript Error
-        const error = new Error(typeof errorMessage === 'object' && errorMessage.message
-          ? errorMessage.message
-          : String(errorMessage));
+        const error = new Error(
+          typeof errorMessage === 'object' && errorMessage.message
+            ? errorMessage.message
+            : String(errorMessage),
+        );
         throw error;
       }
 
@@ -84,7 +87,9 @@ export class Host {
       if (vm) {
         try {
           vm.dispose();
-        } catch {}
+        } catch {
+          // Ignore error
+        }
       }
       throw error;
     }
