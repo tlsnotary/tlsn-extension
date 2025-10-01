@@ -17,7 +17,7 @@ describe('Host', () => {
   });
 
   it('should run code', async () => {
-    const result = await host.run('add(1, 2)');
+    const result = await host.run('export default env.add(1, 2)');
     expect(result).toBe(3);
   });
 
@@ -32,7 +32,7 @@ describe('Host', () => {
 
   it('should run code with invalid arguments', async () => {
     try {
-      await host.run('add("1", 2)');
+      await host.run('export default env.add("1", 2)');
     } catch (error) {
       expect(error).toBeInstanceOf(Error);
       expect(error.message).toBe('Invalid arguments');
