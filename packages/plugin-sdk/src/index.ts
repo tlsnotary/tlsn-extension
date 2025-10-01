@@ -20,6 +20,14 @@ async function getQuickJs() {
 export class Host {
   private plugins: Map<string, string> = new Map();
 
+  private capabilities: {
+    [method: string]: (...args: any[]) => any;
+  } = {};
+
+  addCapability(method: string, callback: (...args: any[]) => any): void {
+    this.capabilities[method] = callback;
+  }
+
   /**
    * Load a plugin with the given ID and code
    * @param id - Unique identifier for the plugin
@@ -48,12 +56,7 @@ export class Host {
       allowFs: false, // Disable file system access
       // add host functions
       env: {
-        add: function add(a: number, b: number) {
-          if (typeof a !== 'number' || typeof b !== 'number') {
-            throw new TypeError('add() requires two numbers');
-          }
-          return a + b;
-        },
+        ...this.capabilities,
       },
       console: {
         log: (...args: unknown[]) => {
