@@ -21,5 +21,7 @@
     "serve:test": "npm run serve:test --workspace=extension",
     "clean": "rm -rf packages/*/node_modules packages/*/dist packages/*/build node_modules"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "vite": "^7.1.7"
+  }
 }

@@ -4,7 +4,7 @@ import path from 'node:path';
 export default defineConfig({
   test: {
     globals: true,
-    environment: 'happy-dom',
+    environment: 'node',
     coverage: {
       provider: 'c8',
       reporter: ['text', 'json', 'html'],
