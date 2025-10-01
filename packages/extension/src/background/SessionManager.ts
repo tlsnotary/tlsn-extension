@@ -1,4 +1,4 @@
-import Host from '@tlsn/plugin-sdk';
+import Host from '../../../plugin-sdk/src/index';
 import { v4 as uuidv4 } from 'uuid';
 
 type SessionState = {
@@ -8,12 +8,15 @@ type SessionState = {
 };
 
 export class SessionManager {
-  private host: Host = new Host();
+  private host: Host;
   private sessions: Map<string, SessionState> = new Map();
 
-  register(pluginUrl: string): void {
+  constructor() {
+    this.host = new Host();
+  }
+
+  startSession(pluginUrl: string): void {
     const uuid = uuidv4();
-    this.host.loadPlugin(uuid, pluginUrl);
     this.sessions.set(uuid, { id: uuid, pluginUrl });
   }
 }
