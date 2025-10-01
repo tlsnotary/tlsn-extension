@@ -53,5 +53,9 @@
     "vite": "^7.1.7",
     "vite-plugin-dts": "^4.5.4",
     "vitest": "^3.2.4"
+  },
+  "dependencies": {
+    "@sebastianwessel/quickjs": "^3.0.0",
+    "@jitl/quickjs-ng-wasmfile-release-sync": "^0.31.0"
   }
 }
