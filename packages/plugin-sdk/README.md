@@ -40,13 +40,13 @@ import { PluginHost } from '@tlsn/plugin-sdk';
 
 const host = new PluginHost({
   console: {
-    log: (msg) => console.log('[Plugin]', msg)
-  }
+    log: (msg) => console.log('[Plugin]', msg),
+  },
 });
 
 const plugin = await host.loadPlugin({
   id: 'my-plugin',
-  url: 'path/to/plugin.wasm'
+  url: 'path/to/plugin.wasm',
 });
 
 await plugin.exports.run();
