@@ -4,123 +4,90 @@
  * SDK for developing and running TLSN WebAssembly plugins
  */
 
-import variant from '@jitl/quickjs-ng-wasmfile-release-sync';
-import { loadQuickJs, type SandboxOptions } from '@sebastianwessel/quickjs';
-
-// Initialize QuickJS once
-let quickJsInstance: Awaited<ReturnType<typeof loadQuickJs>> | null = null;
-
-async function getQuickJs() {
-  if (!quickJsInstance) {
-    quickJsInstance = await loadQuickJs(variant);
-  }
-  return quickJsInstance;
-}
+import { getQuickJS } from "quickjs-emscripten"
 
 export class Host {
-  private plugins: Map<string, string> = new Map();
+  private quickJsInstance: Awaited<ReturnType<typeof getQuickJS>> | null = null;
+  private capabilities: Map<string, (...args: any[]) => any> = new Map();
 
-  private capabilities: {
-    [method: string]: (...args: any[]) => any;
-  } = {};
-
-  addCapability(method: string, callback: (...args: any[]) => any): void {
-    this.capabilities[method] = callback;
+  async waitForQuickJS(): Promise<Awaited<ReturnType<typeof getQuickJS>>> {
+    if (this.quickJsInstance) {
+      return Promise.resolve(this.quickJsInstance);
+    }
+    this.quickJsInstance = await getQuickJS();
+    return this.quickJsInstance;
   }
 
-  /**
-   * Load a plugin with the given ID and code
-   * @param id - Unique identifier for the plugin
-   * @param plugin - JavaScript code to be executed
-   */
-  loadPlugin(id: string, plugin: string): void {
-    this.plugins.set(id, plugin);
+  addCapability(name: string, handler: (...args: any[]) => any): void {
+    this.capabilities.set(name, handler);
   }
 
-  /**
-   * Run a plugin in a sandboxed QuickJS environment
-   * @param id - ID of the plugin to run
-   * @returns The result of the plugin execution
-   */
-  async runPlugin(id: string): Promise<unknown> {
-    const plugin = this.plugins.get(id);
-    if (!plugin) {
-      throw new Error(`Plugin with id "${id}" not found`);
+  async run(code: string): Promise<any> {
+    const QuickJS = await this.waitForQuickJS();
+    const vm = QuickJS.newContext()
+
+    // Register capabilities as functions in QuickJS context
+    for (const [name, handler] of this.capabilities) {
+      const fnHandle = vm.newFunction(name, (...args) => {
+        // Convert QuickJS handles to JS values
+        const jsArgs = args.map(arg => vm.dump(arg));
+
+        // Call the handler with JS values
+        try {
+          const result = handler(...jsArgs);
+          // Convert result back to QuickJS handle based on type
+          if (result === undefined || result === null) {
+            return vm.undefined;
+          } else if (typeof result === 'boolean') {
+            return result ? vm.true : vm.false;
+          } else if (typeof result === 'number') {
+            return vm.newNumber(result);
+          } else if (typeof result === 'string') {
+            return vm.newString(result);
+          } else {
+            // For complex objects, serialize and deserialize
+            const jsonStr = JSON.stringify(result);
+            return vm.unwrapResult(vm.evalCode(`(${jsonStr})`));
+          }
+        } catch (error) {
+          // Throw the error as a QuickJS error
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          return vm.unwrapResult(vm.evalCode(`throw new Error(${JSON.stringify(errorMsg)})`));
+        }
+      });
+      vm.setProp(vm.global, name, fnHandle);
+      fnHandle.dispose();
     }
 
-    const quickJs = await getQuickJs();
+    try {
+      const evalResult = vm.evalCode(code);
+      if (evalResult.error) {
+        // Extract the error message from QuickJS handle before disposing
+        const errorMessage = vm.dump(evalResult.error);
+        evalResult.error.dispose();
+        vm.dispose();
 
-    // Configure sandbox options
-    const options: SandboxOptions = {
-      allowFetch: false, // Disable network calls
-      allowFs: false, // Disable file system access
-      // add host functions
-      env: {
-        ...this.capabilities,
-      },
-      console: {
-        log: (...args: unknown[]) => {
-          console.log(`[PluginID:${id}]`, ...args);
-        },
-        error: (...args: unknown[]) => {
-          console.error(`[PluginID:${id}]`, ...args);
-        },
-        warn: (...args: unknown[]) => {
-          console.warn(`[PluginID:${id}]`, ...args);
-        },
-        info: (...args: unknown[]) => {
-          console.info(`[PluginID:${id}]`, ...args);
-        },
-        debug: (...args: unknown[]) => {
-          console.debug(`[PluginID:${id}]`, ...args);
-        },
-      },
-    };
+        // Create and throw a proper JavaScript Error
+        const error = new Error(typeof errorMessage === 'object' && errorMessage.message
+          ? errorMessage.message
+          : String(errorMessage));
+        throw error;
+      }
 
-    // Run the plugin in sandbox with host function
-    const result = await quickJs.runSandboxed(async ({ evalCode }) => {
-      // Execute the plugin code
-      const pluginResult = await evalCode(plugin);
-      return pluginResult;
-    }, options);
-
-    if (result && !result.ok) {
-      const errorMessage =
-        (result as { error?: { message?: string } }).error?.message ||
-        JSON.stringify((result as { error?: unknown }).error);
-      throw new Error(`PluginID:${id} execution failed: ${errorMessage}`);
+      const result = evalResult.value;
+      const jsResult = vm.dump(result);
+      result.dispose();
+      vm.dispose();
+      return jsResult;
+    } catch (error) {
+      // Clean up on any error
+      if (vm) {
+        try {
+          vm.dispose();
+        } catch {}
+      }
+      throw error;
     }
-
-    return result ? (result as { data: unknown }).data : undefined;
-  }
-
-  /**
-   * Clear one or all loaded plugins
-   * @param id - Optional ID of the plugin to clear. If not provided, clears all plugins.
-   */
-  clearPlugin(id?: string): void {
-    if (id === undefined) {
-      this.plugins.clear();
-    } else {
-      this.plugins.delete(id);
-    }
-  }
-
-  /**
-   * Get the number of loaded plugins
-   * @returns Number of plugins currently loaded
-   */
-  getPluginCount(): number {
-    return this.plugins.size;
-  }
-
-  /**
-   * Check if a plugin with the given ID is loaded
-   * @param id - ID of the plugin to check
-   * @returns True if the plugin is loaded, false otherwise
-   */
-  hasPlugin(id: string): boolean {
-    return this.plugins.has(id);
   }
 }
 
