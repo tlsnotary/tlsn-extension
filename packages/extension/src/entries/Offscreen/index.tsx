@@ -1,15 +1,19 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { SessionManager } from '../../background/SessionManager';
 
-const sessionManager = new SessionManager();
-
 const OffscreenApp: React.FC = () => {
+  const sessionManagerRef = useRef<SessionManager | null>(null);
+
   useEffect(() => {
     console.log('Offscreen document loaded');
 
+    // Initialize SessionManager
+    sessionManagerRef.current = new SessionManager();
+    console.log('SessionManager initialized in Offscreen');
+
     // Listen for messages from background script
-    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
       console.log('Offscreen received message:', request);
 
       // Example message handling
@@ -23,21 +27,31 @@ const OffscreenApp: React.FC = () => {
       if (request.type === 'EXEC_CODE_OFFSCREEN') {
         console.log('Offscreen executing code:', request.code);
 
-        // Execute code using SessionManager
-        sessionManager.executePlugin(request.code)
-          .then(result => {
-            console.log('Code execution result:', result);
+        if (!sessionManagerRef.current) {
+          sendResponse({
+            success: false,
+            error: 'SessionManager not initialized',
+            requestId: request.requestId,
+          });
+          return true;
+        }
+
+        // Execute plugin code using SessionManager
+        sessionManagerRef.current
+          .executePlugin(request.code)
+          .then((result) => {
+            console.log('Plugin execution result:', result);
             sendResponse({
               success: true,
-              result: result,
+              result,
               requestId: request.requestId,
             });
           })
-          .catch(error => {
-            console.error('Code execution error:', error);
+          .catch((error) => {
+            console.error('Plugin execution error:', error);
             sendResponse({
               success: false,
-              error: error.message || 'Code execution failed',
+              error: error.message,
               requestId: request.requestId,
             });
           });

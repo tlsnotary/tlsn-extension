@@ -16,7 +16,9 @@ export class Host {
   }
 
   async run(code: string): Promise<any> {
+    console.log('running code', code);
     const { runSandboxed } = await loadQuickJs(variant);
+    console.log('loaded quickjs');
 
     const options: SandboxOptions = {
       allowFetch: false,

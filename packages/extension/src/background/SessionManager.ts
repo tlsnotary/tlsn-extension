@@ -43,6 +43,7 @@ export class SessionManager {
   }
 
   async executePlugin(code: string): Promise<any> {
+    console.log('executing plugin', code, this.host);
     const result = await this.host.run(code);
     return result;
   }
