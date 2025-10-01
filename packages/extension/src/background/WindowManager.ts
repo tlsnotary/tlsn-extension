@@ -19,6 +19,7 @@ import {
   OVERLAY_RETRY_DELAY_MS,
   MAX_OVERLAY_RETRY_ATTEMPTS,
 } from '../constants/limits';
+import { Host } from '@tlsn/plugin-sdk';
 
 /**
  * WindowManager implementation
@@ -36,7 +37,6 @@ export class WindowManager implements IWindowManager {
    * Value: ManagedWindow object
    */
   private windows: Map<number, ManagedWindow> = new Map();
-
   /**
    * Register a new window with the manager
    *
@@ -274,7 +274,7 @@ export class WindowManager implements IWindowManager {
    * await windowManager.showOverlay(123);
    * ```
    */
-  async showOverlay(windowId: number, retryCount: number = 0): Promise<void> {
+  async showOverlay(windowId: number, retryCount = 0): Promise<void> {
     const window = this.windows.get(windowId);
     if (!window) {
       console.error(
@@ -300,7 +300,9 @@ export class WindowManager implements IWindowManager {
         );
 
         // Wait and retry
-        await new Promise((resolve) => setTimeout(resolve, OVERLAY_RETRY_DELAY_MS));
+        await new Promise((resolve) =>
+          setTimeout(resolve, OVERLAY_RETRY_DELAY_MS),
+        );
 
         // Check if window still exists before retrying
         if (this.windows.has(windowId)) {
