@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Host } from './index';
 
-describe('Host', () => {
+// Skip this test in browser environment since QuickJS requires Node.js
+describe.skipIf(typeof window !== 'undefined')('Host', () => {
   let host: Host;
 
   beforeEach(() => {
