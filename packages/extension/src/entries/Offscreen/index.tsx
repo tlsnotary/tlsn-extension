@@ -1,8 +1,11 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
+import { SessionManager } from '../../background/SessionManager';
+
+const sessionManager = new SessionManager();
 
 const OffscreenApp: React.FC = () => {
-  React.useEffect(() => {
+  useEffect(() => {
     console.log('Offscreen document loaded');
 
     // Listen for messages from background script
