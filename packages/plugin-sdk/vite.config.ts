@@ -26,12 +26,15 @@ export default defineConfig({
       },
     },
     rollupOptions: {
-      // Make sure to externalize deps that shouldn't be bundled
-      external: [],
+      // Externalize QuickJS and Node.js dependencies
+      external: ['@sebastianwessel/quickjs', '@jitl/quickjs-ng-wasmfile-release-sync', /^node:.*/],
       output: {
         // Provide global variables to use in the UMD build
         // for externalized deps
-        globals: {},
+        globals: {
+          '@sebastianwessel/quickjs': 'QuickJS',
+          '@jitl/quickjs-ng-wasmfile-release-sync': 'QuickJSVariant',
+        },
         exports: 'named',
       },
     },
