@@ -2,6 +2,7 @@ import browser from 'webextension-polyfill';
 import { WindowManager } from '../../background/WindowManager';
 import type { InterceptedRequest } from '../../types/window-manager';
 import { validateUrl } from '../../utils/url-validator';
+import { SessionManager } from '../../background/SessionManager';
 
 const chrome = global.chrome as any;
 // Basic background script setup
@@ -9,6 +10,7 @@ console.log('Background script loaded');
 
 // Initialize WindowManager for multi-window support
 const windowManager = new WindowManager();
+const sessionManager = new SessionManager();
 
 // Handle extension install/update
 browser.runtime.onInstalled.addListener((details) => {
@@ -198,7 +200,10 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
         } catch (registrationError) {
           // Registration failed (e.g., window limit exceeded)
           // Close the window we just created
-          console.error('[Background] Window registration failed:', registrationError);
+          console.error(
+            '[Background] Window registration failed:',
+            registrationError,
+          );
           await browser.windows.remove(windowId).catch(() => {
             // Ignore errors if window already closed
           });
