@@ -7,6 +7,7 @@ var webpack = require("webpack"),
   TerserPlugin = require("terser-webpack-plugin");
 var { CleanWebpackPlugin } = require("clean-webpack-plugin");
 var ReactRefreshWebpackPlugin = require("@pmmmwh/react-refresh-webpack-plugin");
+var NodeProtocolResolvePlugin = require("./utils/NodeProtocolResolvePlugin");
 
 const ASSET_PATH = process.env.ASSET_PATH || "/";
 
@@ -57,9 +58,20 @@ var options = {
     path: path.resolve(__dirname, "build"),
     clean: true,
     publicPath: ASSET_PATH,
+    webassemblyModuleFilename: "[hash].wasm",
+  },
+  experiments: {
+    asyncWebAssembly: true,
+    syncWebAssembly: true,
   },
   module: {
     rules: [
+      {
+        // Ignore .d.ts files from node_modules to prevent webpack parse errors
+        test: /\.d\.ts$/,
+        include: /node_modules/,
+        use: 'null-loader',
+      },
       {
         // look for .css or .scss files
         test: /\.(css|scss)$/,
@@ -125,17 +137,56 @@ var options = {
     ],
   },
   resolve: {
-    alias: alias,
+    alias: {
+      ...alias,
+      'process': require.resolve('process/browser.js'),
+      'buffer': require.resolve('buffer/'),
+      'stream': require.resolve('stream-browserify'),
+      'path': require.resolve('path-browserify'),
+      'events': require.resolve('events/'),
+      'fs': path.resolve(__dirname, './src/node-fs-mock.js'),
+      'crypto': path.resolve(__dirname, './src/node-crypto-mock.js'),
+      'cluster': path.resolve(__dirname, './src/empty-module.js'),
+      'url': path.resolve(__dirname, './src/empty-module.js'),
+    },
     extensions: fileExtensions
       .map((extension) => "." + extension)
       .concat([".js", ".jsx", ".ts", ".tsx", ".css"]),
+    fallback: {
+      "fs": path.resolve(__dirname, './src/node-fs-mock.js'),
+      "path": require.resolve("path-browserify"),
+      "stream": require.resolve("stream-browserify"),
+      "crypto": path.resolve(__dirname, './src/node-crypto-mock.js'),
+      "buffer": require.resolve("buffer/"),
+      "process": require.resolve("process/browser.js"),
+      "util": require.resolve("util/"),
+      "assert": require.resolve("assert/"),
+      "url": path.resolve(__dirname, './src/empty-module.js'),
+      "events": require.resolve("events/"),
+    }
   },
   plugins: [
+    new NodeProtocolResolvePlugin({
+      'node:fs': path.resolve(__dirname, './src/node-fs-mock.js'),
+      'node:path': require.resolve('path-browserify'),
+      'node:stream': require.resolve('stream-browserify'),
+      'node:buffer': require.resolve('buffer/'),
+      'node:crypto': path.resolve(__dirname, './src/node-crypto-mock.js'),
+      'node:events': require.resolve('events/'),
+    }),
     isDevelopment && new ReactRefreshWebpackPlugin(),
     new CleanWebpackPlugin({ verbose: false }),
     new webpack.ProgressPlugin(),
     // expose and write the allowed env vars on the compiled bundle
     new webpack.EnvironmentPlugin(["NODE_ENV"]),
+    new webpack.ProvidePlugin({
+      Buffer: ['buffer', 'Buffer'],
+      process: 'process',
+    }),
+    new webpack.DefinePlugin({
+      'process.env': '{}',
+      global: 'globalThis',
+    }),
     new CopyWebpackPlugin({
       patterns: [
         {
