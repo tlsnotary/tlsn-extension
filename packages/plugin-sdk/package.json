@@ -6,8 +6,16 @@
   "types": "dist/index.d.ts",
   "type": "module",
   "scripts": {
-    "build": "echo 'Build not yet implemented'",
-    "test": "echo 'Tests not yet implemented'"
+    "build": "vite build && tsc --emitDeclarationOnly",
+    "test": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui",
+    "lint": "npm run lint:eslint && npm run lint:prettier && npm run lint:typescript",
+    "lint:eslint": "eslint . --ext .ts,.tsx",
+    "lint:prettier": "prettier --check .",
+    "lint:typescript": "tsc --noEmit",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix && prettier --write .",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "tlsn",
@@ -29,8 +37,21 @@
     "examples",
     "README.md"
   ],
-  "peerDependencies": {},
   "devDependencies": {
-    "typescript": "^4.9.4"
+    "@types/node": "^20.19.18",
+    "@typescript-eslint/eslint-plugin": "^5.62.0",
+    "@typescript-eslint/parser": "^5.62.0",
+    "@vitest/ui": "^3.2.4",
+    "c8": "^10.1.3",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^9.1.2",
+    "eslint-plugin-prettier": "^5.5.4",
+    "happy-dom": "^19.0.2",
+    "prettier": "^3.6.2",
+    "tslib": "^2.8.1",
+    "typescript": "^4.9.5",
+    "vite": "^7.1.7",
+    "vite-plugin-dts": "^4.5.4",
+    "vitest": "^3.2.4"
   }
 }
