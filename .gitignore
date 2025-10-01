@@ -11,3 +11,9 @@ zip
 .vscode
 .claude
 coverage
+**/dist
+
+# Plugin SDK demo artifacts
+packages/plugin-sdk/browser/
+packages/plugin-sdk/hello.component.wasm
+packages/plugin-sdk/test.html

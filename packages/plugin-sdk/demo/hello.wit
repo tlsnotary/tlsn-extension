@@ -1,0 +1,6 @@
+package demo:hello@0.1.0;
+
+world hello-world {
+  export greet: func(name: string) -> string;
+  export add: func(a: u32, b: u32) -> u32;
+}

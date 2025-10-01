@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebAssembly Component Model - Simple Demo</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
+
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+
+    h1 {
+      color: #667eea;
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      color: #666;
+      margin-bottom: 30px;
+    }
+
+    .section {
+      margin-bottom: 30px;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 8px;
+    }
+
+    button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+      margin-right: 10px;
+      margin-bottom: 10px;
+      transition: transform 0.2s;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    input {
+      padding: 10px;
+      font-size: 16px;
+      border: 2px solid #e0e0e0;
+      border-radius: 6px;
+      margin-right: 10px;
+      width: 200px;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .output {
+      margin-top: 20px;
+      padding: 15px;
+      background: #1e1e1e;
+      color: #d4d4d4;
+      border-radius: 6px;
+      font-family: 'Courier New', monospace;
+      min-height: 60px;
+      white-space: pre-wrap;
+      overflow-x: auto;
+    }
+
+    .success {
+      color: #4caf50;
+    }
+
+    .error {
+      color: #f44336;
+    }
+
+    .info {
+      color: #2196f3;
+    }
+
+    .status {
+      margin-top: 10px;
+      padding: 10px;
+      background: #e8f5e9;
+      border-left: 4px solid #4caf50;
+      border-radius: 4px;
+      display: none;
+    }
+
+    .status.show {
+      display: block;
+    }
+
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255,255,255,.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 1s ease-in-out infinite;
+      margin-left: 10px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    code {
+      background: #f5f5f5;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🚀 WebAssembly Component Model Demo</h1>
+    <p class="subtitle">A minimal example of running a WASM Component in the browser</p>
+
+    <div class="section">
+      <h2>📦 Component Info</h2>
+      <p>This demo loads a WebAssembly Component that was:</p>
+      <ol>
+        <li>Written in JavaScript (<code>hello.js</code>)</li>
+        <li>Componentized using <code>jco componentize</code></li>
+        <li>Transpiled for browser using <code>jco transpile</code></li>
+      </ol>
+      <div id="status" class="status">Component loaded and ready!</div>
+    </div>
+
+    <div class="section">
+      <h2>🎯 Test Functions</h2>
+
+      <h3>1. Greet Function</h3>
+      <input type="text" id="nameInput" placeholder="Enter your name" value="World">
+      <button onclick="callGreet()">Call greet()</button>
+
+      <h3>2. Add Function</h3>
+      <input type="number" id="num1" placeholder="Number 1" value="5" style="width: 100px">
+      +
+      <input type="number" id="num2" placeholder="Number 2" value="3" style="width: 100px">
+      <button onclick="callAdd()">Call add()</button>
+    </div>
+
+    <div class="section">
+      <h2>📤 Output</h2>
+      <div id="output" class="output">Click a button to execute a component function...</div>
+    </div>
+  </div>
+
+  <script src="/demo/browser-loader.js"></script>
+  <script type="module">
+    let component = null;
+    const output = document.getElementById('output');
+    const status = document.getElementById('status');
+
+    function log(message, type = 'info') {
+      const timestamp = new Date().toLocaleTimeString();
+      const className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
+      output.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+      output.scrollTop = output.scrollHeight;
+    }
+
+    // Load the component using the browser loader
+    async function loadComponent() {
+      try {
+        log('Loading WebAssembly Component...', 'info');
+
+        // Use the browser loader to load the component with WASI stubs
+        component = await window.loadWasmComponent();
+
+        log('✅ Component loaded successfully!', 'success');
+        log('Available exports: ' + Object.keys(component).join(', '), 'info');
+
+        status.classList.add('show');
+        return true;
+      } catch (error) {
+        log('❌ Failed to load component: ' + error.message, 'error');
+        console.error(error);
+        return false;
+      }
+    }
+
+    // Call the greet function
+    window.callGreet = async function() {
+      if (!component) {
+        log('Component not loaded yet!', 'error');
+        return;
+      }
+
+      const name = document.getElementById('nameInput').value || 'World';
+
+      try {
+        log(`Calling greet("${name}")...`, 'info');
+        const result = component.greet(name);
+        log(`Result: "${result}"`, 'success');
+      } catch (error) {
+        log(`Error: ${error.message}`, 'error');
+      }
+    };
+
+    // Call the add function
+    window.callAdd = async function() {
+      if (!component) {
+        log('Component not loaded yet!', 'error');
+        return;
+      }
+
+      const num1 = parseInt(document.getElementById('num1').value) || 0;
+      const num2 = parseInt(document.getElementById('num2').value) || 0;
+
+      try {
+        log(`Calling add(${num1}, ${num2})...`, 'info');
+        const result = component.add(num1, num2);
+        log(`Result: ${result}`, 'success');
+      } catch (error) {
+        log(`Error: ${error.message}`, 'error');
+      }
+    };
+
+    // Initialize on page load
+    window.addEventListener('DOMContentLoaded', async () => {
+      log('🚀 WebAssembly Component Model Demo', 'info');
+      log('=====================================', 'info');
+
+      // Try to load the component
+      const loaded = await loadComponent();
+
+      if (!loaded) {
+        log('\n⚠️ Make sure to run "npm run demo:build" first!', 'error');
+        log('This will compile and transpile the component.', 'info');
+      }
+    });
+  </script>
+</body>
+</html>

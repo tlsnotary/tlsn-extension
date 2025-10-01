@@ -7,7 +7,13 @@
   "type": "module",
   "scripts": {
     "build": "echo 'Build not yet implemented'",
-    "test": "echo 'Tests not yet implemented'"
+    "test": "echo 'Tests not yet implemented'",
+    "demo:build": "npm run demo:build:component && npm run demo:transpile",
+    "demo:build:component": "npx jco componentize demo/hello.js --wit demo/hello.wit -o hello.component.wasm",
+    "demo:transpile": "npx jco transpile hello.component.wasm -o browser --instantiation",
+    "demo:bundle": "node demo/bundle.js",
+    "demo:browser": "npm run demo:build && npx http-server . -p 8083 -c-1 -o /demo/",
+    "demo:clean": "rm -rf hello.component.wasm browser"
   },
   "keywords": [
     "tlsn",
@@ -29,8 +35,10 @@
     "examples",
     "README.md"
   ],
-  "peerDependencies": {},
   "devDependencies": {
+    "@bytecodealliance/jco": "^1.7.2",
+    "@bytecodealliance/componentize-js": "^0.11.3",
+    "http-server": "^14.1.1",
     "typescript": "^4.9.4"
   }
 }
