@@ -42,6 +42,16 @@ export interface InterceptedRequest {
   tabId: number;
 }
 
+export interface InterceptedRequestHeader {
+  id: string;
+  method: string;
+  url: string;
+  timestamp: number;
+  type: string;
+  requestHeaders: { name: string; value?: string }[];
+  tabId: number;
+}
+
 /**
  * A managed browser window tracked by WindowManager
  */
@@ -63,6 +73,9 @@ export interface ManagedWindow {
 
   /** Array of intercepted HTTP requests for this window */
   requests: InterceptedRequest[];
+
+  /** Array of intercepted HTTP request headers for this window */
+  headers: InterceptedRequestHeader[];
 
   /** Whether the TLSN overlay is currently visible */
   overlayVisible: boolean;

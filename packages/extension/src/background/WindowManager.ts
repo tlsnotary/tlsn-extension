@@ -12,6 +12,7 @@ import type {
   InterceptedRequest,
   ManagedWindow,
   IWindowManager,
+  InterceptedRequestHeader,
 } from '../types/window-manager';
 import {
   MAX_MANAGED_WINDOWS,
@@ -70,6 +71,7 @@ export class WindowManager implements IWindowManager {
       url: config.url,
       createdAt: new Date(),
       requests: [],
+      headers: [],
       overlayVisible: false,
       showOverlayWhenReady: config.showOverlay !== false, // Default: true
     };
@@ -237,20 +239,33 @@ export class WindowManager implements IWindowManager {
         `[WindowManager] Request limit reached for window ${windowId}. Removed ${removed} oldest request(s). Current: ${window.requests.length}/${MAX_REQUESTS_PER_WINDOW}`,
       );
     }
+  }
 
-    console.log(
-      `[WindowManager] Request added to window ${windowId}: ${request.method} ${request.url}`,
-    );
+  addHeader(windowId: number, header: InterceptedRequestHeader): void {
+    const window = this.windows.get(windowId);
+    if (!window) {
+      console.error(
+        `[WindowManager] Cannot add header to non-existent window: ${windowId}`,
+      );
+      return;
+    }
 
-    // Update overlay if visible
-    // if (window.overlayVisible) {
-    //   this.updateOverlay(windowId).catch((error) => {
-    //     console.warn(
-    //       `[WindowManager] Failed to update overlay for window ${windowId}:`,
-    //       error,
-    //     );
-    //   });
-    // }
+    window.headers.push(header);
+
+    browser.runtime.sendMessage({
+      type: 'HEADER_INTERCEPTED',
+      header,
+      windowId,
+    });
+
+    // Enforce request limit per window to prevent unbounded memory growth
+    if (window.headers.length > MAX_REQUESTS_PER_WINDOW) {
+      const removed = window.headers.length - MAX_REQUESTS_PER_WINDOW;
+      window.headers.splice(0, removed);
+      console.warn(
+        `[WindowManager] Header limit reached for window ${windowId}. Removed ${removed} oldest request(s). Current: ${window.headers.length}/${MAX_REQUESTS_PER_WINDOW}`,
+      );
+    }
   }
 
   /**
@@ -268,6 +283,11 @@ export class WindowManager implements IWindowManager {
   getWindowRequests(windowId: number): InterceptedRequest[] {
     const window = this.windows.get(windowId);
     return window?.requests || [];
+  }
+
+  getWindowHeaders(windowId: number): InterceptedRequestHeader[] {
+    const window = this.windows.get(windowId);
+    return window?.headers || [];
   }
 
   /**
