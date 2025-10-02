@@ -1,4 +1,4 @@
-import Host from '../../../plugin-sdk/src/index';
+import Host from '../../../plugin-sdk/src';
 import { v4 as uuidv4 } from 'uuid';
 import { InterceptedRequest } from '../types/window-manager';
 
@@ -8,6 +8,7 @@ type SessionState = {
   plugin?: string;
   requests?: InterceptedRequest[];
   windowId?: number;
+  dispose?: () => void;
 };
 
 export class SessionManager {
@@ -20,17 +21,35 @@ export class SessionManager {
 
   async executePlugin(code: string): Promise<unknown> {
     const uuid = uuidv4();
+
+    const { evalCode, dispose } = await this.host.createEvalCode({
+      openWindow: this.makeOpenWindow(uuid),
+    });
+
     this.sessions.set(uuid, {
       id: uuid,
       plugin: code,
       pluginUrl: '',
+      dispose,
     });
 
-    const result = await this.host.run(code, {
-      openWindow: this.makeOpenWindow(uuid),
-    });
+    try {
+      const result = await evalCode(code);
+      return result;
+    } catch (error) {
+      // Clean up on error
+      dispose();
+      this.sessions.delete(uuid);
+      throw error;
+    }
+  }
 
-    return result;
+  disposeSession(uuid: string): void {
+    const session = this.sessions.get(uuid);
+    if (session?.dispose) {
+      session.dispose();
+    }
+    this.sessions.delete(uuid);
   }
 
   updateSession(
@@ -48,11 +67,9 @@ export class SessionManager {
     this.sessions.set(uuid, { ...session, ...params });
   }
 
-  startSession(pluginUrl: string): void {
-    // const uuid = uuidv4();
-    // this.sessions.set(uuid, { id: uuid, pluginUrl });
+  startSession(_pluginUrl: string): void {
+    // Reserved for future use
   }
-
 
   /**
    * Open a new browser window with the specified URL
@@ -73,13 +90,14 @@ export class SessionManager {
         showOverlay?: boolean;
       },
     ): Promise<{ windowId: number; uuid: string; tabId: number }> => {
-      console.log('makeOpenWindow', uuid);
       if (!url || typeof url !== 'string') {
         throw new Error('URL must be a non-empty string');
       }
 
       // Access chrome runtime (available in offscreen document)
-      const chromeRuntime = (global as any).chrome?.runtime;
+      const chromeRuntime = (
+        global as unknown as { chrome?: { runtime?: any } }
+      ).chrome?.runtime;
       if (!chromeRuntime?.sendMessage) {
         throw new Error('Chrome runtime not available');
       }
