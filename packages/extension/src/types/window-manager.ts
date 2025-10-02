@@ -80,6 +80,8 @@ export interface ManagedWindow {
   /** Whether the TLSN overlay is currently visible */
   overlayVisible: boolean;
 
+  pluginUIVisible: boolean;
+
   /** Whether to show overlay when tab becomes ready (complete status) */
   showOverlayWhenReady: boolean;
 }

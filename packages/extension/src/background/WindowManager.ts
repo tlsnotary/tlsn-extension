@@ -73,6 +73,7 @@ export class WindowManager implements IWindowManager {
       requests: [],
       headers: [],
       overlayVisible: false,
+      pluginUIVisible: false,
       showOverlayWhenReady: config.showOverlay !== false, // Default: true
     };
 
@@ -290,6 +291,57 @@ export class WindowManager implements IWindowManager {
     return window?.headers || [];
   }
 
+  async showPluginUI(
+    windowId: number,
+    json: any,
+    retryCount = 0,
+  ): Promise<void> {
+    const window = this.windows.get(windowId);
+    if (!window) {
+      console.error(
+        `[WindowManager] Cannot show plugin UI for non-existent window: ${windowId}`,
+      );
+      return;
+    }
+
+    try {
+      await browser.tabs.sendMessage(window.tabId, {
+        type: 'RENDER_PLUGIN_UI',
+        json,
+        windowId,
+      });
+
+      window.pluginUIVisible = true;
+      console.log(`[WindowManager] Plugin UI shown for window ${windowId}`);
+    } catch (error) {
+      // Retry if content script not ready
+      if (retryCount < MAX_OVERLAY_RETRY_ATTEMPTS) {
+        console.log(
+          `[WindowManager] Plugin UI display failed for window ${windowId}, retry ${retryCount + 1}/${MAX_OVERLAY_RETRY_ATTEMPTS} in ${OVERLAY_RETRY_DELAY_MS}ms`,
+        );
+
+        // Wait and retry
+        await new Promise((resolve) =>
+          setTimeout(resolve, OVERLAY_RETRY_DELAY_MS),
+        );
+
+        // Check if window still exists before retrying
+        if (this.windows.has(windowId)) {
+          return this.showOverlay(windowId, retryCount + 1);
+        } else {
+          console.warn(
+            `[WindowManager] Window ${windowId} closed during retry, aborting plugin UI display`,
+          );
+        }
+      } else {
+        console.warn(
+          `[WindowManager] Failed to show plugin UI for window ${windowId} after ${MAX_OVERLAY_RETRY_ATTEMPTS} attempts:`,
+          error,
+        );
+      }
+    }
+  }
+
   /**
    * Show the TLSN overlay in a window
    *
@@ -316,7 +368,6 @@ export class WindowManager implements IWindowManager {
     try {
       await browser.tabs.sendMessage(window.tabId, {
         type: 'SHOW_TLSN_OVERLAY',
-        requests: window.requests,
       });
 
       window.overlayVisible = true;

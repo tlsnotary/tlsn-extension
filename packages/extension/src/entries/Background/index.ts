@@ -108,6 +108,16 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
     return true;
   }
 
+  if (request.type === 'RENDER_PLUGIN_UI') {
+    console.log(
+      '[Background] RENDER_PLUGIN_UI request received:',
+      request.json,
+      request.windowId,
+    );
+    windowManager.showPluginUI(request.windowId, request.json);
+    return true;
+  }
+
   // Handle code execution requests
   if (request.type === 'EXEC_CODE') {
     console.log('[Background] EXEC_CODE request received');

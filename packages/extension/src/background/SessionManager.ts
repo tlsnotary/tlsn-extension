@@ -26,15 +26,18 @@ type DomOptions = {
   className?: string;
   id?: string;
   style?: { [key: string]: string };
+  onclick?: string;
 };
 
 type DomFn = (param1?: DomOptions | DomJson[], children?: DomJson[]) => DomJson;
 
-type DomJson = {
-  type: 'overlay' | 'div' | 'button';
-  options: DomOptions;
-  children: DomJson[];
-};
+export type DomJson =
+  | {
+      type: 'div' | 'button';
+      options: DomOptions;
+      children: DomJson[];
+    }
+  | string;
 
 export class SessionManager {
   private host: Host;
@@ -50,7 +53,6 @@ export class SessionManager {
     const effects: any[][] = [];
     const selectors: any[][] = [];
     const sandbox = await this.host.createEvalCode({
-      overlay: this.createDomJson.bind(this, 'overlay'),
       div: this.createDomJson.bind(this, 'div'),
       button: this.createDomJson.bind(this, 'button'),
       openWindow: this.makeOpenWindow(uuid),
@@ -60,7 +62,6 @@ export class SessionManager {
     });
 
     const mainFn = await sandbox.eval(`
-const overlay = env.overlay;
 const div = env.div;
 const button = env.button;
 const openWindow = env.openWindow;
@@ -93,6 +94,20 @@ export default main;
 
         if (result) {
           console.log('Main function executed:', result);
+          const chromeRuntime = (
+            global as unknown as { chrome?: { runtime?: any } }
+          ).chrome?.runtime;
+          if (!chromeRuntime?.sendMessage) {
+            throw new Error('Chrome runtime not available');
+          }
+
+          if (this.sessions.get(uuid)?.windowId) {
+            chromeRuntime.sendMessage({
+              type: 'RENDER_PLUGIN_UI',
+              json: result,
+              windowId: this.sessions.get(uuid)?.windowId,
+            });
+          }
         }
 
         return result;
@@ -283,6 +298,14 @@ export default main;
                 headers: [...(session.headers || []), header],
               });
               session.main();
+            }
+
+            if (message.type === 'PLUGIN_UI_CLICK') {
+              console.log('PLUGIN_UI_CLICK', message);
+              const session = this.sessions.get(uuid);
+              if (!session) {
+                throw new Error('Session not found');
+              }
             }
 
             if (message.type === 'WINDOW_CLOSED') {

@@ -402,14 +402,39 @@ function main() {
     openWindow('https://x.com');
   }, []);
 
-  return overlay([
+  return div({
+    style: {
+      position: 'fixed',
+      bottom: '0',
+      right: '8px',
+      width: '240px',
+      height: '240px',
+      borderRadius: '4px 4px 0 0',
+      backgroundColor: '#b8b8b8',
+      zIndex: '999999',
+      fontSize: '16px',
+      color: '#0f0f0f',
+      border: '1px solid #e2e2e2',
+      borderBottom: 'none',
+      padding: '8px',
+      fontFamily: 'sans-serif',
+    },
+  }, [
     div({
       style: {
-        color: 'white',
-        fontSize: '24px',
         fontWeight: 'bold',
+        color: header ? 'green' : 'red',
       },
-    }, [JSON.stringify(header)])
+    }, [ header ? 'Profile detected!' : 'No profile detected']),
+    header 
+      ? button({
+        style: {
+          color: 'black',
+          backgroundColor: 'white',
+        },
+        onclick: 'notarize',
+      }, ['Notarize'])
+      : div({ style: {color: 'black'}}, ['Please login to x.com'])
   ]);
 }
 `,
