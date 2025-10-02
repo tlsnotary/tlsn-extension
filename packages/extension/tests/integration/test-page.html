@@ -395,15 +395,22 @@
     // Code Execution Functions
     const codeExamples = {
       simple: `// Open X.com and return a greeting
-export default function main() {
-  const requests = env.useRequests(requests => requests.filter(request => request.url.includes('https://api.x.com/1.1/account/settings.json')));
-  const headers = env.useHeaders(headers => headers.filter(header => header.url.includes('https://api.x.com/1.1/account/settings.json')));
-  env.useEffect(() => {
-    env.openWindow('https://x.com');
-    console.log(requests);
+function main() {
+  const [header] = useHeaders(headers => headers.filter(header => header.url.includes('https://api.x.com/1.1/account/settings.json')));
+  
+  useEffect(() => {
+    openWindow('https://x.com');
   }, []);
 
-  return {requests, headers};
+  return overlay([
+    div({
+      style: {
+        color: 'white',
+        fontSize: '24px',
+        fontWeight: 'bold',
+      },
+    }, [JSON.stringify(header)])
+  ]);
 }
 `,
     };
