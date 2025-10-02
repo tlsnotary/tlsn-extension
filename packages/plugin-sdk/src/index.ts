@@ -16,7 +16,7 @@ export class Host {
   }
 
   async createEvalCode(capabilities?: {[method: string]: (...args: any[]) => any}): Promise<{
-    evalCode: SandboxEvalCode;
+    eval: (code: string) => Promise<any>;
     dispose: () => void;
   }> {
     const { runSandboxed } = await loadQuickJs(variant);
@@ -52,7 +52,18 @@ export class Host {
 
     // Return evalCode and dispose function
     return {
-      evalCode: evalCode,
+      eval: async (code: string) => {
+        const result = await evalCode!(code);
+
+        if (!result.ok) {
+          const err = new Error(result.error.message);
+          err.name = result.error.name;
+          err.stack = result.error.stack;
+          throw err;
+        }
+
+        return result.data;
+      },
       dispose: () => {
         if (disposeCallback) {
           disposeCallback();
