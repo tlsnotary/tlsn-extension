@@ -1,6 +1,9 @@
 import browser from 'webextension-polyfill';
 import { WindowManager } from '../../background/WindowManager';
-import type { InterceptedRequest } from '../../types/window-manager';
+import type {
+  InterceptedRequest,
+  InterceptedRequestHeader,
+} from '../../types/window-manager';
 import { validateUrl } from '../../utils/url-validator';
 
 const chrome = global.chrome as any;
@@ -30,18 +33,36 @@ browser.webRequest.onBeforeRequest.addListener(
         tabId: details.tabId,
       };
 
-      console.log(
-        `[Background] Request intercepted for window ${managedWindow.id}:`,
-        details.method,
-        details.url,
-      );
-
       // Add request to window's request history
       windowManager.addRequest(managedWindow.id, request);
     }
   },
   { urls: ['<all_urls>'] },
-  ['requestBody'],
+  ['requestBody', 'extraHeaders'],
+);
+
+browser.webRequest.onBeforeSendHeaders.addListener(
+  (details) => {
+    // Check if this tab belongs to a managed window
+    const managedWindow = windowManager.getWindowByTabId(details.tabId);
+
+    if (managedWindow && details.tabId !== undefined) {
+      const header: InterceptedRequestHeader = {
+        id: `${details.requestId}`,
+        method: details.method,
+        url: details.url,
+        timestamp: details.timeStamp,
+        type: details.type,
+        requestHeaders: details.requestHeaders || [],
+        tabId: details.tabId,
+      };
+
+      // Add request to window's request history
+      windowManager.addHeader(managedWindow.id, header);
+    }
+  },
+  { urls: ['<all_urls>'] },
+  ['requestHeaders', 'extraHeaders'],
 );
 
 // Listen for window removal

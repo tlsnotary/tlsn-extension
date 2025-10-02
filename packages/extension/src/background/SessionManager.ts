@@ -1,6 +1,9 @@
 import Host from '../../../plugin-sdk/src';
 import { v4 as uuidv4 } from 'uuid';
-import { InterceptedRequest } from '../types/window-manager';
+import {
+  InterceptedRequest,
+  InterceptedRequestHeader,
+} from '../types/window-manager';
 import deepEqual from 'fast-deep-equal';
 
 type SessionState = {
@@ -8,6 +11,7 @@ type SessionState = {
   pluginUrl: string;
   plugin: string;
   requests?: InterceptedRequest[];
+  headers?: InterceptedRequestHeader[];
   windowId?: number;
   effects: any[][];
   selectors: any[][];
@@ -35,6 +39,7 @@ export class SessionManager {
       openWindow: this.makeOpenWindow(uuid),
       useEffect: this.makeUseEffect(uuid, effects),
       useRequests: this.makeUseRequests(uuid, selectors),
+      useHeaders: this.makeUseHeaders(uuid, selectors),
     });
 
     const mainFn = await sandbox.eval(code);
@@ -84,6 +89,7 @@ export class SessionManager {
       windowId?: number;
       plugin?: string;
       requests?: InterceptedRequest[];
+      headers?: InterceptedRequestHeader[];
       effects?: any[][];
       selectors?: any[][];
     },
@@ -119,11 +125,26 @@ export class SessionManager {
       filterFn: (requests: InterceptedRequest[]) => InterceptedRequest[],
     ) => {
       const session = this.sessions.get(uuid);
-
       if (!session) {
         throw new Error('Session not found');
       }
       const result = filterFn(session.requests || []);
+      selectors.push(result);
+      return result;
+    };
+  };
+
+  makeUseHeaders = (uuid: string, selectors: any[][]) => {
+    return (
+      filterFn: (
+        headers: InterceptedRequestHeader[],
+      ) => InterceptedRequestHeader[],
+    ) => {
+      const session = this.sessions.get(uuid);
+      if (!session) {
+        throw new Error('Session not found');
+      }
+      const result = filterFn(session.headers || []);
       selectors.push(result);
       return result;
     };
@@ -184,7 +205,7 @@ export class SessionManager {
             windowId: response.payload.windowId,
           });
 
-          const onRequestIntercepted = (message: any) => {
+          const onMessage = (message: any) => {
             if (message.type === 'REQUEST_INTERCEPTED') {
               const request = message.request;
               const session = this.sessions.get(uuid);
@@ -197,12 +218,24 @@ export class SessionManager {
               session.main();
             }
 
+            if (message.type === 'HEADER_INTERCEPTED') {
+              const header = message.header;
+              const session = this.sessions.get(uuid);
+              if (!session) {
+                throw new Error('Session not found');
+              }
+              this.updateSession(uuid, {
+                headers: [...(session.headers || []), header],
+              });
+              session.main();
+            }
+
             if (message.type === 'WINDOW_CLOSED') {
-              chromeRuntime.onMessage.removeListener(onRequestIntercepted);
+              chromeRuntime.onMessage.removeListener(onMessage);
             }
           };
 
-          chromeRuntime.onMessage.addListener(onRequestIntercepted);
+          chromeRuntime.onMessage.addListener(onMessage);
 
           return {
             windowId: response.payload.windowId,
