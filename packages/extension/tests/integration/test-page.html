@@ -328,126 +328,9 @@
       <ol>
         <li>Load the TLSN extension in Chrome (Developer Mode)</li>
         <li>Navigate to this test page (or open as file://)</li>
-        <li>Click the buttons below to test different scenarios</li>
         <li>Check the browser console for detailed logs</li>
         <li>Verify overlays appear in opened windows</li>
       </ol>
-    </div>
-
-    <!-- Basic Tests -->
-    <div class="section">
-      <h2>1. Basic Window Opening</h2>
-      <p>Test opening single windows with different URLs</p>
-
-      <div class="button-group">
-        <button onclick="openWindow('https://example.com')">
-          Open example.com
-        </button>
-        <button onclick="openWindow('https://httpbin.org/get')">
-          Open httpbin.org
-        </button>
-        <button onclick="openWindow('https://jsonplaceholder.typicode.com/posts')">
-          Open JSON Placeholder
-        </button>
-      </div>
-    </div>
-
-    <!-- Custom URL Test -->
-    <div class="section">
-      <h2>2. Custom URL Test</h2>
-      <p>Enter any URL to open in a new window</p>
-
-      <div class="input-group">
-        <input
-          type="text"
-          id="customUrl"
-          placeholder="https://example.com"
-          value="https://example.com"
-        >
-        <button onclick="openCustomUrl()">Open URL</button>
-      </div>
-    </div>
-
-    <!-- Window Options Test -->
-    <div class="section">
-      <h2>3. Window Options</h2>
-      <p>Test window.tlsn.open() with custom dimensions and overlay options</p>
-
-      <div class="input-group">
-        <input type="number" id="width" placeholder="Width" value="1200">
-        <input type="number" id="height" placeholder="Height" value="800">
-      </div>
-
-      <div class="checkbox-group">
-        <label>
-          <input type="checkbox" id="showOverlay" checked>
-          <span>Show TLSN Overlay</span>
-        </label>
-      </div>
-
-      <button onclick="openWithOptions()">
-        Open with Custom Options
-      </button>
-    </div>
-
-    <!-- Multiple Windows Test -->
-    <div class="section">
-      <h2>4. Multiple Windows</h2>
-      <p>Test opening multiple windows simultaneously</p>
-
-      <div class="button-group">
-        <button onclick="openMultipleWindows(3)">
-          Open 3 Windows
-        </button>
-        <button onclick="openMultipleWindows(5)">
-          Open 5 Windows
-        </button>
-        <button onclick="openMultipleWindows(10)">
-          Open 10 Windows
-        </button>
-      </div>
-
-      <div class="stats">
-        <div class="stat">
-          <span class="stat-value" id="windowCount">0</span>
-          <span class="stat-label">Windows Opened</span>
-        </div>
-        <div class="stat">
-          <span class="stat-value" id="errorCount">0</span>
-          <span class="stat-label">Errors</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Error Handling Tests -->
-    <div class="section">
-      <h2>5. Error Handling</h2>
-      <p>Test invalid URLs and error cases</p>
-
-      <div class="button-group">
-        <button class="danger" onclick="testInvalidUrl('not-a-url')">
-          Invalid URL
-        </button>
-        <button class="danger" onclick="testInvalidUrl('')">
-          Empty URL
-        </button>
-        <button class="danger" onclick="testInvalidUrl('javascript:alert(1)')">
-          JavaScript URL
-        </button>
-        <button class="danger" onclick="testInvalidUrl('ftp://example.com')">
-          FTP URL
-        </button>
-      </div>
-    </div>
-
-    <!-- Legacy API Test -->
-    <div class="section">
-      <h2>6. Backward Compatibility</h2>
-      <p>Test legacy API (TLSN_CONTENT_TO_EXTENSION)</p>
-
-      <button class="secondary" onclick="testLegacyAPI()">
-        Test Legacy sendMessage API
-      </button>
     </div>
 
     <!-- Code Execution Test -->
@@ -456,30 +339,14 @@
       <p>Execute JavaScript code in a sandboxed environment with QuickJS</p>
 
       <div class="code-examples">
-        <button onclick="loadExample('simple')">Simple Math</button>
-        <button onclick="loadExample('string')">String Operations</button>
-        <button onclick="loadExample('complex')">Complex Example</button>
-        <button onclick="loadExample('error')">Error Example</button>
-        <button onclick="loadExample('utilities')">Utilities</button>
+        <button onclick="loadExample('simple')">X-Profile</button>
       </div>
 
       <textarea
         id="codeEditor"
         class="code-editor"
-        placeholder="// Enter JavaScript code here...
-// Available functions:
-// - add(a, b)
-// - subtract(a, b)
-// - multiply(a, b)
-// - divide(a, b)
-// - log(...args)
-// - concat(...strings)
-// - uppercase(str)
-// - lowercase(str)
-// - random()
-// - timestamp()"
-      >// Example: Simple calculation
-add(10, 20)</textarea>
+        placeholder="// Enter JavaScript code here..."
+      ></textarea>
 
       <div class="button-group">
         <button onclick="executeCode()">▶️ Run Code</button>
@@ -510,156 +377,6 @@ add(10, 20)</textarea>
         showStatus('✅ TLSN Extension detected! You can now run tests.', 'success');
       }
     }, 1000);
-
-    // Basic window opening
-    async function openWindow(url) {
-      console.log(`[Test] Opening window: ${url}`);
-
-      if (!window.tlsn) {
-        showStatus('Error: window.tlsn not available. Is the extension installed?', 'error');
-        return;
-      }
-
-      try {
-        await window.tlsn.open(url);
-        windowCount++;
-        updateStats();
-        showStatus(`✅ Successfully opened: ${url}`, 'success');
-        console.log(`[Test] Window opened successfully`);
-      } catch (error) {
-        errorCount++;
-        updateStats();
-        showStatus(`❌ Error opening window: ${error.message}`, 'error');
-        console.error('[Test] Error:', error);
-      }
-    }
-
-    // Custom URL test
-    async function openCustomUrl() {
-      const url = document.getElementById('customUrl').value.trim();
-
-      if (!url) {
-        showStatus('Please enter a URL', 'error');
-        return;
-      }
-
-      await openWindow(url);
-    }
-
-    // Window with options
-    async function openWithOptions() {
-      const url = document.getElementById('customUrl').value.trim() || 'https://example.com';
-      const width = parseInt(document.getElementById('width').value) || 900;
-      const height = parseInt(document.getElementById('height').value) || 700;
-      const showOverlay = document.getElementById('showOverlay').checked;
-
-      console.log(`[Test] Opening window with options:`, { url, width, height, showOverlay });
-
-      if (!window.tlsn) {
-        showStatus('Error: window.tlsn not available', 'error');
-        return;
-      }
-
-      try {
-        await window.tlsn.open(url, { width, height, showOverlay });
-        windowCount++;
-        updateStats();
-        showStatus(`✅ Opened ${url} (${width}x${height}, overlay: ${showOverlay})`, 'success');
-      } catch (error) {
-        errorCount++;
-        updateStats();
-        showStatus(`❌ Error: ${error.message}`, 'error');
-        console.error('[Test] Error:', error);
-      }
-    }
-
-    // Multiple windows
-    async function openMultipleWindows(count) {
-      console.log(`[Test] Opening ${count} windows...`);
-      showStatus(`Opening ${count} windows...`, 'info');
-
-      const urls = [
-        'https://example.com',
-        'https://httpbin.org/get',
-        'https://jsonplaceholder.typicode.com/posts',
-        'https://api.github.com',
-        'https://www.wikipedia.org',
-        'https://developer.mozilla.org',
-        'https://stackoverflow.com',
-        'https://news.ycombinator.com',
-        'https://reddit.com',
-        'https://twitter.com',
-      ];
-
-      let successCount = 0;
-      let failCount = 0;
-
-      for (let i = 0; i < count; i++) {
-        const url = urls[i % urls.length];
-        try {
-          await window.tlsn.open(url);
-          successCount++;
-          windowCount++;
-        } catch (error) {
-          failCount++;
-          errorCount++;
-          console.error(`[Test] Failed to open window ${i + 1}:`, error);
-        }
-        // Small delay between windows
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-
-      updateStats();
-      showStatus(`✅ Opened ${successCount}/${count} windows (${failCount} failed)`, successCount === count ? 'success' : 'error');
-    }
-
-    // Test invalid URLs
-    async function testInvalidUrl(url) {
-      console.log(`[Test] Testing invalid URL: ${url}`);
-
-      if (!window.tlsn) {
-        showStatus('Error: window.tlsn not available', 'error');
-        return;
-      }
-
-      try {
-        await window.tlsn.open(url);
-        errorCount++;
-        updateStats();
-        showStatus(`❌ Expected error but succeeded for: ${url}`, 'error');
-      } catch (error) {
-        showStatus(`✅ Correctly rejected invalid URL: ${error.message}`, 'success');
-        console.log('[Test] Correctly caught error:', error.message);
-      }
-    }
-
-    // Test legacy API
-    function testLegacyAPI() {
-      console.log('[Test] Testing legacy sendMessage API');
-
-      if (!window.tlsn) {
-        showStatus('Error: window.tlsn not available', 'error');
-        return;
-      }
-
-      if (typeof window.tlsn.sendMessage !== 'function') {
-        showStatus('⚠️ Legacy sendMessage method not available', 'error');
-        return;
-      }
-
-      try {
-        window.tlsn.sendMessage({ test: 'legacy API' });
-        showStatus('✅ Legacy API call sent (check x.com window opens)', 'success');
-      } catch (error) {
-        showStatus(`❌ Legacy API error: ${error.message}`, 'error');
-      }
-    }
-
-    // Update statistics
-    function updateStats() {
-      document.getElementById('windowCount').textContent = windowCount;
-      document.getElementById('errorCount').textContent = errorCount;
-    }
 
     // Show status message
     function showStatus(message, type) {
