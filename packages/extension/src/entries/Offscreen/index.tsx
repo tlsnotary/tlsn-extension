@@ -3,19 +3,15 @@ import { createRoot } from 'react-dom/client';
 import { SessionManager } from '../../background/SessionManager';
 
 const OffscreenApp: React.FC = () => {
-  const sessionManagerRef = useRef<SessionManager | null>(null);
-
   useEffect(() => {
     console.log('Offscreen document loaded');
 
     // Initialize SessionManager
-    sessionManagerRef.current = new SessionManager();
+    const sessionManager = new SessionManager();
     console.log('SessionManager initialized in Offscreen');
 
     // Listen for messages from background script
     chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
-      console.log('Offscreen received message:', request);
-
       // Example message handling
       if (request.type === 'PROCESS_DATA') {
         // Process data in offscreen context
@@ -27,7 +23,7 @@ const OffscreenApp: React.FC = () => {
       if (request.type === 'EXEC_CODE_OFFSCREEN') {
         console.log('Offscreen executing code:', request.code);
 
-        if (!sessionManagerRef.current) {
+        if (!sessionManager) {
           sendResponse({
             success: false,
             error: 'SessionManager not initialized',
@@ -37,7 +33,7 @@ const OffscreenApp: React.FC = () => {
         }
 
         // Execute plugin code using SessionManager
-        sessionManagerRef.current
+        sessionManager
           .executePlugin(request.code)
           .then((result) => {
             console.log('Plugin execution result:', result);
