@@ -5,10 +5,13 @@ import { InterceptedRequest } from '../types/window-manager';
 type SessionState = {
   id: string;
   pluginUrl: string;
-  plugin?: string;
+  plugin: string;
   requests?: InterceptedRequest[];
   windowId?: number;
-  dispose?: () => void;
+  sandbox: {
+    eval: (code: string) => Promise<any>;
+    dispose: () => void;
+  };
 };
 
 export class SessionManager {
@@ -22,7 +25,7 @@ export class SessionManager {
   async executePlugin(code: string): Promise<unknown> {
     const uuid = uuidv4();
 
-    const { evalCode, dispose } = await this.host.createEvalCode({
+    const sandbox = await this.host.createEvalCode({
       openWindow: this.makeOpenWindow(uuid),
     });
 
@@ -30,15 +33,15 @@ export class SessionManager {
       id: uuid,
       plugin: code,
       pluginUrl: '',
-      dispose,
+      sandbox,
     });
 
     try {
-      const result = await evalCode(code);
+      const result = await sandbox.eval(code);
       return result;
     } catch (error) {
       // Clean up on error
-      dispose();
+      sandbox.dispose();
       this.sessions.delete(uuid);
       throw error;
     }
@@ -46,8 +49,8 @@ export class SessionManager {
 
   disposeSession(uuid: string): void {
     const session = this.sessions.get(uuid);
-    if (session?.dispose) {
-      session.dispose();
+    if (session?.sandbox.dispose) {
+      session.sandbox.dispose();
     }
     this.sessions.delete(uuid);
   }
