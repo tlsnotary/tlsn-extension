@@ -1,10 +1,13 @@
 import Host from '../../../plugin-sdk/src/index';
 import { v4 as uuidv4 } from 'uuid';
+import { InterceptedRequest } from '../types/window-manager';
 
 type SessionState = {
   id: string;
   pluginUrl: string;
   plugin?: string;
+  requests?: InterceptedRequest[];
+  windowId?: number;
 };
 
 export class SessionManager {
@@ -17,16 +20,26 @@ export class SessionManager {
 
   async executePlugin(code: string): Promise<unknown> {
     const uuid = uuidv4();
-    this.sessions.set(uuid, { id: uuid, plugin: code, pluginUrl: '' });
+    this.sessions.set(uuid, {
+      id: uuid,
+      plugin: code,
+      pluginUrl: '',
+    });
+
     const result = await this.host.run(code, {
       openWindow: this.makeOpenWindow(uuid),
     });
+
     return result;
   }
 
   updateSession(
     uuid: string,
-    params: { windowId?: number; plugin?: string },
+    params: {
+      windowId?: number;
+      plugin?: string;
+      requests?: InterceptedRequest[];
+    },
   ): void {
     const session = this.sessions.get(uuid);
     if (!session) {
@@ -36,9 +49,10 @@ export class SessionManager {
   }
 
   startSession(pluginUrl: string): void {
-    const uuid = uuidv4();
-    this.sessions.set(uuid, { id: uuid, pluginUrl });
+    // const uuid = uuidv4();
+    // this.sessions.set(uuid, { id: uuid, pluginUrl });
   }
+
 
   /**
    * Open a new browser window with the specified URL
@@ -93,6 +107,7 @@ export class SessionManager {
           this.updateSession(uuid, {
             windowId: response.payload.windowId,
           });
+
           return {
             windowId: response.payload.windowId,
             uuid: response.payload.uuid,
