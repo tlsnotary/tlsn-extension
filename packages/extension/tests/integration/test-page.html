@@ -394,80 +394,9 @@
 
     // Code Execution Functions
     const codeExamples = {
-      simple: `// Simple math operations
-const result = add(10, 20);
-log("10 + 20 =", result);
-
-const product = multiply(5, 6);
-log("5 * 6 =", product);
-
-const quotient = divide(100, 4);
-log("100 / 4 =", quotient);
-
-// Return final result
-result + product + quotient`,
-
-      string: `// String manipulation
-const greeting = concat("Hello", " ", "World", "!");
-log("Concatenated:", greeting);
-
-const upper = uppercase("make me uppercase");
-log("Uppercase:", upper);
-
-const lower = lowercase("MAKE ME LOWERCASE");
-log("Lowercase:", lower);
-
-// Return combined result
-concat(upper, " | ", lower)`,
-
-      complex: `// Complex calculation example
-function factorial(n) {
-  if (n <= 1) return 1;
-  return multiply(n, factorial(subtract(n, 1)));
-}
-
-const fact5 = factorial(5);
-log("5! =", fact5);
-
-// Generate random numbers
-const nums = [];
-for (let i = 0; i < 5; i++) {
-  const r = multiply(random(), 100);
-  nums.push(Math.floor(r));
-}
-log("Random numbers:", nums.join(", "));
-
-// Calculate average
-const sum = nums.reduce((a, b) => add(a, b), 0);
-const avg = divide(sum, nums.length);
-log("Average:", avg);
-
-// Return results
-{ factorial: fact5, numbers: nums, average: avg }`,
-
-      error: `// This will throw an error
-log("Attempting division by zero...");
-const result = divide(10, 0);
-log("This won't be logged");
-result`,
-
-      utilities: `// Utility functions demo
-const now = timestamp();
-log("Current timestamp:", now);
-
-const rand = random();
-log("Random number:", rand);
-
-// Date calculation
-const date = new Date(now);
-log("Current date:", date.toISOString());
-
-// Return info object
-{
-  timestamp: now,
-  random: rand,
-  date: date.toISOString()
-}`
+      simple: `
+        await openWindow('https://example.com');
+      `,
     };
 
     function loadExample(type) {

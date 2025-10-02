@@ -13,38 +13,73 @@ export class SessionManager {
 
   constructor() {
     this.host = new Host();
-    this.setupDefaultCapabilities();
   }
 
-  private setupDefaultCapabilities() {
-    // Add basic math operations
-    this.host.addCapability('add', (a: number, b: number) => a + b);
-    this.host.addCapability('subtract', (a: number, b: number) => a - b);
-    this.host.addCapability('multiply', (a: number, b: number) => a * b);
-    this.host.addCapability('divide', (a: number, b: number) => {
-      if (b === 0) throw new Error('Division by zero');
-      return a / b;
+  /**
+   * Open a new browser window with the specified URL
+   * This method sends a message to the background script to create a managed window
+   * with request interception enabled.
+   *
+   * @param url - The URL to open in the new window
+   * @param options - Optional window configuration
+   * @returns Promise that resolves with window info or rejects with error
+   */
+  openWindow = async (
+    url: string,
+    options?: {
+      width?: number;
+      height?: number;
+      showOverlay?: boolean;
+    },
+  ): Promise<{ windowId: number; uuid: string; tabId: number }> => {
+    if (!url || typeof url !== 'string') {
+      throw new Error('URL must be a non-empty string');
+    }
+
+    // Access chrome runtime (available in offscreen document)
+    const chromeRuntime = (global as any).chrome?.runtime;
+    if (!chromeRuntime?.sendMessage) {
+      throw new Error('Chrome runtime not available');
+    }
+
+    try {
+      const response = await chromeRuntime.sendMessage({
+        type: 'OPEN_WINDOW',
+        url,
+        width: options?.width,
+        height: options?.height,
+        showOverlay: options?.showOverlay,
+      });
+
+      // Check if response indicates an error
+      if (response?.type === 'WINDOW_ERROR') {
+        throw new Error(
+          response.payload?.details ||
+            response.payload?.error ||
+            'Failed to open window',
+        );
+      }
+
+      // Return window info from successful response
+      if (response?.type === 'WINDOW_OPENED' && response.payload) {
+        return {
+          windowId: response.payload.windowId,
+          uuid: response.payload.uuid,
+          tabId: response.payload.tabId,
+        };
+      }
+
+      throw new Error('Invalid response from background script');
+    } catch (error) {
+      console.error('[SessionManager] Failed to open window:', error);
+      throw error;
+    }
+  };
+
+  async executePlugin(code: string): Promise<unknown> {
+    const result = await this.host.run(code, {
+      openWindow: this.openWindow,
     });
-
-    // Add console logging
-    this.host.addCapability('log', (...args: any[]) => {
-      console.log('[Plugin]', ...args);
-      return undefined;
-    });
-
-    // Add basic string operations
-    this.host.addCapability('concat', (...args: string[]) => args.join(''));
-    this.host.addCapability('uppercase', (str: string) => str.toUpperCase());
-    this.host.addCapability('lowercase', (str: string) => str.toLowerCase());
-
-    // Add utility functions
-    this.host.addCapability('random', () => Math.random());
-    this.host.addCapability('timestamp', () => Date.now());
-  }
-
-  async executePlugin(code: string): Promise<any> {
-    console.log('executing plugin', code, this.host);
-    const result = await this.host.run(code);
     return result;
   }
 
