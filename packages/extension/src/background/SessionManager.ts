@@ -15,6 +15,18 @@ export class SessionManager {
     this.host = new Host();
   }
 
+  async executePlugin(code: string): Promise<unknown> {
+    const result = await this.host.run(code, {
+      openWindow: this.openWindow,
+    });
+    return result;
+  }
+
+  startSession(pluginUrl: string): void {
+    const uuid = uuidv4();
+    this.sessions.set(uuid, { id: uuid, pluginUrl });
+  }
+
   /**
    * Open a new browser window with the specified URL
    * This method sends a message to the background script to create a managed window
@@ -75,16 +87,4 @@ export class SessionManager {
       throw error;
     }
   };
-
-  async executePlugin(code: string): Promise<unknown> {
-    const result = await this.host.run(code, {
-      openWindow: this.openWindow,
-    });
-    return result;
-  }
-
-  startSession(pluginUrl: string): void {
-    const uuid = uuidv4();
-    this.sessions.set(uuid, { id: uuid, pluginUrl });
-  }
 }
