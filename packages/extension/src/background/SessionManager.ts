@@ -22,6 +22,20 @@ type SessionState = {
   main: () => any;
 };
 
+type DomOptions = {
+  className?: string;
+  id?: string;
+  style?: { [key: string]: string };
+};
+
+type DomFn = (param1?: DomOptions | DomJson[], children?: DomJson[]) => DomJson;
+
+type DomJson = {
+  type: 'overlay' | 'div' | 'button';
+  options: DomOptions;
+  children: DomJson[];
+};
+
 export class SessionManager {
   private host: Host;
   private sessions: Map<string, SessionState> = new Map();
@@ -36,38 +50,57 @@ export class SessionManager {
     const effects: any[][] = [];
     const selectors: any[][] = [];
     const sandbox = await this.host.createEvalCode({
+      overlay: this.createDomJson.bind(this, 'overlay'),
+      div: this.createDomJson.bind(this, 'div'),
+      button: this.createDomJson.bind(this, 'button'),
       openWindow: this.makeOpenWindow(uuid),
       useEffect: this.makeUseEffect(uuid, effects),
       useRequests: this.makeUseRequests(uuid, selectors),
       useHeaders: this.makeUseHeaders(uuid, selectors),
     });
 
-    const mainFn = await sandbox.eval(code);
+    const mainFn = await sandbox.eval(`
+const overlay = env.overlay;
+const div = env.div;
+const button = env.button;
+const openWindow = env.openWindow;
+const useEffect = env.useEffect;
+const useRequests = env.useRequests;
+const useHeaders = env.useHeaders;
+${code};
+export default main;
+`);
 
     if (typeof mainFn !== 'function') {
       throw new Error('Main function not found');
     }
 
     const main = () => {
-      let result = mainFn();
-      const lastSelectors = this.sessions.get(uuid)?.selectors;
-      if (deepEqual(lastSelectors, selectors)) {
-        result = null;
+      try {
+        let result = mainFn();
+        const lastSelectors = this.sessions.get(uuid)?.selectors;
+        if (deepEqual(lastSelectors, selectors)) {
+          result = null;
+        }
+
+        this.updateSession(uuid, {
+          effects: JSON.parse(JSON.stringify(effects)),
+          selectors: JSON.parse(JSON.stringify(selectors)),
+        });
+
+        effects.length = 0;
+        selectors.length = 0;
+
+        if (result) {
+          console.log('Main function executed:', result);
+        }
+
+        return result;
+      } catch (error) {
+        console.error('Main function error:', error);
+        sandbox.dispose();
+        return null;
       }
-
-      this.updateSession(uuid, {
-        effects: JSON.parse(JSON.stringify(effects)),
-        selectors: JSON.parse(JSON.stringify(selectors)),
-      });
-
-      effects.length = 0;
-      selectors.length = 0;
-
-      if (result) {
-        console.log('Main function executed:', result);
-      }
-
-      return result;
     };
 
     this.sessions.set(uuid, {
@@ -104,6 +137,28 @@ export class SessionManager {
   startSession(_pluginUrl: string): void {
     // Reserved for future use
   }
+
+  createDomJson = (
+    type: 'overlay' | 'div' | 'button',
+    param1: DomOptions | DomJson[] = {},
+    param2: DomJson[] = [],
+  ): DomJson => {
+    let options: DomOptions = {};
+    let children: DomJson[] = [];
+
+    if (Array.isArray(param1)) {
+      children = param1;
+    } else if (typeof param1 === 'object') {
+      options = param1;
+      children = param2;
+    }
+
+    return {
+      type,
+      options,
+      children,
+    };
+  };
 
   makeUseEffect = (uuid: string, effects: any[][]) => {
     return (effect: () => void, deps: any[]) => {
