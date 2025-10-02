@@ -213,11 +213,11 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
     sendResponse({ success: true });
   }
 
-  if (request.type === 'UPDATE_TLSN_REQUESTS') {
-    console.log('updateTLSNOverlay', request.requests);
-    updateTLSNOverlay(request.requests || []);
-    sendResponse({ success: true });
-  }
+  // if (request.type === 'UPDATE_TLSN_REQUESTS') {
+  //   console.log('updateTLSNOverlay', request.requests);
+  //   updateTLSNOverlay(request.requests || []);
+  //   sendResponse({ success: true });
+  // }
 
   if (request.type === 'HIDE_TLSN_OVERLAY') {
     const overlay = document.getElementById('tlsn-overlay');

@@ -394,10 +394,15 @@
 
     // Code Execution Functions
     const codeExamples = {
-      simple: `// Prove ownership of X account
-await env.openWindow('https://x.com');
-export default 'Hello, world!';
-      `,
+      simple: `// Open X.com and return a greeting
+const windowInfo = await env.openWindow('https://x.com', {
+  width: 900,
+  height: 700,
+  showOverlay: true
+});
+
+export default 'Window opened: ' + windowInfo.windowId;
+`,
     };
 
     function loadExample(type) {

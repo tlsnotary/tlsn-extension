@@ -19,7 +19,6 @@ import {
   OVERLAY_RETRY_DELAY_MS,
   MAX_OVERLAY_RETRY_ATTEMPTS,
 } from '../constants/limits';
-import { Host } from '@tlsn/plugin-sdk';
 
 /**
  * WindowManager implementation
@@ -118,6 +117,11 @@ export class WindowManager implements IWindowManager {
 
     // Remove from tracking
     this.windows.delete(windowId);
+
+    browser.runtime.sendMessage({
+      type: 'WINDOW_CLOSED',
+      windowId,
+    });
 
     console.log(
       `[WindowManager] Window closed: ${window.uuid} (ID: ${window.id})`,
@@ -218,6 +222,12 @@ export class WindowManager implements IWindowManager {
     }
 
     window.requests.push(request);
+
+    browser.runtime.sendMessage({
+      type: 'REQUEST_INTERCEPTED',
+      request,
+      windowId,
+    });
 
     // Enforce request limit per window to prevent unbounded memory growth
     if (window.requests.length > MAX_REQUESTS_PER_WINDOW) {
