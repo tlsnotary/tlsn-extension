@@ -243,14 +243,14 @@ export class WindowManager implements IWindowManager {
     );
 
     // Update overlay if visible
-    if (window.overlayVisible) {
-      this.updateOverlay(windowId).catch((error) => {
-        console.warn(
-          `[WindowManager] Failed to update overlay for window ${windowId}:`,
-          error,
-        );
-      });
-    }
+    // if (window.overlayVisible) {
+    //   this.updateOverlay(windowId).catch((error) => {
+    //     console.warn(
+    //       `[WindowManager] Failed to update overlay for window ${windowId}:`,
+    //       error,
+    //     );
+    //   });
+    // }
   }
 
   /**
