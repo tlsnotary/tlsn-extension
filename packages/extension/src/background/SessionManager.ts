@@ -1,6 +1,7 @@
 import Host from '../../../plugin-sdk/src';
 import { v4 as uuidv4 } from 'uuid';
 import { InterceptedRequest } from '../types/window-manager';
+import deepEqual from 'fast-deep-equal';
 
 type SessionState = {
   id: string;
@@ -8,8 +9,9 @@ type SessionState = {
   plugin: string;
   requests?: InterceptedRequest[];
   windowId?: number;
+  effects: any[][];
   sandbox: {
-    eval: (code: string) => Promise<any>;
+    eval: (code: string) => Promise<unknown>;
     dispose: () => void;
   };
 };
@@ -25,34 +27,27 @@ export class SessionManager {
   async executePlugin(code: string): Promise<unknown> {
     const uuid = uuidv4();
 
+    const effects: any[][] = [];
     const sandbox = await this.host.createEvalCode({
       openWindow: this.makeOpenWindow(uuid),
+      useEffect: this.makeUseEffect(uuid, effects),
     });
 
     this.sessions.set(uuid, {
       id: uuid,
       plugin: code,
       pluginUrl: '',
+      effects: [],
       sandbox,
     });
 
-    try {
-      const result = await sandbox.eval(code);
-      return result;
-    } catch (error) {
-      // Clean up on error
-      sandbox.dispose();
-      this.sessions.delete(uuid);
-      throw error;
-    }
-  }
+    const mainFn = await sandbox.eval(code);
 
-  disposeSession(uuid: string): void {
-    const session = this.sessions.get(uuid);
-    if (session?.sandbox.dispose) {
-      session.sandbox.dispose();
-    }
-    this.sessions.delete(uuid);
+    const result = mainFn();
+    this.updateSession(uuid, { effects: JSON.parse(JSON.stringify(effects)) });
+    effects.length = 0;
+
+    return result;
   }
 
   updateSession(
@@ -61,6 +56,7 @@ export class SessionManager {
       windowId?: number;
       plugin?: string;
       requests?: InterceptedRequest[];
+      effects?: any[][];
     },
   ): void {
     const session = this.sessions.get(uuid);
@@ -73,6 +69,21 @@ export class SessionManager {
   startSession(_pluginUrl: string): void {
     // Reserved for future use
   }
+
+  makeUseEffect = (uuid: string, effects: any[][]) => {
+    return (effect: () => void, deps: any[]) => {
+      const session = this.sessions.get(uuid);
+      if (!session) {
+        throw new Error('Session not found');
+      }
+      const lastDeps = session.effects[effects.length];
+      effects.push(deps);
+      if (deepEqual(lastDeps, deps)) {
+        return;
+      }
+      effect();
+    };
+  };
 
   /**
    * Open a new browser window with the specified URL
