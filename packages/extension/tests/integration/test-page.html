@@ -395,13 +395,13 @@
     // Code Execution Functions
     const codeExamples = {
       simple: `// Open X.com and return a greeting
-const windowInfo = await env.openWindow('https://x.com', {
-  width: 900,
-  height: 700,
-  showOverlay: true
-});
+export default function main() {
+  env.useEffect(() => {
+    env.openWindow('https://x.com');
+  }, []);
 
-export default 'Window opened: ' + windowInfo.windowId;
+  return 12;
+}
 `,
     };
 
