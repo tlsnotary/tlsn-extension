@@ -87,53 +87,6 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
     return true;
   }
 
-  // Backward compatibility: Handle legacy TLSN_CONTENT_TO_EXTENSION message (Task 3.5)
-  // This maintains compatibility with existing code that uses the old API
-  if (request.type === 'TLSN_CONTENT_TO_EXTENSION') {
-    console.log(
-      '[Background] Legacy TLSN_CONTENT_TO_EXTENSION received, opening x.com window',
-    );
-
-    // Open x.com window using the new WindowManager system
-    browser.windows
-      .create({
-        url: 'https://x.com',
-        type: 'popup',
-        width: 900,
-        height: 700,
-      })
-      .then(async (window) => {
-        if (
-          !window.id ||
-          !window.tabs ||
-          !window.tabs[0] ||
-          !window.tabs[0].id
-        ) {
-          throw new Error('Failed to create window or get tab ID');
-        }
-
-        const windowId = window.id;
-        const tabId = window.tabs[0].id;
-
-        console.log(
-          `[Background] Legacy window created: ${windowId}, Tab: ${tabId}`,
-        );
-
-        // Register with WindowManager (overlay will be shown when tab loads)
-        await windowManager.registerWindow({
-          id: windowId,
-          tabId: tabId,
-          url: 'https://x.com',
-          showOverlay: true,
-        });
-      })
-      .catch((error) => {
-        console.error('[Background] Error creating legacy window:', error);
-      });
-
-    return true;
-  }
-
   // Handle code execution requests
   if (request.type === 'EXEC_CODE') {
     console.log('[Background] EXEC_CODE request received');

@@ -15,16 +15,15 @@ export class Host {
     this.capabilities.set(name, handler);
   }
 
-  async run(code: string): Promise<any> {
-    console.log('running code', code);
+  async run(code: string, capabilities?: {[method: string]: (...args: any[]) => any}): Promise<any> {
     const { runSandboxed } = await loadQuickJs(variant);
-    console.log('loaded quickjs');
 
     const options: SandboxOptions = {
       allowFetch: false,
       allowFs: false,
       env: {
         ...Object.fromEntries(this.capabilities),
+        ...(capabilities || {}),
       },
     };
 
