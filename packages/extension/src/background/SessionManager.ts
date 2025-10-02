@@ -16,10 +16,23 @@ export class SessionManager {
   }
 
   async executePlugin(code: string): Promise<unknown> {
+    const uuid = uuidv4();
+    this.sessions.set(uuid, { id: uuid, plugin: code, pluginUrl: '' });
     const result = await this.host.run(code, {
-      openWindow: this.openWindow,
+      openWindow: this.makeOpenWindow(uuid),
     });
     return result;
+  }
+
+  updateSession(
+    uuid: string,
+    params: { windowId?: number; plugin?: string },
+  ): void {
+    const session = this.sessions.get(uuid);
+    if (!session) {
+      throw new Error('Session not found');
+    }
+    this.sessions.set(uuid, { ...session, ...params });
   }
 
   startSession(pluginUrl: string): void {
@@ -36,55 +49,61 @@ export class SessionManager {
    * @param options - Optional window configuration
    * @returns Promise that resolves with window info or rejects with error
    */
-  openWindow = async (
-    url: string,
-    options?: {
-      width?: number;
-      height?: number;
-      showOverlay?: boolean;
-    },
-  ): Promise<{ windowId: number; uuid: string; tabId: number }> => {
-    if (!url || typeof url !== 'string') {
-      throw new Error('URL must be a non-empty string');
-    }
-
-    // Access chrome runtime (available in offscreen document)
-    const chromeRuntime = (global as any).chrome?.runtime;
-    if (!chromeRuntime?.sendMessage) {
-      throw new Error('Chrome runtime not available');
-    }
-
-    try {
-      const response = await chromeRuntime.sendMessage({
-        type: 'OPEN_WINDOW',
-        url,
-        width: options?.width,
-        height: options?.height,
-        showOverlay: options?.showOverlay,
-      });
-
-      // Check if response indicates an error
-      if (response?.type === 'WINDOW_ERROR') {
-        throw new Error(
-          response.payload?.details ||
-            response.payload?.error ||
-            'Failed to open window',
-        );
+  makeOpenWindow =
+    (uuid: string) =>
+    async (
+      url: string,
+      options?: {
+        width?: number;
+        height?: number;
+        showOverlay?: boolean;
+      },
+    ): Promise<{ windowId: number; uuid: string; tabId: number }> => {
+      console.log('makeOpenWindow', uuid);
+      if (!url || typeof url !== 'string') {
+        throw new Error('URL must be a non-empty string');
       }
 
-      // Return window info from successful response
-      if (response?.type === 'WINDOW_OPENED' && response.payload) {
-        return {
-          windowId: response.payload.windowId,
-          uuid: response.payload.uuid,
-          tabId: response.payload.tabId,
-        };
+      // Access chrome runtime (available in offscreen document)
+      const chromeRuntime = (global as any).chrome?.runtime;
+      if (!chromeRuntime?.sendMessage) {
+        throw new Error('Chrome runtime not available');
       }
 
-      throw new Error('Invalid response from background script');
-    } catch (error) {
-      console.error('[SessionManager] Failed to open window:', error);
-      throw error;
-    }
-  };
+      try {
+        const response = await chromeRuntime.sendMessage({
+          type: 'OPEN_WINDOW',
+          url,
+          width: options?.width,
+          height: options?.height,
+          showOverlay: options?.showOverlay,
+        });
+
+        // Check if response indicates an error
+        if (response?.type === 'WINDOW_ERROR') {
+          throw new Error(
+            response.payload?.details ||
+              response.payload?.error ||
+              'Failed to open window',
+          );
+        }
+
+        // Return window info from successful response
+        if (response?.type === 'WINDOW_OPENED' && response.payload) {
+          this.updateSession(uuid, {
+            windowId: response.payload.windowId,
+          });
+          return {
+            windowId: response.payload.windowId,
+            uuid: response.payload.uuid,
+            tabId: response.payload.tabId,
+          };
+        }
+
+        throw new Error('Invalid response from background script');
+      } catch (error) {
+        console.error('[SessionManager] Failed to open window:', error);
+        throw error;
+      }
+    };
 }
