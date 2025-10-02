@@ -45,6 +45,7 @@ var options = {
     /Global built-in functions are deprecated and will be removed in Dart Sass 3.0.0./,
     /repetitive deprecation warnings omitted/,
     /Dart Sass 2.0.0/,
+    /Critical dependency: the request of a dependency is an expression/,
   ],
   entry: {
     popup: path.join(__dirname, "src", "entries", "Popup", "index.tsx"),
