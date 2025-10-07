@@ -1,10 +1,12 @@
-import Host from '../../../plugin-sdk/src';
+import Host from '@tlsn/plugin-sdk/src';
 import { v4 as uuidv4 } from 'uuid';
 import {
   InterceptedRequest,
   InterceptedRequestHeader,
 } from '../types/window-manager';
 import deepEqual from 'fast-deep-equal';
+import { ProveManager } from './ProveManager';
+import { Method, subtractRanges, mapStringToRange, Commit } from 'tlsn-js';
 
 type SessionState = {
   id: string;
@@ -25,6 +27,9 @@ type SessionState = {
     dispose: () => void;
   };
   main: () => any;
+  callbacks: {
+    [callbackName: string]: () => Promise<void>;
+  };
 };
 
 type DomOptions = {
@@ -33,8 +38,6 @@ type DomOptions = {
   style?: { [key: string]: string };
   onclick?: string;
 };
-
-type DomFn = (param1?: DomOptions | DomJson[], children?: DomJson[]) => DomJson;
 
 export type DomJson =
   | {
@@ -46,10 +49,22 @@ export type DomJson =
 
 export class SessionManager {
   private host: Host;
+  private proveManager: ProveManager;
   private sessions: Map<string, SessionState> = new Map();
+  private initPromise: Promise<void>;
 
   constructor() {
     this.host = new Host();
+    this.proveManager = new ProveManager();
+    this.initPromise = new Promise(async (resolve) => {
+      await this.proveManager.init();
+      resolve();
+    });
+  }
+
+  async awaitInit(): Promise<SessionManager> {
+    await this.initPromise;
+    return this;
   }
 
   async executePlugin(code: string): Promise<unknown> {
@@ -69,6 +84,29 @@ export class SessionManager {
       useEffect: this.makeUseEffect(uuid, context),
       useRequests: this.makeUseRequests(uuid, context),
       useHeaders: this.makeUseHeaders(uuid, context),
+      subtractRanges: subtractRanges,
+      mapStringToRange: mapStringToRange,
+      createProver: (serverDns: string, verifierUrl: string) => {
+        return this.proveManager.createProver(serverDns, verifierUrl);
+      },
+      sendRequest: (
+        proverId: string,
+        proxyUrl: string,
+        options: {
+          url: string;
+          method?: Method;
+          headers?: Record<string, string>;
+          body?: string;
+        },
+      ) => {
+        return this.proveManager.sendRequest(proverId, proxyUrl, options);
+      },
+      transcript: (proverId: string) => {
+        return this.proveManager.transcript(proverId);
+      },
+      reveal: (proverId: string, commit: Commit) => {
+        return this.proveManager.reveal(proverId, commit);
+      },
     });
 
     const exportedCode = await sandbox.eval(`
@@ -78,6 +116,12 @@ const openWindow = env.openWindow;
 const useEffect = env.useEffect;
 const useRequests = env.useRequests;
 const useHeaders = env.useHeaders;
+const createProver = env.createProver;
+const sendRequest = env.sendRequest;
+const transcript = env.transcript;
+const subtractRanges = env.subtractRanges;
+const mapStringToRange = env.mapStringToRange;
+const reveal = env.reveal;
 ${code};
 `);
 
@@ -85,6 +129,16 @@ ${code};
 
     if (typeof mainFn !== 'function') {
       throw new Error('Main function not found');
+    }
+
+    const callbacks: {
+      [callbackName: string]: () => Promise<void>;
+    } = {};
+
+    for (const key in args) {
+      if (typeof args[key] === 'function') {
+        callbacks[key] = args[key];
+      }
     }
 
     const main = () => {
@@ -103,6 +157,7 @@ ${code};
         }
 
         this.updateSession(uuid, {
+          currentContext: '',
           context: {
             ...this.sessions.get(uuid)?.context,
             main: {
@@ -151,6 +206,7 @@ ${code};
       currentContext: '',
       sandbox,
       main: main,
+      callbacks: callbacks,
     });
 
     return main();
@@ -347,7 +403,7 @@ ${code};
             windowId: response.payload.windowId,
           });
 
-          const onMessage = (message: any) => {
+          const onMessage = async (message: any) => {
             if (message.type === 'REQUEST_INTERCEPTED') {
               const request = message.request;
               const session = this.sessions.get(uuid);
@@ -377,6 +433,18 @@ ${code};
               const session = this.sessions.get(uuid);
               if (!session) {
                 throw new Error('Session not found');
+              }
+              const cb = session.callbacks[message.onclick];
+
+              if (cb) {
+                this.updateSession(uuid, {
+                  currentContext: message.onclick,
+                });
+                const result = await cb();
+                this.updateSession(uuid, {
+                  currentContext: '',
+                });
+                console.log('Callback result:', result);
               }
             }
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
-import { SessionManager } from '../../background/SessionManager';
+import { SessionManager } from '../../offscreen/SessionManager';
 
 const OffscreenApp: React.FC = () => {
   useEffect(() => {
@@ -34,7 +34,8 @@ const OffscreenApp: React.FC = () => {
 
         // Execute plugin code using SessionManager
         sessionManager
-          .executePlugin(request.code)
+          .awaitInit()
+          .then((sessionManager) => sessionManager.executePlugin(request.code))
           .then((result) => {
             console.log('Plugin execution result:', result);
             sendResponse({
