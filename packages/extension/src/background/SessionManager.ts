@@ -13,8 +13,13 @@ type SessionState = {
   requests?: InterceptedRequest[];
   headers?: InterceptedRequestHeader[];
   windowId?: number;
-  effects: any[][];
-  selectors: any[][];
+  context: {
+    [functionName: string]: {
+      effects: any[][];
+      selectors: any[][];
+    };
+  };
+  currentContext: string;
   sandbox: {
     eval: (code: string) => Promise<unknown>;
     dispose: () => void;
@@ -50,18 +55,23 @@ export class SessionManager {
   async executePlugin(code: string): Promise<unknown> {
     const uuid = uuidv4();
 
-    const effects: any[][] = [];
-    const selectors: any[][] = [];
+    const context: {
+      [functionName: string]: {
+        effects: any[][];
+        selectors: any[][];
+      };
+    } = {};
+
     const sandbox = await this.host.createEvalCode({
       div: this.createDomJson.bind(this, 'div'),
       button: this.createDomJson.bind(this, 'button'),
       openWindow: this.makeOpenWindow(uuid),
-      useEffect: this.makeUseEffect(uuid, effects),
-      useRequests: this.makeUseRequests(uuid, selectors),
-      useHeaders: this.makeUseHeaders(uuid, selectors),
+      useEffect: this.makeUseEffect(uuid, context),
+      useRequests: this.makeUseRequests(uuid, context),
+      useHeaders: this.makeUseHeaders(uuid, context),
     });
 
-    const mainFn = await sandbox.eval(`
+    const exportedCode = await sandbox.eval(`
 const div = env.div;
 const button = env.button;
 const openWindow = env.openWindow;
@@ -69,8 +79,9 @@ const useEffect = env.useEffect;
 const useRequests = env.useRequests;
 const useHeaders = env.useHeaders;
 ${code};
-export default main;
 `);
+
+    const { main: mainFn, config, ...args } = exportedCode;
 
     if (typeof mainFn !== 'function') {
       throw new Error('Main function not found');
@@ -78,19 +89,33 @@ export default main;
 
     const main = () => {
       try {
+        this.updateSession(uuid, {
+          currentContext: 'main',
+        });
+
         let result = mainFn();
-        const lastSelectors = this.sessions.get(uuid)?.selectors;
+        const lastSelectors =
+          this.sessions.get(uuid)?.context['main']?.selectors;
+        const selectors = context['main']?.selectors;
+
         if (deepEqual(lastSelectors, selectors)) {
           result = null;
         }
 
         this.updateSession(uuid, {
-          effects: JSON.parse(JSON.stringify(effects)),
-          selectors: JSON.parse(JSON.stringify(selectors)),
+          context: {
+            ...this.sessions.get(uuid)?.context,
+            main: {
+              effects: JSON.parse(JSON.stringify(context['main']?.effects)),
+              selectors: JSON.parse(JSON.stringify(context['main']?.selectors)),
+            },
+          },
         });
 
-        effects.length = 0;
-        selectors.length = 0;
+        if (context['main']) {
+          context['main'].effects.length = 0;
+          context['main'].selectors.length = 0;
+        }
 
         if (result) {
           console.log('Main function executed:', result);
@@ -122,8 +147,8 @@ export default main;
       id: uuid,
       plugin: code,
       pluginUrl: '',
-      effects: [],
-      selectors: [],
+      context: {},
+      currentContext: '',
       sandbox,
       main: main,
     });
@@ -138,8 +163,13 @@ export default main;
       plugin?: string;
       requests?: InterceptedRequest[];
       headers?: InterceptedRequestHeader[];
-      effects?: any[][];
-      selectors?: any[][];
+      context?: {
+        [functionName: string]: {
+          effects: any[][];
+          selectors: any[][];
+        };
+      };
+      currentContext?: string;
     },
   ): void {
     const session = this.sessions.get(uuid);
@@ -154,7 +184,7 @@ export default main;
   }
 
   createDomJson = (
-    type: 'overlay' | 'div' | 'button',
+    type: 'div' | 'button',
     param1: DomOptions | DomJson[] = {},
     param2: DomJson[] = [],
   ): DomJson => {
@@ -175,13 +205,27 @@ export default main;
     };
   };
 
-  makeUseEffect = (uuid: string, effects: any[][]) => {
+  makeUseEffect = (
+    uuid: string,
+    context: {
+      [functionName: string]: {
+        effects: any[][];
+        selectors: any[][];
+      };
+    },
+  ) => {
     return (effect: () => void, deps: any[]) => {
       const session = this.sessions.get(uuid);
       if (!session) {
         throw new Error('Session not found');
       }
-      const lastDeps = session.effects[effects.length];
+      const functionName = session.currentContext;
+      context[functionName] = context[functionName] || {
+        effects: [],
+        selectors: [],
+      };
+      const effects = context[functionName].effects;
+      const lastDeps = session.context[functionName]?.effects[effects.length];
       effects.push(deps);
       if (deepEqual(lastDeps, deps)) {
         return;
@@ -190,7 +234,15 @@ export default main;
     };
   };
 
-  makeUseRequests = (uuid: string, selectors: any[][]) => {
+  makeUseRequests = (
+    uuid: string,
+    context: {
+      [functionName: string]: {
+        effects: any[][];
+        selectors: any[][];
+      };
+    },
+  ) => {
     return (
       filterFn: (requests: InterceptedRequest[]) => InterceptedRequest[],
     ) => {
@@ -198,13 +250,27 @@ export default main;
       if (!session) {
         throw new Error('Session not found');
       }
+      const functionName = session.currentContext;
+      context[functionName] = context[functionName] || {
+        effects: [],
+        selectors: [],
+      };
+      const selectors = context[functionName].selectors;
       const result = filterFn(session.requests || []);
       selectors.push(result);
       return result;
     };
   };
 
-  makeUseHeaders = (uuid: string, selectors: any[][]) => {
+  makeUseHeaders = (
+    uuid: string,
+    context: {
+      [functionName: string]: {
+        effects: any[][];
+        selectors: any[][];
+      };
+    },
+  ) => {
     return (
       filterFn: (
         headers: InterceptedRequestHeader[],
@@ -214,6 +280,12 @@ export default main;
       if (!session) {
         throw new Error('Session not found');
       }
+      const functionName = session.currentContext;
+      context[functionName] = context[functionName] || {
+        effects: [],
+        selectors: [],
+      };
+      const selectors = context[functionName].selectors;
       const result = filterFn(session.headers || []);
       selectors.push(result);
       return result;
