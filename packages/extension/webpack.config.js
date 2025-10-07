@@ -234,6 +234,15 @@ var options = {
         },
       ],
     }),
+    new CopyWebpackPlugin({
+      patterns: [
+        {
+          from: "../../node_modules/tlsn-js/build",
+          to: path.join(__dirname, "build"),
+          force: true,
+        },
+      ],
+    }),
     new HtmlWebpackPlugin({
       template: path.join(__dirname, "src", "entries", "Popup", "index.html"),
       filename: "popup.html",
