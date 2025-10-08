@@ -1,9 +1,7 @@
 import * as Comlink from 'comlink';
-import init, { Prover, Presentation, Verifier } from 'tlsn-js';
+import init, { Prover } from '../../../../tlsn-wasm-pkg/tlsn_wasm';
 
 Comlink.expose({
   init,
   Prover,
-  Presentation,
-  Verifier,
 });

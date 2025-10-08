@@ -1,32 +1,20 @@
 import * as Comlink from 'comlink';
-import { PresentationJSON } from 'tlsn-js/build/types';
-import TInit, {
-  mapStringToRange,
-  NotaryServer,
-  Method,
-  Presentation as TPresentation,
-  Prover as TProver,
-  subtractRanges,
-  Transcript,
-  Verifier as TVerifier,
-  Commit,
-} from 'tlsn-js';
 import { v4 as uuidv4 } from 'uuid';
+import type Tinit from '../../../../tlsn-wasm-pkg/tlsn_wasm';
+import type {
+  Prover as TProver,
+  Method,
+} from '../../../../tlsn-wasm-pkg/tlsn_wasm';
+import { Reveal } from '../../../../tlsn-wasm-pkg/tlsn_wasm';
 
-const {
-  init,
-  Prover,
-  Presentation,
-  Verifier,
-}: {
-  init: typeof TInit;
+const { init, Prover } = Comlink.wrap<{
+  init: typeof Tinit;
   Prover: typeof TProver;
-  Presentation: typeof TPresentation;
-  Verifier: typeof TVerifier;
-} = Comlink.wrap(new Worker(new URL('./worker.ts', import.meta.url)));
+}>(new Worker(new URL('./worker.ts', import.meta.url)));
 
 export class ProveManager {
   private provers: Map<string, TProver> = new Map();
+
   async init() {
     await init({
       loggingLevel: 'Debug',
@@ -78,12 +66,18 @@ export class ProveManager {
     );
 
     const prover = await new Prover({
-      serverDns,
-      maxRecvData,
-      maxSentData,
+      server_name: serverDns,
+      max_recv_data: maxRecvData,
+      max_sent_data: maxSentData,
+      max_sent_records: undefined,
+      max_recv_data_online: undefined,
+      max_recv_records_online: undefined,
+      defer_decryption_from_start: undefined,
+      network: 'Bandwidth',
+      client_auth: undefined,
     });
     await prover.setup(sessionUrl);
-    this.provers.set(proverId, prover);
+    this.provers.set(proverId, prover as any);
     return proverId;
   }
 
@@ -100,13 +94,18 @@ export class ProveManager {
     proxyUrl: string,
     options: {
       url: string;
-      method?: Method;
-      headers?: Record<string, string>;
+      method: Method;
+      headers?: Map<string, number[]>;
       body?: string;
     },
   ) {
     const prover = await this.getProver(proverId);
-    await prover.sendRequest(proxyUrl, options);
+    await prover.send_request(proxyUrl, {
+      uri: options.url,
+      method: options.method as Method,
+      headers: options.headers || new Map(),
+      body: options.body,
+    });
   }
 
   async transcript(proverId: string) {
@@ -115,7 +114,7 @@ export class ProveManager {
     return transcript;
   }
 
-  async reveal(proverId: string, commit: Commit) {
+  async reveal(proverId: string, commit: Reveal) {
     const prover = await this.getProver(proverId);
     await prover.reveal({ ...commit, server_identity: true });
   }
