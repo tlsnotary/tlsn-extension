@@ -1,0 +1,22 @@
+[package]
+name = "tlsn-verifier-server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# TLSNotary dependency
+tlsn = { git = "https://github.com/tlsnotary/tlsn.git", tag = "v0.1.0-alpha.13" }
+
+# HTTP server framework
+axum = { version = "0.7", features = ["ws"] }
+tokio = { version = "1", features = ["full"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
