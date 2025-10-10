@@ -5,18 +5,21 @@ A Rust-based HTTP server with WebSocket support for TLSNotary verification opera
 ## Features
 
 - **Health Check Endpoint**: Simple `/health` endpoint that returns "ok" for monitoring
-- **WebSocket Support**: Full WebSocket server at `/ws` for real-time communication
+- **Verifier WebSocket**: WebSocket server at `/verifier` for TLSNotary verification
 - **CORS Enabled**: Permissive CORS configuration for cross-origin requests
 - **Async Runtime**: Built on Tokio for high-performance async operations
 - **Logging**: Structured logging with tracing for debugging and monitoring
+- **Error Handling**: Proper error handling and automatic cleanup on failure
 
 ## Dependencies
 
-- **tlsn**: v0.1.0-alpha.13 from GitHub
+- **tlsn**: v0.1.0-alpha.13 from GitHub - TLSNotary verification library
 - **axum**: Modern web framework with WebSocket support
-- **tokio**: Async runtime
+- **tokio**: Async runtime with full features
+- **tokio-util**: Async utilities for stream compatibility
 - **tower-http**: CORS middleware
-- **tracing**: Logging and diagnostics
+- **tracing**: Structured logging and diagnostics
+- **eyre**: Error handling and reporting
 
 ## Building
 
@@ -54,46 +57,60 @@ curl http://localhost:7047/health
 # Response: ok
 ```
 
-### WebSocket Connection
+### Verifier WebSocket
 
-**WS** `/ws`
+**WS** `/verifier`
 
-Establishes a WebSocket connection for real-time bidirectional communication.
+Establishes a WebSocket connection for TLSNotary verification. Upon connection, the server spawns a verifier task that:
+
+1. Accepts the WebSocket connection
+2. Spawns a verifier with proper error handling
+3. Performs TLS proof verification using the tlsn library
+4. Logs results and automatically cleans up resources
 
 **Example using websocat:**
 ```bash
 # Install websocat: cargo install websocat
-websocat ws://localhost:7047/ws
+websocat ws://localhost:7047/verifier
 ```
 
 **Example using JavaScript:**
 ```javascript
-const ws = new WebSocket('ws://localhost:7047/ws');
+const ws = new WebSocket('ws://localhost:7047/verifier');
 
 ws.onopen = () => {
-  console.log('Connected');
-  ws.send('Hello Server!');
+  console.log('Connected to verifier');
+  // Send verification data
 };
 
 ws.onmessage = (event) => {
-  console.log('Received:', event.data);
+  console.log('Verification result:', event.data);
 };
 
 ws.onclose = () => {
-  console.log('Disconnected');
+  console.log('Verifier disconnected');
+};
+
+ws.onerror = (error) => {
+  console.error('Verification error:', error);
 };
 ```
 
-## WebSocket Protocol
+## Verifier Architecture
 
-The server currently implements a simple echo protocol:
+The verifier implementation follows this flow:
 
-- **Text Messages**: Echoed back with "Echo: " prefix
-- **Binary Messages**: Echoed back as-is
-- **Ping/Pong**: Automatically handled for connection keepalive
-- **Welcome Message**: Sent immediately upon connection
+1. **WebSocket Connection**: Client connects to `/verifier` endpoint
+2. **Task Spawning**: Server spawns an async task for verification
+3. **Verification Process**:
+   - Configures protocol validator with data limits (2KB sent, 4KB received)
+   - Creates verifier with TLSNotary config
+   - Performs MPC-TLS verification
+   - Validates server name and transcript data
+4. **Error Handling**: Any errors are caught, logged, and cleaned up automatically
+5. **Cleanup**: Task automatically cleans up resources when complete or on error
 
-Future versions will implement the TLSNotary verification protocol.
+**Note**: The current implementation includes a WebSocket-to-AsyncRead/AsyncWrite bridge placeholder. Full integration requires converting the axum WebSocket to a format compatible with the tlsn verifier's AsyncRead + AsyncWrite trait bounds.
 
 ## Configuration
 
@@ -113,10 +130,19 @@ Add routes to the Router in `main.rs`:
 ```rust
 let app = Router::new()
     .route("/health", get(health_handler))
-    .route("/ws", get(ws_handler))
+    .route("/verifier", get(verifier_ws_handler))
     .route("/your-route", get(your_handler))  // Add here
     .layer(CorsLayer::permissive())
     .with_state(app_state);
+```
+
+### Project Structure
+
+```
+src/
+├── main.rs       # Server setup, routing, and WebSocket handling
+├── config.rs     # Configuration constants (MAX_SENT_DATA, MAX_RECV_DATA)
+└── verifier.rs   # TLSNotary verification logic
 ```
 
 ### Extending Application State

@@ -1,16 +1,13 @@
-use axum::{
-    extract::{
-        ws::{WebSocket, WebSocketUpgrade},
-        State,
-    },
-    response::{IntoResponse, Response},
-    routing::get,
-    Router,
-};
+mod axum_websocket;
+mod config;
+mod verifier;
+
+use axum::{response::IntoResponse, routing::get, Router};
+use axum_websocket::{Message, WebSocket, WebSocketUpgrade};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tower_http::cors::CorsLayer;
-use tracing::{info, warn};
+use tracing::{error, info};
 use tracing_subscriber;
 
 #[tokio::main]
@@ -21,13 +18,13 @@ async fn main() {
         .compact()
         .init();
 
-    // Create application state (can be expanded later for session management)
+    // Create application state
     let app_state = Arc::new(AppState {});
 
     // Build router with routes
     let app = Router::new()
         .route("/health", get(health_handler))
-        .route("/ws", get(ws_handler))
+        .route("/verifier", get(verifier_ws_handler))
         .layer(CorsLayer::permissive())
         .with_state(app_state);
 
@@ -41,7 +38,7 @@ async fn main() {
 
     info!("Server listening on http://{}", addr);
     info!("Health endpoint: http://{}/health", addr);
-    info!("WebSocket endpoint: ws://{}/ws", addr);
+    info!("Verifier WebSocket endpoint: ws://{}/verifier", addr);
 
     axum::serve(listener, app)
         .await
@@ -49,6 +46,7 @@ async fn main() {
 }
 
 // Application state for sharing data between handlers
+#[derive(Clone)]
 struct AppState {}
 
 // Health check endpoint handler
@@ -56,81 +54,40 @@ async fn health_handler() -> impl IntoResponse {
     "ok"
 }
 
-// WebSocket handler
-async fn ws_handler(
-    ws: WebSocketUpgrade,
-    State(_state): State<Arc<AppState>>,
-) -> Response {
-    ws.on_upgrade(|socket| handle_socket(socket))
+// WebSocket handler for verifier
+async fn verifier_ws_handler(ws: WebSocketUpgrade) -> impl IntoResponse {
+    ws.on_upgrade(|socket| handle_verifier_connection(socket))
 }
 
-// Handle WebSocket connections
-async fn handle_socket(mut socket: WebSocket) {
-    info!("New WebSocket connection established");
+// Handle WebSocket connections for verifier
+async fn handle_verifier_connection(mut socket: WebSocket) {
+    info!("New verifier WebSocket connection established");
 
-    // Send welcome message
-    if socket
-        .send(axum::extract::ws::Message::Text(
-            "Connected to TLSNotary Verifier Server".into(),
-        ))
-        .await
-        .is_err()
-    {
-        warn!("Failed to send welcome message");
-        return;
-    }
-
-    // Handle incoming messages
-    while let Some(msg) = socket.recv().await {
-        match msg {
-            Ok(msg) => {
-                if process_message(msg, &mut socket).await.is_err() {
-                    break;
-                }
+    // Log all incoming messages
+    while let Some(msg_result) = socket.recv().await {
+        match msg_result {
+            Ok(Message::Text(text)) => {
+                info!("Received text message: {}", text);
+            }
+            Ok(Message::Binary(data)) => {
+                info!("Received binary message: {} bytes", data.len());
+            }
+            Ok(Message::Ping(data)) => {
+                info!("Received ping: {} bytes", data.len());
+            }
+            Ok(Message::Pong(data)) => {
+                info!("Received pong: {} bytes", data.len());
+            }
+            Ok(Message::Close(close_frame)) => {
+                info!("Received close message: {:?}", close_frame);
+                break;
             }
             Err(e) => {
-                warn!("WebSocket error: {}", e);
+                error!("Error receiving message: {}", e);
                 break;
             }
         }
     }
 
     info!("WebSocket connection closed");
-}
-
-// Process WebSocket messages
-async fn process_message(
-    msg: axum::extract::ws::Message,
-    socket: &mut WebSocket,
-) -> Result<(), axum::Error> {
-    use axum::extract::ws::Message;
-
-    match msg {
-        Message::Text(text) => {
-            info!("Received text message: {}", text);
-
-            // Echo the message back
-            socket
-                .send(Message::Text(format!("Echo: {}", text)))
-                .await?;
-        }
-        Message::Binary(data) => {
-            info!("Received binary message: {} bytes", data.len());
-
-            // Echo binary data back
-            socket.send(Message::Binary(data)).await?;
-        }
-        Message::Ping(data) => {
-            socket.send(Message::Pong(data)).await?;
-        }
-        Message::Pong(_) => {
-            // Pong received
-        }
-        Message::Close(_) => {
-            info!("Received close message");
-            return Err(axum::Error::new("Connection closed"));
-        }
-    }
-
-    Ok(())
 }
