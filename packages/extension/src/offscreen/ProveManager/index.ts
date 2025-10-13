@@ -1,6 +1,5 @@
 import * as Comlink from 'comlink';
 import { v4 as uuidv4 } from 'uuid';
-import type Tinit from '../../../../tlsn-wasm-pkg/tlsn_wasm';
 import type {
   Prover as TProver,
   Method,
@@ -8,7 +7,7 @@ import type {
 import { Reveal } from '../../../../tlsn-wasm-pkg/tlsn_wasm';
 
 const { init, Prover } = Comlink.wrap<{
-  init: typeof Tinit;
+  init: any;
   Prover: typeof TProver;
 }>(new Worker(new URL('./worker.ts', import.meta.url)));
 
@@ -19,6 +18,10 @@ export class ProveManager {
     await init({
       loggingLevel: 'Debug',
       hardwareConcurrency: navigator.hardwareConcurrency,
+      crateFilters: [
+        { name: 'yamux', level: 'Info' },
+        { name: 'uid_mux', level: 'Info' },
+      ],
     });
 
     console.log('ProveManager initialized');
@@ -58,27 +61,39 @@ export class ProveManager {
   ) {
     const proverId = uuidv4();
 
-    const sessionUrl = await this.getVerifierSessionUrl(
-      verifierUrl,
-      'plugin-js',
-      maxRecvData,
-      maxSentData,
-    );
+    // const sessionUrl = await this.getVerifierSessionUrl(
+    //   verifierUrl,
+    //   'plugin-js',
+    //   maxRecvData,
+    //   maxSentData,
+    // );
 
-    const prover = await new Prover({
+    console.log('[ProveManager] Creating prover with config:', {
       server_name: serverDns,
       max_recv_data: maxRecvData,
       max_sent_data: maxSentData,
-      max_sent_records: undefined,
-      max_recv_data_online: undefined,
-      max_recv_records_online: undefined,
-      defer_decryption_from_start: undefined,
       network: 'Bandwidth',
-      client_auth: undefined,
     });
-    await prover.setup(sessionUrl);
-    this.provers.set(proverId, prover as any);
-    return proverId;
+
+    try {
+      const prover = await new Prover({
+        server_name: serverDns,
+        max_recv_data: maxRecvData,
+        max_sent_data: maxSentData,
+        network: 'Bandwidth',
+      });
+      console.log('[ProveManager] Prover instance created, calling setup...');
+
+      await prover.setup(verifierUrl as string);
+      console.log('[ProveManager] Prover setup completed');
+
+      this.provers.set(proverId, prover as any);
+      console.log('[ProveManager] Prover registered with ID:', proverId);
+      return proverId;
+    } catch (error) {
+      console.error('[ProveManager] Failed to create prover:', error);
+      throw error;
+    }
   }
 
   async getProver(proverId: string) {

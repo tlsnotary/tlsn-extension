@@ -412,7 +412,7 @@ async function prove() {
     Connection: 'close',
   };
   console.log('headers', headers);
-  const proverId = await createProver('api.x.com', 'https://demo.tlsnotary.org');
+  const proverId = await createProver('api.x.com', 'ws://localhost:7047/verifier');
   console.log('prover', proverId);
   await sendRequest(proverId, 'wss://notary.pse.dev/proxy?token=api.x.com', {
     url: 'https://api.x.com/1.1/account/settings.json',
