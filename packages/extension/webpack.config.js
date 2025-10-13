@@ -237,7 +237,7 @@ var options = {
     new CopyWebpackPlugin({
       patterns: [
         {
-          from: "../../node_modules/tlsn-js/build",
+          from: "../../packages/tlsn-wasm-pkg",
           to: path.join(__dirname, "build"),
           force: true,
         },
