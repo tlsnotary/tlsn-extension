@@ -81,6 +81,11 @@ export class ProveManager {
         max_recv_data: maxRecvData,
         max_sent_data: maxSentData,
         network: 'Bandwidth',
+        max_sent_records: undefined,
+        max_recv_data_online: undefined,
+        max_recv_records_online: undefined,
+        defer_decryption_from_start: undefined,
+        client_auth: undefined,
       });
       console.log('[ProveManager] Prover instance created, calling setup...');
 
