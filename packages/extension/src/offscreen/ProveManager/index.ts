@@ -29,7 +29,6 @@ export class ProveManager {
 
   private async getVerifierSessionUrl(
     verifierUrl: string,
-    plugin: string,
     maxRecvData = 16384,
     maxSentData = 4096,
   ) {
@@ -39,17 +38,15 @@ export class ProveManager {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        clientType: 'Websocket',
         maxRecvData,
         maxSentData,
-        plugin,
       }),
     });
     const { sessionId } = await resp.json();
     const _url = new URL(verifierUrl);
     const protocol = _url.protocol === 'https:' ? 'wss' : 'ws';
     const pathname = _url.pathname;
-    const sessionUrl = `${protocol}://${_url.host}${pathname === '/' ? '' : pathname}/notarize?sessionId=${sessionId!}`;
+    const sessionUrl = `${protocol}://${_url.host}${pathname === '/' ? '' : pathname}/verifier?sessionId=${sessionId!}`;
     return sessionUrl;
   }
 
@@ -61,12 +58,11 @@ export class ProveManager {
   ) {
     const proverId = uuidv4();
 
-    // const sessionUrl = await this.getVerifierSessionUrl(
-    //   verifierUrl,
-    //   'plugin-js',
-    //   maxRecvData,
-    //   maxSentData,
-    // );
+    const sessionUrl = await this.getVerifierSessionUrl(
+      verifierUrl,
+      maxRecvData,
+      maxSentData,
+    );
 
     console.log('[ProveManager] Creating prover with config:', {
       server_name: serverDns,
@@ -89,7 +85,7 @@ export class ProveManager {
       });
       console.log('[ProveManager] Prover instance created, calling setup...');
 
-      await prover.setup(verifierUrl as string);
+      await prover.setup(sessionUrl as string);
       console.log('[ProveManager] Prover setup completed');
 
       this.provers.set(proverId, prover as any);
@@ -114,8 +110,8 @@ export class ProveManager {
     proxyUrl: string,
     options: {
       url: string;
-      method: Method;
-      headers?: Map<string, number[]>;
+      method?: Method;
+      headers?: Record<string, string>;
       body?: string;
     },
   ) {
@@ -123,7 +119,12 @@ export class ProveManager {
     await prover.send_request(proxyUrl, {
       uri: options.url,
       method: options.method as Method,
-      headers: options.headers || new Map(),
+      headers: new Map(
+        Object.entries(options.headers || {}).map(([key, value]) => [
+          key,
+          value.split('\n').map((line) => line.length),
+        ]),
+      ),
       body: options.body,
     });
   }
@@ -134,7 +135,13 @@ export class ProveManager {
     return transcript;
   }
 
-  async reveal(proverId: string, commit: Reveal) {
+  async reveal(
+    proverId: string,
+    commit: {
+      sent: { start: number; end: number }[];
+      recv: { start: number; end: number }[];
+    },
+  ) {
     const prover = await this.getProver(proverId);
     await prover.reveal({ ...commit, server_identity: true });
   }

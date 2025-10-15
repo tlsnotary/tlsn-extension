@@ -11,8 +11,7 @@ use tracing::{debug, info};
 
 /// Core verifier logic that validates the TLS proof
 pub async fn verify<T: AsyncWrite + AsyncRead + Send + Unpin + 'static>(
-    socket: T,
-    server_domain: &str,
+    socket: T
 ) -> Result<(String, String), eyre::ErrReport> {
     debug!("Starting verification...");
 
@@ -50,9 +49,6 @@ pub async fn verify<T: AsyncWrite + AsyncRead + Send + Unpin + 'static>(
     debug!("Starting sent data verification...");
     let sent = transcript.sent_unsafe().to_vec();
     let sent_data = String::from_utf8(sent.clone()).expect("Verifier expected sent data");
-    sent_data
-        .find(server_domain)
-        .ok_or_else(|| eyre!("Verification failed: Expected host {}", server_domain))?;
 
     // Check received data: check json and version number.
     debug!("Starting received data verification...");
@@ -66,13 +62,7 @@ pub async fn verify<T: AsyncWrite + AsyncRead + Send + Unpin + 'static>(
 
     // Check Session info: server name.
     let ServerName::Dns(dns_name) = server_name;
-    if dns_name.as_str() != server_domain {
-        return Err(eyre!(
-            "Verification failed: server name mismatches: {} != {}",
-            dns_name,
-            server_domain
-        ));
-    }
+    info!("Server name: {:?}", dns_name);
 
     let sent_string = bytes_to_redacted_string(&sent)?;
     let received_string = bytes_to_redacted_string(&received)?;

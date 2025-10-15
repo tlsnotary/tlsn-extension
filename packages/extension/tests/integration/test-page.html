@@ -401,7 +401,10 @@ const config = {
 };
 
 async function prove() {
-  const [header] = useHeaders(headers => headers.filter(header => header.url.includes('https://api.x.com/1.1/account/settings.json')));
+  const [header] = useHeaders(headers => {
+    console.log('from useHeaders', headers);
+    return headers.filter(header => header.url.includes('https://api.x.com/1.1/account/settings.json'));
+  });
   const headers = {
     'cookie': header.requestHeaders.find(header => header.name === 'Cookie')?.value,
     'x-csrf-token': header.requestHeaders.find(header => header.name === 'x-csrf-token')?.value,
@@ -412,7 +415,7 @@ async function prove() {
     Connection: 'close',
   };
   console.log('headers', headers);
-  const proverId = await createProver('api.x.com', 'ws://localhost:7047/verifier');
+  const proverId = await createProver('api.x.com', 'http://localhost:7047');
   console.log('prover', proverId);
   await sendRequest(proverId, 'wss://notary.pse.dev/proxy?token=api.x.com', {
     url: 'https://api.x.com/1.1/account/settings.json',
