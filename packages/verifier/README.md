@@ -57,30 +57,78 @@ curl http://localhost:7047/health
 # Response: ok
 ```
 
+### Create Session
+
+**POST** `/session`
+
+Creates a new verification session with specified data limits. Returns a session ID that can be used to connect to the verifier WebSocket.
+
+**Request Body:**
+```json
+{
+  "maxRecvData": 16384,
+  "maxSentData": 4096
+}
+```
+
+**Response:**
+```json
+{
+  "sessionId": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+**Example:**
+```bash
+curl -X POST http://localhost:7047/session \
+  -H "Content-Type: application/json" \
+  -d '{"maxRecvData": 16384, "maxSentData": 4096}'
+```
+
 ### Verifier WebSocket
 
-**WS** `/verifier`
+**WS** `/verifier?sessionId=<session-id>`
 
-Establishes a WebSocket connection for TLSNotary verification. Upon connection, the server spawns a verifier task that:
+Establishes a WebSocket connection for TLSNotary verification using a previously created session. Upon connection:
 
-1. Accepts the WebSocket connection
-2. Spawns a verifier with proper error handling
-3. Performs TLS proof verification using the tlsn library
-4. Logs results and automatically cleans up resources
+1. Validates the session ID exists
+2. Retrieves maxRecvData and maxSentData from the session
+3. Spawns a verifier with the configured limits
+4. Performs TLS proof verification
+5. Cleans up and removes the session when connection closes
+
+**Query Parameters:**
+- `sessionId` (required): Session ID returned from POST /session
+
+**Error Responses:**
+- `404 Not Found`: Session ID does not exist or has already been used
 
 **Example using websocat:**
 ```bash
-# Install websocat: cargo install websocat
-websocat ws://localhost:7047/verifier
+# First, create a session
+SESSION_ID=$(curl -s -X POST http://localhost:7047/session \
+  -H "Content-Type: application/json" \
+  -d '{"maxRecvData": 16384, "maxSentData": 4096}' | jq -r '.sessionId')
+
+# Then connect with the session ID
+websocat "ws://localhost:7047/verifier?sessionId=$SESSION_ID"
 ```
 
 **Example using JavaScript:**
 ```javascript
-const ws = new WebSocket('ws://localhost:7047/verifier');
+// Create a session first
+const response = await fetch('http://localhost:7047/session', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ maxRecvData: 16384, maxSentData: 4096 })
+});
+const { sessionId } = await response.json();
+
+// Connect to verifier with session ID
+const ws = new WebSocket(`ws://localhost:7047/verifier?sessionId=${sessionId}`);
 
 ws.onopen = () => {
   console.log('Connected to verifier');
-  // Send verification data
 };
 
 ws.onmessage = (event) => {
@@ -88,7 +136,7 @@ ws.onmessage = (event) => {
 };
 
 ws.onclose = () => {
-  console.log('Verifier disconnected');
+  console.log('Verifier disconnected, session cleaned up');
 };
 
 ws.onerror = (error) => {
@@ -100,17 +148,28 @@ ws.onerror = (error) => {
 
 The verifier implementation follows this flow:
 
-1. **WebSocket Connection**: Client connects to `/verifier` endpoint
-2. **Task Spawning**: Server spawns an async task for verification
-3. **Verification Process**:
-   - Configures protocol validator with data limits (2KB sent, 4KB received)
+1. **Session Creation**: Client sends POST request to `/session` with maxRecvData and maxSentData
+2. **Session Storage**: Server generates UUID, stores session config in HashMap
+3. **WebSocket Connection**: Client connects to `/verifier?sessionId=<id>`
+4. **Session Lookup**: Server validates session exists and retrieves configuration
+5. **Task Spawning**: Server spawns async task with session-specific limits
+6. **Verification Process**:
+   - Uses maxRecvData and maxSentData from session config
+   - Configures protocol validator with session limits
    - Creates verifier with TLSNotary config
    - Performs MPC-TLS verification
    - Validates server name and transcript data
-4. **Error Handling**: Any errors are caught, logged, and cleaned up automatically
-5. **Cleanup**: Task automatically cleans up resources when complete or on error
+7. **Error Handling**: Any errors are caught, logged, and cleaned up automatically
+8. **Cleanup**: Session is removed from storage when WebSocket closes
 
-**Note**: The current implementation includes a WebSocket-to-AsyncRead/AsyncWrite bridge placeholder. Full integration requires converting the axum WebSocket to a format compatible with the tlsn verifier's AsyncRead + AsyncWrite trait bounds.
+### Session Management
+
+- **Thread-safe storage**: Uses `Arc<Mutex<HashMap>>` for concurrent access
+- **One-time use**: Sessions are automatically removed after WebSocket closes
+- **Session isolation**: Each verifier gets independent maxRecvData/maxSentData limits
+- **Error handling**: Invalid session IDs return 404 before WebSocket upgrade
+
+**Note**: The current implementation logs all incoming WebSocket messages. Full verifier integration requires converting the axum WebSocket to AsyncRead/AsyncWrite format using the WsStream bridge.
 
 ## Configuration
 
