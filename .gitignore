@@ -11,3 +11,4 @@ zip
 .vscode
 .claude
 coverage
+verifier/target
