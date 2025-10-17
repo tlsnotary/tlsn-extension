@@ -17,7 +17,7 @@ export class ProveManager {
   async init() {
     await init({
       loggingLevel: 'Debug',
-      hardwareConcurrency: navigator.hardwareConcurrency,
+      hardwareConcurrency: 2,
       crateFilters: [
         { name: 'yamux', level: 'Info' },
         { name: 'uid_mux', level: 'Info' },
@@ -83,13 +83,17 @@ export class ProveManager {
         defer_decryption_from_start: undefined,
         client_auth: undefined,
       });
-      console.log('[ProveManager] Prover instance created, calling setup...');
+      console.log(
+        '[ProveManager] Prover instance created, calling setup...',
+        sessionUrl,
+      );
 
       await prover.setup(sessionUrl as string);
       console.log('[ProveManager] Prover setup completed');
 
       this.provers.set(proverId, prover as any);
       console.log('[ProveManager] Prover registered with ID:', proverId);
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       return proverId;
     } catch (error) {
       console.error('[ProveManager] Failed to create prover:', error);
