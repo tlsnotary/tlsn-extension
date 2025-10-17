@@ -402,7 +402,6 @@ const config = {
 
 async function prove() {
   const [header] = useHeaders(headers => {
-    console.log('from useHeaders', headers);
     return headers.filter(header => header.url.includes('https://api.x.com/1.1/account/settings.json'));
   });
   const headers = {

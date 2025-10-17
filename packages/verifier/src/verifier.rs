@@ -1,4 +1,3 @@
-use crate::config::{MAX_RECV_DATA, MAX_SENT_DATA};
 use eyre::eyre;
 use tlsn::{
     config::ProtocolConfigValidator,
@@ -10,26 +9,35 @@ use tokio_util::compat::TokioAsyncReadCompatExt;
 use tracing::{debug, info};
 
 /// Core verifier logic that validates the TLS proof
-pub async fn verify<T: AsyncWrite + AsyncRead + Send + Unpin + 'static>(
-    socket: T
+pub async fn verifier<T: AsyncWrite + AsyncRead + Send + Unpin + 'static>(
+    socket: T,
+    max_sent_data: usize,
+    max_recv_data: usize,
 ) -> Result<(String, String), eyre::ErrReport> {
-    debug!("Starting verification...");
+    info!("Starting verification with maxSentData={}, maxRecvData={}", max_sent_data, max_recv_data);
 
-    // Setup Verifier.
     let config_validator = ProtocolConfigValidator::builder()
-        .max_sent_data(MAX_SENT_DATA)
-        .max_recv_data(MAX_RECV_DATA)
+        .max_sent_data(max_sent_data)
+        .max_recv_data(max_recv_data)
         .build()
         .unwrap();
 
+    info!("config_validator: {:?}", config_validator);
     let verifier_config = VerifierConfig::builder()
         .protocol_config_validator(config_validator)
         .build()
         .unwrap();
+
+    info!("verifier_config: {:?}", verifier_config);
     let verifier = Verifier::new(verifier_config);
 
+    info!("✅ Created verifier");
+
     // Receive authenticated data.
-    debug!("Starting MPC-TLS verification...");
+    info!("🔄 Starting MPC-TLS verification...");
+    info!("⏳ BLOCKING: Waiting for prover to connect and send MPC-TLS handshake data...");
+    info!("   This will block until prover completes the TLS connection");
+    debug!("About to call verifier.verify() - this is the blocking point");
 
     let VerifierOutput {
         server_name,
@@ -40,29 +48,24 @@ pub async fn verify<T: AsyncWrite + AsyncRead + Send + Unpin + 'static>(
         .await
         .map_err(|e| eyre!("Verification failed: {}", e))?;
 
+    info!("✅ verify() returned successfully - prover sent all data");
+
     let server_name =
         server_name.ok_or_else(|| eyre!("prover should have revealed server name"))?;
     let transcript =
         transcript.ok_or_else(|| eyre!("prover should have revealed transcript data"))?;
 
-    // Check sent data: check host.
-    debug!("Starting sent data verification...");
+    info!("server_name: {:?}", server_name);
+    info!("transcript: {:?}", transcript);
+
+    // Extract sent and received data
+    info!("Extracting transcript data...");
     let sent = transcript.sent_unsafe().to_vec();
-    let sent_data = String::from_utf8(sent.clone()).expect("Verifier expected sent data");
-
-    // Check received data: check json and version number.
-    debug!("Starting received data verification...");
     let received = transcript.received_unsafe().to_vec();
-    let response = String::from_utf8(received.clone()).expect("Verifier expected received data");
-
-    debug!("Received data: {:?}", response);
-    response
-        .find("Ethereum Foundation")
-        .ok_or_else(|| eyre!("Verification failed: missing data in received data"))?;
 
     // Check Session info: server name.
     let ServerName::Dns(dns_name) = server_name;
-    info!("Server name: {:?}", dns_name);
+    info!("Server name verified: {:?}", dns_name);
 
     let sent_string = bytes_to_redacted_string(&sent)?;
     let received_string = bytes_to_redacted_string(&received)?;

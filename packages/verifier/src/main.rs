@@ -9,23 +9,30 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use axum_websocket::{Message, WebSocket, WebSocketUpgrade};
+use axum_websocket::{WebSocket, WebSocketUpgrade};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::Mutex;
+use tokio::time::timeout;
+use tokio_util::compat::FuturesAsyncReadCompatExt;
 use tower_http::cors::CorsLayer;
 use tracing::{error, info, warn};
 use tracing_subscriber;
 use uuid::Uuid;
+use ws_stream_tungstenite::WsStream;
+use verifier::verifier;
 
 #[tokio::main]
 async fn main() {
-    // Initialize tracing
+    // Initialize tracing with DEBUG level
     tracing_subscriber::fmt()
-        .with_target(false)
-        .compact()
+        .with_target(true)
+        .with_max_level(tracing::Level::DEBUG)
+        .with_thread_ids(true)
+        .with_line_number(true)
         .init();
 
     // Create application state with session storage
@@ -162,50 +169,53 @@ async fn verifier_ws_handler(
 
 // Handle WebSocket connections for verifier
 async fn handle_verifier_connection(
-    mut socket: WebSocket,
+    socket: WebSocket,
     state: Arc<AppState>,
     session_id: String,
     config: SessionConfig,
 ) {
     info!(
-        "Verifier WebSocket connection established for session: {}",
+        "[{}] Verifier WebSocket connection established",
         session_id
     );
     info!(
-        "Using configuration: maxRecvData={}, maxSentData={}",
-        config.max_recv_data, config.max_sent_data
+        "[{}] Configuration: maxRecvData={}, maxSentData={}",
+        session_id, config.max_recv_data, config.max_sent_data
     );
 
-    // Log all incoming messages
-    while let Some(msg_result) = socket.recv().await {
-        match msg_result {
-            Ok(Message::Text(text)) => {
-                info!("[{}] Received text message: {}", session_id, text);
-            }
-            Ok(Message::Binary(data)) => {
-                info!(
-                    "[{}] Received binary message: {} bytes",
-                    session_id,
-                    data.len()
-                );
-            }
-            Ok(Message::Ping(data)) => {
-                info!("[{}] Received ping: {} bytes", session_id, data.len());
-            }
-            Ok(Message::Pong(data)) => {
-                info!("[{}] Received pong: {} bytes", session_id, data.len());
-            }
-            Ok(Message::Close(close_frame)) => {
-                info!(
-                    "[{}] Received close message: {:?}",
-                    session_id, close_frame
-                );
-                break;
-            }
-            Err(e) => {
-                error!("[{}] Error receiving message: {}", session_id, e);
-                break;
-            }
+    // Convert WebSocket to WsStream for AsyncRead/AsyncWrite compatibility
+    let stream = WsStream::new(socket.into_inner());
+
+    info!("stream 1: {:?}", stream);
+
+    // Convert from futures AsyncRead/AsyncWrite to tokio AsyncRead/AsyncWrite
+    let stream = stream.compat();
+
+    info!("stream 2: {:?}", stream);
+
+    // Spawn the verifier task with timeout
+    let session_timeout = Duration::from_secs(120);
+
+    info!("[{}] Starting verifier with timeout of {:?}", session_id, session_timeout);
+
+    // Run the actual verification
+    let verification_result = timeout(
+        session_timeout,
+        verifier(stream, config.max_sent_data, config.max_recv_data)
+    ).await;
+
+    // Handle the verification result
+    match verification_result {
+        Ok(Ok((sent_data, received_data))) => {
+            info!("[{}] ✅ Verification completed successfully!", session_id);
+            info!("[{}] Sent data length: {} bytes", session_id, sent_data.len());
+            info!("[{}] Received data length: {} bytes", session_id, received_data.len());
+        }
+        Ok(Err(e)) => {
+            error!("[{}] ❌ Verification failed: {}", session_id, e);
+        }
+        Err(_) => {
+            error!("[{}] ⏱️  Verification timed out after {:?}", session_id, session_timeout);
         }
     }
 
@@ -213,11 +223,11 @@ async fn handle_verifier_connection(
     {
         let mut sessions = state.sessions.lock().await;
         if sessions.remove(&session_id).is_some() {
-            info!("Session {} cleaned up and removed", session_id);
+            info!("[{}] Session cleaned up and removed", session_id);
         } else {
-            warn!("Session {} was already removed", session_id);
+            warn!("[{}] Session was already removed", session_id);
         }
     }
 
-    info!("WebSocket connection closed for session: {}", session_id);
+    info!("[{}] WebSocket connection closed, verifier cleaned up", session_id);
 }
