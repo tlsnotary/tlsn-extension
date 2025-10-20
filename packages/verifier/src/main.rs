@@ -15,11 +15,11 @@ use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, oneshot};
 use tokio::time::timeout;
 use tokio_util::compat::FuturesAsyncReadCompatExt;
 use tower_http::cors::CorsLayer;
-use tracing::{error, info, warn};
+use tracing::{error, info};
 use tracing_subscriber;
 use uuid::Uuid;
 use ws_stream_tungstenite::WsStream;
@@ -30,7 +30,7 @@ async fn main() {
     // Initialize tracing with DEBUG level
     tracing_subscriber::fmt()
         .with_target(true)
-        .with_max_level(tracing::Level::DEBUG)
+        .with_max_level(tracing::Level::INFO)
         .with_thread_ids(true)
         .with_line_number(true)
         .init();
@@ -75,10 +75,13 @@ struct SessionConfig {
     max_sent_data: usize,
 }
 
+// Type alias for the WebSocket type that will be sent through the channel
+type SocketSender = oneshot::Sender<WebSocket>;
+
 // Application state for sharing data between handlers
 #[derive(Clone)]
 struct AppState {
-    sessions: Arc<Mutex<HashMap<String, SessionConfig>>>,
+    sessions: Arc<Mutex<HashMap<String, SocketSender>>>,
 }
 
 // Request body for creating a session
@@ -122,16 +125,28 @@ async fn create_session_handler(
         max_sent_data: payload.max_sent_data,
     };
 
-    // Store the session
-    {
-        let mut sessions = state.sessions.lock().await;
-        sessions.insert(session_id.clone(), session_config.clone());
-    }
-
     info!(
         "Created session {} with maxRecvData={}, maxSentData={}",
         session_id, payload.max_recv_data, payload.max_sent_data
     );
+
+    // Create oneshot channel for passing WebSocket to verifier
+    let (socket_tx, socket_rx) = oneshot::channel::<WebSocket>();
+
+    // Store the socket sender
+    {
+        let mut sessions = state.sessions.lock().await;
+        sessions.insert(session_id.clone(), socket_tx);
+    }
+
+    // Spawn the verifier task immediately
+    let session_id_clone = session_id.clone();
+    let state_clone = state.clone();
+    tokio::spawn(async move {
+        run_verifier_task(session_id_clone, session_config, socket_rx, state_clone).await;
+    });
+
+    info!("[{}] Verifier task spawned, waiting for WebSocket connection", session_id);
 
     Ok(Json(CreateSessionResponse { session_id }))
 }
@@ -144,38 +159,43 @@ async fn verifier_ws_handler(
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
     let session_id = query.session_id;
 
-    // Look up the session
-    let session_config = {
-        let sessions = state.sessions.lock().await;
-        sessions.get(&session_id).cloned()
+    // Look up the session and extract the socket sender
+    let socket_sender = {
+        let mut sessions = state.sessions.lock().await;
+        sessions.remove(&session_id)
     };
 
-    match session_config {
-        Some(config) => {
-            info!("WebSocket connection for session: {}", session_id);
-            Ok(ws.on_upgrade(move |socket| {
-                handle_verifier_connection(socket, state, session_id, config)
+    match socket_sender {
+        Some(sender) => {
+            info!("[{}] WebSocket connection established, passing to verifier", session_id);
+            Ok(ws.on_upgrade(move |socket| async move {
+                // Send the WebSocket to the waiting verifier
+                if let Err(_) = sender.send(socket) {
+                    error!("[{}] Failed to send socket to verifier - channel closed", session_id);
+                } else {
+                    info!("[{}] Socket passed to verifier successfully", session_id);
+                }
             }))
         }
         None => {
-            error!("Session not found: {}", session_id);
+            error!("[{}] Session not found or already connected", session_id);
             Err((
                 StatusCode::NOT_FOUND,
-                format!("Session not found: {}", session_id),
+                format!("Session not found or already connected: {}", session_id),
             ))
         }
     }
 }
 
-// Handle WebSocket connections for verifier
-async fn handle_verifier_connection(
-    socket: WebSocket,
-    state: Arc<AppState>,
+// Verifier task that waits for WebSocket and runs verification
+async fn run_verifier_task(
     session_id: String,
     config: SessionConfig,
+    socket_rx: oneshot::Receiver<WebSocket>,
+    state: Arc<AppState>,
 ) {
     info!(
-        "[{}] Verifier WebSocket connection established",
+        "[{}] Verifier task started, waiting for WebSocket connection...",
         session_id
     );
     info!(
@@ -183,26 +203,49 @@ async fn handle_verifier_connection(
         session_id, config.max_recv_data, config.max_sent_data
     );
 
+    // Wait for WebSocket connection with timeout
+    let connection_timeout = Duration::from_secs(30);
+    let socket_result = timeout(connection_timeout, socket_rx).await;
+
+    let socket = match socket_result {
+        Ok(Ok(socket)) => {
+            info!("[{}] ✅ WebSocket received, starting verification", session_id);
+            socket
+        }
+        Ok(Err(_)) => {
+            error!("[{}] ❌ Socket channel closed before connection", session_id);
+            cleanup_session(&state, &session_id).await;
+            return;
+        }
+        Err(_) => {
+            error!(
+                "[{}] ⏱️  Timed out waiting for WebSocket connection after {:?}",
+                session_id, connection_timeout
+            );
+            cleanup_session(&state, &session_id).await;
+            return;
+        }
+    };
+
     // Convert WebSocket to WsStream for AsyncRead/AsyncWrite compatibility
     let stream = WsStream::new(socket.into_inner());
-
-    info!("stream 1: {:?}", stream);
+    info!("[{}] WebSocket converted to stream", session_id);
 
     // Convert from futures AsyncRead/AsyncWrite to tokio AsyncRead/AsyncWrite
     let stream = stream.compat();
 
-    info!("stream 2: {:?}", stream);
+    // Run the verifier with timeout
+    let verification_timeout = Duration::from_secs(120);
+    info!(
+        "[{}] Starting verification with timeout of {:?}",
+        session_id, verification_timeout
+    );
 
-    // Spawn the verifier task with timeout
-    let session_timeout = Duration::from_secs(120);
-
-    info!("[{}] Starting verifier with timeout of {:?}", session_id, session_timeout);
-
-    // Run the actual verification
     let verification_result = timeout(
-        session_timeout,
-        verifier(stream, config.max_sent_data, config.max_recv_data)
-    ).await;
+        verification_timeout,
+        verifier(stream, config.max_sent_data, config.max_recv_data),
+    )
+    .await;
 
     // Handle the verification result
     match verification_result {
@@ -215,19 +258,23 @@ async fn handle_verifier_connection(
             error!("[{}] ❌ Verification failed: {}", session_id, e);
         }
         Err(_) => {
-            error!("[{}] ⏱️  Verification timed out after {:?}", session_id, session_timeout);
+            error!(
+                "[{}] ⏱️  Verification timed out after {:?}",
+                session_id, verification_timeout
+            );
         }
     }
 
-    // Clean up: remove session from storage
-    {
-        let mut sessions = state.sessions.lock().await;
-        if sessions.remove(&session_id).is_some() {
-            info!("[{}] Session cleaned up and removed", session_id);
-        } else {
-            warn!("[{}] Session was already removed", session_id);
-        }
-    }
+    // Clean up session (if it still exists in the map)
+    cleanup_session(&state, &session_id).await;
 
-    info!("[{}] WebSocket connection closed, verifier cleaned up", session_id);
+    info!("[{}] Verifier task completed and cleaned up", session_id);
+}
+
+// Helper function to clean up session from state
+async fn cleanup_session(state: &Arc<AppState>, session_id: &str) {
+    let mut sessions = state.sessions.lock().await;
+    if sessions.remove(session_id).is_some() {
+        info!("[{}] Session removed from state", session_id);
+    }
 }

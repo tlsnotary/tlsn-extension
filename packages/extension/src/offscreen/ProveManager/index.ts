@@ -4,7 +4,6 @@ import type {
   Prover as TProver,
   Method,
 } from '../../../../tlsn-wasm-pkg/tlsn_wasm';
-import { Reveal } from '../../../../tlsn-wasm-pkg/tlsn_wasm';
 
 const { init, Prover } = Comlink.wrap<{
   init: any;
@@ -17,7 +16,7 @@ export class ProveManager {
   async init() {
     await init({
       loggingLevel: 'Debug',
-      hardwareConcurrency: 2,
+      hardwareConcurrency: navigator.hardwareConcurrency,
       crateFilters: [
         { name: 'yamux', level: 'Info' },
         { name: 'uid_mux', level: 'Info' },
@@ -120,15 +119,15 @@ export class ProveManager {
     },
   ) {
     const prover = await this.getProver(proverId);
+
+    const headerMap: Map<string, number[]> = new Map();
+    Object.entries(options.headers || {}).forEach(([key, value]) => {
+      headerMap.set(key, Buffer.from(value).toJSON().data);
+    });
     await prover.send_request(proxyUrl, {
       uri: options.url,
       method: options.method as Method,
-      headers: new Map(
-        Object.entries(options.headers || {}).map(([key, value]) => [
-          key,
-          value.split('\n').map((line) => line.length),
-        ]),
-      ),
+      headers: headerMap,
       body: options.body,
     });
   }
