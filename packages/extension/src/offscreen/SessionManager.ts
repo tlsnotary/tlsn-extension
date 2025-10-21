@@ -77,6 +77,29 @@ export class SessionManager {
       };
     } = {};
 
+    let doneResolve: (args?: any[]) => void;
+
+    const donePromise = new Promise((resolve) => {
+      doneResolve = resolve;
+    });
+
+    /**
+     * The sandbox is a sandboxed environment that is used to execute the plugin code.
+     * It is created using the createEvalCode method from the plugin-sdk.
+     * The sandbox is created with the following capabilities:
+     * - div: a function that creates a div element
+     * - button: a function that creates a button element
+     * - openWindow: a function that opens a new window
+     * - useEffect: a function that creates a useEffect hook
+     * - useRequests: a function that creates a useRequests hook
+     * - useHeaders: a function that creates a useHeaders hook
+     * - subtractRanges: a function that subtracts ranges
+     * - mapStringToRange: a function that maps a string to a range
+     * - createProver: a function that creates a prover
+     * - sendRequest: a function that sends a request
+     * - transcript: a function that returns the transcript
+     * - reveal: a function that reveals a commit
+     */
     const sandbox = await this.host.createEvalCode({
       div: this.createDomJson.bind(this, 'div'),
       button: this.createDomJson.bind(this, 'button'),
@@ -107,6 +130,9 @@ export class SessionManager {
       reveal: (proverId: string, commit: Commit) => {
         return this.proveManager.reveal(proverId, commit);
       },
+      done: (args?: any[]) => {
+        doneResolve(args);
+      },
     });
 
     const exportedCode = await sandbox.eval(`
@@ -122,6 +148,7 @@ const transcript = env.transcript;
 const subtractRanges = env.subtractRanges;
 const mapStringToRange = env.mapStringToRange;
 const reveal = env.reveal;
+const done = env.done;
 ${code};
 `);
 
@@ -209,7 +236,9 @@ ${code};
       callbacks: callbacks,
     });
 
-    return main();
+    main();
+
+    return donePromise;
   }
 
   updateSession(

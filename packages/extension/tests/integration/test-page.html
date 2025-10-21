@@ -441,6 +441,7 @@ async function prove() {
   
   console.log('commit', commit);
   await reveal(proverId, commit);
+  done(proverId);
 }
 
 function main() {
