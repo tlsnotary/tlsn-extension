@@ -185,6 +185,7 @@ window.addEventListener('message', (event) => {
         requestId: event.data.payload.requestId,
       })
       .then((response) => {
+        console.log('[Content Script] EXEC_CODE response:', response);
         // Send response back to page
         window.postMessage(
           {

@@ -131,6 +131,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
           code: request.code,
           requestId: request.requestId,
         });
+        console.log('[Background] EXEC_CODE_OFFSCREEN response:', response);
         sendResponse(response);
       })
       .catch((error) => {
