@@ -99,6 +99,8 @@ export class SessionManager {
      * - sendRequest: a function that sends a request
      * - transcript: a function that returns the transcript
      * - reveal: a function that reveals a commit
+     * - closeWindow: a function that closes a window by windowId
+     * - done: a function that completes the session and closes the window
      */
     const sandbox = await this.host.createEvalCode({
       div: this.createDomJson.bind(this, 'div'),
@@ -130,7 +132,43 @@ export class SessionManager {
       reveal: (proverId: string, commit: Commit) => {
         return this.proveManager.reveal(proverId, commit);
       },
+      closeWindow: async (windowId: number) => {
+        const chromeRuntime = (
+          global as unknown as { chrome?: { runtime?: any } }
+        ).chrome?.runtime;
+        if (!chromeRuntime?.sendMessage) {
+          throw new Error('Chrome runtime not available');
+        }
+
+        const response = await chromeRuntime.sendMessage({
+          type: 'CLOSE_WINDOW',
+          windowId,
+        });
+
+        if (response?.type === 'WINDOW_ERROR') {
+          throw new Error(
+            response.payload?.details ||
+              response.payload?.error ||
+              'Failed to close window',
+          );
+        }
+
+        return response;
+      },
       done: (args?: any[]) => {
+        // Close the window if it exists
+        const session = this.sessions.get(uuid);
+        if (session?.windowId) {
+          const chromeRuntime = (
+            global as unknown as { chrome?: { runtime?: any } }
+          ).chrome?.runtime;
+          if (chromeRuntime?.sendMessage) {
+            chromeRuntime.sendMessage({
+              type: 'CLOSE_WINDOW',
+              windowId: session.windowId,
+            });
+          }
+        }
         doneResolve(args);
       },
     });
@@ -148,6 +186,7 @@ const transcript = env.transcript;
 const subtractRanges = env.subtractRanges;
 const mapStringToRange = env.mapStringToRange;
 const reveal = env.reveal;
+const closeWindow = env.closeWindow;
 const done = env.done;
 ${code};
 `);

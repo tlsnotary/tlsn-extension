@@ -121,6 +121,8 @@ export class WindowManager implements IWindowManager {
     // Remove from tracking
     this.windows.delete(windowId);
 
+    browser.windows.remove(windowId);
+
     browser.runtime.sendMessage({
       type: 'WINDOW_CLOSED',
       windowId,
