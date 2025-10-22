@@ -145,6 +145,51 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
     return true; // Keep message channel open for async response
   }
 
+  // Handle CLOSE_WINDOW requests
+  if (request.type === 'CLOSE_WINDOW') {
+    console.log(
+      '[Background] CLOSE_WINDOW request received:',
+      request.windowId,
+    );
+
+    if (!request.windowId) {
+      console.error('[Background] No windowId provided');
+      sendResponse({
+        type: 'WINDOW_ERROR',
+        payload: {
+          error: 'No windowId provided',
+          details: 'windowId is required to close a window',
+        },
+      });
+      return true;
+    }
+
+    // Close the window using WindowManager
+    windowManager
+      .closeWindow(request.windowId)
+      .then(() => {
+        console.log(`[Background] Window ${request.windowId} closed`);
+        sendResponse({
+          type: 'WINDOW_CLOSED',
+          payload: {
+            windowId: request.windowId,
+          },
+        });
+      })
+      .catch((error) => {
+        console.error('[Background] Error closing window:', error);
+        sendResponse({
+          type: 'WINDOW_ERROR',
+          payload: {
+            error: 'Failed to close window',
+            details: String(error),
+          },
+        });
+      });
+
+    return true; // Keep message channel open for async response
+  }
+
   // Handle OPEN_WINDOW requests from content scripts
   if (request.type === 'OPEN_WINDOW') {
     console.log('[Background] OPEN_WINDOW request received:', request.url);
