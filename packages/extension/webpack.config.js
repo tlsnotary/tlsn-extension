@@ -48,7 +48,7 @@ var options = {
     /Critical dependency: the request of a dependency is an expression/,
   ],
   entry: {
-    popup: path.join(__dirname, "src", "entries", "Popup", "index.tsx"),
+    devConsole: path.join(__dirname, "src", "entries", "DevConsole", "index.tsx"),
     background: path.join(__dirname, "src", "entries", "Background", "index.ts"),
     contentScript: path.join(__dirname, "src", "entries", "Content", "index.ts"),
     content: path.join(__dirname, "src", "entries", "Content", "content.ts"),
@@ -244,9 +244,9 @@ var options = {
       ],
     }),
     new HtmlWebpackPlugin({
-      template: path.join(__dirname, "src", "entries", "Popup", "index.html"),
-      filename: "popup.html",
-      chunks: ["popup"],
+      template: path.join(__dirname, "src", "entries", "DevConsole", "index.html"),
+      filename: "devConsole.html",
+      chunks: ["devConsole"],
       cache: false,
     }),
     new HtmlWebpackPlugin({
