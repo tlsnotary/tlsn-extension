@@ -13,6 +13,23 @@ console.log('Background script loaded');
 // Initialize WindowManager for multi-window support
 const windowManager = new WindowManager();
 
+// Create context menu for Developer Console
+browser.contextMenus.create({
+  id: 'developer-console',
+  title: 'Developer Console',
+  contexts: ['all'],
+});
+
+// Handle context menu clicks
+browser.contextMenus.onClicked.addListener((info, tab) => {
+  if (info.menuItemId === 'developer-console') {
+    // Open Developer Console in a new tab
+    browser.tabs.create({
+      url: browser.runtime.getURL('devConsole.html'),
+    });
+  }
+});
+
 // Handle extension install/update
 browser.runtime.onInstalled.addListener((details) => {
   console.log('Extension installed/updated:', details.reason);
