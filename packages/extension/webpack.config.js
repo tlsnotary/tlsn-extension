@@ -114,6 +114,7 @@ var options = {
             loader: require.resolve("ts-loader"),
             options: {
               transpileOnly: isDevelopment,
+              compiler: require.resolve("typescript"),
             },
           },
         ],
