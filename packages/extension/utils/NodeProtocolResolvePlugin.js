@@ -9,21 +9,27 @@ class NodeProtocolResolvePlugin {
   }
 
   apply(compiler) {
-    compiler.hooks.normalModuleFactory.tap('NodeProtocolResolvePlugin', (nmf) => {
-      nmf.hooks.beforeResolve.tap('NodeProtocolResolvePlugin', (resolveData) => {
-        const request = resolveData.request;
+    compiler.hooks.normalModuleFactory.tap(
+      'NodeProtocolResolvePlugin',
+      (nmf) => {
+        nmf.hooks.beforeResolve.tap(
+          'NodeProtocolResolvePlugin',
+          (resolveData) => {
+            const request = resolveData.request;
 
-        if (request && request.startsWith('node:')) {
-          const aliasTarget = this.aliases[request];
+            if (request && request.startsWith('node:')) {
+              const aliasTarget = this.aliases[request];
 
-          if (aliasTarget) {
-            resolveData.request = aliasTarget;
-          }
-        }
+              if (aliasTarget) {
+                resolveData.request = aliasTarget;
+              }
+            }
 
-        // Don't return anything - just modify resolveData in place
-      });
-    });
+            // Don't return anything - just modify resolveData in place
+          },
+        );
+      },
+    );
   }
 }
 
