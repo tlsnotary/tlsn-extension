@@ -22,7 +22,7 @@ jobs:
         run: find . -name "package-lock.json" -type f -delete
 
       - name: Install dependencies
-        run: npm install
+        run: npm install --legacy-peer-deps
 
       - name: Lint all packages
         run: npm run lint
