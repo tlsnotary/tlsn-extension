@@ -22,7 +22,7 @@
     "clean": "rm -rf packages/*/node_modules packages/*/dist packages/*/build node_modules"
   },
   "devDependencies": {
-    "typescript": "^4.9.4",
+    "typescript": "^5.5.4",
     "vite": "^7.1.7"
   }
 }
