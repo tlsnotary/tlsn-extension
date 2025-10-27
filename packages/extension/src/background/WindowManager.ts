@@ -234,6 +234,16 @@ export class WindowManager implements IWindowManager {
       windowId,
     });
 
+    // Update overlay if visible
+    if (window.overlayVisible) {
+      this.updateOverlay(windowId).catch((error) => {
+        console.warn(
+          `[WindowManager] Failed to update overlay for window ${windowId}:`,
+          error,
+        );
+      });
+    }
+
     // Enforce request limit per window to prevent unbounded memory growth
     if (window.requests.length > MAX_REQUESTS_PER_WINDOW) {
       const removed = window.requests.length - MAX_REQUESTS_PER_WINDOW;
@@ -370,6 +380,7 @@ export class WindowManager implements IWindowManager {
     try {
       await browser.tabs.sendMessage(window.tabId, {
         type: 'SHOW_TLSN_OVERLAY',
+        requests: window.requests,
       });
 
       window.overlayVisible = true;
