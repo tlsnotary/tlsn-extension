@@ -3,11 +3,15 @@ export function readFileSync() {
   return '';
 }
 
-export function writeFileSync() {}
+export function writeFileSync() {
+  // No-op mock for browser compatibility
+}
 export function existsSync() {
   return false;
 }
-export function mkdirSync() {}
+export function mkdirSync() {
+  // No-op mock for browser compatibility
+}
 export function readdirSync() {
   return [];
 }

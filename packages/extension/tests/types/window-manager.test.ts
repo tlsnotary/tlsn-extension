@@ -143,16 +143,26 @@ describe('WindowManager Type Definitions', () => {
           overlayVisible: false,
           showOverlayWhenReady: config.showOverlay !== false,
         }),
-        closeWindow: async (windowId: number) => {},
+        closeWindow: async (windowId: number) => {
+          /* no-op mock */
+        },
         getWindow: (windowId: number) => undefined,
         getWindowByTabId: (tabId: number) => undefined,
         getAllWindows: () => new Map(),
-        addRequest: (windowId: number, request: InterceptedRequest) => {},
+        addRequest: (windowId: number, request: InterceptedRequest) => {
+          /* no-op mock */
+        },
         getWindowRequests: (windowId: number) => [],
-        showOverlay: async (windowId: number) => {},
-        hideOverlay: async (windowId: number) => {},
+        showOverlay: async (windowId: number) => {
+          /* no-op mock */
+        },
+        hideOverlay: async (windowId: number) => {
+          /* no-op mock */
+        },
         isOverlayVisible: (windowId: number) => false,
-        cleanupInvalidWindows: async () => {},
+        cleanupInvalidWindows: async () => {
+          /* no-op mock */
+        },
       };
 
       expect(mockWindowManager.registerWindow).toBeDefined();
@@ -180,16 +190,26 @@ describe('WindowManager Type Definitions', () => {
           overlayVisible: false,
           showOverlayWhenReady: config.showOverlay !== false,
         }),
-        closeWindow: async (windowId) => {},
+        closeWindow: async (windowId) => {
+          /* no-op mock */
+        },
         getWindow: (windowId) => undefined,
         getWindowByTabId: (tabId) => undefined,
         getAllWindows: () => new Map(),
-        addRequest: (windowId, request) => {},
+        addRequest: (windowId, request) => {
+          /* no-op mock */
+        },
         getWindowRequests: (windowId) => [],
-        showOverlay: async (windowId) => {},
-        hideOverlay: async (windowId) => {},
+        showOverlay: async (windowId) => {
+          /* no-op mock */
+        },
+        hideOverlay: async (windowId) => {
+          /* no-op mock */
+        },
         isOverlayVisible: (windowId) => false,
-        cleanupInvalidWindows: async () => {},
+        cleanupInvalidWindows: async () => {
+          /* no-op mock */
+        },
       };
 
       // Test registerWindow returns Promise<ManagedWindow>

@@ -1,3 +1,6 @@
+/* eslint-env node */
+/* global useHeaders, createProver, sendRequest, transcript, subtractRanges, mapStringToRange, reveal, useEffect, openWindow, div, button, Buffer */
+
 const config = {
   name: 'X Profile Prover',
   description: 'This plugin will prove your X.com profile.',

@@ -5,7 +5,7 @@
  * request tracking, overlay management, and cleanup.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { WindowManager } from '../../src/background/WindowManager';
 import type {
   WindowRegistration,
@@ -268,7 +268,9 @@ describe('WindowManager', () => {
     it('should log error when adding request to non-existent window', () => {
       const consoleErrorSpy = vi
         .spyOn(console, 'error')
-        .mockImplementation(() => {});
+        .mockImplementation(() => {
+          /* no-op mock */
+        });
 
       const request: InterceptedRequest = {
         id: 'req-1',
