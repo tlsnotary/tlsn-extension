@@ -5,7 +5,7 @@
  * including mocking browser APIs for Chrome extension testing.
  */
 
-import { vi } from 'vitest';
+import { vi, beforeEach } from 'vitest';
 
 // Create a mock chrome object with runtime.id (required for webextension-polyfill)
 const chromeMock = {
