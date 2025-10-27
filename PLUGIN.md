@@ -69,7 +69,6 @@ The TLSN Extension features a **secure plugin system** that allows developers to
 │  │  │  │   Plugin Code (Isolated)   │ │           │        │
 │  │  │  │                            │ │           │        │
 │  │  │  │  - main() → UI rendering  │ │           │        │
-│  │  │  │  - prove() → TLS proof    │ │           │        │
 │  │  │  │  - callbacks → User actions│ │           │        │
 │  │  │  │                            │ │           │        │
 │  │  │  │  Access via env object:   │ │           │        │
