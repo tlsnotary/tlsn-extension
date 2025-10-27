@@ -4,18 +4,17 @@
  * SDK for developing and running TLSN WebAssembly plugins
  */
 
-import { SandboxEvalCode, type SandboxOptions, loadQuickJs } from "@sebastianwessel/quickjs";
-import variant from "@jitl/quickjs-ng-wasmfile-release-sync";
+import { SandboxEvalCode, type SandboxOptions, loadQuickJs } from '@sebastianwessel/quickjs';
+import variant from '@jitl/quickjs-ng-wasmfile-release-sync';
 
 export class Host {
-
   private capabilities: Map<string, (...args: any[]) => any> = new Map();
 
   addCapability(name: string, handler: (...args: any[]) => any): void {
     this.capabilities.set(name, handler);
   }
 
-  async createEvalCode(capabilities?: {[method: string]: (...args: any[]) => any}): Promise<{
+  async createEvalCode(capabilities?: { [method: string]: (...args: any[]) => any }): Promise<{
     eval: (code: string) => Promise<any>;
     dispose: () => void;
   }> {
@@ -47,7 +46,7 @@ export class Host {
 
     // Wait for evalCode to be ready
     while (!evalCode) {
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 10));
     }
 
     // Return evalCode and dispose function
@@ -69,11 +68,14 @@ export class Host {
           disposeCallback();
           disposeCallback = null;
         }
-      }
+      },
     };
   }
 
-  async run(code: string, capabilities?: {[method: string]: (...args: any[]) => any}): Promise<any> {
+  async run(
+    code: string,
+    capabilities?: { [method: string]: (...args: any[]) => any },
+  ): Promise<any> {
     const { runSandboxed } = await loadQuickJs(variant);
 
     const options: SandboxOptions = {
@@ -88,7 +90,6 @@ export class Host {
     const result = await runSandboxed(async ({ evalCode }) => {
       return evalCode(code);
     }, options);
-
 
     if (!result.ok) {
       const err = new Error(result.error.message);
