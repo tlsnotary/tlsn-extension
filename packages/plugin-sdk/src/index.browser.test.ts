@@ -2,9 +2,9 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 // Mock the Host class for browser environment
 class MockHost {
-  private capabilities: Map<string, Function> = new Map();
+  private capabilities: Map<string, (...args: any[]) => any> = new Map();
 
-  addCapability(name: string, fn: Function): void {
+  addCapability(name: string, fn: (...args: any[]) => any): void {
     this.capabilities.set(name, fn);
   }
 
