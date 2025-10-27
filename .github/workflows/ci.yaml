@@ -18,6 +18,9 @@ jobs:
           node-version: 18
           cache: 'npm'
 
+      - name: Remove all package-lock files
+        run: find . -name "package-lock.json" -type f -delete
+
       - name: Install dependencies
         run: npm ci
 
