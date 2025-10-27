@@ -18,20 +18,17 @@ jobs:
           node-version: 18
           cache: 'npm'
 
-      - name: Remove all package-lock files
-        run: find . -name "package-lock.json" -type f -delete
-
       - name: Install dependencies
-        run: npm install --legacy-peer-deps
+        run: npm ci
 
-      - name: Lint all packages
-        run: npm run lint
+      - name: Lint extension and plugin-sdk
+        run: npm run lint --workspace=extension --workspace=plugin-sdk
 
-      - name: Test all packages
-        run: npm run test
+      - name: Test extension and plugin-sdk
+        run: npm run test --workspace=extension --workspace=plugin-sdk
 
-      - name: Build all packages
-        run: npm run build:all
+      - name: Build extension and plugin-sdk
+        run: npm run build --workspace=extension --workspace=plugin-sdk
 
       - name: Save extension zip file for releases
         if: github.event_name == 'release'
