@@ -90,6 +90,7 @@ vi.mock('webextension-polyfill', () => ({
     windows: {
       create: vi.fn(),
       get: vi.fn(),
+      remove: vi.fn(),
       onRemoved: {
         addListener: vi.fn(),
         removeListener: vi.fn(),
