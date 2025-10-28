@@ -194,6 +194,167 @@ async fn handle_proxy_test(ws: tokio_tungstenite::WebSocketStream<tokio::net::Tc
     println!("  Proxy Handler: connection closed");
 }
 
+/// Test real HTTP request through proxy
+/// Note: This uses httpbin.org which supports plain HTTP
+/// For HTTPS (like swapi.dev), the CLIENT must handle TLS encryption
+/// The proxy only forwards raw TCP bytes
+#[tokio::test]
+async fn test_proxy_real_http_request() {
+    println!("\n=== Testing Real HTTP Request through Proxy ===\n");
+    println!("ℹ️  Note: Testing with httpbin.org (plain HTTP)");
+    println!("ℹ️  For HTTPS endpoints, client must handle TLS layer\n");
+
+    // Start the proxy server
+    let proxy_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let proxy_addr = proxy_listener.local_addr().unwrap();
+    println!("✓ Proxy server listening on {}", proxy_addr);
+
+    // Spawn proxy server that connects to httpbin.org:80
+    tokio::spawn(async move {
+        while let Ok((stream, client_addr)) = proxy_listener.accept().await {
+            println!("  Proxy: accepted WebSocket connection from {}", client_addr);
+
+            tokio::spawn(async move {
+                match tokio_tungstenite::accept_async(stream).await {
+                    Ok(ws) => {
+                        println!("  Proxy: WebSocket handshake completed");
+                        // Use httpbin.org on port 80 (plain HTTP)
+                        handle_proxy_test(ws, "httpbin.org:80".to_string()).await;
+                    }
+                    Err(e) => {
+                        println!("  Proxy: WebSocket handshake failed: {}", e);
+                    }
+                }
+            });
+        }
+    });
+
+    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+
+    // Connect WebSocket client to proxy
+    let ws_url = format!("ws://{}", proxy_addr);
+    println!("✓ Connecting to proxy at {}", ws_url);
+
+    let (ws_stream, _) = connect_async(&ws_url).await.unwrap();
+    let (mut ws_write, mut ws_read) = ws_stream.split();
+    println!("✓ WebSocket connected");
+
+    // Construct HTTP GET request to httpbin.org/json endpoint
+    let http_request = format!(
+        "GET /json HTTP/1.1\r\n\
+         Host: httpbin.org\r\n\
+         User-Agent: rust-proxy-test\r\n\
+         Accept: application/json\r\n\
+         Connection: close\r\n\
+         \r\n"
+    );
+
+    println!("\n📤 Sending HTTP request:");
+    println!("{}", http_request);
+
+    // Send HTTP request as binary WebSocket message
+    ws_write
+        .send(Message::Binary(http_request.as_bytes().to_vec()))
+        .await
+        .unwrap();
+
+    println!("✓ HTTP request sent through WebSocket\n");
+
+    // Collect response data
+    let mut response_data = Vec::new();
+    let mut message_count = 0;
+
+    println!("📥 Receiving HTTP response...\n");
+
+    // Set timeout for receiving response
+    let timeout_duration = tokio::time::Duration::from_secs(10);
+    let start = tokio::time::Instant::now();
+
+    // Read all binary messages until connection closes or timeout
+    while let Some(result) = ws_read.next().await {
+        if start.elapsed() > timeout_duration {
+            println!("⚠️  Timeout waiting for response");
+            break;
+        }
+
+        match result {
+            Ok(Message::Binary(data)) => {
+                message_count += 1;
+                println!("  Received chunk #{}: {} bytes", message_count, data.len());
+                response_data.extend_from_slice(&data);
+
+                // Check if we've received the complete response
+                let response_str = String::from_utf8_lossy(&response_data);
+                if response_str.contains("Content-Length:") {
+                    // Try to parse content length and check if we have all data
+                    if let Some(content_length_line) = response_str.lines().find(|l| l.starts_with("Content-Length:")) {
+                        if let Some(length_str) = content_length_line.split(':').nth(1) {
+                            if let Ok(expected_length) = length_str.trim().parse::<usize>() {
+                                // Check if we have headers + body
+                                if let Some(body_start) = response_str.find("\r\n\r\n") {
+                                    let body_received = response_data.len() - (body_start + 4);
+                                    if body_received >= expected_length {
+                                        println!("  ✓ Received complete response ({} bytes body)", body_received);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Ok(Message::Close(_)) => {
+                println!("  WebSocket closed by server");
+                break;
+            }
+            Ok(msg) => {
+                println!("  Received non-binary message: {:?}", msg);
+            }
+            Err(e) => {
+                println!("  WebSocket error: {}", e);
+                break;
+            }
+        }
+    }
+
+    println!("\n✓ Received total {} bytes in {} chunks\n", response_data.len(), message_count);
+
+    // Parse HTTP response
+    let response_str = String::from_utf8_lossy(&response_data);
+
+    // Print first 500 chars of response
+    let preview_len = response_str.len().min(500);
+    println!("--- HTTP Response (first {} chars) ---", preview_len);
+    println!("{}", &response_str[..preview_len]);
+    if response_str.len() > 500 {
+        println!("... ({} more chars)", response_str.len() - 500);
+    }
+    println!("--- End Response ---\n");
+
+    // Verify response
+    assert!(response_data.len() > 0, "Should receive response data");
+    assert!(response_str.contains("HTTP/"), "Should contain HTTP status line");
+    assert!(
+        response_str.contains("200"),
+        "Should receive HTTP 200 OK status"
+    );
+
+    // Check for expected JSON content from httpbin.org/json
+    if response_str.contains("{") {
+        println!("✓ Response contains JSON data");
+        if response_str.contains("slideshow") {
+            println!("✓ Response contains expected httpbin.org/json content");
+        }
+    }
+
+    println!("\n✅ Real HTTP proxy test passed!");
+    println!("\nℹ️  Note on HTTPS:");
+    println!("  For HTTPS endpoints like https://swapi.dev/api/starships/9/:");
+    println!("  1. The proxy forwards raw TCP (works for both HTTP and HTTPS)");
+    println!("  2. The CLIENT must perform TLS handshake for HTTPS");
+    println!("  3. For TLSNotary use case, MPC-TLS handles the encrypted connection\n");
+}
+
 /// Simple test to verify WebSocket client can send/receive binary messages
 #[tokio::test]
 async fn test_websocket_binary_frames() {
