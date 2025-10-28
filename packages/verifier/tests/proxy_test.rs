@@ -322,14 +322,10 @@ async fn test_proxy_real_http_request() {
     // Parse HTTP response
     let response_str = String::from_utf8_lossy(&response_data);
 
-    // Print first 500 chars of response
-    let preview_len = response_str.len().min(500);
-    println!("--- HTTP Response (first {} chars) ---", preview_len);
-    println!("{}", &response_str[..preview_len]);
-    if response_str.len() > 500 {
-        println!("... ({} more chars)", response_str.len() - 500);
-    }
-    println!("--- End Response ---\n");
+    // Print COMPLETE transcript
+    println!("==================== FULL HTTP TRANSCRIPT ====================");
+    println!("{}", response_str);
+    println!("==================== END TRANSCRIPT ({} bytes) ====================\n", response_data.len());
 
     // Verify response
     assert!(response_data.len() > 0, "Should receive response data");
