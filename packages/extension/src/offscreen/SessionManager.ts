@@ -99,6 +99,7 @@ export class SessionManager {
      * - sendRequest: a function that sends a request
      * - transcript: a function that returns the transcript
      * - reveal: a function that reveals a commit
+     * - getResponse: a function that returns the verification response (sent/received data) or null
      * - closeWindow: a function that closes a window by windowId
      * - done: a function that completes the session and closes the window
      */
@@ -131,6 +132,9 @@ export class SessionManager {
       },
       reveal: (proverId: string, commit: Commit) => {
         return this.proveManager.reveal(proverId, commit);
+      },
+      getResponse: (proverId: string) => {
+        return this.proveManager.getResponse(proverId);
       },
       closeWindow: async (windowId: number) => {
         const chromeRuntime = (
@@ -186,6 +190,7 @@ const transcript = env.transcript;
 const subtractRanges = env.subtractRanges;
 const mapStringToRange = env.mapStringToRange;
 const reveal = env.reveal;
+const getResponse = env.getResponse;
 const closeWindow = env.closeWindow;
 const done = env.done;
 ${code};

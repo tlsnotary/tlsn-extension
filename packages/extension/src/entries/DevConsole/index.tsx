@@ -85,7 +85,8 @@ async function prove() {
 
   console.log('commit', commit);
   await reveal(proverId, commit);
-  done(proverId);
+  const response = await getResponse(proverId);
+  done(JSON.stringify(response));
 }
 
 function main() {
