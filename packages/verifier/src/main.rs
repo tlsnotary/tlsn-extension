@@ -15,11 +15,12 @@ use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::{Mutex, oneshot};
 use tokio::time::timeout;
 use tokio_util::compat::FuturesAsyncReadCompatExt;
 use tower_http::cors::CorsLayer;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 use tracing_subscriber;
 use uuid::Uuid;
 use ws_stream_tungstenite::WsStream;
@@ -45,6 +46,7 @@ async fn main() {
         .route("/health", get(health_handler))
         .route("/session", get(session_ws_handler))
         .route("/verifier", get(verifier_ws_handler))
+        .route("/proxy", get(proxy_ws_handler))
         .layer(CorsLayer::permissive())
         .with_state(app_state);
 
@@ -60,6 +62,7 @@ async fn main() {
     info!("Health endpoint: http://{}/health", addr);
     info!("Session WebSocket endpoint: ws://{}/session", addr);
     info!("Verifier WebSocket endpoint: ws://{}/verifier?sessionId=<id>", addr);
+    info!("Proxy WebSocket endpoint: ws://{}/proxy?host=<host>", addr);
 
     axum::serve(listener, app)
         .await
@@ -100,11 +103,17 @@ struct CreateSessionResponse {
     session_id: String,
 }
 
-// Query parameters for WebSocket connection
+// Query parameters for verifier WebSocket connection
 #[derive(Debug, Deserialize)]
 struct VerifierQuery {
     #[serde(rename = "sessionId")]
     session_id: String,
+}
+
+// Query parameters for proxy WebSocket connection
+#[derive(Debug, Deserialize)]
+struct ProxyQuery {
+    host: String,
 }
 
 // Health check endpoint handler
@@ -248,6 +257,136 @@ async fn verifier_ws_handler(
             ))
         }
     }
+}
+
+// WebSocket proxy handler - bridges WebSocket to TCP
+async fn proxy_ws_handler(
+    ws: WebSocketUpgrade,
+    Query(query): Query<ProxyQuery>,
+) -> Result<impl IntoResponse, (StatusCode, String)> {
+    let host = query.host;
+
+    info!("[Proxy] New proxy request for host: {}", host);
+
+    Ok(ws.on_upgrade(move |socket| handle_proxy_connection(socket, host)))
+}
+
+// Handle the proxy WebSocket connection by bridging to TCP
+async fn handle_proxy_connection(ws: WebSocket, host: String) {
+    use futures_util::{SinkExt, StreamExt};
+
+    let proxy_id = Uuid::new_v4().to_string();
+    info!("[{}] Proxy WebSocket connected for host: {}", proxy_id, host);
+
+    // Parse host and port (default to 443 for HTTPS)
+    let (hostname, port) = if host.contains(':') {
+        let parts: Vec<&str> = host.split(':').collect();
+        (parts[0].to_string(), parts.get(1).and_then(|p| p.parse().ok()).unwrap_or(443))
+    } else {
+        (host.clone(), 443)
+    };
+
+    info!("[{}] Connecting to {}:{}", proxy_id, hostname, port);
+
+    // Connect to the remote TCP host
+    let tcp_stream = match tokio::net::TcpStream::connect((hostname.as_str(), port)).await {
+        Ok(stream) => {
+            info!("[{}] TCP connection established to {}:{}", proxy_id, hostname, port);
+            stream
+        }
+        Err(e) => {
+            error!("[{}] Failed to connect to {}:{} - {}", proxy_id, hostname, port, e);
+            return;
+        }
+    };
+
+    // Split WebSocket into sink and stream
+    let (mut ws_sink, mut ws_stream) = ws.split();
+
+    // Split the TCP stream into read and write halves
+    let (mut tcp_read, mut tcp_write) = tokio::io::split(tcp_stream);
+
+    // Spawn task to forward WebSocket -> TCP
+    // Read WebSocket Binary messages and write payload to TCP
+    let proxy_id_clone = proxy_id.clone();
+    let ws_to_tcp = tokio::spawn(async move {
+        let mut total_bytes = 0u64;
+
+        loop {
+            match ws_stream.next().await {
+                Some(Ok(msg)) => {
+                    match msg {
+                        axum_websocket::Message::Binary(data) => {
+                            let len = data.len();
+                            total_bytes += len as u64;
+
+                            if let Err(e) = tcp_write.write_all(&data).await {
+                                error!("[{}] Failed to write to TCP: {}", proxy_id_clone, e);
+                                break;
+                            }
+                        }
+                        axum_websocket::Message::Close(_) => {
+                            info!("[{}] WebSocket close frame received, forwarded {} bytes total", proxy_id_clone, total_bytes);
+                            break;
+                        }
+                        _ => {
+                            // Ignore Text, Ping, Pong messages for now
+                        }
+                    }
+                }
+                Some(Err(e)) => {
+                    error!("[{}] WebSocket read error: {}", proxy_id_clone, e);
+                    break;
+                }
+                None => {
+                    info!("[{}] WebSocket stream ended, forwarded {} bytes total", proxy_id_clone, total_bytes);
+                    break;
+                }
+            }
+        }
+
+        total_bytes
+    });
+
+    // Spawn task to forward TCP -> WebSocket
+    // Read from TCP and wrap in WebSocket Binary messages
+    let proxy_id_clone = proxy_id.clone();
+    let tcp_to_ws = tokio::spawn(async move {
+        let mut buf = vec![0u8; 8192];
+        let mut total_bytes = 0u64;
+
+        loop {
+            match tcp_read.read(&mut buf).await {
+                Ok(0) => {
+                    info!("[{}] TCP read EOF (server closed), forwarded {} bytes to WebSocket", proxy_id_clone, total_bytes);
+                    break;
+                }
+                Ok(n) => {
+                    total_bytes += n as u64;
+                    let binary_msg = axum_websocket::Message::Binary(buf[..n].to_vec());
+
+                    if let Err(e) = ws_sink.send(binary_msg).await {
+                        error!("[{}] Failed to send to WebSocket: {}", proxy_id_clone, e);
+                        break;
+                    }
+                }
+                Err(e) => {
+                    error!("[{}] TCP read error: {}", proxy_id_clone, e);
+                    break;
+                }
+            }
+        }
+
+        total_bytes
+    });
+
+    // Wait for both tasks to complete
+    let (ws_result, tcp_result) = tokio::join!(ws_to_tcp, tcp_to_ws);
+
+    let ws_total = ws_result.unwrap_or(0);
+    let tcp_total = tcp_result.unwrap_or(0);
+
+    info!("[{}] Proxy closed: WS→TCP {} bytes, TCP→WS {} bytes", proxy_id, ws_total, tcp_total);
 }
 
 // Verifier task that waits for WebSocket and runs verification
