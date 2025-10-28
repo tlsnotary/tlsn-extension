@@ -131,6 +131,7 @@ function main() {
       : div({ style: {color: 'black'}}, ['Please login to x.com'])
   ]);
 }
+
 export default {
   main,
   prove,
