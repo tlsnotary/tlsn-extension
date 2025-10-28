@@ -7,6 +7,18 @@
 import { SandboxEvalCode, type SandboxOptions, loadQuickJs } from '@sebastianwessel/quickjs';
 import variant from '@jitl/quickjs-ng-wasmfile-release-sync';
 
+// Export Parser and its types
+export {
+  Parser,
+  type Range,
+  type ParsedValue,
+  type ParsedHeader,
+  type ParsedRequest,
+  type ParsedResponse,
+  type HeaderRangeOptions,
+  type BodyRangeOptions,
+} from './parser';
+
 export class Host {
   private capabilities: Map<string, (...args: any[]) => any> = new Map();
 
