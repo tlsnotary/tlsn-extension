@@ -15,6 +15,7 @@ import {
   InterceptedRequestHeader,
   OpenWindowResponse,
   WindowMessage,
+  Handler,
 } from './types';
 import deepEqual from 'fast-deep-equal';
 
@@ -234,6 +235,7 @@ function makeOpenWindow(
             }
             const cb = executionContext.callbacks[message.onclick];
 
+            console.log('Callback:', cb);
             if (cb) {
               updateExecutionContext(uuid, {
                 currentContext: message.onclick,
@@ -282,7 +284,18 @@ export {
 
 export class Host {
   private capabilities: Map<string, (...args: any[]) => any> = new Map();
-  private onProve: (serverDns: string, verifierUrl: string) => Promise<string>;
+  private onProve: (requestOptions: {
+    url: string;
+    method: string;
+    headers: Record<string, string>;
+    body?: string;
+  }, proverOptions: {
+    verifierUrl: string;
+    proxyUrl: string;
+    maxRecvData?: number;
+    maxSentData?: number;
+    reveal: Handler[];
+  }) => Promise<any>;
   private onRenderPluginUi: (windowId: number, result: DomJson) => void;
   private onCloseWindow: (windowId: number) => void;
   private onOpenWindow: (
@@ -295,7 +308,18 @@ export class Host {
   ) => Promise<OpenWindowResponse>;
 
   constructor(options: {
-    onProve: (serverDns: string, verifierUrl: string) => Promise<string>;
+    onProve: (requestOptions: {
+      url: string;
+      method: string;
+      headers: Record<string, string>;
+      body?: string;
+    }, proverOptions: {
+      verifierUrl: string;
+      proxyUrl: string;
+      maxRecvData?: number;
+      maxSentData?: number;
+      reveal: Handler[];
+    }) => Promise<any>;
     onRenderPluginUi: (windowId: number, result: DomJson) => void;
     onCloseWindow: (windowId: number) => void;
     onOpenWindow: (
@@ -496,13 +520,7 @@ const openWindow = env.openWindow;
 const useEffect = env.useEffect;
 const useRequests = env.useRequests;
 const useHeaders = env.useHeaders;
-const createProver = env.createProver;
-const sendRequest = env.sendRequest;
-const transcript = env.transcript;
-const subtractRanges = env.subtractRanges;
-const mapStringToRange = env.mapStringToRange;
-const reveal = env.reveal;
-const getResponse = env.getResponse;
+const prove = env.prove;
 const closeWindow = env.closeWindow;
 const done = env.done;
 ${code};

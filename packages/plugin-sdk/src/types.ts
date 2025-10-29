@@ -101,3 +101,58 @@ export type WindowMessage =
       type: 'WINDOW_CLOSED';
       windowId: number;
     };
+
+export enum HandlerType {
+  SENT = 'SENT',
+  RECV = 'RECV',
+}
+
+export enum HandlerPart {
+  START_LINE = 'START_LINE',
+  PROTOCOL = 'PROTOCOL',
+  METHOD = 'METHOD',
+  REQUEST_TARGET = 'REQUEST_TARGET',
+  STATUS_CODE = 'STATUS_CODE',
+  HEADERS = 'HEADERS',
+  BODY = 'BODY',
+  ALL = 'ALL',
+}
+
+export enum HandlerAction {
+  REVEAL = 'REVEAL',
+  PEDERSEN = 'PEDERSEN',
+}
+
+export type StartLineHandler = {
+  type: HandlerType;
+  part: HandlerPart.START_LINE | HandlerPart.PROTOCOL | HandlerPart.METHOD | HandlerPart.REQUEST_TARGET | HandlerPart.STATUS_CODE;
+  action: HandlerAction.REVEAL | HandlerAction.PEDERSEN;
+}
+
+export type HeadersHandler = {
+  type: HandlerType;
+  part: HandlerPart.HEADERS;
+  action: HandlerAction.REVEAL | HandlerAction.PEDERSEN;
+  params?: {
+    key: string;
+    hideKey?: boolean;
+    hideValue?: boolean;
+  }
+}
+
+export type BodyHandler = {
+  type: HandlerType;
+  part: HandlerPart.BODY;
+  action: HandlerAction.REVEAL | HandlerAction.PEDERSEN;
+  params?: {
+    type: 'json';
+    path: string;
+    hideKey?: boolean;
+    hideValue?: boolean;
+  } | {
+    type: 'regex';
+    regex: RegExp;
+  };
+}
+
+export type Handler = StartLineHandler | HeadersHandler | BodyHandler;

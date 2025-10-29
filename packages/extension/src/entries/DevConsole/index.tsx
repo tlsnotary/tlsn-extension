@@ -44,7 +44,7 @@ const config = {
   description: 'This plugin will prove your X.com profile.',
 };
 
-async function prove() {
+async function onClick() {
   const [header] = useHeaders(headers => {
     return headers.filter(header => header.url.includes('https://api.x.com/1.1/account/settings.json'));
   });
@@ -57,36 +57,48 @@ async function prove() {
     'Accept-Encoding': 'identity',
     Connection: 'close',
   };
-  console.log('headers', headers);
-  const proverId = await createProver('api.x.com', 'http://localhost:7047');
-  console.log('prover', proverId);
-  await sendRequest(proverId, 'wss://notary.pse.dev/proxy?token=api.x.com', {
+
+  const resp = await prove({
     url: 'https://api.x.com/1.1/account/settings.json',
     method: 'GET',
     headers: headers,
+  }, {
+    verifierUrl: 'http://localhost:7047',
+    proxyUrl: 'wss://notary.pse.dev/proxy?token=api.x.com',
+    maxRecvData: 16384,
+    maxSentData: 4096,
+    reveal: [
+      {
+        type: 'SENT',
+        part: 'START_LINE',
+        action: 'REVEAL',
+      },
+      {
+        type: 'RECV',
+        part: 'START_LINE',
+        action: 'REVEAL',
+      },
+      {
+        type: 'RECV',
+        part: 'HEADERS',
+        action: 'REVEAL',
+        params: {
+          key: 'date',
+        },
+      },
+      {
+        type: 'RECV',
+        part: 'BODY',
+        action: 'REVEAL',
+        params: {
+          type: 'json',
+          path: 'screen_name',
+        },
+      },
+    ]
   });
-  const { sent, recv } = await transcript(proverId);
 
-  const commit = {
-    sent: subtractRanges(
-      { start: 0, end: sent.length },
-      mapStringToRange(
-        [
-          \`x-csrf-token: \${headers['x-csrf-token']}\`,
-          \`x-client-transaction-id: \${headers['x-client-transaction-id']}\`,
-          \`cookie: \${headers['cookie']}\`,
-          \`authorization: \${headers.authorization}\`,
-        ],
-        Buffer.from(sent).toString('utf-8'),
-      ),
-    ),
-    recv: [{ start: 0, end: recv.length }],
-  };
-
-  console.log('commit', commit);
-  await reveal(proverId, commit);
-  const response = await getResponse(proverId);
-  done(JSON.stringify(response));
+  done(JSON.stringify(resp));
 }
 
 function main() {
@@ -126,7 +138,7 @@ function main() {
           color: 'black',
           backgroundColor: 'white',
         },
-        onclick: 'prove',
+        onclick: 'onClick',
       }, ['Prove'])
       : div({ style: {color: 'black'}}, ['Please login to x.com'])
   ]);
@@ -134,7 +146,7 @@ function main() {
 
 export default {
   main,
-  prove,
+  onClick,
   config,
 };
 `;

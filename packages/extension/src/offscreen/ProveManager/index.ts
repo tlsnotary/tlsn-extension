@@ -34,7 +34,7 @@ export class ProveManager {
     { sentData: string; receivedData: string }
   > = new Map();
 
-  private async getVerifierSessionUrl(
+  async getVerifierSessionUrl(
     verifierUrl: string,
     maxRecvData = 16384,
     maxSentData = 4096,
@@ -190,7 +190,6 @@ export class ProveManager {
 
       this.provers.set(proverId, prover as any);
       console.log('[ProveManager] Prover registered with ID:', proverId);
-      await new Promise((resolve) => setTimeout(resolve, 1000));
       return proverId;
     } catch (error) {
       console.error('[ProveManager] Failed to create prover:', error);
