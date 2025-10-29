@@ -63,16 +63,24 @@ mod tests {
         // So "Hello " is 6 bytes, then 🙈 is 4 bytes, then " World" is 6 bytes
         assert_eq!(bytes.len(), 16); // 6 + 4 + 6 = 16 bytes
 
-        // If we calculated a range as string index [7..12] thinking it's "World"
-        // but applied it as byte index, we'd get garbage
-        let string_range = &text_with_emoji[7..12]; // This works on char boundaries
-        let byte_range = &bytes[7..12]; // This slices in the middle of the emoji!
+        // Demonstrate the difference between string char boundaries and byte offsets
+        // "Hello " is at bytes 0..6
+        // 🙈 is at bytes 6..10
+        // " World" is at bytes 10..16
 
-        println!("String range [7..12]: {}", string_range);
-        println!("Byte range [7..12]: {:?}", byte_range);
+        // Correct char boundary slicing (after emoji)
+        let after_emoji = &text_with_emoji[10..]; // " World" - starts at char boundary
+        println!("After emoji (char boundary [10..]): {}", after_emoji);
+        assert_eq!(after_emoji, " World");
 
-        // The byte range will contain partial UTF-8 sequences
-        assert_ne!(string_range.as_bytes(), byte_range, "String and byte ranges differ");
+        // Byte slicing at position 7 would be INSIDE the emoji (6..10)
+        // We can slice bytes but can't convert to valid UTF-8
+        let byte_range = &bytes[7..12];
+        println!("Byte range [7..12] (inside emoji): {:?}", byte_range);
+
+        // This byte range contains partial UTF-8 and can't be decoded
+        let invalid_utf8 = str::from_utf8(byte_range);
+        assert!(invalid_utf8.is_err(), "Byte range inside emoji is invalid UTF-8");
     }
 
     #[test]

@@ -199,6 +199,7 @@ async fn handle_proxy_test(ws: tokio_tungstenite::WebSocketStream<tokio::net::Tc
 /// For HTTPS (like swapi.dev), the CLIENT must handle TLS encryption
 /// The proxy only forwards raw TCP bytes
 #[tokio::test]
+#[ignore] // Flaky test - depends on external httpbin.org service
 async fn test_proxy_real_http_request() {
     println!("\n=== Testing Real HTTP Request through Proxy ===\n");
     println!("ℹ️  Note: Testing with httpbin.org (plain HTTP)");
