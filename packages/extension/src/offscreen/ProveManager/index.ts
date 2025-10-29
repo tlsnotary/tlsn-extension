@@ -266,10 +266,7 @@ export class ProveManager {
    * Get the verification response for a given prover ID.
    * Returns null if no response is available yet, otherwise returns the structured handler results.
    */
-  async getResponse(
-    proverId: string,
-    retry = 60,
-  ): Promise<any | null> {
+  async getResponse(proverId: string, retry = 60): Promise<any | null> {
     const sessionId = this.proverToSessionId.get(proverId);
     if (!sessionId) {
       console.warn(
