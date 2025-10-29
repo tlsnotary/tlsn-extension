@@ -296,7 +296,7 @@ export class Host {
       proxyUrl: string;
       maxRecvData?: number;
       maxSentData?: number;
-      reveal: Handler[];
+      handlers: Handler[];
     },
   ) => Promise<any>;
   private onRenderPluginUi: (windowId: number, result: DomJson) => void;
@@ -323,7 +323,7 @@ export class Host {
         proxyUrl: string;
         maxRecvData?: number;
         maxSentData?: number;
-        reveal: Handler[];
+        handlers: Handler[];
       },
     ) => Promise<any>;
     onRenderPluginUi: (windowId: number, result: DomJson) => void;

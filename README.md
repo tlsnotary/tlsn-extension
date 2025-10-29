@@ -369,7 +369,7 @@ async function onClick() {
       proxyUrl: 'wss://notary.pse.dev/proxy?token=example.com',
       maxRecvData: 16384,
       maxSentData: 4096,
-      reveal: [
+      handlers: [
         { type: 'SENT', part: 'START_LINE', action: 'REVEAL' },
         { type: 'RECV', part: 'START_LINE', action: 'REVEAL' },
         { type: 'RECV', part: 'BODY', action: 'REVEAL',

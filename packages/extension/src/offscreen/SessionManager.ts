@@ -27,7 +27,7 @@ export class SessionManager {
           proxyUrl: string;
           maxRecvData?: number;
           maxSentData?: number;
-          reveal: Handler[];
+          handlers: Handler[];
         },
       ) => {
         let url;
@@ -70,7 +70,7 @@ export class SessionManager {
         const sentRanges: { start: number; end: number }[] = [];
         const recvRanges: { start: number; end: number }[] = [];
 
-        for (const handler of proverOptions.reveal) {
+        for (const handler of proverOptions.handlers) {
           const transcript =
             handler.type === HandlerType.SENT ? parsedSent : parsedRecv;
           const ranges =

@@ -188,11 +188,11 @@ async function onClick() {
       maxSentData: 4096,   // 4 KB
 
       // -----------------------------------------------------------------------
-      // REVEAL HANDLERS
+      // HANDLERS
       // -----------------------------------------------------------------------
       // These handlers specify which parts of the TLS transcript to reveal
       // in the proof. Unrevealed data is redacted for privacy.
-      reveal: [
+      handlers: [
         // Reveal the request start line (GET /path HTTP/1.1)
         // This proves the HTTP method and path were sent
         {

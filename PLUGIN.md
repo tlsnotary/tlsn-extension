@@ -135,7 +135,7 @@ Manages TLS proof generation using TLSN WebAssembly. Features:
 - **Prover Lifecycle** - Create, configure, and manage provers
 - **Request Proxying** - Send HTTP requests through TLS prover
 - **Transcript Parsing** - Parse HTTP transcripts with byte-level range tracking
-- **Selective Reveal** - Control which parts of transcript are revealed to verifier
+- **Selective Handlers** - Control which parts of transcript are revealed to verifier
 
 #### 4. **WindowManager** (`packages/extension/src/background/WindowManager.ts`)
 
@@ -455,7 +455,7 @@ if (authHeader) {
 - `proxyUrl` - String, WebSocket proxy URL (e.g., 'wss://notary.pse.dev/proxy?token=api.x.com')
 - `maxRecvData` - Optional number, max received bytes (default: 16384)
 - `maxSentData` - Optional number, max sent bytes (default: 4096)
-- `reveal` - Array of Handler objects specifying what to reveal
+- `handlers` - Array of Handler objects specifying what to handle
 
 **Handler Structure:**
 
@@ -509,8 +509,8 @@ const proof = await prove(
     maxRecvData: 16384,  // 16 KB max receive
     maxSentData: 4096,   // 4 KB max send
 
-    // Reveal handlers - what to include in the proof
-    reveal: [
+    // handlers - what to include in the proof
+    handlers: [
       // Reveal the request start line (GET /1.1/account/settings.json HTTP/1.1)
       {
         type: 'SENT',
@@ -778,13 +778,13 @@ function main() {
  * Flow:
  * 1. Get the intercepted X.com API headers
  * 2. Extract authentication headers (Cookie, CSRF, OAuth)
- * 3. Call prove() with request and reveal configuration
+ * 3. Call prove() with request and handlers configuration
  * 4. prove() internally:
  *    - Creates prover connection to verifier
  *    - Sends HTTP request through TLS prover
  *    - Captures transcript (sent/received data)
  *    - Parses transcript with byte-level ranges
- *    - Applies selective reveal handlers
+ *    - Applies selective handlers
  *    - Generates proof
  * 5. Return proof to caller via done()
  *
@@ -841,7 +841,7 @@ async function onClick() {
   // - Prover creation
   // - Request sending
   // - Transcript capture
-  // - Selective reveal
+  // - Selective handlers
   // - Proof generation
   const resp = await prove(
     // REQUEST OPTIONS: What HTTP request to prove
@@ -867,7 +867,7 @@ async function onClick() {
 
       // REVEAL HANDLERS: What parts of the transcript to include in the proof
       // Each handler specifies a part of the HTTP request/response to reveal
-      reveal: [
+      handlers: [
         // ---------------------------------------------------------------
         // Reveal the request start line
         // Example: "GET /1.1/account/settings.json HTTP/1.1"
@@ -1063,7 +1063,7 @@ function main() {
 
 ```javascript
 // ✅ Good: Only reveal non-sensitive data
-reveal: [
+handlers: [
   {
     type: 'RECV',
     part: 'BODY',
@@ -1077,7 +1077,7 @@ reveal: [
 ]
 
 // ❌ Bad: Don't reveal sensitive auth headers
-reveal: [
+handlers: [
   {
     type: 'SENT',
     part: 'HEADERS',
