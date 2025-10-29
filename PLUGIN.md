@@ -24,7 +24,7 @@ The TLSN Extension features a **secure plugin system** that allows developers to
 - ✅ **Capability-Based Security** - Fine-grained control over plugin permissions
 - ✅ **Multi-Window Support** - Open and manage up to 10 browser windows
 - ✅ **Request Interception** - Capture HTTP requests and headers in real-time
-- ✅ **TLS Proof Generation** - Direct access to TLSN prover functionality
+- ✅ **Unified Proof Generation** - Single `prove()` API handles all TLS proof operations
 - ✅ **React-like Hooks** - Familiar patterns with `useEffect`, `useRequests`, `useHeaders`
 - ✅ **Type-Safe** - Full TypeScript support with declaration files
 
@@ -74,7 +74,7 @@ The TLSN Extension features a **secure plugin system** that allows developers to
 │  │  │  │  Access via env object:   │ │           │        │
 │  │  │  │  - env.openWindow()       │ │           │        │
 │  │  │  │  - env.useRequests()      │ │           │        │
-│  │  │  │  - env.createProver()     │ │           │        │
+│  │  │  │  - env.prove()            │ │           │        │
 │  │  │  │  - env.div(), env.button()│ │           │        │
 │  │  │  └────────────────────────────┘ │           │        │
 │  │  │                                  │           │        │
@@ -96,9 +96,7 @@ The `Host` class is the core runtime for executing plugins. It:
 
 - Creates isolated QuickJS WebAssembly sandboxes
 - Registers capabilities (functions) that plugins can access via `env` object
-- Provides two execution modes:
-  - `run(code)` - Single execution with automatic cleanup
-  - `createEvalCode()` - Persistent sandbox for multiple evaluations
+- Provides `executePlugin(code)` method for running plugin code
 - Handles error propagation from sandbox to host
 
 **Key Configuration:**
@@ -108,9 +106,14 @@ const sandboxOptions = {
   allowFetch: false,    // Network disabled for security
   allowFs: false,       // File system disabled
   env: {                // Capabilities injected here
-    openWindow: (url) => { /* ... */ },
-    createProver: (dns, verifierUrl) => { /* ... */ },
-    // ... all other capabilities
+    div: (options, children) => { /* ... */ },
+    button: (options, children) => { /* ... */ },
+    openWindow: (url, options) => { /* ... */ },
+    useEffect: (callback, deps) => { /* ... */ },
+    useRequests: (filter) => { /* ... */ },
+    useHeaders: (filter) => { /* ... */ },
+    prove: (request, proverOptions) => { /* ... */ },
+    done: (result) => { /* ... */ },
   },
 };
 ```
@@ -119,49 +122,19 @@ const sandboxOptions = {
 
 Manages plugin lifecycle and provides all capabilities. Responsibilities:
 
-- **Session State Management** - Track active plugin sessions with UUIDs
-- **Capability Registration** - Inject all plugin APIs into sandbox
-- **UI Rendering** - Execute `main()` to generate plugin UI as JSON
-- **Context Management** - Track hook dependencies and selectors
-- **Callback Handling** - Execute user-triggered callbacks (button clicks)
-- **Window Association** - Link sessions to managed browser windows
-
-**Session State Structure:**
-
-```typescript
-type SessionState = {
-  id: string;                              // UUID
-  pluginUrl: string;                       // Origin of plugin
-  plugin: string;                          // Plugin code
-  requests?: InterceptedRequest[];         // Captured HTTP requests
-  headers?: InterceptedRequestHeader[];    // Captured request headers
-  windowId?: number;                       // Associated Chrome window ID
-  context: {                               // Hook dependency tracking
-    [functionName: string]: {
-      effects: any[][];                    // useEffect dependencies
-      selectors: any[][];                  // useRequests/useHeaders results
-    };
-  };
-  currentContext: string;                  // Current execution context
-  sandbox: {                               // QuickJS runtime
-    eval: (code: string) => Promise<unknown>;
-    dispose: () => void;
-  };
-  main: () => any;                         // Main UI render function
-  callbacks: {                             // User-triggered callbacks
-    [callbackName: string]: () => Promise<void>;
-  };
-};
-```
+- **Plugin Execution** - Delegates to Host class from plugin-sdk
+- **Capability Injection** - Provides `prove`, `openWindow`, hooks, etc.
+- **UI Rendering** - Executes `main()` to generate plugin UI as JSON
+- **Message Handling** - Routes events between background and plugin
 
 #### 3. **ProveManager** (`packages/extension/src/offscreen/ProveManager/`)
 
 Manages TLS proof generation using TLSN WebAssembly. Features:
 
 - **Worker-Based Execution** - Runs WASM in Web Worker for non-blocking performance
-- **Prover Lifecycle** - Create, configure, and manage multiple provers
+- **Prover Lifecycle** - Create, configure, and manage provers
 - **Request Proxying** - Send HTTP requests through TLS prover
-- **Transcript Access** - Get sent/received data from TLS session
+- **Transcript Parsing** - Parse HTTP transcripts with byte-level range tracking
 - **Selective Reveal** - Control which parts of transcript are revealed to verifier
 
 #### 4. **WindowManager** (`packages/extension/src/background/WindowManager.ts`)
@@ -174,23 +147,6 @@ Manages multiple browser windows and request interception. Features:
 - **History Management** - Store up to 1000 requests/headers per window
 - **Overlay Control** - Show/hide TLSN overlay with retry logic
 - **Automatic Cleanup** - Remove invalid windows periodically
-
-**Managed Window Structure:**
-
-```typescript
-interface ManagedWindow {
-  id: number;                           // Chrome window ID
-  uuid: string;                         // Internal UUID
-  tabId: number;                        // Primary tab ID
-  url: string;                          // Current/initial URL
-  createdAt: Date;                      // Creation timestamp
-  requests: InterceptedRequest[];       // Max 1000 requests
-  headers: InterceptedRequestHeader[];  // Max 1000 headers
-  overlayVisible: boolean;              // Overlay state
-  pluginUIVisible: boolean;             // Plugin UI state
-  showOverlayWhenReady: boolean;        // Delayed overlay flag
-}
-```
 
 ---
 
@@ -216,7 +172,7 @@ interface ManagedWindow {
 │  3. SessionManager.executePlugin(code)                    │
 │     - Creates QuickJS sandbox with capabilities           │
 │     - Evaluates plugin code                               │
-│     - Extracts { main, prove, config, ...callbacks }      │
+│     - Extracts { main, onClick, config, ...callbacks }    │
 └────────────────────┬──────────────────────────────────────┘
                      │
                      ▼
@@ -231,7 +187,7 @@ interface ManagedWindow {
 │  5. Request/Header Interception                           │
 │     - WindowManager captures HTTP traffic                 │
 │     - Sends REQUEST_INTERCEPTED messages                  │
-│     - SessionManager updates session state                │
+│     - SessionManager updates plugin state                 │
 │     - Calls main() again → UI updates                     │
 └────────────────────┬──────────────────────────────────────┘
                      │
@@ -240,7 +196,7 @@ interface ManagedWindow {
 │  6. User Interaction (Button Click)                       │
 │     - Content script sends PLUGIN_UI_CLICK message        │
 │     - SessionManager executes associated callback         │
-│     - Callback may call prove(), createProver(), etc.     │
+│     - Callback may call prove() to generate proof         │
 │     - Calls main() again → UI updates                     │
 └────────────────────┬──────────────────────────────────────┘
                      │
@@ -251,35 +207,6 @@ interface ManagedWindow {
 │     - Disposes QuickJS sandbox                            │
 │     - Resolves executePlugin() promise                    │
 └───────────────────────────────────────────────────────────┘
-```
-
-### 2. Message Flow
-
-**Plugin → Extension:**
-
-```typescript
-// Plugin code (in sandbox)
-const windowInfo = await openWindow('https://x.com');
-// → Sends: { type: 'OPEN_WINDOW', url, ... }
-// ← Receives: { type: 'WINDOW_OPENED', payload: { windowId, uuid, tabId } }
-
-await createProver('api.x.com', 'https://notary.pse.dev');
-// → Creates prover in ProveManager
-// ← Returns proverId (UUID)
-```
-
-**Extension → Plugin:**
-
-```typescript
-// Background captures request
-windowManager.addRequest(windowId, request);
-// → Sends: { type: 'REQUEST_INTERCEPTED', windowId, request }
-
-// SessionManager receives message
-sessionManager.updateRequestsForSession(sessionId, request);
-// → Updates session.requests
-// → Calls session.main() to re-render UI
-// → Sends: { type: 'RENDER_PLUGIN_UI', json, windowId }
 ```
 
 ---
@@ -344,7 +271,7 @@ button(
       borderRadius: '4px',
       cursor: 'pointer',
     },
-    onclick: 'startProof', // Name of exported callback
+    onclick: 'onClick', // Name of exported callback
   },
   ['Generate Proof']
 )
@@ -382,21 +309,6 @@ const windowInfo = await openWindow('https://x.com', {
 });
 
 console.log('Window opened:', windowInfo.windowId);
-```
-
-#### `closeWindow(windowId)`
-
-Close a managed browser window.
-
-**Parameters:**
-- `windowId` - Number, Chrome window ID from `openWindow()`
-
-**Returns:** Promise<void>
-
-**Example:**
-
-```javascript
-await closeWindow(windowInfo.windowId);
 ```
 
 ---
@@ -451,14 +363,11 @@ Get filtered intercepted HTTP requests for the current window.
 
 ```typescript
 interface InterceptedRequest {
-  requestId: string;     // Chrome request ID
-  url: string;           // Full request URL
-  method: string;        // HTTP method (GET, POST, etc.)
-  frameId: number;       // Frame ID
-  parentFrameId: number; // Parent frame ID
-  tabId: number;         // Tab ID
-  type: string;          // Resource type (xmlhttprequest, script, etc.)
-  timeStamp: number;     // Unix timestamp
+  id: string;          // Chrome request ID
+  url: string;         // Full request URL
+  method: string;      // HTTP method (GET, POST, etc.)
+  timestamp: number;   // Unix timestamp
+  tabId: number;       // Tab ID
 }
 ```
 
@@ -470,13 +379,6 @@ const [apiRequests] = useRequests((requests) =>
   requests.filter((req) =>
     req.url.includes('api.x.com') &&
     req.method === 'GET'
-  )
-);
-
-// Check if specific endpoint was called
-const [profileRequest] = useRequests((requests) =>
-  requests.filter((req) =>
-    req.url.includes('/account/settings.json')
   )
 );
 ```
@@ -496,17 +398,15 @@ Get filtered intercepted HTTP request headers for the current window.
 
 ```typescript
 interface InterceptedRequestHeader {
-  requestId: string;     // Chrome request ID
-  url: string;           // Full request URL
-  method: string;        // HTTP method
-  frameId: number;       // Frame ID
-  parentFrameId: number; // Parent frame ID
-  tabId: number;         // Tab ID
-  type: string;          // Resource type
-  timeStamp: number;     // Unix timestamp
+  id: string;          // Chrome request ID
+  url: string;         // Full request URL
+  method: string;      // HTTP method
+  timestamp: number;   // Unix timestamp
+  type: string;        // Resource type
+  tabId: number;       // Tab ID
   requestHeaders: Array<{
-    name: string;        // Header name (e.g., 'Cookie')
-    value?: string;      // Header value
+    name: string;      // Header name (e.g., 'Cookie')
+    value?: string;    // Header value
   }>;
 }
 ```
@@ -530,52 +430,66 @@ if (authHeader) {
 
 ---
 
-### TLS Proof Operations
+### TLS Proof Generation
 
-#### `createProver(serverDns, verifierUrl, maxRecvData?, maxSentData?)`
+#### `prove(requestOptions, proverOptions)`
 
-Initialize a new TLS prover instance.
+**The unified API for TLS proof generation.** This single function handles:
+1. Creating a prover connection to the verifier
+2. Sending the HTTP request through the TLS prover
+3. Capturing the TLS transcript (sent/received data)
+4. Parsing the transcript with byte-level range tracking
+5. Applying selective reveal handlers
+6. Generating and returning the proof
 
 **Parameters:**
-- `serverDns` - String, server domain (e.g., 'api.x.com')
-- `verifierUrl` - String, verifier WebSocket URL (e.g., 'https://notary.pse.dev')
+
+**`requestOptions`** - Object specifying the HTTP request:
+- `url` - String, full request URL (e.g., 'https://api.x.com/1.1/account/settings.json')
+- `method` - String, HTTP method ('GET', 'POST', etc.)
+- `headers` - Object, request headers as key-value pairs
+- `body` - Optional string, request body for POST/PUT requests
+
+**`proverOptions`** - Object specifying proof configuration:
+- `verifierUrl` - String, verifier/notary WebSocket URL (e.g., 'http://localhost:7047')
+- `proxyUrl` - String, WebSocket proxy URL (e.g., 'wss://notary.pse.dev/proxy?token=api.x.com')
 - `maxRecvData` - Optional number, max received bytes (default: 16384)
 - `maxSentData` - Optional number, max sent bytes (default: 4096)
+- `reveal` - Array of Handler objects specifying what to reveal
 
-**Returns:** Promise<string> - Prover ID (UUID)
+**Handler Structure:**
 
-**Example:**
+```typescript
+type Handler = {
+  type: 'SENT' | 'RECV';           // Which direction (request/response)
+  part: 'START_LINE' | 'PROTOCOL' | 'METHOD' | 'REQUEST_TARGET' |
+        'STATUS_CODE' | 'HEADERS' | 'BODY';
+  action: 'REVEAL' | 'PEDERSEN';   // Reveal plaintext or commit hash
+  params?: {
+    // For HEADERS:
+    key?: string;                  // Header name to reveal
+    hideKey?: boolean;             // Hide header name, show value only
+    hideValue?: boolean;           // Hide value, show header name only
 
-```javascript
-const proverId = await createProver(
-  'api.x.com',
-  'https://notary.pse.dev',
-  32768,  // 32 KB max receive
-  8192    // 8 KB max send
-);
+    // For BODY with JSON:
+    type?: 'json';
+    path?: string;                 // JSON field path (e.g., 'screen_name')
+
+    // For BODY with regex:
+    type?: 'regex';
+    regex?: RegExp;                // Pattern to match
+  };
+};
 ```
 
-#### `sendRequest(proverId, proxyUrl, options)`
+**Returns:** Promise<ProofResponse> - The generated proof data
 
-Send an HTTP request through the TLS prover.
-
-**Parameters:**
-- `proverId` - String, prover ID from `createProver()`
-- `proxyUrl` - String, WebSocket proxy URL (e.g., 'wss://notary.pse.dev/proxy?token=api.x.com')
-- `options` - Object:
-  - `url` - String, full request URL
-  - `method` - Optional string, HTTP method (default: 'GET')
-  - `headers` - Optional object, request headers
-  - `body` - Optional string, request body
-
-**Returns:** Promise<void>
-
-**Example:**
+**Complete Example:**
 
 ```javascript
-await sendRequest(
-  proverId,
-  'wss://notary.pse.dev/proxy?token=api.x.com',
+// Generate proof for X.com profile API call
+const proof = await prove(
+  // Request options - the HTTP request to prove
   {
     url: 'https://api.x.com/1.1/account/settings.json',
     method: 'GET',
@@ -587,122 +501,119 @@ await sendRequest(
       'Accept-Encoding': 'identity',
       'Connection': 'close',
     },
+  },
+  // Prover options - how to generate the proof
+  {
+    verifierUrl: 'http://localhost:7047',
+    proxyUrl: 'wss://notary.pse.dev/proxy?token=api.x.com',
+    maxRecvData: 16384,  // 16 KB max receive
+    maxSentData: 4096,   // 4 KB max send
+
+    // Reveal handlers - what to include in the proof
+    reveal: [
+      // Reveal the request start line (GET /1.1/account/settings.json HTTP/1.1)
+      {
+        type: 'SENT',
+        part: 'START_LINE',
+        action: 'REVEAL',
+      },
+
+      // Reveal the response start line (HTTP/1.1 200 OK)
+      {
+        type: 'RECV',
+        part: 'START_LINE',
+        action: 'REVEAL',
+      },
+
+      // Reveal specific response header (Date header)
+      {
+        type: 'RECV',
+        part: 'HEADERS',
+        action: 'REVEAL',
+        params: {
+          key: 'date',
+        },
+      },
+
+      // Reveal JSON field from response body (just the value)
+      {
+        type: 'RECV',
+        part: 'BODY',
+        action: 'REVEAL',
+        params: {
+          type: 'json',
+          path: 'screen_name',
+          hideKey: true,  // Only reveal "0xTsukino", not the key
+        },
+      },
+    ],
   }
 );
+
+// Proof is now generated and returned
+console.log('Proof generated:', proof);
 ```
 
-#### `transcript(proverId)`
-
-Get the TLS transcript (sent and received data) from a prover.
-
-**Parameters:**
-- `proverId` - String, prover ID
-
-**Returns:** Promise<{ sent: Uint8Array, recv: Uint8Array }>
-
-**Example:**
+**Reveal Handler Examples:**
 
 ```javascript
-const { sent, recv } = await transcript(proverId);
+// Example 1: Reveal entire request start line
+{
+  type: 'SENT',
+  part: 'START_LINE',
+  action: 'REVEAL',
+}
 
-console.log('Sent bytes:', sent.length);
-console.log('Received bytes:', recv.length);
+// Example 2: Reveal specific header with key and value
+{
+  type: 'RECV',
+  part: 'HEADERS',
+  action: 'REVEAL',
+  params: { key: 'content-type' },
+}
 
-// Convert to string
-const sentStr = Buffer.from(sent).toString('utf-8');
-const recvStr = Buffer.from(recv).toString('utf-8');
-```
+// Example 3: Reveal header value only (hide the key)
+{
+  type: 'RECV',
+  part: 'HEADERS',
+  action: 'REVEAL',
+  params: { key: 'date', hideKey: true },
+}
 
-#### `reveal(proverId, commit)`
+// Example 4: Reveal JSON field with key and value
+{
+  type: 'RECV',
+  part: 'BODY',
+  action: 'REVEAL',
+  params: {
+    type: 'json',
+    path: 'user_id',
+  },
+}
 
-Reveal selective parts of the transcript to the verifier.
+// Example 5: Reveal regex match in body
+{
+  type: 'RECV',
+  part: 'BODY',
+  action: 'REVEAL',
+  params: {
+    type: 'regex',
+    regex: /user_id=\d+/g,
+  },
+}
 
-**Parameters:**
-- `proverId` - String, prover ID
-- `commit` - Object specifying what to reveal:
-  - `sent` - Array of ranges to reveal from sent data
-  - `recv` - Array of ranges to reveal from received data
-  - Range format: `{ start: number, end: number }`
-
-**Returns:** Promise<void>
-
-**Example:**
-
-```javascript
-// Reveal all received data, but redact sensitive headers in sent data
-const commit = {
-  sent: subtractRanges(
-    { start: 0, end: sent.length },  // Full range
-    [                                  // Subtract these ranges
-      { start: 100, end: 200 },       // Cookie location
-      { start: 250, end: 300 },       // Auth token location
-    ]
-  ),
-  recv: [{ start: 0, end: recv.length }], // Reveal all
-};
-
-await reveal(proverId, commit);
+// Example 6: Commit hash instead of revealing (for privacy)
+{
+  type: 'SENT',
+  part: 'HEADERS',
+  action: 'PEDERSEN',
+  params: { key: 'Cookie' },
+}
 ```
 
 ---
 
 ### Utility Functions
-
-#### `subtractRanges(range, excludeRanges)`
-
-Subtract multiple ranges from a main range.
-
-**Parameters:**
-- `range` - Object: `{ start: number, end: number }`
-- `excludeRanges` - Array of ranges to subtract
-
-**Returns:** Array of remaining ranges
-
-**Example:**
-
-```javascript
-// Main range: 0-100
-// Exclude: 20-30 and 50-60
-// Result: [0-20, 30-50, 60-100]
-
-const result = subtractRanges(
-  { start: 0, end: 100 },
-  [
-    { start: 20, end: 30 },
-    { start: 50, end: 60 },
-  ]
-);
-// result = [{ start: 0, end: 20 }, { start: 30, end: 50 }, { start: 60, end: 100 }]
-```
-
-#### `mapStringToRange(strings, text)`
-
-Map array of strings to their byte ranges in text.
-
-**Parameters:**
-- `strings` - Array of strings to find
-- `text` - String to search in
-
-**Returns:** Array of ranges where strings were found
-
-**Example:**
-
-```javascript
-const text = 'Cookie: abc123\nAuthorization: Bearer xyz789';
-const sensitiveStrings = [
-  'Cookie: abc123',
-  'Authorization: Bearer xyz789',
-];
-
-const ranges = mapStringToRange(sensitiveStrings, text);
-// ranges = [{ start: 0, end: 14 }, { start: 15, end: 45 }]
-
-// Use with subtractRanges to redact sensitive data
-const redacted = subtractRanges(
-  { start: 0, end: text.length },
-  ranges
-);
-```
 
 #### `done(args?)`
 
@@ -719,11 +630,12 @@ Complete plugin execution and cleanup.
 **Example:**
 
 ```javascript
-async function prove() {
+async function onClick() {
   // ... generate proof ...
+  const proof = await prove(requestOpts, proverOpts);
 
   // Finish and close window
-  await done({ success: true, proofId: 'abc123' });
+  await done(proof);
 }
 ```
 
@@ -734,38 +646,61 @@ async function prove() {
 This example demonstrates a complete plugin that proves a user's X.com (Twitter) profile by:
 1. Opening X.com and waiting for user to log in
 2. Detecting the profile API request
-3. Generating a TLS proof with selective reveal (redacting sensitive headers)
+3. Generating a TLS proof with selective reveal (showing profile data but hiding auth headers)
 
 ```javascript
-// Plugin configuration - shown in UI
+// =============================================================================
+// Plugin Configuration
+// =============================================================================
+// This metadata is shown in the plugin UI
 const config = {
   name: 'X Profile Prover',
-  description: 'This plugin will prove your X.com profile.',
+  description: 'Prove your X.com profile data with selective disclosure',
 };
 
+// =============================================================================
+// Main UI Rendering Function
+// =============================================================================
 /**
- * Main UI rendering function
- * Called on initialization and whenever state changes (requests/headers update)
+ * The main() function is called reactively whenever plugin state changes.
+ * It returns a JSON representation of the UI to display in the browser.
  *
- * @returns JSON representation of UI (div/button tree)
+ * React-like behavior:
+ * - Called on plugin initialization
+ * - Called when intercepted requests/headers update
+ * - Called after user interactions (button clicks)
+ *
+ * @returns {DomJson} JSON tree representing the plugin UI
  */
 function main() {
-  // Hook: Get headers that match the profile endpoint
-  // This filters all intercepted headers to find the specific API call we need
+  // -------------------------------------------------------------------------
+  // HOOK: Get intercepted headers matching X.com profile API
+  // -------------------------------------------------------------------------
+  // useHeaders() filters all intercepted request headers and returns matches
+  // This re-runs whenever new headers are intercepted
   const [header] = useHeaders((headers) =>
     headers.filter((header) =>
-      // Look for X.com's account settings endpoint - this is called when logged in
+      // Look for X.com's account settings endpoint
+      // This endpoint is called when user is logged in
       header.url.includes('https://api.x.com/1.1/account/settings.json'),
     ),
   );
 
-  // Hook: Open X.com window on first render
-  // The empty dependency array [] means this only runs once
+  // -------------------------------------------------------------------------
+  // HOOK: Open X.com window on first render
+  // -------------------------------------------------------------------------
+  // useEffect with empty dependency array [] runs only once on mount
   useEffect(() => {
+    // Open a managed window to X.com
+    // This enables request interception for that window
     openWindow('https://x.com');
   }, []);
 
-  // Render plugin UI as a floating card in bottom-right corner
+  // -------------------------------------------------------------------------
+  // Render Plugin UI
+  // -------------------------------------------------------------------------
+  // Returns a floating card in the bottom-right corner
+  // UI updates reactively based on whether profile is detected
   return div(
     {
       style: {
@@ -786,205 +721,223 @@ function main() {
       },
     },
     [
-      // Status indicator - changes color based on detection
+      // Status indicator div
       div(
         {
           style: {
             fontWeight: 'bold',
-            // Green when profile detected, red when not
+            // Green when profile detected, red when waiting
             color: header ? 'green' : 'red',
           },
         },
+        // Show different message based on detection state
         [header ? 'Profile detected!' : 'No profile detected'],
       ),
 
       // Conditional rendering based on detection state
       header
-        ? // If profile detected, show "Prove" button
+        ? // Case 1: Profile detected - show "Prove" button
           button(
             {
               style: {
                 color: 'black',
                 backgroundColor: 'white',
+                padding: '8px 16px',
+                border: '1px solid #ccc',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                marginTop: '8px',
               },
-              // When clicked, execute the 'prove' callback (exported below)
-              onclick: 'prove',
+              // When clicked, execute the 'onClick' callback (defined below)
+              onclick: 'onClick',
             },
             ['Prove'],
           )
-        : // If not detected, show instructions
+        : // Case 2: Not detected - show instructions
           div(
-            { style: { color: 'black' } },
-            ['Please login to x.com']
+            {
+              style: {
+                color: 'black',
+                marginTop: '8px',
+              },
+            },
+            ['Please login to x.com'],
           ),
     ],
   );
 }
 
+// =============================================================================
+// Proof Generation Callback
+// =============================================================================
 /**
- * Proof generation callback
- * Triggered when user clicks the "Prove" button
+ * This function is triggered when the user clicks the "Prove" button.
+ * It extracts authentication headers and generates a TLS proof using the
+ * unified prove() API.
  *
- * This function:
- * 1. Extracts necessary headers from the intercepted request
- * 2. Creates a TLS prover connection
- * 3. Replays the request through the prover
- * 4. Generates a selective reveal (hides sensitive data)
- * 5. Sends proof to verifier
+ * Flow:
+ * 1. Get the intercepted X.com API headers
+ * 2. Extract authentication headers (Cookie, CSRF, OAuth)
+ * 3. Call prove() with request and reveal configuration
+ * 4. prove() internally:
+ *    - Creates prover connection to verifier
+ *    - Sends HTTP request through TLS prover
+ *    - Captures transcript (sent/received data)
+ *    - Parses transcript with byte-level ranges
+ *    - Applies selective reveal handlers
+ *    - Generates proof
+ * 5. Return proof to caller via done()
+ *
+ * @returns {Promise<void>}
  */
-async function prove() {
-  // Get the same header we detected in main()
+async function onClick() {
+  // -------------------------------------------------------------------------
+  // Step 1: Get the intercepted header
+  // -------------------------------------------------------------------------
+  // Same filter as in main() - finds the X.com profile API request
   const [header] = useHeaders((headers) =>
     headers.filter((header) =>
       header.url.includes('https://api.x.com/1.1/account/settings.json'),
     ),
   );
 
-  // Extract all necessary headers from the intercepted request
-  // These are needed to replay the authenticated request through the prover
+  // -------------------------------------------------------------------------
+  // Step 2: Extract authentication headers
+  // -------------------------------------------------------------------------
+  // X.com requires several headers for authenticated API calls:
+  // - Cookie: Session authentication
+  // - x-csrf-token: CSRF protection token
+  // - x-client-transaction-id: Request tracking ID
+  // - authorization: OAuth bearer token
   const headers = {
-    // Cookie contains session authentication
+    // Find and extract Cookie header value
     cookie: header.requestHeaders.find((h) => h.name === 'Cookie')?.value,
 
-    // CSRF token for X.com's security
+    // Find and extract CSRF token
     'x-csrf-token': header.requestHeaders.find((h) => h.name === 'x-csrf-token')?.value,
 
-    // Transaction ID for request tracking
+    // Find and extract transaction ID
     'x-client-transaction-id': header.requestHeaders.find(
-      (h) => h.name === 'x-client-transaction-id'
+      (h) => h.name === 'x-client-transaction-id',
     )?.value,
 
-    // Standard headers
+    // Required headers for API call
     Host: 'api.x.com',
 
-    // OAuth token for API authentication
+    // Find and extract OAuth authorization header
     authorization: header.requestHeaders.find((h) => h.name === 'authorization')?.value,
 
-    // Disable compression so we can read the response
+    // Disable compression so transcript is readable
     'Accept-Encoding': 'identity',
 
-    // Close connection after request (required for TLS proof)
+    // Required for TLS proof - close connection after response
     Connection: 'close',
   };
 
-  // Step 1: Create a prover instance
-  // This establishes a connection to the notary/verifier
-  const proverId = await createProver(
-    'api.x.com',                           // Server we're proving against
-    'https://demo.tlsnotary.org'           // Notary service URL
-  );
-
-  // Step 2: Send the request through the prover
-  // This performs the actual TLS connection and captures the transcript
-  await sendRequest(
-    proverId,
-    // WebSocket proxy that forwards our request to the real server
-    'wss://notary.pse.dev/proxy?token=api.x.com',
+  // -------------------------------------------------------------------------
+  // Step 3: Generate TLS proof using unified prove() API
+  // -------------------------------------------------------------------------
+  // The prove() function handles everything:
+  // - Prover creation
+  // - Request sending
+  // - Transcript capture
+  // - Selective reveal
+  // - Proof generation
+  const resp = await prove(
+    // REQUEST OPTIONS: What HTTP request to prove
     {
       url: 'https://api.x.com/1.1/account/settings.json',
       method: 'GET',
       headers: headers,
-    }
+    },
+
+    // PROVER OPTIONS: How to generate the proof
+    {
+      // Verifier/notary server URL
+      verifierUrl: 'http://localhost:7047',
+
+      // WebSocket proxy that forwards our request to the real X.com server
+      proxyUrl: 'wss://notary.pse.dev/proxy?token=api.x.com',
+
+      // Maximum bytes to receive (16 KB)
+      maxRecvData: 16384,
+
+      // Maximum bytes to send (4 KB)
+      maxSentData: 4096,
+
+      // REVEAL HANDLERS: What parts of the transcript to include in the proof
+      // Each handler specifies a part of the HTTP request/response to reveal
+      reveal: [
+        // ---------------------------------------------------------------
+        // Reveal the request start line
+        // Example: "GET /1.1/account/settings.json HTTP/1.1"
+        // ---------------------------------------------------------------
+        {
+          type: 'SENT',              // Request data
+          part: 'START_LINE',        // The first line
+          action: 'REVEAL',          // Include as plaintext
+        },
+
+        // ---------------------------------------------------------------
+        // Reveal the response start line
+        // Example: "HTTP/1.1 200 OK"
+        // ---------------------------------------------------------------
+        {
+          type: 'RECV',              // Response data
+          part: 'START_LINE',        // The first line
+          action: 'REVEAL',          // Include as plaintext
+        },
+
+        // ---------------------------------------------------------------
+        // Reveal the Date header from response
+        // This proves when the request was made
+        // ---------------------------------------------------------------
+        {
+          type: 'RECV',              // Response data
+          part: 'HEADERS',           // HTTP headers section
+          action: 'REVEAL',          // Include as plaintext
+          params: {
+            key: 'date',             // Specific header to reveal
+          },
+        },
+
+        // ---------------------------------------------------------------
+        // Reveal the 'screen_name' field from JSON response body
+        // This proves the username without revealing the entire profile
+        // hideKey: true means only show the value, not the key
+        // Result in proof: "0xTsukino" instead of {"screen_name":"0xTsukino"}
+        // ---------------------------------------------------------------
+        {
+          type: 'RECV',              // Response data
+          part: 'BODY',              // HTTP body section
+          action: 'REVEAL',          // Include as plaintext
+          params: {
+            type: 'json',            // Parse as JSON
+            path: 'screen_name',     // Field to extract
+            hideKey: true,           // Only reveal value, not the key
+          },
+        },
+      ],
+    },
   );
 
-  // Step 3: Get the transcript (sent and received data)
-  const { sent, recv } = await transcript(proverId);
-
-  // Step 4: Prepare selective reveal
-  // We want to prove the request/response without revealing sensitive auth data
-
-  // Convert sent data to string for range mapping
-  const sentStr = Buffer.from(sent).toString('utf-8');
-
-  // Find byte ranges of sensitive headers we want to redact
-  const sensitiveRanges = mapStringToRange(
-    [
-      `x-csrf-token: ${headers['x-csrf-token']}`,
-      `x-client-transaction-id: ${headers['x-client-transaction-id']}`,
-      `cookie: ${headers['cookie']}`,
-      `authorization: ${headers.authorization}`,
-    ],
-    sentStr
-  );
-
-  // Create commit: reveal everything EXCEPT the sensitive ranges
-  const commit = {
-    // For sent data: reveal all except sensitive headers
-    sent: subtractRanges(
-      { start: 0, end: sent.length },  // Full range
-      sensitiveRanges                   // Subtract these ranges
-    ),
-    // For received data: reveal everything (profile info is public)
-    recv: [{ start: 0, end: recv.length }],
-  };
-
-  // Step 5: Send the selective reveal to the verifier
-  // This completes the proof generation
-  await reveal(proverId, commit);
-
-  // Note: After this, you could call done() to close the window
-  // await done({ success: true });
+  // -------------------------------------------------------------------------
+  // Step 4: Complete plugin execution
+  // -------------------------------------------------------------------------
+  // done() closes the window and returns the proof to the caller
+  done(JSON.stringify(resp));
 }
 
-// Export all functions and config
-// The SessionManager looks for these exports to register callbacks
+// =============================================================================
+// Plugin Export
+// =============================================================================
+// The plugin must export an object with at least a main() function
+// Other exports become available callbacks (triggered by button onclick)
 export default {
-  main,    // Required: UI rendering function
-  prove,   // Optional: callback triggered by button onclick="prove"
-  config,  // Optional: plugin metadata
+  main,      // Required: UI rendering function
+  onClick,   // Optional: callback triggered by onclick="onClick"
+  config,    // Optional: plugin metadata
 };
-```
-
-### Plugin Flow Diagram
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│ 1. Plugin Initialization                                    │
-│    - SessionManager evaluates plugin code                   │
-│    - Extracts main(), prove(), config                       │
-└────────────────────┬────────────────────────────────────────┘
-                     │
-                     ▼
-┌─────────────────────────────────────────────────────────────┐
-│ 2. First Render: main()                                     │
-│    - useHeaders([]) returns []                              │
-│    - useEffect() triggers → openWindow('https://x.com')     │
-│    - UI shows: "No profile detected" + "Please login"      │
-└────────────────────┬────────────────────────────────────────┘
-                     │
-                     ▼
-┌─────────────────────────────────────────────────────────────┐
-│ 3. User Logs In to X.com                                    │
-│    - Browser makes request to /account/settings.json        │
-│    - WindowManager intercepts headers                       │
-│    - Sends REQUEST_HEADER_INTERCEPTED message               │
-└────────────────────┬────────────────────────────────────────┘
-                     │
-                     ▼
-┌─────────────────────────────────────────────────────────────┐
-│ 4. Second Render: main() (triggered by new headers)        │
-│    - useHeaders([...]) returns [headerWithApiCall]          │
-│    - UI shows: "Profile detected!" + [Prove] button        │
-└────────────────────┬────────────────────────────────────────┘
-                     │
-                     ▼
-┌─────────────────────────────────────────────────────────────┐
-│ 5. User Clicks "Prove" Button                              │
-│    - Content script sends PLUGIN_UI_CLICK { callback: 'prove' } │
-│    - SessionManager executes prove() callback               │
-└────────────────────┬────────────────────────────────────────┘
-                     │
-                     ▼
-┌─────────────────────────────────────────────────────────────┐
-│ 6. Proof Generation: prove()                                │
-│    - Extract headers from intercepted request               │
-│    - createProver('api.x.com', notaryUrl)                  │
-│    - sendRequest(proverId, proxyUrl, { url, headers })     │
-│    - transcript(proverId) → get sent/recv data              │
-│    - Create selective reveal (redact sensitive headers)     │
-│    - reveal(proverId, commit) → send to verifier           │
-│    - done() → close window and cleanup                      │
-└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -1037,24 +990,7 @@ const fs = require('fs'); // ReferenceError: require is not defined
 **Prover Limits:**
 - `maxSentData`: 4096 bytes (configurable)
 - `maxRecvData`: 16384 bytes (configurable)
-- Configurable per-prover via `createProver()`
-
-### Error Isolation
-
-Errors in plugin code don't crash the extension:
-
-```javascript
-// Plugin throws error
-throw new Error('Something went wrong!');
-
-// Host catches and reports
-try {
-  await sandbox.eval(pluginCode);
-} catch (error) {
-  console.error('Plugin error:', error.message);
-  // Extension continues running
-}
-```
+- Configurable per-proof via `prove()` parameters
 
 ---
 
@@ -1076,27 +1012,6 @@ export default {
   anotherCallback: async () => { /* ... */ },
 };
 ```
-
-### Development Workflow
-
-1. **Write Plugin Code**
-   - Create `.js` file with plugin logic
-   - Use ES6+ syntax
-   - Export `{ main, config, ...callbacks }`
-
-2. **Test in Extension**
-   - Load plugin via Developer Console
-   - Or use test page: `npm run serve:test`
-
-3. **Debug**
-   - Check Chrome DevTools console for errors
-   - Use `console.log()` in plugin code (captured by sandbox)
-   - Inspect intercepted requests/headers in UI
-
-4. **Iterate**
-   - Modify plugin code
-   - Reload in extension
-   - Test again
 
 ### Best Practices
 
@@ -1125,7 +1040,7 @@ function main() {
     return div({}, ['Waiting for data...']);
   }
 
-  // Access header.requestHeaders safely
+  // Access header safely
   const cookie = header.requestHeaders.find(h => h.name === 'Cookie')?.value;
 }
 ```
@@ -1147,148 +1062,30 @@ function main() {
 #### 4. Minimize Revealed Data
 
 ```javascript
-async function prove() {
-  const { sent, recv } = await transcript(proverId);
+// ✅ Good: Only reveal non-sensitive data
+reveal: [
+  {
+    type: 'RECV',
+    part: 'BODY',
+    action: 'REVEAL',
+    params: {
+      type: 'json',
+      path: 'public_field',
+      hideKey: true,
+    },
+  },
+]
 
-  // ✅ Good: Only reveal non-sensitive data
-  const commit = {
-    sent: subtractRanges(
-      { start: 0, end: sent.length },
-      sensitiveRanges
-    ),
-    recv: [{ start: 0, end: recv.length }],
-  };
-
-  // ❌ Bad: Revealing everything exposes secrets
-  // const commit = {
-  //   sent: [{ start: 0, end: sent.length }],
-  //   recv: [{ start: 0, end: recv.length }],
-  // };
-}
+// ❌ Bad: Don't reveal sensitive auth headers
+reveal: [
+  {
+    type: 'SENT',
+    part: 'HEADERS',
+    action: 'REVEAL',
+    params: { key: 'Cookie' }, // Exposes session!
+  },
+]
 ```
-
-#### 5. Clean Up Resources
-
-```javascript
-async function prove() {
-  // ... generate proof ...
-
-  // ✅ Good: Close window and cleanup when done
-  await done({ success: true });
-
-  // ❌ Bad: Leaving windows open wastes resources
-}
-```
-
-### Common Patterns
-
-#### Waiting for Specific Request
-
-```javascript
-function main() {
-  const [targetRequest] = useRequests((reqs) =>
-    reqs.filter(r => r.url.includes('/api/target'))
-  );
-
-  if (!targetRequest) {
-    return div({}, ['Waiting for request...']);
-  }
-
-  return div({}, ['Request detected!']);
-}
-```
-
-#### Multi-Step Proof
-
-```javascript
-let currentStep = 'init';
-
-function main() {
-  if (currentStep === 'init') {
-    useEffect(() => {
-      openWindow('https://example.com');
-      currentStep = 'waiting';
-    }, []);
-    return div({}, ['Opening window...']);
-  }
-
-  if (currentStep === 'waiting') {
-    const [data] = useRequests(/* ... */);
-    if (data) {
-      currentStep = 'ready';
-    }
-    return div({}, ['Waiting for data...']);
-  }
-
-  if (currentStep === 'ready') {
-    return button({ onclick: 'prove' }, ['Generate Proof']);
-  }
-}
-```
-
-#### Error Handling
-
-```javascript
-async function prove() {
-  try {
-    const proverId = await createProver('api.x.com', notaryUrl);
-    await sendRequest(proverId, proxyUrl, options);
-    await reveal(proverId, commit);
-    await done({ success: true });
-  } catch (error) {
-    console.error('Proof failed:', error);
-    // Show error in UI by updating state and re-rendering
-    // (implementation depends on your state management)
-  }
-}
-```
-
----
-
-## Troubleshooting
-
-### Plugin Not Rendering
-
-**Problem:** Plugin UI doesn't appear
-
-**Solutions:**
-- Ensure `main()` function is exported
-- Check console for JavaScript errors
-- Verify `main()` returns valid JSON structure (div/button tree)
-- Check that window is managed (opened via `openWindow()` or has plugin session)
-
-### Requests Not Detected
-
-**Problem:** `useRequests()` or `useHeaders()` returns empty array
-
-**Solutions:**
-- Ensure window is managed (created via `openWindow()`)
-- Check that URL matches filter function
-- Verify requests are HTTP/HTTPS (not `chrome://`, `about:`, etc.)
-- Check WindowManager limits (max 1000 requests per window)
-- Wait for page to fully load and make requests
-
-### Prover Fails
-
-**Problem:** `createProver()` or `sendRequest()` throws error
-
-**Solutions:**
-- Verify notary/verifier URL is correct and reachable
-- Check proxy URL format: `wss://host/proxy?token=domain`
-- Ensure `maxSentData`/`maxRecvData` are sufficient for request/response
-- Verify headers are correct (especially `Host`, `Connection: close`)
-- Check that server supports TLS 1.2+ with compatible cipher suites
-
-### Memory Issues
-
-**Problem:** Extension slows down or crashes
-
-**Solutions:**
-- Call `done()` when plugin finishes to cleanup resources
-- Close windows you don't need with `closeWindow()`
-- Avoid creating too many provers simultaneously
-- Be mindful of 10-window limit
-- Check for infinite loops in plugin code
 
 ---
 
@@ -1300,7 +1097,6 @@ async function prove() {
 
 ### Window Management
 - `openWindow(url, options?)` - Open managed window
-- `closeWindow(windowId)` - Close window
 
 ### Hooks
 - `useEffect(effect, deps)` - Side effect with dependencies
@@ -1308,37 +1104,10 @@ async function prove() {
 - `useHeaders(filterFn)` - Get filtered headers
 
 ### TLS Proof
-- `createProver(serverDns, verifierUrl, maxRecv?, maxSent?)` - Initialize prover
-- `sendRequest(proverId, proxyUrl, options)` - Send request through prover
-- `transcript(proverId)` - Get transcript
-- `reveal(proverId, commit)` - Selective reveal
+- `prove(requestOptions, proverOptions)` - **Unified proof generation API**
 
 ### Utilities
-- `subtractRanges(range, excludeRanges)` - Range subtraction
-- `mapStringToRange(strings, text)` - Find string positions
 - `done(args?)` - Cleanup and exit
-
----
-
-## Additional Resources
-
-### Package Locations
-- **Plugin SDK:** `packages/plugin-sdk/`
-- **Extension:** `packages/extension/`
-- **SessionManager:** `packages/extension/src/offscreen/SessionManager.ts`
-- **ProveManager:** `packages/extension/src/offscreen/ProveManager/`
-- **WindowManager:** `packages/extension/src/background/WindowManager.ts`
-- **Host:** `packages/plugin-sdk/src/index.ts`
-
-### Testing
-- Run plugin-sdk tests: `cd packages/plugin-sdk && npm test`
-- Run extension tests: `cd packages/extension && npm test`
-- Serve test page: `npm run serve:test` (from root)
-
-### Build Commands
-- Build all packages: `npm run build:all`
-- Build extension: `cd packages/extension && npm run build`
-- Build plugin-sdk: `cd packages/plugin-sdk && npm run build`
 
 ---
 

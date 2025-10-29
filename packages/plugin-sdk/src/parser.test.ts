@@ -46,10 +46,10 @@ describe('Parser', () => {
     it('should parse the sample sent transcript from spec', () => {
       const request =
         'GET https://api.x.com/1.1/account/settings.json HTTP/1.1\r\n' +
-        'x-csrf-token: 5f73c808d6e672eacdb4ee89c7c70b4e9d991305cf48577fe97cc0f8ff6282c47ce696134260147a53322d11e629338b418c6ab9c242e19f31dbe48df1ce34de42b0e0f47cc3f8bfbe75940e5842e960\r\n' +
-        'x-client-transaction-id: WaatVga41W8Ba7EoxhBDtikwBTdWPHv1zVVBAIE4lmZ6d1ynEMsfUqN0siut9dxQs5sq6F2aQq9/x9oYY9Ocx4Q9LFbiWg\r\n' +
-        'authorization: Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA\r\n' +
-        'cookie: guest_id=v1%3A174903000370998578\r\n' +
+        'x-csrf-token: REDACTED_CSRF_TOKEN_VALUE\r\n' +
+        'x-client-transaction-id: REDACTED_CLIENT_TRANSACTION_ID\r\n' +
+        'authorization: Bearer REDACTED_BEARER_TOKEN\r\n' +
+        'cookie: guest_id=REDACTED_GUEST_ID\r\n' +
         'accept-encoding: identity\r\n' +
         'host: api.x.com\r\n' +
         'connection: close\r\n' +
@@ -61,7 +61,7 @@ describe('Parser', () => {
       expect(json.method).toBe('GET');
       expect(json.requestTarget).toBe('https://api.x.com/1.1/account/settings.json');
       expect(json.protocol).toBe('HTTP/1.1');
-      expect(json.headers['x-csrf-token']).toContain('5f73c808d6e672eacdb4ee89c7c70b4e');
+      expect(json.headers['x-csrf-token']).toContain('REDACTED');
       expect(json.headers['host']).toBe('api.x.com');
     });
   });
@@ -126,7 +126,7 @@ describe('Parser', () => {
         'status: 200 OK\r\n' +
         '\r\n' +
         '45\r\n' +
-        '{"protected":false,"screen_name":"0xTsukino","always_use_https":true}\r\n' +
+        '{"protected":false,"screen_name":"test_user","always_use_https":true}\r\n' +
         '0\r\n' +
         '\r\n';
 
@@ -137,7 +137,7 @@ describe('Parser', () => {
       expect(json.statusCode).toBe('200');
       expect(json.headers['content-type']).toBe('application/json;charset=utf-8');
       expect(json.body.protected).toBe(false);
-      expect(json.body.screen_name).toBe('0xTsukino');
+      expect(json.body.screen_name).toBe('test_user');
     });
   });
 
@@ -529,7 +529,7 @@ describe('Parser', () => {
         'Cache-Control: no-cache, no-store, must-revalidate\r\n' +
         '\r\n' +
         '3d\r\n' +
-        '{"protected":false,"screen_name":"0xTsukino","language":"en"}\r\n' +
+        '{"protected":false,"screen_name":"test_user","language":"en"}\r\n' +
         '0\r\n' +
         '\r\n';
 
@@ -538,7 +538,7 @@ describe('Parser', () => {
 
       expect(json.statusCode).toBe('200');
       expect(json.headers['content-type']).toBe('application/json;charset=utf-8');
-      expect(json.body.screen_name).toBe('0xTsukino');
+      expect(json.body.screen_name).toBe('test_user');
 
       // Test ranges
       const screenNameRanges = parser.ranges.body('screen_name', { type: 'json' });

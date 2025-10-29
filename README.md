@@ -335,38 +335,74 @@ When a managed window is opened:
 You can write custom plugins in the Developer Console editor:
 
 ```javascript
-// Example: Simple plugin that opens a window
-async function prove() {
+// Example: Simple plugin that generates a proof
+const config = {
+  name: 'My Plugin',
+  description: 'A custom TLSN plugin'
+};
+
+async function onClick() {
   console.log('Starting proof...');
 
-  // Open a managed window
-  openWindow('https://example.com');
-
-  // Wait for specific headers
+  // Wait for specific headers to be intercepted
   const [header] = useHeaders(headers => {
     return headers.filter(h => h.url.includes('example.com'));
   });
 
   console.log('Captured header:', header);
 
-  // Create prover connection
-  const proverId = await createProver('example.com', 'http://localhost:7047');
+  // Generate proof using unified prove() API
+  const proof = await prove(
+    // Request options
+    {
+      url: 'https://example.com/api/endpoint',
+      method: 'GET',
+      headers: {
+        'Authorization': header.requestHeaders.find(h => h.name === 'Authorization')?.value,
+        'Accept-Encoding': 'identity',
+        'Connection': 'close',
+      },
+    },
+    // Prover options
+    {
+      verifierUrl: 'http://localhost:7047',
+      proxyUrl: 'wss://notary.pse.dev/proxy?token=example.com',
+      maxRecvData: 16384,
+      maxSentData: 4096,
+      reveal: [
+        { type: 'SENT', part: 'START_LINE', action: 'REVEAL' },
+        { type: 'RECV', part: 'START_LINE', action: 'REVEAL' },
+        { type: 'RECV', part: 'BODY', action: 'REVEAL',
+          params: { type: 'json', path: 'username' } }
+      ]
+    }
+  );
 
-  // ... rest of proof logic
+  console.log('Proof generated:', proof);
+  done(JSON.stringify(proof));
 }
 
 function main() {
-  // Plugin UI component
-  return div({}, ['My Plugin']);
+  const [header] = useHeaders(headers => {
+    return headers.filter(h => h.url.includes('example.com'));
+  });
+
+  // Open a managed window on first render
+  useEffect(() => {
+    openWindow('https://example.com');
+  }, []);
+
+  // Render plugin UI component
+  return div({}, [
+    div({}, [header ? 'Ready to prove' : 'Waiting for headers...']),
+    header ? button({ onclick: 'onClick' }, ['Generate Proof']) : null
+  ]);
 }
 
 export default {
   main,
-  prove,
-  config: {
-    name: 'My Plugin',
-    description: 'A custom TLSN plugin'
-  }
+  onClick,
+  config,
 };
 ```
 
