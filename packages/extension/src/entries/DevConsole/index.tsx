@@ -6,8 +6,31 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import browser from 'webextension-polyfill';
 import './index.scss';
 
-// Create window.tlsn API for extension pages
+/**
+ * ExtensionAPI Class
+ *
+ * Provides a communication bridge between the DevConsole UI and the background
+ * service worker for executing plugin code.
+ *
+ * This API is exposed as `window.tlsn` and allows the DevConsole to:
+ * - Execute plugin code in a sandboxed QuickJS environment
+ * - Communicate with the plugin-sdk Host via background messages
+ * - Receive execution results or error messages
+ */
 class ExtensionAPI {
+  /**
+   * Execute plugin code in the background service worker
+   *
+   * @param code - JavaScript code string to execute (must export main, onClick, config)
+   * @returns Promise resolving to the execution result
+   * @throws Error if code is invalid or execution fails
+   *
+   * Flow:
+   * 1. Sends EXEC_CODE message to background service worker
+   * 2. Background creates QuickJS sandbox with plugin capabilities
+   * 3. Code is evaluated and main() is called
+   * 4. Results are returned or errors are thrown
+   */
   async execCode(code: string): Promise<unknown> {
     if (!code || typeof code !== 'string') {
       throw new Error('Code must be a non-empty string');
@@ -27,17 +50,44 @@ class ExtensionAPI {
   }
 }
 
-// Initialize window.tlsn API
+// Initialize window.tlsn API for use in DevConsole
 if (typeof window !== 'undefined') {
   (window as any).tlsn = new ExtensionAPI();
 }
 
+/**
+ * ConsoleEntry Interface
+ *
+ * Represents a single entry in the DevConsole output panel
+ */
 interface ConsoleEntry {
+  /** Time when the entry was created (HH:MM:SS format) */
   timestamp: string;
+  /** The console message text */
   message: string;
+  /** Entry type affecting display styling */
   type: 'info' | 'error' | 'success';
 }
 
+/**
+ * Default Plugin Code Template
+ *
+ * This is the starter code shown in the DevConsole editor.
+ * It demonstrates a complete TLSN plugin with:
+ * - Config object with plugin metadata
+ * - onClick handler for proof generation
+ * - main() function with React-like hooks (useEffect, useHeaders)
+ * - UI rendering with div/button components
+ * - prove() call with reveal handlers for selective disclosure
+ *
+ * Plugin Capabilities Used:
+ * - useHeaders: Subscribe to intercepted HTTP request headers
+ * - useEffect: Run side effects when dependencies change
+ * - openWindow: Open browser windows with request interception
+ * - div/button: Create UI components
+ * - prove: Generate TLSNotary proofs with selective disclosure
+ * - done: Complete plugin execution
+ */
 const DEFAULT_CODE = `// Open X.com and return a greeting
 const config = {
   name: 'X Profile Prover',
@@ -151,9 +201,34 @@ export default {
 };
 `;
 
+/**
+ * DevConsole Component
+ *
+ * Interactive development console for testing TLSN plugins in real-time.
+ *
+ * Features:
+ * - CodeMirror editor with JavaScript syntax highlighting
+ * - Live code execution via window.tlsn.execCode()
+ * - Console output panel with timestamped entries
+ * - Auto-scrolling console
+ * - Error handling and execution timing
+ *
+ * Architecture:
+ * 1. User writes plugin code in CodeMirror editor
+ * 2. Clicks "Run Code" button
+ * 3. Code is sent to background service worker via EXEC_CODE message
+ * 4. Background creates QuickJS sandbox with plugin capabilities
+ * 5. Plugin main() is called and UI is rendered
+ * 6. Results/errors are displayed in console panel
+ */
 const DevConsole: React.FC = () => {
+  // Editor state - stores the plugin code
   const [code, setCode] = useState<string>(DEFAULT_CODE);
+
+  // Console output ref for auto-scrolling
   const consoleOutputRef = useRef<HTMLDivElement>(null);
+
+  // Console entries array with initial welcome message
   const [consoleEntries, setConsoleEntries] = useState<ConsoleEntry[]>([
     {
       timestamp: new Date().toLocaleTimeString(),
@@ -162,7 +237,10 @@ const DevConsole: React.FC = () => {
     },
   ]);
 
-  // Auto-scroll console to bottom when new entries are added
+  /**
+   * Auto-scroll console to bottom when new entries are added
+   * This ensures the latest output is always visible
+   */
   useEffect(() => {
     if (consoleOutputRef.current) {
       consoleOutputRef.current.scrollTop =
@@ -170,6 +248,12 @@ const DevConsole: React.FC = () => {
     }
   }, [consoleEntries]);
 
+  /**
+   * Add a new entry to the console output
+   *
+   * @param message - The message to display
+   * @param type - Entry type (info, error, success) for styling
+   */
   const addConsoleEntry = (
     message: string,
     type: ConsoleEntry['type'] = 'info',
@@ -178,6 +262,20 @@ const DevConsole: React.FC = () => {
     setConsoleEntries((prev) => [...prev, { timestamp, message, type }]);
   };
 
+  /**
+   * Execute the plugin code in the background service worker
+   *
+   * Flow:
+   * 1. Validate code is not empty
+   * 2. Send code to background via window.tlsn.execCode()
+   * 3. Background creates QuickJS sandbox with capabilities
+   * 4. Plugin code is evaluated and main() is called
+   * 5. Display results or errors in console
+   *
+   * Performance tracking:
+   * - Measures execution time from send to response
+   * - Includes sandbox creation, code evaluation, and main() execution
+   */
   const executeCode = async () => {
     const codeToExecute = code.trim();
 
@@ -190,11 +288,13 @@ const DevConsole: React.FC = () => {
     const startTime = performance.now();
 
     try {
+      // Execute code in sandboxed QuickJS environment
       const result = await (window as any).tlsn.execCode(codeToExecute);
       const executionTime = (performance.now() - startTime).toFixed(2);
 
       addConsoleEntry(`Execution completed in ${executionTime}ms`, 'success');
 
+      // Display result if returned (from done() call or explicit return)
       if (result !== undefined) {
         if (typeof result === 'object') {
           addConsoleEntry(
@@ -219,6 +319,10 @@ const DevConsole: React.FC = () => {
     }
   };
 
+  /**
+   * Clear the console output panel
+   * Resets to a single "Console cleared" message
+   */
   const clearConsole = () => {
     setConsoleEntries([
       {
@@ -229,8 +333,23 @@ const DevConsole: React.FC = () => {
     ]);
   };
 
+  /**
+   * Render the DevConsole UI
+   *
+   * Layout:
+   * - Top: Code editor with CodeMirror
+   * - Bottom: Console output panel
+   * - Split 60/40 ratio
+   *
+   * Editor Features:
+   * - JavaScript syntax highlighting
+   * - Line numbers, bracket matching, auto-completion
+   * - One Dark theme
+   * - History (undo/redo)
+   */
   return (
     <div className="dev-console">
+      {/* Code Editor Section */}
       <div className="editor-section">
         <div className="editor-header">
           <div className="editor-title">Code Editor</div>
@@ -240,6 +359,7 @@ const DevConsole: React.FC = () => {
             </button>
           </div>
         </div>
+        {/* CodeMirror with JavaScript/JSX support */}
         <CodeMirror
           value={code}
           height="100%"
@@ -281,6 +401,7 @@ const DevConsole: React.FC = () => {
         />
       </div>
 
+      {/* Console Output Section */}
       <div className="console-section">
         <div className="console-header">
           <div className="console-title">Console</div>
@@ -290,6 +411,7 @@ const DevConsole: React.FC = () => {
             </button>
           </div>
         </div>
+        {/* Scrollable console output with timestamped entries */}
         <div className="console-output" ref={consoleOutputRef}>
           {consoleEntries.map((entry, index) => (
             <div key={index} className={`console-entry ${entry.type}`}>
@@ -303,6 +425,11 @@ const DevConsole: React.FC = () => {
   );
 };
 
+/**
+ * Initialize React Application
+ *
+ * Mount the DevConsole component to the #root element in devconsole.html
+ */
 const container = document.getElementById('root');
 if (!container) {
   throw new Error('Root element not found');
