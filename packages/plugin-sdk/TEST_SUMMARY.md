@@ -6,11 +6,12 @@
 
 Tests for the plugin SDK with focus on:
 
-1. **Basic Infrastructure Tests** (SKIPPED - 3 tests)
+1. **Basic Infrastructure Tests** (SKIPPED - 4 tests)
    - ⏭️ Error handling when main function is not exported
    - ⏭️ Plugin code loading and main function detection
    - ⏭️ Syntax error handling in plugin code
-   - **Reason**: Circular reference issue in capability closures prevents testing
+   - ⏭️ Sandbox capability testing with exports
+   - **Reason**: Circular reference issue in hooks and QuickJS eval behavior inconsistencies
 
 2. **DOM JSON Creation Tests** (PASSING - 5 tests)
    - ✅ Creating div elements with options and children
@@ -54,14 +55,22 @@ To fully test the hook functionality, the implementation would need to be refact
 
 ## Test Execution
 
-DOM JSON creation tests pass cleanly:
+Full test suite results:
 ```bash
-npm test -- executePlugin.test.ts
+npm t
 ```
 
-**Result:** 5 tests passing ✅, 3 tests skipped ⏭️
+**Result:** 54 tests passing ✅, 5 tests skipped ⏭️
 
-The 3 skipped tests would verify `executePlugin` functionality but are disabled due to the circular reference issue that needs to be resolved in the implementation first.
+### Breakdown by File:
+- **executePlugin.test.ts**: 5 passing, 4 skipped
+- **parser.test.ts**: 43 passing
+- **index.test.ts**: 2 passing, 1 skipped
+- **index.browser.test.ts**: 4 passing
+
+The 5 skipped tests would verify `executePlugin` functionality and QuickJS sandbox behavior but are disabled due to:
+1. Circular reference issue in hooks (affects 3 tests)
+2. QuickJS eval inconsistent behavior in test environment (affects 2 tests)
 
 ## Additional Tests
 
