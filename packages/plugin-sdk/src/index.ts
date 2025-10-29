@@ -18,6 +18,256 @@ import {
 } from './types';
 import deepEqual from 'fast-deep-equal';
 
+// Module-level registry to avoid circular references in capability closures
+const executionContextRegistry = new Map<string, ExecutionContext>();
+
+// Pure function for updating execution context without `this` binding
+function updateExecutionContext(
+  uuid: string,
+  params: {
+    windowId?: number;
+    plugin?: string;
+    requests?: InterceptedRequest[];
+    headers?: InterceptedRequestHeader[];
+    context?: {
+      [functionName: string]: {
+        effects: any[][];
+        selectors: any[][];
+      };
+    };
+    currentContext?: string;
+  },
+): void {
+  const context = executionContextRegistry.get(uuid);
+  if (!context) {
+    throw new Error('Execution context not found');
+  }
+  executionContextRegistry.set(uuid, { ...context, ...params });
+}
+
+// Pure function for creating DOM JSON without `this` binding
+function createDomJson(
+  type: 'div' | 'button',
+  param1: DomOptions | DomJson[] = {},
+  param2: DomJson[] = [],
+): DomJson {
+  let options: DomOptions = {};
+  let children: DomJson[] = [];
+
+  if (Array.isArray(param1)) {
+    children = param1;
+  } else if (typeof param1 === 'object') {
+    options = param1;
+    children = param2;
+  }
+
+  return {
+    type,
+    options,
+    children,
+  };
+}
+
+// Pure function for creating useEffect hook without `this` binding
+function makeUseEffect(
+  uuid: string,
+  context: {
+    [functionName: string]: {
+      effects: any[][];
+      selectors: any[][];
+    };
+  },
+) {
+  return (effect: () => void, deps: any[]) => {
+    const executionContext = executionContextRegistry.get(uuid);
+    if (!executionContext) {
+      throw new Error('Execution context not found');
+    }
+    const functionName = executionContext.currentContext;
+    context[functionName] = context[functionName] || {
+      effects: [],
+      selectors: [],
+    };
+    const effects = context[functionName].effects;
+    const lastDeps = executionContext.context[functionName]?.effects[effects.length];
+    effects.push(deps);
+    if (deepEqual(lastDeps, deps)) {
+      return;
+    }
+    effect();
+  };
+}
+
+// Pure function for creating useRequests hook without `this` binding
+function makeUseRequests(
+  uuid: string,
+  context: {
+    [functionName: string]: {
+      effects: any[][];
+      selectors: any[][];
+    };
+  },
+) {
+  return (filterFn: (requests: InterceptedRequest[]) => InterceptedRequest[]) => {
+    const executionContext = executionContextRegistry.get(uuid);
+    if (!executionContext) {
+      throw new Error('Execution context not found');
+    }
+    const functionName = executionContext.currentContext;
+    context[functionName] = context[functionName] || {
+      effects: [],
+      selectors: [],
+    };
+    const selectors = context[functionName].selectors;
+    // Serialize requests to break circular references
+    const requests = JSON.parse(JSON.stringify(executionContext.requests || []));
+    const result = filterFn(requests);
+    selectors.push(result);
+    return result;
+  };
+}
+
+// Pure function for creating useHeaders hook without `this` binding
+function makeUseHeaders(
+  uuid: string,
+  context: {
+    [functionName: string]: {
+      effects: any[][];
+      selectors: any[][];
+    };
+  },
+) {
+  return (filterFn: (headers: InterceptedRequestHeader[]) => InterceptedRequestHeader[]) => {
+    const executionContext = executionContextRegistry.get(uuid);
+    if (!executionContext) {
+      throw new Error('Execution context not found');
+    }
+    const functionName = executionContext.currentContext;
+    context[functionName] = context[functionName] || {
+      effects: [],
+      selectors: [],
+    };
+    const selectors = context[functionName].selectors;
+    // Serialize headers to break circular references
+    const headers = JSON.parse(JSON.stringify(executionContext.headers || []));
+    const result = filterFn(headers);
+    selectors.push(result);
+    return result;
+  };
+}
+
+// Pure function for creating openWindow without `this` binding
+function makeOpenWindow(
+  uuid: string,
+  eventEmitter: {
+    addListener: (listener: (message: WindowMessage) => void) => void;
+    removeListener: (listener: (message: WindowMessage) => void) => void;
+  },
+  onOpenWindow: (
+    url: string,
+    options?: {
+      width?: number;
+      height?: number;
+      showOverlay?: boolean;
+    },
+  ) => Promise<OpenWindowResponse>,
+  onCloseWindow: (windowId: number) => void,
+) {
+  return async (
+    url: string,
+    options?: {
+      width?: number;
+      height?: number;
+      showOverlay?: boolean;
+    },
+  ): Promise<{ windowId: number; uuid: string; tabId: number }> => {
+    if (!url || typeof url !== 'string') {
+      throw new Error('URL must be a non-empty string');
+    }
+
+    try {
+      const response = await onOpenWindow(url, options);
+
+      // Check if response indicates an error
+      if (response?.type === 'WINDOW_ERROR') {
+        throw new Error(
+          response.payload?.details || response.payload?.error || 'Failed to open window',
+        );
+      }
+
+      // Return window info from successful response
+      if (response?.type === 'WINDOW_OPENED' && response.payload) {
+        updateExecutionContext(uuid, {
+          windowId: response.payload.windowId,
+        });
+
+        const onMessage = async (message: any) => {
+          if (message.type === 'REQUEST_INTERCEPTED') {
+            const request = message.request;
+            const executionContext = executionContextRegistry.get(uuid);
+            if (!executionContext) {
+              throw new Error('Execution context not found');
+            }
+            updateExecutionContext(uuid, {
+              requests: [...(executionContext.requests || []), request],
+            });
+            executionContext.main();
+          }
+
+          if (message.type === 'HEADER_INTERCEPTED') {
+            const header = message.header;
+            const executionContext = executionContextRegistry.get(uuid);
+            if (!executionContext) {
+              throw new Error('Execution context not found');
+            }
+            updateExecutionContext(uuid, {
+              headers: [...(executionContext.headers || []), header],
+            });
+            executionContext.main();
+          }
+
+          if (message.type === 'PLUGIN_UI_CLICK') {
+            console.log('PLUGIN_UI_CLICK', message);
+            const executionContext = executionContextRegistry.get(uuid);
+            if (!executionContext) {
+              throw new Error('Execution context not found');
+            }
+            const cb = executionContext.callbacks[message.onclick];
+
+            if (cb) {
+              updateExecutionContext(uuid, {
+                currentContext: message.onclick,
+              });
+              const result = await cb();
+              updateExecutionContext(uuid, {
+                currentContext: '',
+              });
+              console.log('Callback result:', result);
+            }
+          }
+
+          if (message.type === 'WINDOW_CLOSED') {
+            eventEmitter.removeListener(onMessage);
+          }
+        };
+
+        eventEmitter.addListener(onMessage);
+
+        return {
+          windowId: response.payload.windowId,
+          uuid: response.payload.uuid,
+          tabId: response.payload.tabId,
+        };
+      }
+
+      throw new Error('Invalid response from background script');
+    } catch (error) {
+      console.error('[makeOpenWindow] Failed to open window:', error);
+      throw error;
+    }
+  };
+}
+
 // Export Parser and its types
 export {
   Parser,
@@ -32,7 +282,6 @@ export {
 
 export class Host {
   private capabilities: Map<string, (...args: any[]) => any> = new Map();
-  private executionContexts: Map<string, ExecutionContext> = new Map();
   private onProve: (serverDns: string, verifierUrl: string) => Promise<string>;
   private onRenderPluginUi: (windowId: number, result: DomJson) => void;
   private onCloseWindow: (windowId: number) => void;
@@ -142,11 +391,7 @@ export class Host {
       currentContext?: string;
     },
   ): void {
-    const context = this.executionContexts.get(uuid);
-    if (!context) {
-      throw new Error('Execution context not found');
-    }
-    this.executionContexts.set(uuid, { ...context, ...params });
+    updateExecutionContext(uuid, params);
   }
 
   async getPluginConfig(code: string): Promise<any> {
@@ -220,19 +465,25 @@ ${code};
      * - closeWindow: a function that closes a window by windowId
      * - done: a function that completes the session and closes the window
      */
+    // Create pure functions without `this` bindings to avoid circular references
+    const onCloseWindow = this.onCloseWindow;
+    const onRenderPluginUi = this.onRenderPluginUi;
+    const onOpenWindow = this.onOpenWindow;
+    const onProve = this.onProve;
+
     const sandbox = await this.createEvalCode({
-      div: this.createDomJson.bind(this, 'div'),
-      button: this.createDomJson.bind(this, 'button'),
-      openWindow: this.makeOpenWindow(uuid, eventEmitter),
-      useEffect: this.makeUseEffect(uuid, context),
-      useRequests: this.makeUseRequests(uuid, context),
-      useHeaders: this.makeUseHeaders(uuid, context),
-      prove: this.onProve.bind(this),
+      div: (param1?: DomOptions | DomJson[], param2?: DomJson[]) => createDomJson('div', param1, param2),
+      button: (param1?: DomOptions | DomJson[], param2?: DomJson[]) => createDomJson('button', param1, param2),
+      openWindow: makeOpenWindow(uuid, eventEmitter, onOpenWindow, onCloseWindow),
+      useEffect: makeUseEffect(uuid, context),
+      useRequests: makeUseRequests(uuid, context),
+      useHeaders: makeUseHeaders(uuid, context),
+      prove: onProve,
       done: (args?: any[]) => {
         // Close the window if it exists
-        const context = this.executionContexts.get(uuid);
+        const context = executionContextRegistry.get(uuid);
         if (context?.windowId) {
-          this.onCloseWindow(context.windowId);
+          onCloseWindow(context.windowId);
         }
         doneResolve(args);
       },
@@ -275,22 +526,22 @@ ${code};
 
     const main = () => {
       try {
-        this.updateExecutionContext(uuid, {
+        updateExecutionContext(uuid, {
           currentContext: 'main',
         });
 
         let result = mainFn();
-        const lastSelectors = this.executionContexts.get(uuid)?.context['main']?.selectors;
+        const lastSelectors = executionContextRegistry.get(uuid)?.context['main']?.selectors;
         const selectors = context['main']?.selectors;
 
         if (deepEqual(lastSelectors, selectors)) {
           result = null;
         }
 
-        this.updateExecutionContext(uuid, {
+        updateExecutionContext(uuid, {
           currentContext: '',
           context: {
-            ...this.executionContexts.get(uuid)?.context,
+            ...executionContextRegistry.get(uuid)?.context,
             main: {
               effects: JSON.parse(JSON.stringify(context['main']?.effects)),
               selectors: JSON.parse(JSON.stringify(context['main']?.selectors)),
@@ -306,8 +557,8 @@ ${code};
         if (result) {
           console.log('Main function executed:', result);
 
-          if (this.executionContexts.get(uuid)?.windowId) {
-            this.onRenderPluginUi(this.executionContexts.get(uuid)!.windowId!, result);
+          if (executionContextRegistry.get(uuid)?.windowId) {
+            onRenderPluginUi(executionContextRegistry.get(uuid)!.windowId!, result);
           }
         }
 
@@ -319,7 +570,7 @@ ${code};
       }
     };
 
-    this.executionContexts.set(uuid, {
+    executionContextRegistry.set(uuid, {
       id: uuid,
       plugin: code,
       pluginUrl: '',
@@ -335,219 +586,17 @@ ${code};
     return donePromise;
   }
 
+  /**
+   * Public method for creating DOM JSON
+   * Delegates to the pure module-level function
+   */
   createDomJson = (
     type: 'div' | 'button',
     param1: DomOptions | DomJson[] = {},
     param2: DomJson[] = [],
   ): DomJson => {
-    let options: DomOptions = {};
-    let children: DomJson[] = [];
-
-    if (Array.isArray(param1)) {
-      children = param1;
-    } else if (typeof param1 === 'object') {
-      options = param1;
-      children = param2;
-    }
-
-    return {
-      type,
-      options,
-      children,
-    };
+    return createDomJson(type, param1, param2);
   };
-
-  makeUseEffect = (
-    uuid: string,
-    context: {
-      [functionName: string]: {
-        effects: any[][];
-        selectors: any[][];
-      };
-    },
-  ) => {
-    return (effect: () => void, deps: any[]) => {
-      const executionContext = this.executionContexts.get(uuid);
-      if (!executionContext) {
-        throw new Error('Execution context not found');
-      }
-      const functionName = executionContext.currentContext;
-      context[functionName] = context[functionName] || {
-        effects: [],
-        selectors: [],
-      };
-      const effects = context[functionName].effects;
-      const lastDeps = executionContext.context[functionName]?.effects[effects.length];
-      effects.push(deps);
-      if (deepEqual(lastDeps, deps)) {
-        return;
-      }
-      effect();
-    };
-  };
-
-  makeUseRequests = (
-    uuid: string,
-    context: {
-      [functionName: string]: {
-        effects: any[][];
-        selectors: any[][];
-      };
-    },
-  ) => {
-    return (filterFn: (requests: InterceptedRequest[]) => InterceptedRequest[]) => {
-      const executionContext = this.executionContexts.get(uuid);
-      if (!executionContext) {
-        throw new Error('Execution context not found');
-      }
-      const functionName = executionContext.currentContext;
-      context[functionName] = context[functionName] || {
-        effects: [],
-        selectors: [],
-      };
-      const selectors = context[functionName].selectors;
-      const result = filterFn(executionContext.requests || []);
-      selectors.push(result);
-      return result;
-    };
-  };
-
-  makeUseHeaders = (
-    uuid: string,
-    context: {
-      [functionName: string]: {
-        effects: any[][];
-        selectors: any[][];
-      };
-    },
-  ) => {
-    return (filterFn: (headers: InterceptedRequestHeader[]) => InterceptedRequestHeader[]) => {
-      const executionContext = this.executionContexts.get(uuid);
-      if (!executionContext) {
-        throw new Error('Execution context not found');
-      }
-      const functionName = executionContext.currentContext;
-      context[functionName] = context[functionName] || {
-        effects: [],
-        selectors: [],
-      };
-      const selectors = context[functionName].selectors;
-      const result = filterFn(executionContext.headers || []);
-      selectors.push(result);
-      return result;
-    };
-  };
-
-  /**
-   * Open a new browser window with the specified URL
-   * This method sends a message to the background script to create a managed window
-   * with request interception enabled.
-   *
-   * @param url - The URL to open in the new window
-   * @param options - Optional window configuration
-   * @returns Promise that resolves with window info or rejects with error
-   */
-  makeOpenWindow =
-    (
-      uuid: string,
-      eventEmitter: {
-        addListener: (listener: (message: WindowMessage) => void) => void;
-        removeListener: (listener: (message: WindowMessage) => void) => void;
-      },
-    ) =>
-    async (
-      url: string,
-      options?: {
-        width?: number;
-        height?: number;
-        showOverlay?: boolean;
-      },
-    ): Promise<{ windowId: number; uuid: string; tabId: number }> => {
-      if (!url || typeof url !== 'string') {
-        throw new Error('URL must be a non-empty string');
-      }
-
-      try {
-        const response = await this.onOpenWindow(url, options);
-
-        // Check if response indicates an error
-        if (response?.type === 'WINDOW_ERROR') {
-          throw new Error(
-            response.payload?.details || response.payload?.error || 'Failed to open window',
-          );
-        }
-
-        // Return window info from successful response
-        if (response?.type === 'WINDOW_OPENED' && response.payload) {
-          this.updateExecutionContext(uuid, {
-            windowId: response.payload.windowId,
-          });
-
-          const onMessage = async (message: any) => {
-            if (message.type === 'REQUEST_INTERCEPTED') {
-              const request = message.request;
-              const executionContext = this.executionContexts.get(uuid);
-              if (!executionContext) {
-                throw new Error('Execution context not found');
-              }
-              this.updateExecutionContext(uuid, {
-                requests: [...(executionContext.requests || []), request],
-              });
-              executionContext.main();
-            }
-
-            if (message.type === 'HEADER_INTERCEPTED') {
-              const header = message.header;
-              const executionContext = this.executionContexts.get(uuid);
-              if (!executionContext) {
-                throw new Error('Execution context not found');
-              }
-              this.updateExecutionContext(uuid, {
-                headers: [...(executionContext.headers || []), header],
-              });
-              executionContext.main();
-            }
-
-            if (message.type === 'PLUGIN_UI_CLICK') {
-              console.log('PLUGIN_UI_CLICK', message);
-              const executionContext = this.executionContexts.get(uuid);
-              if (!executionContext) {
-                throw new Error('Execution context not found');
-              }
-              const cb = executionContext.callbacks[message.onclick];
-
-              if (cb) {
-                this.updateExecutionContext(uuid, {
-                  currentContext: message.onclick,
-                });
-                const result = await cb();
-                this.updateExecutionContext(uuid, {
-                  currentContext: '',
-                });
-                console.log('Callback result:', result);
-              }
-            }
-
-            if (message.type === 'WINDOW_CLOSED') {
-              eventEmitter.removeListener(onMessage);
-            }
-          };
-
-          eventEmitter.addListener(onMessage);
-
-          return {
-            windowId: response.payload.windowId,
-            uuid: response.payload.uuid,
-            tabId: response.payload.tabId,
-          };
-        }
-
-        throw new Error('Invalid response from background script');
-      } catch (error) {
-        console.error('[Host.makeOpenWindow] Failed to open window:', error);
-        throw error;
-      }
-    };
 }
 
 // Default export

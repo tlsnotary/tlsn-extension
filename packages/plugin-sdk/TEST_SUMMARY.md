@@ -27,9 +27,20 @@ Tests for the plugin SDK with focus on:
 The current implementation has a **known limitation** with testing the React-like hooks (`useEffect`, `useRequests`, `useHeaders`). When these hooks are passed as capabilities into the QuickJS sandbox, they cause "Maximum call stack size exceeded" errors due to circular references in the capability closures.
 
 **Root Cause:**
-- The hooks close over complex objects like `executionContext`, `eventEmitter`, etc.
-- When QuickJS tries to serialize these closures to pass them into the sandbox, it encounters circular references
-- Even simple filter functions that return primitive values trigger this because the full request/header arrays need to be serialized first
+- When QuickJS tries to pass the hook functions as capabilities into the sandbox, it must serialize the entire closure including all variables in scope
+- The hooks access `executionContextRegistry.get(uuid)` which returns `ExecutionContext` objects
+- These `ExecutionContext` objects contain circular references:
+  - `sandbox` object (which contains references to itself)
+  - `main` function (which closes over the execution context)
+  - `callbacks` object (which may contain closures that reference the context)
+- The circular reference error occurs **during capability serialization**, before the plugin code even runs
+- This is independent of what data the hooks return - it's the closure itself that can't be serialized
+
+**Refactoring Attempts:**
+- Moved execution context to module-level registry (still causes circular refs)
+- Created pure functions without `this` bindings (still causes circular refs)
+- Serialized request/header data before passing to filters (still causes circular refs)
+- The issue persists because QuickJS serializes the entire closure scope, including the registry
 
 **What Works:**
 - ✅ DOM JSON creation (div, button)
@@ -46,12 +57,27 @@ The current implementation has a **known limitation** with testing the React-lik
 
 ## Future Improvements
 
-To fully test the hook functionality, the implementation would need to be refactored to:
+To fully test and fix the hook functionality, the implementation would need a **major architectural refactoring**:
 
-1. Avoid passing closures with circular references as capabilities
-2. Serialize request/header data to simple objects before passing to sandbox
-3. Implement hooks in a way that doesn't require complex object serialization
-4. Consider alternative approaches for state management across the sandbox boundary
+### Option 1: Message-Based Communication
+1. Don't pass hook functions as capabilities
+2. Have plugins send messages to the host for data access (requests, headers, effects)
+3. Host processes messages and returns serialized data
+4. Removes need for closures that access execution context
+
+### Option 2: Serialization Layer
+1. Create a serialization boundary between host and sandbox
+2. Store execution context data in a serializable format (no functions, no circular refs)
+3. Hooks communicate through a message queue or event system
+4. Convert function references to string identifiers
+
+### Option 3: Simplified Hook Model
+1. Pass only primitive data and simple functions as capabilities
+2. Implement hook logic entirely within the sandbox using that data
+3. Use callback functions to notify host of state changes
+4. Requires rethinking how plugins access dynamic data (requests/headers)
+
+All options require significant refactoring of the plugin architecture and execution model.
 
 ## Test Execution
 

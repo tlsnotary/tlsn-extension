@@ -67,10 +67,12 @@ describe.skipIf(typeof window !== 'undefined')('executePlugin - Basic Infrastruc
   };
 
   it.skip('should detect when main function is not exported', async () => {
-    // SKIPPED: This test would verify error handling for missing main function,
-    // but the circular reference issue in capability closures causes the
-    // test itself to throw before we can verify the error message.
-    // The implementation needs refactoring to avoid circular references.
+    // SKIPPED: Circular reference issue in hook capability closures
+    // When QuickJS tries to serialize the hook functions (useEffect, useRequests, useHeaders)
+    // to pass them as capabilities into the sandbox, it encounters circular references.
+    // The hooks close over `executionContextRegistry` which contains ExecutionContext objects
+    // that have circular references (sandbox.main -> callbacks -> context -> sandbox).
+    // This occurs during capability serialization, before the plugin code even runs.
     const pluginCode = `
       export function notMain() {
         return { type: 'div', options: {}, children: ['Wrong'] };
@@ -85,10 +87,7 @@ describe.skipIf(typeof window !== 'undefined')('executePlugin - Basic Infrastruc
   });
 
   it.skip('should execute plugin main function', async () => {
-    // SKIPPED: The current implementation has a circular reference issue when
-    // passing hooks (useEffect, useRequests, useHeaders) as capabilities into
-    // the QuickJS sandbox. This needs refactoring before executePlugin can be
-    // properly tested. See TEST_SUMMARY.md for details.
+    // SKIPPED: Same circular reference issue as above
     const pluginCode = `
       export function main() {
         return null;
@@ -103,7 +102,7 @@ describe.skipIf(typeof window !== 'undefined')('executePlugin - Basic Infrastruc
   });
 
   it.skip('should handle syntax errors in plugin code', async () => {
-    // SKIPPED: Same circular reference issue prevents proper testing
+    // SKIPPED: Same circular reference issue as above
     const pluginCode = `
       export function main() {
         this is invalid syntax!!!
