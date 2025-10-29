@@ -365,40 +365,78 @@ export class Parser {
     const result: any = {};
 
     if (typeof json === 'object' && json !== null && !Array.isArray(json)) {
+      // Convert text to bytes for accurate byte offset calculation
+      const textBytes = Buffer.from(text, 'utf8');
+
       for (const key in json) {
         const keyStr = `"${key}"`;
-        const keyIndex = text.indexOf(keyStr);
-        if (keyIndex === -1) continue;
+        const keyBytes = Buffer.from(keyStr, 'utf8');
 
-        // Find the value in the JSON string
-        const valueStart = text.indexOf(':', keyIndex) + 1;
+        // Find key in bytes (not string index!)
+        const keyByteIndex = textBytes.indexOf(keyBytes);
+        if (keyByteIndex === -1) continue;
+
+        // Find the colon after the key
+        const colonBytes = Buffer.from(':', 'utf8');
+        const colonByteIndex = textBytes.indexOf(colonBytes, keyByteIndex);
+        if (colonByteIndex === -1) continue;
+
         const value = json[key];
         const valueStr = JSON.stringify(value);
+        const valueBytes = Buffer.from(valueStr, 'utf8');
 
-        // Find where the value actually starts (skip whitespace)
-        let actualValueStart = valueStart;
-        while (actualValueStart < text.length && /\s/.test(text[actualValueStart])) {
-          actualValueStart++;
+        // Find where the value actually starts (skip whitespace after colon)
+        let actualValueByteStart = colonByteIndex + 1;
+        while (
+          actualValueByteStart < textBytes.length &&
+          (textBytes[actualValueByteStart] === 0x20 || // space
+            textBytes[actualValueByteStart] === 0x09 || // tab
+            textBytes[actualValueByteStart] === 0x0a || // newline
+            textBytes[actualValueByteStart] === 0x0d) // carriage return
+        ) {
+          actualValueByteStart++;
         }
 
-        // Find value end (this is approximate - proper implementation would need full JSON parser)
-        const valueEnd = actualValueStart + valueStr.length;
-
-        result[key] = {
-          value: value,
-          ranges: {
-            start: baseOffset + keyIndex,
-            end: baseOffset + valueEnd,
-          },
-          keyRange: {
-            start: baseOffset + keyIndex,
-            end: baseOffset + keyIndex + keyStr.length,
-          },
-          valueRange: {
-            start: baseOffset + actualValueStart,
-            end: baseOffset + valueEnd,
-          },
-        };
+        // Find value in bytes starting from after the colon
+        const valueByteIndex = textBytes.indexOf(valueBytes, actualValueByteStart);
+        if (valueByteIndex === -1) {
+          // Value not found exactly, use calculated position
+          // This can happen with nested objects or special formatting
+          const valueByteEnd = actualValueByteStart + valueBytes.length;
+          result[key] = {
+            value: value,
+            ranges: {
+              start: baseOffset + keyByteIndex,
+              end: baseOffset + valueByteEnd,
+            },
+            keyRange: {
+              start: baseOffset + keyByteIndex,
+              end: baseOffset + keyByteIndex + keyBytes.length,
+            },
+            valueRange: {
+              start: baseOffset + actualValueByteStart,
+              end: baseOffset + valueByteEnd,
+            },
+          };
+        } else {
+          // Value found exactly
+          const valueByteEnd = valueByteIndex + valueBytes.length;
+          result[key] = {
+            value: value,
+            ranges: {
+              start: baseOffset + keyByteIndex,
+              end: baseOffset + valueByteEnd,
+            },
+            keyRange: {
+              start: baseOffset + keyByteIndex,
+              end: baseOffset + keyByteIndex + keyBytes.length,
+            },
+            valueRange: {
+              start: baseOffset + valueByteIndex,
+              end: baseOffset + valueByteEnd,
+            },
+          };
+        }
       }
     }
 
@@ -606,11 +644,25 @@ export class Parser {
         const baseOffset = this.parsed.body.raw.ranges.start;
         const ranges: Range[] = [];
 
+        // Convert text to bytes for accurate offset calculation
+        const textBytes = Buffer.from(text, 'utf8');
+
         let match;
         while ((match = path.exec(text)) !== null) {
+          // match.index is a STRING index, need to convert to BYTE offset
+          const matchedText = match[0];
+          const matchedBytes = Buffer.from(matchedText, 'utf8');
+
+          // Get substring before the match
+          const beforeMatch = text.substring(0, match.index);
+          const beforeMatchBytes = Buffer.from(beforeMatch, 'utf8');
+
+          // Byte offset is the length of bytes before the match
+          const byteOffset = beforeMatchBytes.length;
+
           ranges.push({
-            start: baseOffset + match.index,
-            end: baseOffset + match.index + match[0].length,
+            start: baseOffset + byteOffset,
+            end: baseOffset + byteOffset + matchedBytes.length,
           });
         }
 

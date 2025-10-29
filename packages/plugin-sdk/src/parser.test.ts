@@ -637,4 +637,103 @@ describe('Parser', () => {
       // The parser only supports top-level field extraction
     });
   });
+
+  describe('Byte Offset Handling (Bug Fix)', () => {
+    it('should demonstrate string vs byte index difference with multi-byte UTF-8', () => {
+      const textWithEmoji = '{"emoji":"🙈","name":"test"}';
+      const bytes = Buffer.from(textWithEmoji);
+
+      console.log('\n=== String vs Byte Index Test ===');
+      console.log('Text:', textWithEmoji);
+      console.log('String length:', textWithEmoji.length);
+      console.log('Byte length:', bytes.length);
+
+      // Find "name" in string
+      const nameStringIndex = textWithEmoji.indexOf('"name"');
+      console.log('String index of "name":', nameStringIndex);
+
+      // Find "name" in bytes
+      const nameBytes = Buffer.from('"name"');
+      const nameByteIndex = bytes.indexOf(nameBytes);
+      console.log('Byte index of "name":', nameByteIndex);
+
+      // They should differ because 🙈 is 4 bytes but counts as 2 in JavaScript string length
+      expect(nameByteIndex).toBeGreaterThan(nameStringIndex);
+    });
+
+    it('should calculate correct BYTE offsets for JSON with multi-byte characters', () => {
+      // HTTP response with emoji in JSON (4-byte UTF-8 character)
+      const response =
+        'HTTP/1.1 200 OK\r\n' +
+        'Content-Type: application/json\r\n' +
+        '\r\n' +
+        '{"emoji":"🙈","screen_name":"test"}';
+
+      const parser = new Parser(response);
+      const json = parser.json();
+
+      console.log('\n=== Multi-byte Character Test ===');
+      console.log('Full response:', response);
+      console.log('Response bytes:', Buffer.from(response).length);
+      console.log('Parsed JSON:', json);
+
+      // Get byte range for "screen_name" field
+      const screenNameRanges = parser.ranges.body('screen_name', {
+        type: 'json',
+      });
+
+      console.log('screen_name ranges:', screenNameRanges);
+
+      // The actual bytes in the response
+      const responseBytes = Buffer.from(response);
+      const extractedBytes = responseBytes.slice(
+        screenNameRanges[0].start,
+        screenNameRanges[0].end,
+      );
+      const extractedText = extractedBytes.toString('utf8');
+
+      console.log('Extracted bytes length:', extractedBytes.length);
+      console.log('Extracted text:', extractedText);
+
+      // This should extract the full "screen_name":"test" pair
+      // WITHOUT including any bytes from the emoji field
+      expect(extractedText).toContain('screen_name');
+      expect(extractedText).toContain('test');
+      expect(extractedText).not.toContain('🙈'); // Should NOT contain emoji
+    });
+
+    it('should handle JSON value extraction with correct byte offsets', () => {
+      // Response with emoji before the field we want
+      const response =
+        'HTTP/1.1 200 OK\r\n' +
+        'Content-Type: application/json\r\n' +
+        '\r\n' +
+        '{"emoji":"🙈","screen_name":"test_user"}';
+
+      const parser = new Parser(response);
+
+      // Get byte range for "screen_name" value only (hideKey: true)
+      const valueRanges = parser.ranges.body('screen_name', {
+        type: 'json',
+        hideKey: true,
+      });
+
+      console.log('\n=== Value Extraction Test ===');
+      console.log('Value ranges:', valueRanges);
+
+      // Extract the actual bytes using the calculated range
+      const responseBytes = Buffer.from(response);
+      const extractedBytes = responseBytes.slice(
+        valueRanges[0].start,
+        valueRanges[0].end,
+      );
+      const extractedText = extractedBytes.toString('utf8');
+
+      console.log('Extracted value text:', extractedText);
+
+      // Should extract just the value, not corrupted by the emoji
+      expect(extractedText).toBe('"test_user"');
+      expect(extractedText).not.toContain('🙈');
+    });
+  });
 });
