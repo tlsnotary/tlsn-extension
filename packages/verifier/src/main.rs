@@ -598,10 +598,10 @@ async fn run_verifier_task(
 
     // Handle the verification result
     match verification_result {
-        Ok(Ok((sent_data, received_data))) => {
+        Ok(Ok((sent_bytes, recv_bytes, sent_string, recv_string))) => {
             info!("[{}] ✅ Verification completed successfully!", session_id);
-            info!("[{}] Sent data length: {} bytes", session_id, sent_data.len());
-            info!("[{}] Received data length: {} bytes", session_id, received_data.len());
+            info!("[{}] Sent data length: {} bytes", session_id, sent_string.len());
+            info!("[{}] Received data length: {} bytes", session_id, recv_string.len());
 
             // Wait for RevealConfig to be available (with polling and timeout)
             let reveal_config_wait_timeout = Duration::from_secs(30);
@@ -631,18 +631,17 @@ async fn run_verifier_task(
                 tokio::time::sleep(Duration::from_millis(100)).await;
             };
 
-            // Map revealed ranges to handler results
+            // Map revealed ranges to handler results using RAW byte vectors
+            // IMPORTANT: Use sent_bytes/recv_bytes (raw transcript with \0 for unrevealed)
+            // NOT sent_string/recv_string (which have 🙈 emoji replacing \0)
             let mut handler_results = Vec::new();
 
-            // Convert strings to bytes for slicing
-            let sent_bytes = sent_data.as_bytes();
-            let recv_bytes = received_data.as_bytes();
-
-            // Process sent ranges
+            // Process sent ranges - extract from raw bytes
             for range_with_handler in &reveal_config.sent {
                 let value = if range_with_handler.start < sent_bytes.len()
                     && range_with_handler.end <= sent_bytes.len()
                     && range_with_handler.start < range_with_handler.end {
+                    // Extract bytes from RAW transcript (before \0 → 🙈 conversion)
                     let bytes = &sent_bytes[range_with_handler.start..range_with_handler.end];
                     String::from_utf8_lossy(bytes).to_string()
                 } else {
@@ -664,11 +663,12 @@ async fn run_verifier_task(
                 });
             }
 
-            // Process recv ranges
+            // Process recv ranges - extract from raw bytes
             for range_with_handler in &reveal_config.recv {
                 let value = if range_with_handler.start < recv_bytes.len()
                     && range_with_handler.end <= recv_bytes.len()
                     && range_with_handler.start < range_with_handler.end {
+                    // Extract bytes from RAW transcript (before \0 → 🙈 conversion)
                     let bytes = &recv_bytes[range_with_handler.start..range_with_handler.end];
                     String::from_utf8_lossy(bytes).to_string()
                 } else {

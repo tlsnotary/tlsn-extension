@@ -9,11 +9,14 @@ use tokio_util::compat::TokioAsyncReadCompatExt;
 use tracing::{debug, info};
 
 /// Core verifier logic that validates the TLS proof
+/// Returns: (sent_bytes, recv_bytes, sent_string, recv_string)
+/// - sent_bytes/recv_bytes: Raw transcript bytes (with \0 for unrevealed)
+/// - sent_string/recv_string: Display strings (with 🙈 for unrevealed)
 pub async fn verifier<T: AsyncWrite + AsyncRead + Send + Unpin + 'static>(
     socket: T,
     max_sent_data: usize,
     max_recv_data: usize,
-) -> Result<(String, String), eyre::ErrReport> {
+) -> Result<(Vec<u8>, Vec<u8>, String, String), eyre::ErrReport> {
     info!("Starting verification with maxSentData={}, maxRecvData={}", max_sent_data, max_recv_data);
 
     let config_validator = ProtocolConfigValidator::builder()
@@ -76,7 +79,8 @@ pub async fn verifier<T: AsyncWrite + AsyncRead + Send + Unpin + 'static>(
     info!("Sent data: {:?}", sent_string);
     info!("Received data: {:?}", received_string);
 
-    Ok((sent_string, received_string))
+    // Return both raw bytes (for range extraction) and display strings (for logging)
+    Ok((sent, received, sent_string, received_string))
 }
 
 /// Render redacted bytes as `🙈`.

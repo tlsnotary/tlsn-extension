@@ -113,4 +113,60 @@ mod tests {
             "Range should map correctly to revealed transcript"
         );
     }
+
+    #[test]
+    fn test_extract_from_raw_bytes_vs_redacted_string() {
+        // This test demonstrates the bug: extracting from redacted string gives wrong results
+        // The fix: extract from raw bytes BEFORE converting to redacted string
+
+        let response = b"HTTP/1.1 200 OK\r\nDate: Wed, 29 Oct 2025 14:38:42 GMT\r\nContent-Type: application/json\r\n\r\n{\"screen_name\":\"test_user\"}";
+
+        // Simulate TLSNotary transcript with unrevealed bytes marked as \0
+        let mut transcript_with_redacted = response.to_vec();
+
+        // Redact Content-Type header (replace with \0)
+        let content_type_start = 52;
+        let content_type_end = 85;
+        for i in content_type_start..content_type_end {
+            transcript_with_redacted[i] = 0x00; // TLSNotary uses \0 for unrevealed
+        }
+
+        // Calculate range for screen_name value in JSON body
+        // Body starts after "\r\n\r\n" at position 88
+        // {"screen_name":"test_user"}
+        //                ^^^^^^^^^^^
+        let screen_name_start = 104; // Position of "test_user" (88 + 16)
+        let screen_name_end = 113;   // End of "test_user" (104 + 9)
+
+        // CORRECT APPROACH: Extract from raw bytes
+        let correct_value = &transcript_with_redacted[screen_name_start..screen_name_end];
+        let correct_string = String::from_utf8_lossy(correct_value);
+        println!("✅ Correct (from raw bytes): {}", correct_string);
+        assert_eq!(correct_string, "test_user", "Should extract correct value from raw bytes");
+
+        // WRONG APPROACH (the bug): Convert to redacted string first
+        let redacted_string = String::from_utf8_lossy(&transcript_with_redacted)
+            .replace('\0', "🙈");
+
+        // Now the byte offsets are WRONG because 🙈 is 4 bytes but \0 was 1 byte
+        // Each \0 → 🙈 conversion shifts subsequent byte positions by +3 bytes
+        let wrong_bytes = redacted_string.as_bytes();
+
+        // If we try to use the same range on the redacted string, we get garbage
+        if screen_name_start < wrong_bytes.len() && screen_name_end <= wrong_bytes.len() {
+            let wrong_value = &wrong_bytes[screen_name_start..screen_name_end];
+            let wrong_string = String::from_utf8_lossy(wrong_value);
+            println!("❌ Wrong (from redacted string): {}", wrong_string);
+
+            // This will contain 🙈 emoji or partial emoji bytes (garbled)
+            assert_ne!(wrong_string, "test_user", "Extracting from redacted string gives wrong result");
+            assert!(wrong_string.contains("🙈") || wrong_string.chars().any(|c| c == '\u{FFFD}'),
+                "Should contain redaction markers or replacement characters");
+        }
+
+        println!("\n📝 Summary:");
+        println!("   - Raw bytes approach: Correct value extraction");
+        println!("   - Redacted string approach: Wrong due to multi-byte emoji shifting offsets");
+        println!("   - Fix: Always extract ranges from raw transcript bytes BEFORE string conversion");
+    }
 }
