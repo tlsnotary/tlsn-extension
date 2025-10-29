@@ -265,15 +265,15 @@ export class Parser {
     let bodyBytes: Uint8Array;
     let bodyStart = startOffset;
     let bodyEnd = this.data.length;
-    let isChunked = false;
 
     // Handle chunked encoding
+    let jsonBaseOffset = bodyStart; // For non-chunked or for JSON range tracking
     if (transferEncoding === 'chunked') {
       const dechunked = this.dechunkBody(startOffset);
       bodyBytes = dechunked.data;
       bodyStart = startOffset;
       bodyEnd = dechunked.originalEnd;
-      isChunked = true;
+      jsonBaseOffset = dechunked.firstChunkDataStart; // Use actual data start for JSON ranges
     } else {
       bodyBytes = this.data.slice(startOffset);
     }
@@ -296,14 +296,9 @@ export class Parser {
       // Try to parse as JSON
       if (contentType.includes('application/json') || this.isJsonString(text)) {
         try {
-          const jsonData = JSON.parse(text);
-          // For chunked encoding, we can't provide accurate byte ranges for JSON fields
-          // since the data was decoded from chunks. Store the parsed JSON without ranges.
-          if (isChunked) {
-            body.json = jsonData;
-          } else {
-            body.json = this.parseJsonWithRanges(text, bodyStart);
-          }
+          // For chunked encoding, use firstChunkDataStart as base offset
+          // This points to where the actual JSON data begins (after chunk size line)
+          body.json = this.parseJsonWithRanges(text, jsonBaseOffset);
         } catch (e) {
           // Not valid JSON, skip
         }
@@ -315,9 +310,14 @@ export class Parser {
     return body;
   }
 
-  private dechunkBody(startOffset: number): { data: Uint8Array; originalEnd: number } {
+  private dechunkBody(startOffset: number): {
+    data: Uint8Array;
+    originalEnd: number;
+    firstChunkDataStart: number;
+  } {
     const chunks: Uint8Array[] = [];
     let offset = startOffset;
+    let firstChunkDataStart = -1;
 
     while (offset < this.data.length) {
       // Read chunk size line
@@ -333,6 +333,11 @@ export class Parser {
         // Last chunk
         offset += 2; // Skip final \r\n
         break;
+      }
+
+      // Track where the first chunk's data starts (for range tracking)
+      if (firstChunkDataStart === -1) {
+        firstChunkDataStart = offset;
       }
 
       // Read chunk data
@@ -351,7 +356,7 @@ export class Parser {
       position += chunk.length;
     }
 
-    return { data: combined, originalEnd: offset };
+    return { data: combined, originalEnd: offset, firstChunkDataStart };
   }
 
   private parseJsonWithRanges(text: string, baseOffset: number): any {

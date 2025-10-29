@@ -125,9 +125,14 @@ export enum HandlerAction {
 
 export type StartLineHandler = {
   type: HandlerType;
-  part: HandlerPart.START_LINE | HandlerPart.PROTOCOL | HandlerPart.METHOD | HandlerPart.REQUEST_TARGET | HandlerPart.STATUS_CODE;
+  part:
+    | HandlerPart.START_LINE
+    | HandlerPart.PROTOCOL
+    | HandlerPart.METHOD
+    | HandlerPart.REQUEST_TARGET
+    | HandlerPart.STATUS_CODE;
   action: HandlerAction.REVEAL | HandlerAction.PEDERSEN;
-}
+};
 
 export type HeadersHandler = {
   type: HandlerType;
@@ -137,22 +142,24 @@ export type HeadersHandler = {
     key: string;
     hideKey?: boolean;
     hideValue?: boolean;
-  }
-}
+  };
+};
 
 export type BodyHandler = {
   type: HandlerType;
   part: HandlerPart.BODY;
   action: HandlerAction.REVEAL | HandlerAction.PEDERSEN;
-  params?: {
-    type: 'json';
-    path: string;
-    hideKey?: boolean;
-    hideValue?: boolean;
-  } | {
-    type: 'regex';
-    regex: RegExp;
-  };
-}
+  params?:
+    | {
+        type: 'json';
+        path: string;
+        hideKey?: boolean;
+        hideValue?: boolean;
+      }
+    | {
+        type: 'regex';
+        regex: RegExp;
+      };
+};
 
 export type Handler = StartLineHandler | HeadersHandler | BodyHandler;

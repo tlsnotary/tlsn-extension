@@ -172,7 +172,7 @@ function makeOpenWindow(
       showOverlay?: boolean;
     },
   ) => Promise<OpenWindowResponse>,
-  onCloseWindow: (windowId: number) => void,
+  _onCloseWindow: (windowId: number) => void,
 ) {
   return async (
     url: string,
@@ -284,18 +284,21 @@ export {
 
 export class Host {
   private capabilities: Map<string, (...args: any[]) => any> = new Map();
-  private onProve: (requestOptions: {
-    url: string;
-    method: string;
-    headers: Record<string, string>;
-    body?: string;
-  }, proverOptions: {
-    verifierUrl: string;
-    proxyUrl: string;
-    maxRecvData?: number;
-    maxSentData?: number;
-    reveal: Handler[];
-  }) => Promise<any>;
+  private onProve: (
+    requestOptions: {
+      url: string;
+      method: string;
+      headers: Record<string, string>;
+      body?: string;
+    },
+    proverOptions: {
+      verifierUrl: string;
+      proxyUrl: string;
+      maxRecvData?: number;
+      maxSentData?: number;
+      reveal: Handler[];
+    },
+  ) => Promise<any>;
   private onRenderPluginUi: (windowId: number, result: DomJson) => void;
   private onCloseWindow: (windowId: number) => void;
   private onOpenWindow: (
@@ -308,18 +311,21 @@ export class Host {
   ) => Promise<OpenWindowResponse>;
 
   constructor(options: {
-    onProve: (requestOptions: {
-      url: string;
-      method: string;
-      headers: Record<string, string>;
-      body?: string;
-    }, proverOptions: {
-      verifierUrl: string;
-      proxyUrl: string;
-      maxRecvData?: number;
-      maxSentData?: number;
-      reveal: Handler[];
-    }) => Promise<any>;
+    onProve: (
+      requestOptions: {
+        url: string;
+        method: string;
+        headers: Record<string, string>;
+        body?: string;
+      },
+      proverOptions: {
+        verifierUrl: string;
+        proxyUrl: string;
+        maxRecvData?: number;
+        maxSentData?: number;
+        reveal: Handler[];
+      },
+    ) => Promise<any>;
     onRenderPluginUi: (windowId: number, result: DomJson) => void;
     onCloseWindow: (windowId: number) => void;
     onOpenWindow: (
@@ -496,8 +502,10 @@ ${code};
     const onProve = this.onProve;
 
     const sandbox = await this.createEvalCode({
-      div: (param1?: DomOptions | DomJson[], param2?: DomJson[]) => createDomJson('div', param1, param2),
-      button: (param1?: DomOptions | DomJson[], param2?: DomJson[]) => createDomJson('button', param1, param2),
+      div: (param1?: DomOptions | DomJson[], param2?: DomJson[]) =>
+        createDomJson('div', param1, param2),
+      button: (param1?: DomOptions | DomJson[], param2?: DomJson[]) =>
+        createDomJson('button', param1, param2),
       openWindow: makeOpenWindow(uuid, eventEmitter, onOpenWindow, onCloseWindow),
       useEffect: makeUseEffect(uuid, context),
       useRequests: makeUseRequests(uuid, context),

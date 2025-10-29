@@ -544,5 +544,97 @@ describe('Parser', () => {
       const screenNameRanges = parser.ranges.body('screen_name', { type: 'json' });
       expect(screenNameRanges).toHaveLength(1);
     });
+
+    it('should parse large chunked X.com settings response and extract field ranges', () => {
+      // Full X.com account settings response with chunked encoding
+      // Based on real API response but with sanitized values
+      const response =
+        'HTTP/1.1 200 OK\r\n' +
+        'Date: Wed, 29 Oct 2025 12:11:44 GMT\r\n' +
+        'Content-Type: application/json;charset=utf-8\r\n' +
+        'Transfer-Encoding: chunked\r\n' +
+        'Connection: close\r\n' +
+        'perf: 7402827104\r\n' +
+        'pragma: no-cache\r\n' +
+        'Server: cloudflare envoy\r\n' +
+        'status: 200 OK\r\n' +
+        'expires: Tue, 31 Mar 1981 05:00:00 GMT\r\n' +
+        'vary: accept-encoding\r\n' +
+        'Cache-Control: no-cache, no-store, must-revalidate, pre-check=0, post-check=0\r\n' +
+        'last-modified: Wed, 29 Oct 2025 12:11:44 GMT\r\n' +
+        'x-transaction: REDACTED_TRANSACTION_ID\r\n' +
+        'x-access-level: read-write-directmessages\r\n' +
+        'x-frame-options: SAMEORIGIN\r\n' +
+        'x-transaction-id: REDACTED_TRANSACTION_ID\r\n' +
+        'x-xss-protection: 0\r\n' +
+        'x-rate-limit-limit: 100\r\n' +
+        'x-rate-limit-reset: 1761740475\r\n' +
+        'content-disposition: attachment; filename=json.json\r\n' +
+        'x-client-event-enabled: true\r\n' +
+        'x-content-type-options: nosniff\r\n' +
+        'x-rate-limit-remaining: 93\r\n' +
+        'x-twitter-response-tags: BouncerCompliant\r\n' +
+        'X-Response-Time: 19\r\n' +
+        'origin-cf-ray: REDACTED_CF_RAY-AMS\r\n' +
+        'strict-transport-security: max-age=631138519; includeSubdomains\r\n' +
+        'x-served-by: t4_a\r\n' +
+        'cf-cache-status: DYNAMIC\r\n' +
+        'Set-Cookie: guest_id_ads=; Path=/; Domain=x.com; Max-Age=0; Expires=Wed, 29 Oct 2025 12:11:44 GMT\r\n' +
+        'Set-Cookie: guest_id_marketing=; Path=/; Domain=x.com; Max-Age=0; Expires=Wed, 29 Oct 2025 12:11:44 GMT\r\n' +
+        'Set-Cookie: personalization_id=; Path=/; Domain=x.com; Max-Age=0; Expires=Wed, 29 Oct 2025 12:11:44 GMT\r\n' +
+        'Set-Cookie: lang=en; Path=/\r\n' +
+        'Set-Cookie: __cf_bm=REDACTED_COOKIE_VALUE; HttpOnly; Secure; Path=/; Expires=Wed, 29 Oct 2025 12:41:44 GMT\r\n' +
+        'CF-RAY: REDACTED_CF_RAY-AMS\r\n' +
+        '\r\n' +
+        '430\r\n' +
+        '{"protected":false,"screen_name":"test_user","always_use_https":true,"use_cookie_personalization":false,"sleep_time":{"enabled":false,"end_time":null,"start_time":null},"geo_enabled":false,"language":"en","discoverable_by_email":true,"discoverable_by_mobile_phone":false,"display_sensitive_media":false,"personalized_trends":true,"allow_media_tagging":"all","allow_contributor_request":"none","allow_ads_personalization":true,"allow_logged_out_device_personalization":true,"allow_location_history_personalization":true,"allow_sharing_data_for_third_party_personalization":false,"allow_dms_from":"verified","always_allow_dms_from_subscribers":null,"allow_dm_groups_from":"following","translator_type":"none","country_code":"us","address_book_live_sync_enabled":false,"universal_quality_filtering_enabled":"enabled","dm_receipt_setting":"all_enabled","allow_authenticated_periscope_requests":true,"protect_password_reset":false,"require_password_login":false,"requires_login_verification":false,"dm_quality_filter":"enabled","autoplay_disabled":false,"settings_metadata":{}}\r\n' +
+        '0\r\n' +
+        '\r\n';
+
+      const parser = new Parser(response);
+      const json = parser.json();
+
+      // Verify basic parsing
+      expect(json.statusCode).toBe('200');
+      expect(json.headers['content-type']).toBe('application/json;charset=utf-8');
+      expect(json.headers['transfer-encoding']).toBe('chunked');
+
+      // Verify body parsed correctly
+      expect(json.body).toBeDefined();
+      expect(json.body.screen_name).toBe('test_user');
+      expect(json.body.protected).toBe(false);
+      expect(json.body.language).toBe('en');
+      expect(json.body.country_code).toBe('us');
+      expect(json.body.allow_dms_from).toBe('verified');
+
+      // Test ranges for screen_name field (full key-value pair)
+      const screenNameRanges = parser.ranges.body('screen_name', { type: 'json' });
+      expect(screenNameRanges).toHaveLength(1);
+      expect(screenNameRanges[0]).toBeDefined();
+
+      // Verify the range points to the key-value pair in the original string
+      const extractedField = response.substring(screenNameRanges[0].start, screenNameRanges[0].end);
+      expect(extractedField).toContain('"screen_name"');
+      expect(extractedField).toContain('"test_user"');
+
+      // Test hideKey option to get just the value
+      const valueOnlyRanges = parser.ranges.body('screen_name', {
+        type: 'json',
+        hideKey: true,
+      });
+      expect(valueOnlyRanges).toHaveLength(1);
+      const extractedValue = response.substring(valueOnlyRanges[0].start, valueOnlyRanges[0].end);
+      expect(extractedValue).toBe('"test_user"');
+
+      // Test ranges for other fields
+      const languageRanges = parser.ranges.body('language', { type: 'json' });
+      expect(languageRanges).toHaveLength(1);
+
+      const countryCodeRanges = parser.ranges.body('country_code', { type: 'json' });
+      expect(countryCodeRanges).toHaveLength(1);
+
+      // Note: Nested field access like 'sleep_time.enabled' is not yet supported
+      // The parser only supports top-level field extraction
+    });
   });
 });
