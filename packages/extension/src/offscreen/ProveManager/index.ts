@@ -29,10 +29,7 @@ export class ProveManager {
 
   private sessionWebSocket: WebSocket | null = null;
   private currentSessionId: string | null = null;
-  private sessionResponses: Map<
-    string,
-    { sentData: string; receivedData: string }
-  > = new Map();
+  private sessionResponses: Map<string, any> = new Map();
 
   async getVerifierSessionUrl(
     verifierUrl: string,
@@ -70,7 +67,7 @@ export class ProveManager {
             // Store the current session ID
             this.currentSessionId = sessionId;
 
-            // Send configuration
+            // Send configuration WITHOUT handlers (handlers come later with ranges)
             const config = {
               maxRecvData,
               maxSentData,
@@ -84,29 +81,19 @@ export class ProveManager {
 
             resolve(verifierUrl);
           }
-          // Second message: verification result
-          else if (
-            data.sentData !== undefined &&
-            data.receivedData !== undefined
-          ) {
+          // Second message: verification result with handler results
+          else if (data.results !== undefined) {
             console.log(
               '[ProveManager] ✅ Received verification result from verifier',
             );
             console.log(
-              '[ProveManager] Sent data length:',
-              data.sentData.length,
-            );
-            console.log(
-              '[ProveManager] Received data length:',
-              data.receivedData.length,
+              '[ProveManager] Handler results count:',
+              data.results.length,
             );
 
             // Store the response with the session ID
             if (this.currentSessionId) {
-              this.sessionResponses.set(this.currentSessionId, {
-                sentData: data.sentData,
-                receivedData: data.receivedData,
-              });
+              this.sessionResponses.set(this.currentSessionId, data);
               console.log(
                 '[ProveManager] Stored response for session:',
                 this.currentSessionId,
@@ -205,6 +192,35 @@ export class ProveManager {
     return prover;
   }
 
+  /**
+   * Send reveal configuration (ranges + handlers) to verifier before calling reveal()
+   */
+  async sendRevealConfig(
+    proverId: string,
+    revealConfig: {
+      sent: Array<{ start: number; end: number; handler: any }>;
+      recv: Array<{ start: number; end: number; handler: any }>;
+    },
+  ) {
+    if (!this.sessionWebSocket) {
+      throw new Error('Session WebSocket not available');
+    }
+
+    const sessionId = this.proverToSessionId.get(proverId);
+    if (!sessionId) {
+      throw new Error('Session ID not found for prover');
+    }
+
+    console.log('[ProveManager] Sending reveal config to verifier:', {
+      sessionId,
+      sentRanges: revealConfig.sent.length,
+      recvRanges: revealConfig.recv.length,
+    });
+
+    this.sessionWebSocket.send(JSON.stringify(revealConfig));
+    console.log('[ProveManager] ✅ Reveal config sent to verifier');
+  }
+
   async sendRequest(
     proverId: string,
     proxyUrl: string,
@@ -248,12 +264,12 @@ export class ProveManager {
 
   /**
    * Get the verification response for a given prover ID.
-   * Returns null if no response is available yet, otherwise returns the sent and received data.
+   * Returns null if no response is available yet, otherwise returns the structured handler results.
    */
   async getResponse(
     proverId: string,
     retry = 60,
-  ): Promise<{ sentData: string; receivedData: string } | null> {
+  ): Promise<any | null> {
     const sessionId = this.proverToSessionId.get(proverId);
     if (!sessionId) {
       console.warn(

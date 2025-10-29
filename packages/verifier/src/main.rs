@@ -1,5 +1,6 @@
 mod axum_websocket;
 mod config;
+mod http_parser;
 mod verifier;
 
 use axum::{
@@ -20,7 +21,7 @@ use tokio::sync::{Mutex, oneshot};
 use tokio::time::timeout;
 use tokio_util::compat::FuturesAsyncReadCompatExt;
 use tower_http::cors::CorsLayer;
-use tracing::{error, info, warn};
+use tracing::{error, info};
 use tracing_subscriber;
 use uuid::Uuid;
 use ws_stream_tungstenite::WsStream;
@@ -69,7 +70,78 @@ async fn main() {
         .expect("Server error");
 }
 
-// Session data structure
+// Handler data structures matching TypeScript types
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+enum HandlerType {
+    #[serde(rename = "SENT")]
+    Sent,
+    #[serde(rename = "RECV")]
+    Recv,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+enum HandlerPart {
+    #[serde(rename = "START_LINE")]
+    StartLine,
+    #[serde(rename = "PROTOCOL")]
+    Protocol,
+    #[serde(rename = "METHOD")]
+    Method,
+    #[serde(rename = "REQUEST_TARGET")]
+    RequestTarget,
+    #[serde(rename = "STATUS_CODE")]
+    StatusCode,
+    #[serde(rename = "HEADERS")]
+    Headers,
+    #[serde(rename = "BODY")]
+    Body,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+enum HandlerAction {
+    #[serde(rename = "REVEAL")]
+    Reveal,
+    #[serde(rename = "PEDERSEN")]
+    Pedersen,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+enum HandlerParams {
+    Headers {
+        key: Option<String>,
+        #[serde(rename = "hideKey")]
+        hide_key: Option<bool>,
+        #[serde(rename = "hideValue")]
+        hide_value: Option<bool>,
+    },
+    BodyJson {
+        #[serde(rename = "type")]
+        body_type: String, // "json"
+        path: String,
+        #[serde(rename = "hideKey")]
+        hide_key: Option<bool>,
+        #[serde(rename = "hideValue")]
+        hide_value: Option<bool>,
+    },
+    BodyRegex {
+        #[serde(rename = "type")]
+        body_type: String, // "regex"
+        regex: String,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct Handler {
+    #[serde(rename = "type")]
+    handler_type: String, // "SENT" or "RECV"
+    part: String,
+    action: String,
+    params: Option<serde_json::Value>,
+}
+
+// Session data structure (without handlers - they come later with ranges)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct SessionConfig {
     #[serde(rename = "maxRecvData")]
@@ -78,22 +150,48 @@ struct SessionConfig {
     max_sent_data: usize,
 }
 
-// Verification result containing transcripts
+// Range with handler metadata
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct RangeWithHandler {
+    start: usize,
+    end: usize,
+    handler: Handler,
+}
+
+// Reveal configuration sent before prover.reveal()
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct RevealConfig {
+    sent: Vec<RangeWithHandler>,
+    recv: Vec<RangeWithHandler>,
+}
+
+// Handler result with revealed value
+#[derive(Debug, Clone, Serialize)]
+struct HandlerResult {
+    #[serde(flatten)]
+    handler: Handler,
+    value: String,
+}
+
+// Verification result containing handler results
 #[derive(Debug, Clone, Serialize)]
 struct VerificationResult {
-    #[serde(rename = "sentData")]
-    sent_data: String,
-    #[serde(rename = "receivedData")]
-    received_data: String,
+    results: Vec<HandlerResult>,
 }
 
 // Type alias for the prover WebSocket sender
 type ProverSocketSender = oneshot::Sender<WebSocket>;
 
+// Session data stored in AppState
+struct SessionData {
+    prover_socket_tx: ProverSocketSender,
+    reveal_config: Arc<Mutex<Option<RevealConfig>>>,
+}
+
 // Application state for sharing data between handlers
 #[derive(Clone)]
 struct AppState {
-    sessions: Arc<Mutex<HashMap<String, ProverSocketSender>>>,
+    sessions: Arc<Mutex<HashMap<String, SessionData>>>,
 }
 
 // Response body for session creation (sent via WebSocket)
@@ -185,20 +283,67 @@ async fn handle_session_websocket(mut socket: WebSocket, state: Arc<AppState>) {
     let (prover_socket_tx, prover_socket_rx) = oneshot::channel::<WebSocket>();
     let (result_tx, result_rx) = oneshot::channel::<VerificationResult>();
 
-    // Store only the prover socket sender
+    // Create shared reveal config storage
+    let reveal_config_storage = Arc::new(Mutex::new(None));
+
+    // Store session data WITHOUT reveal config yet (so prover can connect)
     {
         let mut sessions = state.sessions.lock().await;
-        sessions.insert(session_id.clone(), prover_socket_tx);
+        sessions.insert(session_id.clone(), SessionData {
+            prover_socket_tx,
+            reveal_config: reveal_config_storage.clone(),
+        });
     }
+
+    info!("[{}] Session stored, prover can now connect to /verifier", session_id);
 
     // Spawn the verifier task with the result sender
     let session_id_clone = session_id.clone();
     let state_clone = state.clone();
+    let reveal_config_storage_clone = reveal_config_storage.clone();
     tokio::spawn(async move {
-        run_verifier_task(session_id_clone, config, prover_socket_rx, result_tx, state_clone).await;
+        run_verifier_task(session_id_clone, config, reveal_config_storage_clone, prover_socket_rx, result_tx, state_clone).await;
     });
 
-    info!("[{}] Verifier task spawned, waiting for prover connection", session_id);
+    info!("[{}] Verifier task spawned, waiting for prover connection and reveal config", session_id);
+
+    // Wait for RevealConfig message (ranges + handlers) - can come anytime now
+    let reveal_msg = match socket.next().await {
+        Some(Ok(axum_websocket::Message::Text(text))) => text,
+        Some(Ok(msg)) => {
+            error!("[{}] Expected text message for reveal config, got: {:?}", session_id, msg);
+            return;
+        }
+        Some(Err(e)) => {
+            error!("[{}] Error receiving reveal config: {}", session_id, e);
+            return;
+        }
+        None => {
+            error!("[{}] Connection closed before receiving reveal config", session_id);
+            return;
+        }
+    };
+
+    let reveal_config: RevealConfig = match serde_json::from_str(&reveal_msg) {
+        Ok(config) => config,
+        Err(e) => {
+            error!("[{}] Failed to parse reveal config: {}", session_id, e);
+            return;
+        }
+    };
+
+    info!(
+        "[{}] Received reveal config: {} sent ranges, {} recv ranges",
+        session_id, reveal_config.sent.len(), reveal_config.recv.len()
+    );
+
+    // Store reveal config in shared storage
+    {
+        let mut storage = reveal_config_storage.lock().await;
+        *storage = Some(reveal_config);
+    }
+
+    info!("[{}] ✅ Reveal config stored, verifier task can now proceed", session_id);
 
     // Wait for verification result
     match result_rx.await {
@@ -234,7 +379,7 @@ async fn verifier_ws_handler(
     // Look up the session and extract the socket sender
     let prover_socket_tx = {
         let mut sessions = state.sessions.lock().await;
-        sessions.remove(&session_id)
+        sessions.remove(&session_id).map(|session_data| session_data.prover_socket_tx)
     };
 
     match prover_socket_tx {
@@ -393,6 +538,7 @@ async fn handle_proxy_connection(ws: WebSocket, host: String) {
 async fn run_verifier_task(
     session_id: String,
     config: SessionConfig,
+    reveal_config_storage: Arc<Mutex<Option<RevealConfig>>>,
     socket_rx: oneshot::Receiver<WebSocket>,
     result_tx: oneshot::Sender<VerificationResult>,
     state: Arc<AppState>,
@@ -457,10 +603,96 @@ async fn run_verifier_task(
             info!("[{}] Sent data length: {} bytes", session_id, sent_data.len());
             info!("[{}] Received data length: {} bytes", session_id, received_data.len());
 
+            // Wait for RevealConfig to be available (with polling and timeout)
+            let reveal_config_wait_timeout = Duration::from_secs(30);
+            let start_time = tokio::time::Instant::now();
+
+            let reveal_config = loop {
+                {
+                    let storage = reveal_config_storage.lock().await;
+                    if let Some(config) = storage.as_ref() {
+                        info!("[{}] ✅ RevealConfig found, mapping results", session_id);
+                        break config.clone();
+                    }
+                }
+
+                // Check timeout
+                if start_time.elapsed() > reveal_config_wait_timeout {
+                    error!(
+                        "[{}] ❌ Timed out waiting for RevealConfig after verification",
+                        session_id
+                    );
+                    cleanup_session(&state, &session_id).await;
+                    return;
+                }
+
+                // RevealConfig not available yet, wait a bit
+                info!("[{}] Waiting for RevealConfig...", session_id);
+                tokio::time::sleep(Duration::from_millis(100)).await;
+            };
+
+            // Map revealed ranges to handler results
+            let mut handler_results = Vec::new();
+
+            // Convert strings to bytes for slicing
+            let sent_bytes = sent_data.as_bytes();
+            let recv_bytes = received_data.as_bytes();
+
+            // Process sent ranges
+            for range_with_handler in &reveal_config.sent {
+                let value = if range_with_handler.start < sent_bytes.len()
+                    && range_with_handler.end <= sent_bytes.len()
+                    && range_with_handler.start < range_with_handler.end {
+                    let bytes = &sent_bytes[range_with_handler.start..range_with_handler.end];
+                    String::from_utf8_lossy(bytes).to_string()
+                } else {
+                    format!("ERROR: Invalid range [{}, {})", range_with_handler.start, range_with_handler.end)
+                };
+
+                info!(
+                    "[{}] Mapped SENT range [{}, {}) to handler {:?}: {} bytes",
+                    session_id,
+                    range_with_handler.start,
+                    range_with_handler.end,
+                    range_with_handler.handler.part,
+                    value.len()
+                );
+
+                handler_results.push(HandlerResult {
+                    handler: range_with_handler.handler.clone(),
+                    value,
+                });
+            }
+
+            // Process recv ranges
+            for range_with_handler in &reveal_config.recv {
+                let value = if range_with_handler.start < recv_bytes.len()
+                    && range_with_handler.end <= recv_bytes.len()
+                    && range_with_handler.start < range_with_handler.end {
+                    let bytes = &recv_bytes[range_with_handler.start..range_with_handler.end];
+                    String::from_utf8_lossy(bytes).to_string()
+                } else {
+                    format!("ERROR: Invalid range [{}, {})", range_with_handler.start, range_with_handler.end)
+                };
+
+                info!(
+                    "[{}] Mapped RECV range [{}, {}) to handler {:?}: {} bytes",
+                    session_id,
+                    range_with_handler.start,
+                    range_with_handler.end,
+                    range_with_handler.handler.part,
+                    value.len()
+                );
+
+                handler_results.push(HandlerResult {
+                    handler: range_with_handler.handler.clone(),
+                    value,
+                });
+            }
+
             // Send result to extension via the result channel
             let result = VerificationResult {
-                sent_data,
-                received_data,
+                results: handler_results,
             };
 
             if let Err(_) = result_tx.send(result) {

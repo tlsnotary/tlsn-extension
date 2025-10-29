@@ -32,12 +32,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run lint` - Run all linters (ESLint, Prettier, TypeScript)
 - `npm run lint:fix` - Auto-fix linting issues
 
+### Verifier Server Package Commands
+- `cargo run` - Run development server on port 7047
+- `cargo build --release` - Build production binary
+- `cargo test` - Run Rust tests
+- `cargo check` - Check compilation without building
+
 ## Monorepo Architecture
 
-The project is organized as a monorepo using npm workspaces with two main packages:
+The project is organized as a monorepo using npm workspaces with three main packages:
 
-- **`packages/extension`**: Chrome Extension (Manifest V3) for TLSNotary
-- **`packages/plugin-sdk`**: SDK for developing and running TLSN WebAssembly plugins using QuickJS sandboxing
+- **`packages/extension`**: Chrome Extension (Manifest V3) for TLSNotary proof generation
+- **`packages/plugin-sdk`**: SDK for developing and running TLSN plugins using QuickJS sandboxing
+- **`packages/verifier`**: Rust-based WebSocket server for TLSNotary verification
 
 **Important**: The extension must match the version of the notary server it connects to.
 
@@ -108,10 +115,28 @@ React-based extension popup:
 - **Styling**: Uses Tailwind CSS with custom button/input classes
 - Entry point: `popup.html` (400x300px default size)
 
-#### 5. **Offscreen Document** (`src/entries/Offscreen/index.tsx`)
+#### 5. **DevConsole** (`src/entries/DevConsole/index.tsx`)
+Interactive development console for testing TLSN plugins:
+- **Code Editor**: CodeMirror with JavaScript syntax highlighting and one-dark theme
+- **Live Execution**: Runs plugin code in QuickJS sandbox via background service worker
+- **Console Output**: Timestamped entries showing execution results, errors, and timing
+- **ExtensionAPI**: Exposes `window.tlsn.execCode()` method for plugin execution
+- Access: Right-click context menu → "Developer Console"
+
+**Plugin Structure:**
+Plugins must export:
+- `config`: Metadata (`name`, `description`)
+- `main()`: Reactive UI rendering function (called when state changes)
+- `onClick()`: Click handler for proof generation
+- React-like hooks: `useHeaders()`, `useEffect()`, `useRequests()`
+- UI components: `div()`, `button()` returning DOM JSON
+- Capabilities: `openWindow()`, `prove()`, `done()`
+
+#### 6. **Offscreen Document** (`src/entries/Offscreen/index.tsx`)
 Isolated React component for background processing:
 - **Purpose**: Handles DOM operations unavailable in service workers
-- **Message Handling**: Listens for `PROCESS_DATA` messages (example implementation)
+- **SessionManager Integration**: Executes plugin code via `SessionManager.executePlugin()`
+- **Message Handling**: Listens for `EXEC_CODE` messages from DevConsole
 - **Lifecycle**: Created dynamically by background script, reused if exists
 - Entry point: `offscreen.html`
 
@@ -132,11 +157,46 @@ Key methods:
 - `showOverlay(windowId)`: Display request overlay (with retry)
 - `cleanupInvalidWindows()`: Remove closed windows from tracking
 
-#### **SessionManager** (`src/background/SessionManager.ts`)
-Plugin session management (currently imported but not integrated):
-- Uses `@tlsn/plugin-sdk` Host class for plugin execution
-- Manages plugin sessions with UUID tracking
-- Intended for future plugin execution functionality
+#### **SessionManager** (`src/offscreen/SessionManager.ts`)
+Plugin session management with TLSNotary proof generation:
+- Uses `@tlsn/plugin-sdk` Host class for sandboxed plugin execution
+- Provides unified `prove()` capability to plugins via QuickJS environment
+- Integrates with `ProveManager` for WASM-based TLS proof generation
+- Handles HTTP transcript parsing with byte-level range tracking
+
+**Key Capability - Unified prove() API:**
+The SessionManager exposes a single `prove()` function to plugins that handles the entire proof pipeline:
+1. Creates prover connection to verifier server
+2. Sends HTTP request through TLS prover
+3. Captures TLS transcript (sent/received bytes)
+4. Parses transcript with Parser class for range extraction
+5. Applies selective reveal handlers to show only specified data
+6. Generates and returns cryptographic proof
+
+**Handler System:**
+Plugins control what data is revealed in proofs using Handler objects:
+- `type`: `'SENT'` (request data) or `'RECV'` (response data)
+- `part`: `'START_LINE'`, `'PROTOCOL'`, `'METHOD'`, `'REQUEST_TARGET'`, `'STATUS_CODE'`, `'HEADERS'`, `'BODY'`
+- `action`: `'REVEAL'` (plaintext) or `'PEDERSEN'` (hash commitment)
+- `params`: Optional parameters for granular control (e.g., `hideKey`, `hideValue`, `type: 'json'`, `path`)
+
+Example prove() call:
+```javascript
+const proof = await prove(
+  { url: 'https://api.x.com/endpoint', method: 'GET', headers: {...} },
+  {
+    verifierUrl: 'http://localhost:7047',
+    proxyUrl: 'wss://notary.pse.dev/proxy?token=api.x.com',
+    maxRecvData: 16384,
+    maxSentData: 4096,
+    handlers: [
+      { type: 'SENT', part: 'START_LINE', action: 'REVEAL' },
+      { type: 'RECV', part: 'BODY', action: 'REVEAL',
+        params: { type: 'json', path: 'screen_name', hideKey: true } }
+    ]
+  }
+);
+```
 
 ### State Management
 Redux store located in `src/reducers/index.tsx`:
@@ -307,27 +367,63 @@ Defined in `src/manifest.json`:
 ## Plugin SDK Package (`packages/plugin-sdk`)
 
 ### Host Class API
-The SDK provides a `Host` class for sandboxed plugin execution:
+The SDK provides a `Host` class for sandboxed plugin execution with capability injection:
 
 ```typescript
 import Host from '@tlsn/plugin-sdk';
 
-const host = new Host();
+const host = new Host({
+  onProve: async (requestOptions, proverOptions) => { /* proof generation */ },
+  onRenderPluginUi: (windowId, domJson) => { /* render UI */ },
+  onCloseWindow: (windowId) => { /* cleanup */ },
+  onOpenWindow: async (url, options) => { /* open window */ },
+});
 
-// Add capabilities that plugins can use
-host.addCapability('log', (message) => console.log(message));
-host.addCapability('fetch', async (url) => fetch(url));
-
-// Load and run plugins
-host.loadPlugin('plugin-id', pluginCode);
-const result = await host.runPlugin('plugin-id');
+// Execute plugin code
+await host.executePlugin(pluginCode, { eventEmitter });
 ```
+
+**Capabilities injected into plugin environment:**
+- `prove(requestOptions, proverOptions)`: Unified TLS proof generation
+- `openWindow(url, options)`: Open managed browser windows
+- `useHeaders(filter)`: Subscribe to intercepted HTTP headers
+- `useRequests(filter)`: Subscribe to intercepted HTTP requests
+- `useEffect(callback, deps)`: React-like side effects
+- `div(options, children)`: Create div DOM elements
+- `button(options, children)`: Create button DOM elements
+- `done(result)`: Complete plugin execution
+
+### Parser Class
+HTTP message parser with byte-level range tracking:
+
+```typescript
+import { Parser } from '@tlsn/plugin-sdk';
+
+const parser = new Parser(httpTranscript);
+const json = parser.json();
+
+// Extract byte ranges for selective disclosure
+const ranges = parser.ranges.body('screen_name', { type: 'json', hideKey: true });
+```
+
+**Features:**
+- Parse HTTP requests and responses
+- Handle chunked transfer encoding
+- Extract header ranges with case-insensitive names
+- Extract JSON field ranges (top-level only)
+- Regex-based body pattern matching
+- Track byte offsets for TLSNotary selective disclosure
+
+**Limitations:**
+- Nested JSON field access (e.g., `"user.profile.name"`) not yet supported
+- Multi-chunk responses map to first chunk's offset only
 
 ### QuickJS Sandboxing
 - Uses `@sebastianwessel/quickjs` for secure JavaScript execution
 - Plugins run in isolated WebAssembly environment
 - Network and filesystem access disabled by default
 - Host controls available capabilities through `env` object
+- Reactive rendering: `main()` function called whenever hook state changes
 
 ### Build Configuration
 - **Vite**: Builds isomorphic package for Node.js and browser
@@ -335,7 +431,80 @@ const result = await host.runPlugin('plugin-id');
 - **Testing**: Vitest with coverage reporting
 - **Output**: ESM module in `dist/` directory
 
-## Known Issues & Legacy Code
+## Verifier Server Package (`packages/verifier`)
+
+Rust-based HTTP/WebSocket server for TLSNotary verification:
+
+**Architecture:**
+- Built with Axum web framework
+- WebSocket endpoints for prover-verifier communication
+- Session management with UUID-based tracking
+- CORS enabled for cross-origin requests
+
+**Endpoints:**
+- `GET /health` → Health check (returns "ok")
+- `WS /session` → Create new verification session
+- `WS /verifier?sessionId=<id>` → WebSocket verification endpoint
+- `WS /proxy?host=<host>` → WebSocket proxy for TLS connections
+
+**Configuration:**
+- Default port: `7047`
+- Configurable max sent/received data sizes
+- Request timeout handling
+- Tracing with INFO level logging
+
+**Running the Server:**
+```bash
+cd packages/verifier
+cargo run                    # Development
+cargo build --release        # Production
+cargo test                   # Tests
+```
+
+**Session Flow:**
+1. Extension creates session via `/session` WebSocket
+2. Server returns `sessionId` and waits for verifier connection
+3. Extension connects to `/verifier?sessionId=<id>`
+4. Prover sends HTTP request through `/proxy?host=<host>`
+5. Verifier validates TLS handshake and transcript
+6. Server returns verification result with transcripts
+
+## Important Implementation Notes
+
+### Plugin API Changes
+The plugin API uses a **unified `prove()` function** instead of separate functions. The old API (`createProver`, `sendRequest`, `transcript`, `reveal`, `getResponse`) has been removed.
+
+**Current API:**
+```javascript
+const proof = await prove(requestOptions, proverOptions);
+```
+
+**Handler Parameter:**
+Note that the parameter name is `handlers` (plural), not `reveal`:
+```javascript
+proverOptions: {
+  verifierUrl: 'http://localhost:7047',
+  proxyUrl: 'wss://...',
+  maxRecvData: 16384,
+  maxSentData: 4096,
+  handlers: [/* handler objects */]  // NOT 'reveal'
+}
+```
+
+### DevConsole Default Template
+The default plugin code in `DevConsole/index.tsx` is heavily commented to serve as educational documentation. When modifying, maintain the comprehensive inline comments explaining:
+- Each step of the proof generation flow
+- Purpose of each header and parameter
+- What each reveal handler does
+- How React-like hooks work
+
+### Test Data Sanitization
+Parser tests (`packages/plugin-sdk/src/parser.test.ts`) use redacted sensitive data:
+- Authentication tokens: `REDACTED_BEARER_TOKEN`, `REDACTED_CSRF_TOKEN_VALUE`
+- Screen names: `test_user` (not real usernames)
+- Cookie values: `REDACTED_GUEST_ID`, `REDACTED_COOKIE_VALUE`
+
+### Known Issues
 
 ⚠️ **Legacy Code Warning**: `src/entries/utils.ts` contains imports from non-existent files:
 - `Background/rpc.ts` (removed in refactor)
@@ -343,8 +512,6 @@ const result = await host.runPlugin('plugin-id');
 - Functions: `pushToRedux()`, `openSidePanel()`, `waitForEvent()`
 - **Status**: Dead code, not used by current entry points
 - **Action**: Remove this file or refactor if functionality needed
-
-⚠️ **SessionManager Integration**: Currently imported in background script but not actively used. Intended for future plugin execution features.
 
 ## Websockify Integration
 

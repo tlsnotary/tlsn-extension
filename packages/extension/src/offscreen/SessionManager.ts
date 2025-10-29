@@ -59,6 +59,7 @@ export class SessionManager {
           body: requestOptions.body,
         });
 
+        // Get transcripts for parsing
         const { sent, recv } = await prover.transcript();
 
         const parsedSent = new Parser(Buffer.from(sent));
@@ -67,29 +68,87 @@ export class SessionManager {
         console.log('parsedSent', parsedSent.json());
         console.log('parsedRecv', parsedRecv.json());
 
+        // Extract ranges for revealing and build RangeWithHandler objects
         const sentRanges: { start: number; end: number }[] = [];
         const recvRanges: { start: number; end: number }[] = [];
+        const sentRangesWithHandlers: {
+          start: number;
+          end: number;
+          handler: Handler;
+        }[] = [];
+        const recvRangesWithHandlers: {
+          start: number;
+          end: number;
+          handler: Handler;
+        }[] = [];
+
+        // Helper to add ranges with handler metadata
+        const addRanges = (
+          baseRanges: { start: number; end: number }[],
+          newRanges: { start: number; end: number }[],
+          rangesWithHandlers: {
+            start: number;
+            end: number;
+            handler: Handler;
+          }[],
+          handler: Handler,
+        ) => {
+          baseRanges.push(...newRanges);
+          newRanges.forEach((range) => {
+            rangesWithHandlers.push({ ...range, handler });
+          });
+        };
 
         for (const handler of proverOptions.handlers) {
           const transcript =
             handler.type === HandlerType.SENT ? parsedSent : parsedRecv;
           const ranges =
             handler.type === HandlerType.SENT ? sentRanges : recvRanges;
+          const rangesWithHandlers =
+            handler.type === HandlerType.SENT
+              ? sentRangesWithHandlers
+              : recvRangesWithHandlers;
+
           switch (handler.part) {
             case HandlerPart.START_LINE:
-              ranges.push(...transcript.ranges.startLine());
+              addRanges(
+                ranges,
+                transcript.ranges.startLine(),
+                rangesWithHandlers,
+                handler,
+              );
               break;
             case HandlerPart.PROTOCOL:
-              ranges.push(...transcript.ranges.protocol());
+              addRanges(
+                ranges,
+                transcript.ranges.protocol(),
+                rangesWithHandlers,
+                handler,
+              );
               break;
             case HandlerPart.METHOD:
-              ranges.push(...transcript.ranges.method());
+              addRanges(
+                ranges,
+                transcript.ranges.method(),
+                rangesWithHandlers,
+                handler,
+              );
               break;
             case HandlerPart.REQUEST_TARGET:
-              ranges.push(...transcript.ranges.requestTarget());
+              addRanges(
+                ranges,
+                transcript.ranges.requestTarget(),
+                rangesWithHandlers,
+                handler,
+              );
               break;
             case HandlerPart.STATUS_CODE:
-              ranges.push(...transcript.ranges.statusCode());
+              addRanges(
+                ranges,
+                transcript.ranges.statusCode(),
+                rangesWithHandlers,
+                handler,
+              );
               break;
             case HandlerPart.HEADERS: {
               if (!handler.params?.key) {
@@ -97,60 +156,93 @@ export class SessionManager {
                   if (handler.params?.hideKey && handler.params?.hideValue) {
                     throw new Error('Cannot hide both key and value');
                   } else if (handler.params?.hideKey) {
-                    ranges.push(
-                      ...transcript.ranges.headers(header.key, {
+                    addRanges(
+                      ranges,
+                      transcript.ranges.headers(header.key, {
                         hideKey: true,
                       }),
+                      rangesWithHandlers,
+                      handler,
                     );
                   } else if (handler.params?.hideValue) {
-                    ranges.push(
-                      ...transcript.ranges.headers(header.key, {
+                    addRanges(
+                      ranges,
+                      transcript.ranges.headers(header.key, {
                         hideValue: true,
                       }),
+                      rangesWithHandlers,
+                      handler,
                     );
                   } else {
-                    ranges.push(...transcript.ranges.headers(header.key));
+                    addRanges(
+                      ranges,
+                      transcript.ranges.headers(header.key),
+                      rangesWithHandlers,
+                      handler,
+                    );
                   }
                 });
               } else {
                 if (handler.params?.hideKey && handler.params?.hideValue) {
                   throw new Error('Cannot hide both key and value');
                 } else if (handler.params?.hideKey) {
-                  ranges.push(
-                    ...transcript.ranges.headers(handler.params.key, {
+                  addRanges(
+                    ranges,
+                    transcript.ranges.headers(handler.params.key, {
                       hideKey: true,
                     }),
+                    rangesWithHandlers,
+                    handler,
                   );
                 } else if (handler.params?.hideValue) {
-                  ranges.push(
-                    ...transcript.ranges.headers(handler.params.key, {
+                  addRanges(
+                    ranges,
+                    transcript.ranges.headers(handler.params.key, {
                       hideValue: true,
                     }),
+                    rangesWithHandlers,
+                    handler,
                   );
                 } else {
-                  ranges.push(...transcript.ranges.headers(handler.params.key));
+                  addRanges(
+                    ranges,
+                    transcript.ranges.headers(handler.params.key),
+                    rangesWithHandlers,
+                    handler,
+                  );
                 }
               }
               break;
             }
             case HandlerPart.BODY: {
               if (!handler.params) {
-                ranges.push(...transcript.ranges.body());
+                addRanges(
+                  ranges,
+                  transcript.ranges.body(),
+                  rangesWithHandlers,
+                  handler,
+                );
               } else if (handler.params?.type === 'json') {
                 console.log('json', handler.params.path);
                 (global as any).transcript = transcript;
-                ranges.push(
-                  ...transcript.ranges.body(handler.params.path, {
+                addRanges(
+                  ranges,
+                  transcript.ranges.body(handler.params.path, {
                     type: 'json',
                     hideKey: handler.params?.hideKey,
                     hideValue: handler.params?.hideValue,
                   }),
+                  rangesWithHandlers,
+                  handler,
                 );
               } else if (handler.params?.type === 'regex') {
-                ranges.push(
-                  ...transcript.ranges.body(handler.params.regex, {
+                addRanges(
+                  ranges,
+                  transcript.ranges.body(handler.params.regex, {
                     type: 'regex',
                   }),
+                  rangesWithHandlers,
+                  handler,
                 );
               }
               break;
@@ -161,12 +253,20 @@ export class SessionManager {
         console.log('sentRanges', sentRanges);
         console.log('recvRanges', recvRanges);
 
+        // Send reveal config (ranges + handlers) to verifier BEFORE calling reveal()
+        await this.proveManager.sendRevealConfig(proverId, {
+          sent: sentRangesWithHandlers,
+          recv: recvRangesWithHandlers,
+        });
+
+        // Reveal the ranges
         await prover.reveal({
           sent: sentRanges,
           recv: recvRanges,
           server_identity: true,
         });
 
+        // Get structured response from verifier (now includes handler results)
         const response = await this.proveManager.getResponse(proverId);
 
         return response;

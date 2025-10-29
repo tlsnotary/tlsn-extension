@@ -13,7 +13,7 @@ axum-core = "0.4"
 http = "1.0"
 hyper = "1.0"
 tokio = { version = "1", features = ["full"] }
-tower = "0.4"
+tower = { version = "0.4", features = ["util"] }
 tower-http = { version = "0.5", features = ["cors"] }
 hyper-util = { version = "0.1", features = ["tokio"] }
 
