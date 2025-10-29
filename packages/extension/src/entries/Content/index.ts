@@ -1,5 +1,5 @@
 import browser from 'webextension-polyfill';
-import { type DomJson } from '../../offscreen/SessionManager';
+import { DomJson } from '@tlsn/plugin-sdk/src/types';
 
 console.log('Content script loaded on:', window.location.href);
 
