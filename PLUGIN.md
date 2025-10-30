@@ -484,6 +484,81 @@ type Handler = {
 
 **Returns:** Promise<ProofResponse> - The generated proof data
 
+**ProofResponse Structure:**
+
+The `prove()` function returns a Promise that resolves to an object containing structured handler results. Each handler you specify is mapped to its extracted value from the TLS transcript:
+
+```typescript
+interface ProofResponse {
+  results: Array<{
+    type: 'SENT' | 'RECV';              // Request or response data
+    part: string;                        // Which part (START_LINE, HEADERS, BODY, etc.)
+    action: 'REVEAL' | 'PEDERSEN';       // Reveal or commitment action
+    params?: object;                     // Optional handler parameters
+    value: string;                       // The extracted value
+  }>;
+}
+```
+
+**Example Return Value:**
+
+```javascript
+{
+  results: [
+    {
+      type: 'SENT',
+      part: 'START_LINE',
+      action: 'REVEAL',
+      value: 'GET /1.1/account/settings.json HTTP/1.1'
+    },
+    {
+      type: 'RECV',
+      part: 'START_LINE',
+      action: 'REVEAL',
+      value: 'HTTP/1.1 200 OK'
+    },
+    {
+      type: 'RECV',
+      part: 'HEADERS',
+      action: 'REVEAL',
+      params: { key: 'date' },
+      value: 'Tue, 28 Oct 2025 14:46:24 GMT'
+    },
+    {
+      type: 'RECV',
+      part: 'BODY',
+      action: 'REVEAL',
+      params: { type: 'json', path: 'screen_name', hideKey: true },
+      value: '0xTsukino'
+    }
+  ]
+}
+```
+
+**Understanding the Results:**
+
+- **`results`**: Array where each element corresponds to one of your handlers
+- **`type` + `part` + `params`**: Echo back your handler configuration so you know which result is which
+- **`value`**: The extracted string value from the TLS transcript for that handler
+- **Order**: Results array maintains the same order as your handlers array
+
+**Usage Example:**
+
+```javascript
+const proof = await prove(requestOptions, {
+  // ... prover options with handlers
+});
+
+// Access specific results
+const startLine = proof.results.find(r => r.part === 'START_LINE' && r.type === 'RECV');
+console.log('Response status:', startLine.value); // "HTTP/1.1 200 OK"
+
+const username = proof.results.find(r =>
+  r.part === 'BODY' && r.params?.path === 'screen_name'
+);
+console.log('Username:', username.value); // "0xTsukino"
+```
+
 **Complete Example:**
 
 ```javascript
