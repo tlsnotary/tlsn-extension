@@ -80,4 +80,4 @@ class ExtensionAPI {
 (window as any).tlsn = new ExtensionAPI();
 
 // Dispatch event to notify page that extension is loaded
-window.dispatchEvent(new CustomEvent('extension_loaded'));
+window.dispatchEvent(new CustomEvent('tlsn_loaded'));
