@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>TLSNotary Plugin test page</title>
+  <style>
+    .result {
+      background: #e8f5e8;
+      border: 2px solid #28a745;
+      border-radius: 8px;
+      padding: 16px;
+      margin: 20px 0;
+      font-size: 18px;
+      display: inline-block;
+    }
+
+    .debug {
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 4px;
+      padding: 12px;
+      margin: 20px 0;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>TLSNotary Plugin test page</h1>
+  <p>
+    This page is used to test the TLSNotary plugin. It will load the TLSNotary client and run a plugin to fetch
+    Twitter profile information.
+  </p>
+  <div>
+    <strong>Requirements:</strong>
+    <ul>
+      <li>Double check that the TLSNotary extension is installed and enabled in your browser.</li>
+      <li>Make sure the verifier server is running (<code>cd packages/verifier; cargo run --release</code>).</li>
+    </ul>
+  </div>
+  <div>
+    <strong>Steps:</strong>
+    <ol>
+      <li>A TLSNotary extension popup will open.</li>
+      <li>The plugin will open the <strong>TLSNotary Extension Window</strong> displaying Twitter web page.</li>
+      <li>Log in to Twitter if you are not already logged in.</li>
+      <li>Click the <strong>Prove</strong> button in the overlay UI</li>
+      <li>The plugin will then prove your Twitter screen name to the verifier server</li>
+      <li>After successful notarization, the raw attestation and metadata will show up on this page.</li>
+    </ol>
+  </div>
+
+  <script>
+    console.log('Testing TLSNotary Twitter plugin...');
+    window.addEventListener('tlsn_loaded', async () => {
+      try {
+        console.log('Connecting to TLSNotary client...');
+        const twitter_plugin = await fetch('twitter.js').then(r => r.text());
+        const result = await window.tlsn.execCode(twitter_plugin);
+        const json = JSON.parse(result);
+        const screen_name_result = json.results[3].value;
+        const screen_name = screen_name_result.match(/"screen_name":"([^"]+)"/)[1];
+
+        document.body.innerHTML += `<div class="result">Proven Screen name: <b>${screen_name}</b></div>`;
+
+        document.body.innerHTML += `<h3>Prover results:</h3>`;
+        document.body.innerHTML += `<div class="debug">${JSON.stringify(json.results, null, 2)}</div>`;
+      } catch (err) {
+        console.error(err);
+        document.body.innerHTML += `<pre style="color: red;">${err.message}</pre>`;
+      }
+    });
+  </script>
+</body>
+
+</html>
