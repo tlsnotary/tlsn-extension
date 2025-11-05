@@ -57,23 +57,64 @@
 
   <script>
     console.log('Testing TLSNotary Twitter plugin...');
-    window.addEventListener('tlsn_loaded', async () => {
+
+    async function runTwitterPlugin() {
       try {
         console.log('Connecting to TLSNotary client...');
+        const button = document.getElementById('runButton');
+        button.disabled = true;
+        button.textContent = 'Running...';
+
         const twitter_plugin = await fetch('twitter.js').then(r => r.text());
         const result = await window.tlsn.execCode(twitter_plugin);
         const json = JSON.parse(result);
         const screen_name_result = json.results[3].value;
         const screen_name = screen_name_result.match(/"screen_name":"([^"]+)"/)[1];
 
-        document.body.innerHTML += `<div class="result">Proven Screen name: <b>${screen_name}</b></div>`;
+        // Create result div
+        const resultDiv = document.createElement('div');
+        resultDiv.className = 'result';
+        resultDiv.innerHTML = `Proven Screen name: <b>${screen_name}</b>`;
+        document.body.appendChild(resultDiv);
 
-        document.body.innerHTML += `<h3>Prover results:</h3>`;
-        document.body.innerHTML += `<div class="debug">${JSON.stringify(json.results, null, 2)}</div>`;
+        // Create header
+        const header = document.createElement('h3');
+        header.textContent = 'Prover results:';
+        document.body.appendChild(header);
+
+        // Create debug div
+        const debugDiv = document.createElement('div');
+        debugDiv.className = 'debug';
+        debugDiv.textContent = JSON.stringify(json.results, null, 2);
+        document.body.appendChild(debugDiv);
+
+        // Remove the button after successful execution
+        button.remove();
       } catch (err) {
         console.error(err);
-        document.body.innerHTML += `<pre style="color: red;">${err.message}</pre>`;
+
+        // Create error div
+        const errorDiv = document.createElement('pre');
+        errorDiv.style.color = 'red';
+        errorDiv.textContent = err.message;
+        document.body.appendChild(errorDiv);
+
+        const button = document.getElementById('runButton');
+        if (button) {
+          button.textContent = 'Run Twitter Plugin';
+          button.disabled = false;
+        }
       }
+    }
+
+    window.addEventListener('tlsn_loaded', () => {
+      console.log('TLSNotary client loaded, showing run button...');
+      const button = document.createElement('button');
+      button.id = 'runButton';
+      button.className = 'run-button';
+      button.textContent = 'Run Twitter Plugin';
+      button.onclick = runTwitterPlugin;
+      document.body.appendChild(button);
     });
   </script>
 </body>
