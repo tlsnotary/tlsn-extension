@@ -1,5 +1,4 @@
 mod axum_websocket;
-mod config;
 mod verifier;
 
 use axum::{
@@ -21,7 +20,6 @@ use tokio::time::timeout;
 use tokio_util::compat::FuturesAsyncReadCompatExt;
 use tower_http::cors::CorsLayer;
 use tracing::{error, info};
-use tracing_subscriber;
 use uuid::Uuid;
 use verifier::verifier;
 use ws_stream_tungstenite::WsStream;
@@ -748,7 +746,7 @@ async fn run_verifier_task(
                 results: handler_results,
             };
 
-            if let Err(_) = result_tx.send(result) {
+            if result_tx.send(result).is_err() {
                 error!(
                     "[{}] ❌ Failed to send result to extension - channel closed",
                     session_id
