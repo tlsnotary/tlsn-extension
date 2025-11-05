@@ -27,14 +27,23 @@
       max-height: 400px;
       overflow-y: auto;
     }
+
+    .plugin-buttons {
+      margin: 20px 0;
+    }
+
+    .plugin-buttons button {
+      margin-right: 10px;
+      padding: 10px 20px;
+      font-size: 16px;
+    }
   </style>
 </head>
 
 <body>
-  <h1>TLSNotary Plugin test page</h1>
+  <h1>TLSNotary Plugin Demo</h1>
   <p>
-    This page is used to test the TLSNotary plugin. It will load the TLSNotary client and run a plugin to fetch
-    Twitter profile information.
+    This page demonstrates TLSNotary plugins. Choose a plugin to test below.
   </p>
   <div>
     <strong>Requirements:</strong>
@@ -46,40 +55,61 @@
   <div>
     <strong>Steps:</strong>
     <ol>
-      <li>A TLSNotary extension popup will open.</li>
-      <li>The plugin will open the <strong>TLSNotary Extension Window</strong> displaying Twitter web page.</li>
-      <li>Log in to Twitter if you are not already logged in.</li>
-      <li>Click the <strong>Prove</strong> button in the overlay UI</li>
-      <li>The plugin will then prove your Twitter screen name to the verifier server</li>
-      <li>After successful notarization, the raw attestation and metadata will show up on this page.</li>
+      <li>Click one of the plugin "Run" buttons below.</li>
+      <li>The plugin will open a new browser window with the target website.</li>
+      <li>Log in to the website if you are not already logged in.</li>
+      <li>A TLSNotary overlay will appear in the bottom right corner.</li>
+      <li>Click the <strong>Prove</strong> button in the overlay to start the proving process.</li>
+      <li>After successful proving, you can close the browser window and the results will appear on this page.</li>
     </ol>
   </div>
+  <div class="plugin-buttons" id="buttonContainer"></div>
 
   <script>
-    console.log('Testing TLSNotary Twitter plugin...');
+    console.log('Testing TLSNotary plugins...');
 
-    async function runTwitterPlugin() {
+    const plugins = {
+      twitter: {
+        name: 'Twitter profile Plugin',
+        file: 'twitter.js',
+        parseResult: (json) => {
+          const screen_name_result = json.results[3].value;
+          const screen_name = screen_name_result.match(/"screen_name":"([^"]+)"/)[1];
+          return `Proven Twitter Screen name: <b>${screen_name}</b>`;
+        }
+      },
+      swissbank: {
+        name: 'Swiss Bank Plugin',
+        file: 'swissbank.js',
+        parseResult: (json) => {
+          // Add specific parsing for swissbank results here
+          return `Swiss Bank verification completed`;
+        }
+      }
+    };
+
+    async function runPlugin(pluginKey) {
+      const plugin = plugins[pluginKey];
+      const button = document.getElementById(`${pluginKey}Button`);
+
       try {
-        console.log('Connecting to TLSNotary client...');
-        const button = document.getElementById('runButton');
+        console.log(`Running ${plugin.name} plugin...`);
         button.disabled = true;
         button.textContent = 'Running...';
 
-        const twitter_plugin = await fetch('twitter.js').then(r => r.text());
-        const result = await window.tlsn.execCode(twitter_plugin);
+        const pluginCode = await fetch(plugin.file).then(r => r.text());
+        const result = await window.tlsn.execCode(pluginCode);
         const json = JSON.parse(result);
-        const screen_name_result = json.results[3].value;
-        const screen_name = screen_name_result.match(/"screen_name":"([^"]+)"/)[1];
 
         // Create result div
         const resultDiv = document.createElement('div');
         resultDiv.className = 'result';
-        resultDiv.innerHTML = `Proven Screen name: <b>${screen_name}</b>`;
+        resultDiv.innerHTML = plugin.parseResult(json);
         document.body.appendChild(resultDiv);
 
         // Create header
         const header = document.createElement('h3');
-        header.textContent = 'Prover results:';
+        header.textContent = `${plugin.name} Results:`;
         document.body.appendChild(header);
 
         // Create debug div
@@ -99,22 +129,22 @@
         errorDiv.textContent = err.message;
         document.body.appendChild(errorDiv);
 
-        const button = document.getElementById('runButton');
-        if (button) {
-          button.textContent = 'Run Twitter Plugin';
-          button.disabled = false;
-        }
+        button.textContent = `Run ${plugin.name}`;
+        button.disabled = false;
       }
     }
 
     window.addEventListener('tlsn_loaded', () => {
-      console.log('TLSNotary client loaded, showing run button...');
-      const button = document.createElement('button');
-      button.id = 'runButton';
-      button.className = 'run-button';
-      button.textContent = 'Run Twitter Plugin';
-      button.onclick = runTwitterPlugin;
-      document.body.appendChild(button);
+      console.log('TLSNotary client loaded, showing plugin buttons...');
+      const container = document.getElementById('buttonContainer');
+
+      Object.entries(plugins).forEach(([key, plugin]) => {
+        const button = document.createElement('button');
+        button.id = `${key}Button`;
+        button.textContent = `Run ${plugin.name}`;
+        button.onclick = () => runPlugin(key);
+        container.appendChild(button);
+      });
     });
   </script>
 </body>
