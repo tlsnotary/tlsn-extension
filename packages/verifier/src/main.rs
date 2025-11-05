@@ -1,6 +1,5 @@
 mod axum_websocket;
 mod config;
-mod http_parser;
 mod verifier;
 
 use axum::{
@@ -17,15 +16,15 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::sync::{Mutex, oneshot};
+use tokio::sync::{oneshot, Mutex};
 use tokio::time::timeout;
 use tokio_util::compat::FuturesAsyncReadCompatExt;
 use tower_http::cors::CorsLayer;
 use tracing::{error, info};
 use tracing_subscriber;
 use uuid::Uuid;
-use ws_stream_tungstenite::WsStream;
 use verifier::verifier;
+use ws_stream_tungstenite::WsStream;
 
 #[tokio::main]
 async fn main() {
@@ -62,83 +61,40 @@ async fn main() {
     info!("Server listening on http://{}", addr);
     info!("Health endpoint: http://{}/health", addr);
     info!("Session WebSocket endpoint: ws://{}/session", addr);
-    info!("Verifier WebSocket endpoint: ws://{}/verifier?sessionId=<id>", addr);
+    info!(
+        "Verifier WebSocket endpoint: ws://{}/verifier?sessionId=<id>",
+        addr
+    );
     info!("Proxy WebSocket endpoint: ws://{}/proxy?host=<host>", addr);
 
-    axum::serve(listener, app)
-        .await
-        .expect("Server error");
+    axum::serve(listener, app).await.expect("Server error");
 }
 
-// Handler data structures matching TypeScript types
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type")]
+#[serde(rename_all = "UPPERCASE")]
 enum HandlerType {
-    #[serde(rename = "SENT")]
     Sent,
-    #[serde(rename = "RECV")]
     Recv,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 enum HandlerPart {
-    #[serde(rename = "START_LINE")]
     StartLine,
-    #[serde(rename = "PROTOCOL")]
     Protocol,
-    #[serde(rename = "METHOD")]
     Method,
-    #[serde(rename = "REQUEST_TARGET")]
     RequestTarget,
-    #[serde(rename = "STATUS_CODE")]
     StatusCode,
-    #[serde(rename = "HEADERS")]
     Headers,
-    #[serde(rename = "BODY")]
     Body,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-enum HandlerAction {
-    #[serde(rename = "REVEAL")]
-    Reveal,
-    #[serde(rename = "PEDERSEN")]
-    Pedersen,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-enum HandlerParams {
-    Headers {
-        key: Option<String>,
-        #[serde(rename = "hideKey")]
-        hide_key: Option<bool>,
-        #[serde(rename = "hideValue")]
-        hide_value: Option<bool>,
-    },
-    BodyJson {
-        #[serde(rename = "type")]
-        body_type: String, // "json"
-        path: String,
-        #[serde(rename = "hideKey")]
-        hide_key: Option<bool>,
-        #[serde(rename = "hideValue")]
-        hide_value: Option<bool>,
-    },
-    BodyRegex {
-        #[serde(rename = "type")]
-        body_type: String, // "regex"
-        regex: String,
-    },
+    All,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Handler {
     #[serde(rename = "type")]
-    handler_type: String, // "SENT" or "RECV"
-    part: String,
-    action: String,
-    params: Option<serde_json::Value>,
+    handler_type: HandlerType,
+    part: HandlerPart,
 }
 
 // Session data structure (without handlers - they come later with ranges)
@@ -240,9 +196,12 @@ async fn handle_session_websocket(mut socket: WebSocket, state: Arc<AppState>) {
         session_id: session_id.clone(),
     };
 
-    if let Err(e) = socket.send(axum_websocket::Message::Text(
-        serde_json::to_string(&session_response).unwrap()
-    )).await {
+    if let Err(e) = socket
+        .send(axum_websocket::Message::Text(
+            serde_json::to_string(&session_response).unwrap(),
+        ))
+        .await
+    {
         error!("[{}] Failed to send session ID: {}", session_id, e);
         return;
     }
@@ -289,29 +248,49 @@ async fn handle_session_websocket(mut socket: WebSocket, state: Arc<AppState>) {
     // Store session data WITHOUT reveal config yet (so prover can connect)
     {
         let mut sessions = state.sessions.lock().await;
-        sessions.insert(session_id.clone(), SessionData {
-            prover_socket_tx,
-            reveal_config: reveal_config_storage.clone(),
-        });
+        sessions.insert(
+            session_id.clone(),
+            SessionData {
+                prover_socket_tx,
+                reveal_config: reveal_config_storage.clone(),
+            },
+        );
     }
 
-    info!("[{}] Session stored, prover can now connect to /verifier", session_id);
+    info!(
+        "[{}] Session stored, prover can now connect to /verifier",
+        session_id
+    );
 
     // Spawn the verifier task with the result sender
     let session_id_clone = session_id.clone();
     let state_clone = state.clone();
     let reveal_config_storage_clone = reveal_config_storage.clone();
     tokio::spawn(async move {
-        run_verifier_task(session_id_clone, config, reveal_config_storage_clone, prover_socket_rx, result_tx, state_clone).await;
+        run_verifier_task(
+            session_id_clone,
+            config,
+            reveal_config_storage_clone,
+            prover_socket_rx,
+            result_tx,
+            state_clone,
+        )
+        .await;
     });
 
-    info!("[{}] Verifier task spawned, waiting for prover connection and reveal config", session_id);
+    info!(
+        "[{}] Verifier task spawned, waiting for prover connection and reveal config",
+        session_id
+    );
 
     // Wait for RevealConfig message (ranges + handlers) - can come anytime now
     let reveal_msg = match socket.next().await {
         Some(Ok(axum_websocket::Message::Text(text))) => text,
         Some(Ok(msg)) => {
-            error!("[{}] Expected text message for reveal config, got: {:?}", session_id, msg);
+            error!(
+                "[{}] Expected text message for reveal config, got: {:?}",
+                session_id, msg
+            );
             return;
         }
         Some(Err(e)) => {
@@ -319,7 +298,10 @@ async fn handle_session_websocket(mut socket: WebSocket, state: Arc<AppState>) {
             return;
         }
         None => {
-            error!("[{}] Connection closed before receiving reveal config", session_id);
+            error!(
+                "[{}] Connection closed before receiving reveal config",
+                session_id
+            );
             return;
         }
     };
@@ -334,7 +316,9 @@ async fn handle_session_websocket(mut socket: WebSocket, state: Arc<AppState>) {
 
     info!(
         "[{}] Received reveal config: {} sent ranges, {} recv ranges",
-        session_id, reveal_config.sent.len(), reveal_config.recv.len()
+        session_id,
+        reveal_config.sent.len(),
+        reveal_config.recv.len()
     );
 
     // Store reveal config in shared storage
@@ -343,23 +327,35 @@ async fn handle_session_websocket(mut socket: WebSocket, state: Arc<AppState>) {
         *storage = Some(reveal_config);
     }
 
-    info!("[{}] ✅ Reveal config stored, verifier task can now proceed", session_id);
+    info!(
+        "[{}] ✅ Reveal config stored, verifier task can now proceed",
+        session_id
+    );
 
     // Wait for verification result
     match result_rx.await {
         Ok(result) => {
-            info!("[{}] Received verification result, sending to extension", session_id);
+            info!(
+                "[{}] Received verification result, sending to extension",
+                session_id
+            );
 
             // Send result to extension
             let result_json = serde_json::to_string(&result).unwrap();
-            if let Err(e) = socket.send(axum_websocket::Message::Text(result_json)).await {
+            if let Err(e) = socket
+                .send(axum_websocket::Message::Text(result_json))
+                .await
+            {
                 error!("[{}] Failed to send result: {}", session_id, e);
             } else {
                 info!("[{}] ✅ Sent verification result to extension", session_id);
             }
         }
         Err(_) => {
-            error!("[{}] ❌ Verifier task closed without sending result", session_id);
+            error!(
+                "[{}] ❌ Verifier task closed without sending result",
+                session_id
+            );
         }
     }
 
@@ -379,18 +375,29 @@ async fn verifier_ws_handler(
     // Look up the session and extract the socket sender
     let prover_socket_tx = {
         let mut sessions = state.sessions.lock().await;
-        sessions.remove(&session_id).map(|session_data| session_data.prover_socket_tx)
+        sessions
+            .remove(&session_id)
+            .map(|session_data| session_data.prover_socket_tx)
     };
 
     match prover_socket_tx {
         Some(sender) => {
-            info!("[{}] Prover WebSocket connection established, passing to verifier", session_id);
+            info!(
+                "[{}] Prover WebSocket connection established, passing to verifier",
+                session_id
+            );
             Ok(ws.on_upgrade(move |socket| async move {
                 // Send the WebSocket to the waiting verifier
                 if let Err(_) = sender.send(socket) {
-                    error!("[{}] Failed to send socket to verifier - channel closed", session_id);
+                    error!(
+                        "[{}] Failed to send socket to verifier - channel closed",
+                        session_id
+                    );
                 } else {
-                    info!("[{}] Prover socket passed to verifier successfully", session_id);
+                    info!(
+                        "[{}] Prover socket passed to verifier successfully",
+                        session_id
+                    );
                 }
             }))
         }
@@ -421,12 +428,18 @@ async fn handle_proxy_connection(ws: WebSocket, host: String) {
     use futures_util::{SinkExt, StreamExt};
 
     let proxy_id = Uuid::new_v4().to_string();
-    info!("[{}] Proxy WebSocket connected for host: {}", proxy_id, host);
+    info!(
+        "[{}] Proxy WebSocket connected for host: {}",
+        proxy_id, host
+    );
 
     // Parse host and port (default to 443 for HTTPS)
     let (hostname, port) = if host.contains(':') {
         let parts: Vec<&str> = host.split(':').collect();
-        (parts[0].to_string(), parts.get(1).and_then(|p| p.parse().ok()).unwrap_or(443))
+        (
+            parts[0].to_string(),
+            parts.get(1).and_then(|p| p.parse().ok()).unwrap_or(443),
+        )
     } else {
         (host.clone(), 443)
     };
@@ -436,11 +449,17 @@ async fn handle_proxy_connection(ws: WebSocket, host: String) {
     // Connect to the remote TCP host
     let tcp_stream = match tokio::net::TcpStream::connect((hostname.as_str(), port)).await {
         Ok(stream) => {
-            info!("[{}] TCP connection established to {}:{}", proxy_id, hostname, port);
+            info!(
+                "[{}] TCP connection established to {}:{}",
+                proxy_id, hostname, port
+            );
             stream
         }
         Err(e) => {
-            error!("[{}] Failed to connect to {}:{} - {}", proxy_id, hostname, port, e);
+            error!(
+                "[{}] Failed to connect to {}:{} - {}",
+                proxy_id, hostname, port, e
+            );
             return;
         }
     };
@@ -471,7 +490,10 @@ async fn handle_proxy_connection(ws: WebSocket, host: String) {
                             }
                         }
                         axum_websocket::Message::Close(_) => {
-                            info!("[{}] WebSocket close frame received, forwarded {} bytes total", proxy_id_clone, total_bytes);
+                            info!(
+                                "[{}] WebSocket close frame received, forwarded {} bytes total",
+                                proxy_id_clone, total_bytes
+                            );
                             break;
                         }
                         _ => {
@@ -484,7 +506,10 @@ async fn handle_proxy_connection(ws: WebSocket, host: String) {
                     break;
                 }
                 None => {
-                    info!("[{}] WebSocket stream ended, forwarded {} bytes total", proxy_id_clone, total_bytes);
+                    info!(
+                        "[{}] WebSocket stream ended, forwarded {} bytes total",
+                        proxy_id_clone, total_bytes
+                    );
                     break;
                 }
             }
@@ -503,7 +528,10 @@ async fn handle_proxy_connection(ws: WebSocket, host: String) {
         loop {
             match tcp_read.read(&mut buf).await {
                 Ok(0) => {
-                    info!("[{}] TCP read EOF (server closed), forwarded {} bytes to WebSocket", proxy_id_clone, total_bytes);
+                    info!(
+                        "[{}] TCP read EOF (server closed), forwarded {} bytes to WebSocket",
+                        proxy_id_clone, total_bytes
+                    );
                     break;
                 }
                 Ok(n) => {
@@ -531,7 +559,10 @@ async fn handle_proxy_connection(ws: WebSocket, host: String) {
     let ws_total = ws_result.unwrap_or(0);
     let tcp_total = tcp_result.unwrap_or(0);
 
-    info!("[{}] Proxy closed: WS→TCP {} bytes, TCP→WS {} bytes", proxy_id, ws_total, tcp_total);
+    info!(
+        "[{}] Proxy closed: WS→TCP {} bytes, TCP→WS {} bytes",
+        proxy_id, ws_total, tcp_total
+    );
 }
 
 // Verifier task that waits for WebSocket and runs verification
@@ -558,11 +589,17 @@ async fn run_verifier_task(
 
     let socket = match socket_result {
         Ok(Ok(socket)) => {
-            info!("[{}] ✅ WebSocket received, starting verification", session_id);
+            info!(
+                "[{}] ✅ WebSocket received, starting verification",
+                session_id
+            );
             socket
         }
         Ok(Err(_)) => {
-            error!("[{}] ❌ Socket channel closed before connection", session_id);
+            error!(
+                "[{}] ❌ Socket channel closed before connection",
+                session_id
+            );
             cleanup_session(&state, &session_id).await;
             return;
         }
@@ -600,8 +637,16 @@ async fn run_verifier_task(
     match verification_result {
         Ok(Ok((sent_bytes, recv_bytes, sent_string, recv_string))) => {
             info!("[{}] ✅ Verification completed successfully!", session_id);
-            info!("[{}] Sent data length: {} bytes", session_id, sent_string.len());
-            info!("[{}] Received data length: {} bytes", session_id, recv_string.len());
+            info!(
+                "[{}] Sent data length: {} bytes",
+                session_id,
+                sent_string.len()
+            );
+            info!(
+                "[{}] Received data length: {} bytes",
+                session_id,
+                recv_string.len()
+            );
 
             // Wait for RevealConfig to be available (with polling and timeout)
             let reveal_config_wait_timeout = Duration::from_secs(30);
@@ -640,12 +685,16 @@ async fn run_verifier_task(
             for range_with_handler in &reveal_config.sent {
                 let value = if range_with_handler.start < sent_bytes.len()
                     && range_with_handler.end <= sent_bytes.len()
-                    && range_with_handler.start < range_with_handler.end {
+                    && range_with_handler.start < range_with_handler.end
+                {
                     // Extract bytes from RAW transcript (before \0 → 🙈 conversion)
                     let bytes = &sent_bytes[range_with_handler.start..range_with_handler.end];
                     String::from_utf8_lossy(bytes).to_string()
                 } else {
-                    format!("ERROR: Invalid range [{}, {})", range_with_handler.start, range_with_handler.end)
+                    format!(
+                        "ERROR: Invalid range [{}, {})",
+                        range_with_handler.start, range_with_handler.end
+                    )
                 };
 
                 info!(
@@ -667,12 +716,16 @@ async fn run_verifier_task(
             for range_with_handler in &reveal_config.recv {
                 let value = if range_with_handler.start < recv_bytes.len()
                     && range_with_handler.end <= recv_bytes.len()
-                    && range_with_handler.start < range_with_handler.end {
+                    && range_with_handler.start < range_with_handler.end
+                {
                     // Extract bytes from RAW transcript (before \0 → 🙈 conversion)
                     let bytes = &recv_bytes[range_with_handler.start..range_with_handler.end];
                     String::from_utf8_lossy(bytes).to_string()
                 } else {
-                    format!("ERROR: Invalid range [{}, {})", range_with_handler.start, range_with_handler.end)
+                    format!(
+                        "ERROR: Invalid range [{}, {})",
+                        range_with_handler.start, range_with_handler.end
+                    )
                 };
 
                 info!(
@@ -696,7 +749,10 @@ async fn run_verifier_task(
             };
 
             if let Err(_) = result_tx.send(result) {
-                error!("[{}] ❌ Failed to send result to extension - channel closed", session_id);
+                error!(
+                    "[{}] ❌ Failed to send result to extension - channel closed",
+                    session_id
+                );
             } else {
                 info!("[{}] ✅ Result sent to extension successfully", session_id);
             }

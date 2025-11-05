@@ -17,7 +17,10 @@ pub async fn verifier<T: AsyncWrite + AsyncRead + Send + Unpin + 'static>(
     max_sent_data: usize,
     max_recv_data: usize,
 ) -> Result<(Vec<u8>, Vec<u8>, String, String), eyre::ErrReport> {
-    info!("Starting verification with maxSentData={}, maxRecvData={}", max_sent_data, max_recv_data);
+    info!(
+        "Starting verification with maxSentData={}, maxRecvData={}",
+        max_sent_data, max_recv_data
+    );
 
     let config_validator = ProtocolConfigValidator::builder()
         .max_sent_data(max_sent_data)
