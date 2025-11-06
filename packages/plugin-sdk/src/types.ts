@@ -163,7 +163,8 @@ export type AllHandler = {
   action: HandlerAction.REVEAL | HandlerAction.PEDERSEN;
   params?: {
     type: 'regex';
-    regex: RegExp;
+    regex: string;
+    flags?: string;
   };
 };
 

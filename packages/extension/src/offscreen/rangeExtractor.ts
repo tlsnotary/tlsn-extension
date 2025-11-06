@@ -123,7 +123,12 @@ function extractAllRanges(handler: Handler, parser: Parser): Range[] {
 
   // If regex parameter is provided, use regex matching
   if (handler.params?.type === 'regex' && handler.params?.regex) {
-    return parser.ranges.regex(handler.params.regex);
+    return parser.ranges.regex(
+      new RegExp(
+        handler.params.regex,
+        handler.params.flags?.includes('g') ? handler.params.flags : 'g',
+      ),
+    );
   }
 
   // Otherwise, return entire transcript
