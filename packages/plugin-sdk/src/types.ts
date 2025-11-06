@@ -149,17 +149,22 @@ export type BodyHandler = {
   type: HandlerType;
   part: HandlerPart.BODY;
   action: HandlerAction.REVEAL | HandlerAction.PEDERSEN;
-  params?:
-    | {
-        type: 'json';
-        path: string;
-        hideKey?: boolean;
-        hideValue?: boolean;
-      }
-    | {
-        type: 'regex';
-        regex: RegExp;
-      };
+  params?: {
+    type: 'json';
+    path: string;
+    hideKey?: boolean;
+    hideValue?: boolean;
+  };
 };
 
-export type Handler = StartLineHandler | HeadersHandler | BodyHandler;
+export type AllHandler = {
+  type: HandlerType;
+  part: HandlerPart.ALL; // Not used for regex handlers
+  action: HandlerAction.REVEAL | HandlerAction.PEDERSEN;
+  params?: {
+    type: 'regex';
+    regex: RegExp;
+  };
+};
+
+export type Handler = StartLineHandler | HeadersHandler | BodyHandler | AllHandler;

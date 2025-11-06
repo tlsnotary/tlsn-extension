@@ -18,20 +18,24 @@ This package provides:
 Plugins run in a sandboxed QuickJS environment with access to the following APIs:
 
 #### UI Components
+
 - **`div(options?, children?)`** - Create div elements
 - **`button(options?, children?)`** - Create button elements with click handlers
 
 #### React-like Hooks
+
 - **`useEffect(callback, deps?)`** - Run side effects when dependencies change
 - **`useRequests(filter)`** - Subscribe to intercepted HTTP requests
 - **`useHeaders(filter)`** - Subscribe to intercepted HTTP request headers
 
 #### Window Management
+
 - **`openWindow(url, options?)`** - Open new browser windows with request interception
   - Options: `width`, `height`, `showOverlay`
 - **`done(result?)`** - Complete plugin execution and close windows
 
 #### Proof Generation
+
 - **`prove(request, options)`** - Generate TLSNotary proofs for HTTP requests
   - Request: `url`, `method`, `headers`
   - Options: `verifierUrl`, `proxyUrl`, `maxRecvData`, `maxSentData`, `reveal` handlers
@@ -52,6 +56,7 @@ const valueOnly = parser.ranges.body('screen_name', { type: 'json', hideKey: tru
 ```
 
 **Supported Features**:
+
 - Parse HTTP requests and responses
 - Handle chunked transfer encoding
 - Extract header ranges
@@ -104,9 +109,7 @@ const config = {
 // Main UI function (called reactively)
 function main() {
   // Subscribe to X.com API headers
-  const [header] = useHeaders(headers =>
-    headers.filter(h => h.url.includes('api.x.com'))
-  );
+  const [header] = useHeaders((headers) => headers.filter((h) => h.url.includes('api.x.com')));
 
   // Open X.com when plugin loads
   useEffect(() => {
@@ -116,7 +119,7 @@ function main() {
   // Render UI based on state
   return div({ style: { padding: '8px' } }, [
     div({}, [header ? 'Profile detected!' : 'Please login']),
-    header ? button({ onclick: 'onProve' }, ['Generate Proof']) : null
+    header ? button({ onclick: 'onProve' }, ['Generate Proof']) : null,
   ]);
 }
 
@@ -124,18 +127,25 @@ function main() {
 async function onProve() {
   const [header] = useHeaders(/* ... */);
 
-  const proof = await prove({
-    url: 'https://api.x.com/1.1/account/settings.json',
-    method: 'GET',
-    headers: extractedHeaders,
-  }, {
-    verifierUrl: 'http://localhost:7047',
-    proxyUrl: 'wss://notary.pse.dev/proxy?token=api.x.com',
-    reveal: [
-      { type: 'RECV', part: 'BODY', action: 'REVEAL',
-        params: { type: 'json', path: 'screen_name' } }
-    ]
-  });
+  const proof = await prove(
+    {
+      url: 'https://api.x.com/1.1/account/settings.json',
+      method: 'GET',
+      headers: extractedHeaders,
+    },
+    {
+      verifierUrl: 'http://localhost:7047',
+      proxyUrl: 'wss://notary.pse.dev/proxy?token=api.x.com',
+      reveal: [
+        {
+          type: 'RECV',
+          part: 'BODY',
+          action: 'REVEAL',
+          params: { type: 'json', path: 'screen_name' },
+        },
+      ],
+    },
+  );
 
   done(proof);
 }
@@ -171,7 +181,7 @@ reveal: [
     params: {
       type: 'json',
       path: 'screen_name',
-      hideKey: true  // Only reveal the value
+      hideKey: true, // Only reveal the value
     },
   },
   // Reveal pattern match
@@ -181,17 +191,19 @@ reveal: [
     action: 'REVEAL',
     params: {
       type: 'regex',
-      regex: /user_id=\d+/g
+      regex: /user_id=\d+/g,
     },
   },
-]
+];
 ```
 
 **Handler Types**:
+
 - `SENT` - Request data
 - `RECV` - Response data
 
 **Handler Parts**:
+
 - `START_LINE` - Full start line
 - `PROTOCOL` - HTTP version
 - `METHOD` - HTTP method
@@ -201,6 +213,7 @@ reveal: [
 - `BODY` - Response body
 
 **Handler Actions**:
+
 - `REVEAL` - Include in proof as plaintext
 - `PEDERSEN` - Commit with Pedersen hash
 
@@ -233,11 +246,13 @@ Hooks are evaluated during each `main()` call and compared with previous values 
 ### HTTP Parser Implementation
 
 The parser handles:
+
 - **Chunked Transfer Encoding**: Dechunks data and tracks original byte offsets
 - **JSON Range Tracking**: Maps JSON fields to transcript byte ranges
 - **Header Parsing**: Case-insensitive header names with range tracking
 
 **Limitations**:
+
 - Nested JSON field access (e.g., `"user.profile.name"`) not yet supported
 - Multi-chunk responses map to first chunk's offset only
 

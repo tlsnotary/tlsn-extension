@@ -644,9 +644,6 @@ export class Parser {
         const baseOffset = this.parsed.body.raw.ranges.start;
         const ranges: Range[] = [];
 
-        // Convert text to bytes for accurate offset calculation
-        const textBytes = Buffer.from(text, 'utf8');
-
         let match;
         while ((match = path.exec(text)) !== null) {
           // match.index is a STRING index, need to convert to BYTE offset
@@ -681,6 +678,62 @@ export class Parser {
       }
 
       throw new Error(`Unknown type: ${type}`);
+    },
+
+    /**
+     * Returns byte ranges for all matches of a regular expression in the entire transcript.
+     * Uses byte-accurate offset calculation to handle multi-byte UTF-8 characters correctly.
+     *
+     * @param regExp - Regular expression to match (must have global flag for multiple matches)
+     * @returns Array of ranges for all matches found in the transcript
+     *
+     * @example
+     * const parser = new Parser(httpMessage);
+     * const ranges = parser.ranges.regex(/Bearer [A-Za-z0-9-_]+/g);
+     * // Returns ranges for all Bearer token matches
+     */
+    regex: (regExp: RegExp): Range[] => {
+      if (!this.parsed) throw new Error('Message not parsed');
+
+      // Convert entire data to text for searching
+      const text = new TextDecoder('utf-8', { fatal: false }).decode(this.data);
+      const ranges: Range[] = [];
+
+      let match;
+      while ((match = regExp.exec(text)) !== null) {
+        // match.index is a STRING index, need to convert to BYTE offset
+        const matchedText = match[0];
+        const matchedBytes = Buffer.from(matchedText, 'utf8');
+
+        // Get substring before the match
+        const beforeMatch = text.substring(0, match.index);
+        const beforeMatchBytes = Buffer.from(beforeMatch, 'utf8');
+
+        // Byte offset is the length of bytes before the match
+        const byteOffset = beforeMatchBytes.length;
+
+        ranges.push({
+          start: byteOffset,
+          end: byteOffset + matchedBytes.length,
+        });
+      }
+
+      return ranges;
+    },
+
+    /**
+     * Returns a single range covering the entire HTTP message transcript.
+     *
+     * @returns Array containing a single range from start (0) to end of transcript
+     *
+     * @example
+     * const parser = new Parser(httpMessage);
+     * const range = parser.ranges.all();
+     * // Returns [{ start: 0, end: <length of transcript> }]
+     */
+    all: (): Range[] => {
+      if (!this.parsed) throw new Error('Message not parsed');
+      return [{ start: 0, end: this.data.length }];
     },
   };
 }

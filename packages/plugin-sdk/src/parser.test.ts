@@ -638,6 +638,144 @@ describe('Parser', () => {
     });
   });
 
+  describe('Range Methods - Regex', () => {
+    it('should find all matches of a pattern in the entire transcript', () => {
+      const request =
+        'GET /path HTTP/1.1\r\n' +
+        'Host: example.com\r\n' +
+        'Authorization: Bearer REDACTED_TOKEN_123\r\n' +
+        'X-Custom: Bearer REDACTED_TOKEN_456\r\n' +
+        '\r\n' +
+        'Bearer REDACTED_TOKEN_789';
+
+      const parser = new Parser(request);
+      const ranges = parser.ranges.regex(/Bearer [A-Z_0-9]+/g);
+
+      expect(ranges).toHaveLength(3);
+      expect(request.substring(ranges[0].start, ranges[0].end)).toBe('Bearer REDACTED_TOKEN_123');
+      expect(request.substring(ranges[1].start, ranges[1].end)).toBe('Bearer REDACTED_TOKEN_456');
+      expect(request.substring(ranges[2].start, ranges[2].end)).toBe('Bearer REDACTED_TOKEN_789');
+    });
+
+    it('should return empty array when regex finds no matches', () => {
+      const request = 'GET /path HTTP/1.1\r\nHost: example.com\r\n\r\n';
+      const parser = new Parser(request);
+      const ranges = parser.ranges.regex(/Bearer/g);
+
+      expect(ranges).toHaveLength(0);
+    });
+
+    it('should handle regex with multi-byte UTF-8 characters', () => {
+      const request =
+        'POST /api HTTP/1.1\r\n' +
+        'Content-Type: application/json\r\n' +
+        '\r\n' +
+        '{"emoji":"🙈","name":"test","emoji2":"🔥"}';
+
+      const parser = new Parser(request);
+      const ranges = parser.ranges.regex(/"emoji[0-9]?":/g);
+
+      expect(ranges).toHaveLength(2);
+
+      // Use Buffer to extract bytes at the correct offsets
+      const requestBytes = Buffer.from(request, 'utf8');
+      const match1Bytes = requestBytes.slice(ranges[0].start, ranges[0].end);
+      const match2Bytes = requestBytes.slice(ranges[1].start, ranges[1].end);
+      const match1 = match1Bytes.toString('utf8');
+      const match2 = match2Bytes.toString('utf8');
+
+      expect(match1).toBe('"emoji":');
+      expect(match2).toBe('"emoji2":');
+    });
+
+    it('should work with case-insensitive regex', () => {
+      const request =
+        'GET /path HTTP/1.1\r\n' +
+        'Host: example.com\r\n' +
+        'Content-Type: text/plain\r\n' +
+        '\r\n';
+
+      const parser = new Parser(request);
+      const ranges = parser.ranges.regex(/host/gi);
+
+      expect(ranges).toHaveLength(1);
+      expect(request.substring(ranges[0].start, ranges[0].end)).toBe('Host');
+    });
+
+    it('should handle complex regex patterns', () => {
+      const request =
+        'POST /api HTTP/1.1\r\n' +
+        'Host: example.com\r\n' +
+        '\r\n' +
+        '{"token":"abc123","key":"xyz789"}';
+
+      const parser = new Parser(request);
+      // Match quoted strings (simplified)
+      const ranges = parser.ranges.regex(/"[a-z0-9]+"/g);
+
+      expect(ranges.length).toBeGreaterThan(0);
+      ranges.forEach((range) => {
+        const match = request.substring(range.start, range.end);
+        expect(match).toMatch(/^"[a-z0-9]+"$/);
+      });
+    });
+  });
+
+  describe('Range Methods - All', () => {
+    it('should return range for entire request transcript', () => {
+      const request = 'GET /path HTTP/1.1\r\nHost: example.com\r\n\r\nBody content';
+      const parser = new Parser(request);
+      const ranges = parser.ranges.all();
+
+      expect(ranges).toHaveLength(1);
+      expect(ranges[0].start).toBe(0);
+      expect(ranges[0].end).toBe(request.length);
+      expect(request.substring(ranges[0].start, ranges[0].end)).toBe(request);
+    });
+
+    it('should return range for entire response transcript', () => {
+      const response =
+        'HTTP/1.1 200 OK\r\n' + 'Content-Type: application/json\r\n' + '\r\n' + '{"success":true}';
+
+      const parser = new Parser(response);
+      const ranges = parser.ranges.all();
+
+      expect(ranges).toHaveLength(1);
+      expect(ranges[0].start).toBe(0);
+      expect(ranges[0].end).toBe(response.length);
+      expect(response.substring(ranges[0].start, ranges[0].end)).toBe(response);
+    });
+
+    it('should handle chunked encoding correctly', () => {
+      const response =
+        'HTTP/1.1 200 OK\r\n' +
+        'Transfer-Encoding: chunked\r\n' +
+        '\r\n' +
+        '5\r\n' +
+        'Hello\r\n' +
+        '0\r\n' +
+        '\r\n';
+
+      const parser = new Parser(response);
+      const ranges = parser.ranges.all();
+
+      expect(ranges).toHaveLength(1);
+      expect(ranges[0].start).toBe(0);
+      expect(ranges[0].end).toBe(response.length);
+    });
+
+    it('should work with Uint8Array input', () => {
+      const request = 'GET /path HTTP/1.1\r\nHost: example.com\r\n\r\n';
+      const uint8Array = new TextEncoder().encode(request);
+      const parser = new Parser(uint8Array);
+      const ranges = parser.ranges.all();
+
+      expect(ranges).toHaveLength(1);
+      expect(ranges[0].start).toBe(0);
+      expect(ranges[0].end).toBe(uint8Array.length);
+    });
+  });
+
   describe('Byte Offset Handling (Bug Fix)', () => {
     it('should demonstrate string vs byte index difference with multi-byte UTF-8', () => {
       const textWithEmoji = '{"emoji":"🙈","name":"test"}';
@@ -723,10 +861,7 @@ describe('Parser', () => {
 
       // Extract the actual bytes using the calculated range
       const responseBytes = Buffer.from(response);
-      const extractedBytes = responseBytes.slice(
-        valueRanges[0].start,
-        valueRanges[0].end,
-      );
+      const extractedBytes = responseBytes.slice(valueRanges[0].start, valueRanges[0].end);
       const extractedText = extractedBytes.toString('utf8');
 
       console.log('Extracted value text:', extractedText);

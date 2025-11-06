@@ -1,12 +1,8 @@
 import Host, { Parser } from '@tlsn/plugin-sdk/src';
 import { ProveManager } from './ProveManager';
 import { Method } from 'tlsn-js';
-import {
-  DomJson,
-  Handler,
-  HandlerPart,
-  HandlerType,
-} from '@tlsn/plugin-sdk/src/types';
+import { DomJson, Handler } from '@tlsn/plugin-sdk/src/types';
+import { processHandlers } from './rangeExtractor';
 
 export class SessionManager {
   private host: Host;
@@ -68,187 +64,13 @@ export class SessionManager {
         console.log('parsedSent', parsedSent.json());
         console.log('parsedRecv', parsedRecv.json());
 
-        // Extract ranges for revealing and build RangeWithHandler objects
-        const sentRanges: { start: number; end: number }[] = [];
-        const recvRanges: { start: number; end: number }[] = [];
-        const sentRangesWithHandlers: {
-          start: number;
-          end: number;
-          handler: Handler;
-        }[] = [];
-        const recvRangesWithHandlers: {
-          start: number;
-          end: number;
-          handler: Handler;
-        }[] = [];
-
-        // Helper to add ranges with handler metadata
-        const addRanges = (
-          baseRanges: { start: number; end: number }[],
-          newRanges: { start: number; end: number }[],
-          rangesWithHandlers: {
-            start: number;
-            end: number;
-            handler: Handler;
-          }[],
-          handler: Handler,
-        ) => {
-          baseRanges.push(...newRanges);
-          newRanges.forEach((range) => {
-            rangesWithHandlers.push({ ...range, handler });
-          });
-        };
-
-        for (const handler of proverOptions.handlers) {
-          const transcript =
-            handler.type === HandlerType.SENT ? parsedSent : parsedRecv;
-          const ranges =
-            handler.type === HandlerType.SENT ? sentRanges : recvRanges;
-          const rangesWithHandlers =
-            handler.type === HandlerType.SENT
-              ? sentRangesWithHandlers
-              : recvRangesWithHandlers;
-
-          switch (handler.part) {
-            case HandlerPart.START_LINE:
-              addRanges(
-                ranges,
-                transcript.ranges.startLine(),
-                rangesWithHandlers,
-                handler,
-              );
-              break;
-            case HandlerPart.PROTOCOL:
-              addRanges(
-                ranges,
-                transcript.ranges.protocol(),
-                rangesWithHandlers,
-                handler,
-              );
-              break;
-            case HandlerPart.METHOD:
-              addRanges(
-                ranges,
-                transcript.ranges.method(),
-                rangesWithHandlers,
-                handler,
-              );
-              break;
-            case HandlerPart.REQUEST_TARGET:
-              addRanges(
-                ranges,
-                transcript.ranges.requestTarget(),
-                rangesWithHandlers,
-                handler,
-              );
-              break;
-            case HandlerPart.STATUS_CODE:
-              addRanges(
-                ranges,
-                transcript.ranges.statusCode(),
-                rangesWithHandlers,
-                handler,
-              );
-              break;
-            case HandlerPart.HEADERS: {
-              if (!handler.params?.key) {
-                transcript.json().headers.forEach((header: any) => {
-                  if (handler.params?.hideKey && handler.params?.hideValue) {
-                    throw new Error('Cannot hide both key and value');
-                  } else if (handler.params?.hideKey) {
-                    addRanges(
-                      ranges,
-                      transcript.ranges.headers(header.key, {
-                        hideKey: true,
-                      }),
-                      rangesWithHandlers,
-                      handler,
-                    );
-                  } else if (handler.params?.hideValue) {
-                    addRanges(
-                      ranges,
-                      transcript.ranges.headers(header.key, {
-                        hideValue: true,
-                      }),
-                      rangesWithHandlers,
-                      handler,
-                    );
-                  } else {
-                    addRanges(
-                      ranges,
-                      transcript.ranges.headers(header.key),
-                      rangesWithHandlers,
-                      handler,
-                    );
-                  }
-                });
-              } else {
-                if (handler.params?.hideKey && handler.params?.hideValue) {
-                  throw new Error('Cannot hide both key and value');
-                } else if (handler.params?.hideKey) {
-                  addRanges(
-                    ranges,
-                    transcript.ranges.headers(handler.params.key, {
-                      hideKey: true,
-                    }),
-                    rangesWithHandlers,
-                    handler,
-                  );
-                } else if (handler.params?.hideValue) {
-                  addRanges(
-                    ranges,
-                    transcript.ranges.headers(handler.params.key, {
-                      hideValue: true,
-                    }),
-                    rangesWithHandlers,
-                    handler,
-                  );
-                } else {
-                  addRanges(
-                    ranges,
-                    transcript.ranges.headers(handler.params.key),
-                    rangesWithHandlers,
-                    handler,
-                  );
-                }
-              }
-              break;
-            }
-            case HandlerPart.BODY: {
-              if (!handler.params) {
-                addRanges(
-                  ranges,
-                  transcript.ranges.body(),
-                  rangesWithHandlers,
-                  handler,
-                );
-              } else if (handler.params?.type === 'json') {
-                console.log('json', handler.params.path);
-                (global as any).transcript = transcript;
-                addRanges(
-                  ranges,
-                  transcript.ranges.body(handler.params.path, {
-                    type: 'json',
-                    hideKey: handler.params?.hideKey,
-                    hideValue: handler.params?.hideValue,
-                  }),
-                  rangesWithHandlers,
-                  handler,
-                );
-              } else if (handler.params?.type === 'regex') {
-                addRanges(
-                  ranges,
-                  transcript.ranges.body(handler.params.regex, {
-                    type: 'regex',
-                  }),
-                  rangesWithHandlers,
-                  handler,
-                );
-              }
-              break;
-            }
-          }
-        }
+        // Use refactored range extraction logic
+        const {
+          sentRanges,
+          recvRanges,
+          sentRangesWithHandlers,
+          recvRangesWithHandlers,
+        } = processHandlers(proverOptions.handlers, parsedSent, parsedRecv);
 
         console.log('sentRanges', sentRanges);
         console.log('recvRanges', recvRanges);
