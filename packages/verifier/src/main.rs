@@ -636,17 +636,17 @@ async fn run_verifier_task(
 
     // Handle the verification result
     match verification_result {
-        Ok(Ok((sent_bytes, recv_bytes, sent_string, recv_string))) => {
+        Ok(Ok((_server_name, sent_bytes, recv_bytes))) => {
             info!("[{}] ✅ Verification completed successfully!", session_id);
             info!(
                 "[{}] Sent data length: {} bytes",
                 session_id,
-                sent_string.len()
+                sent_bytes.len()
             );
             info!(
                 "[{}] Received data length: {} bytes",
                 session_id,
-                recv_string.len()
+                recv_bytes.len()
             );
 
             // Wait for RevealConfig to be available (with polling and timeout)

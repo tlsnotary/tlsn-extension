@@ -1,7 +1,7 @@
 use eyre::eyre;
 use tlsn::{
     config::ProtocolConfigValidator,
-    connection::ServerName,
+    connection::{DnsName, ServerName},
     verifier::{Verifier, VerifierConfig, VerifierOutput, VerifyConfig},
 };
 use tokio::io::{AsyncRead, AsyncWrite};
@@ -16,7 +16,7 @@ pub async fn verifier<T: AsyncWrite + AsyncRead + Send + Unpin + 'static>(
     socket: T,
     max_sent_data: usize,
     max_recv_data: usize,
-) -> Result<(Vec<u8>, Vec<u8>, String, String), eyre::ErrReport> {
+) -> Result<(DnsName, Vec<u8>, Vec<u8>), eyre::ErrReport> {
     info!(
         "Starting verification with maxSentData={}, maxRecvData={}",
         max_sent_data, max_recv_data
@@ -36,7 +36,7 @@ pub async fn verifier<T: AsyncWrite + AsyncRead + Send + Unpin + 'static>(
     info!("verifier_config: {:?}", verifier_config);
     let verifier = Verifier::new(verifier_config);
 
-    info!("✅ Created verifier");
+    info!("Starting verification");
 
     let VerifierOutput {
         server_name,
@@ -47,7 +47,7 @@ pub async fn verifier<T: AsyncWrite + AsyncRead + Send + Unpin + 'static>(
         .await
         .map_err(|e| eyre!("Verification failed: {}", e))?;
 
-    info!("✅ verify() returned successfully - prover sent all data");
+    info!("verify() returned successfully - prover sent all data");
 
     let server_name =
         server_name.ok_or_else(|| eyre!("prover should have revealed server name"))?;
@@ -66,22 +66,67 @@ pub async fn verifier<T: AsyncWrite + AsyncRead + Send + Unpin + 'static>(
     let ServerName::Dns(dns_name) = server_name;
     info!("Server name verified: {:?}", dns_name);
 
-    let sent_string = bytes_to_redacted_string(&sent)?;
-    let received_string = bytes_to_redacted_string(&received)?;
+    match dns_name.as_str() {
+        "api.x.com" => {
+            let received_string = bytes_to_redacted_string(&received, "").unwrap();
+            dbg!(&received_string);
+            let screen_name = {
+                let re = regex::Regex::new(r#""screen_name":"([^"]+)""#).unwrap();
+                re.captures(&received_string)
+                    .and_then(|caps| caps.get(1))
+                    .map(|m| m.as_str())
+                    .unwrap_or("unknown")
+            };
+            if screen_name == "unknown" {
+                info!("============================================");
+                info!("❌ Failed verifying screen name ❌");
+                info!("============================================");
+            } else {
+                info!("============================================");
+                info!("✅ Verified screen name: \"{}\"", screen_name);
+                info!("============================================");
+            }
+        }
+        "swissbank.tlsnotary.org" => {
+            let received_string = bytes_to_redacted_string(&received, "").unwrap();
+            let chf = {
+                let re = regex::Regex::new(r#""CHF":"([^"]+)""#).unwrap();
+                re.captures(&received_string)
+                    .and_then(|caps| caps.get(1))
+                    .map(|m| m.as_str())
+                    .unwrap_or("unknown")
+            };
 
-    info!("============================================");
-    info!("Verification successful!");
-    info!("============================================");
+            info!("============================================");
+            info!("✅ Verified Swiss Frank (CHF) balance: \"{}\"", chf);
+            info!("============================================");
+        }
+        _ => {
+            info!("============================================");
+            info!("✅ Verification successful!");
+            info!("============================================");
+        }
+    }
+
+    let sent_string = compress_redacted_sequences(bytes_to_redacted_string(&sent, "🙈")?);
+    let received_string = compress_redacted_sequences(bytes_to_redacted_string(&received, "🙈")?);
+
     info!("Sent data: {:?}", sent_string);
     info!("Received data: {:?}", received_string);
 
     // Return both raw bytes (for range extraction) and display strings (for logging)
-    Ok((sent, received, sent_string, received_string))
+    Ok((dns_name, sent, received))
+}
+
+/// Compress long sequences of redacted emojis for better readability
+fn compress_redacted_sequences(text: String) -> String {
+    let re = regex::Regex::new(r"🙈{5,}").unwrap();
+    re.replace_all(&text, "🙈…🙈").to_string()
 }
 
 /// Render redacted bytes as `🙈`.
-fn bytes_to_redacted_string(bytes: &[u8]) -> Result<String, eyre::ErrReport> {
+fn bytes_to_redacted_string(bytes: &[u8], to: &str) -> Result<String, eyre::ErrReport> {
     Ok(String::from_utf8(bytes.to_vec())
         .map_err(|err| eyre!("Failed to parse bytes to redacted string: {err}"))?
-        .replace('\0', "🙈"))
+        .replace('\0', to))
 }
