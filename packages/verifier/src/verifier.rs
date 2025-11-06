@@ -28,7 +28,6 @@ pub async fn verifier<T: AsyncWrite + AsyncRead + Send + Unpin + 'static>(
         .build()
         .unwrap();
 
-    info!("config_validator: {:?}", config_validator);
     let verifier_config = VerifierConfig::builder()
         .protocol_config_validator(config_validator)
         .build()
@@ -38,12 +37,6 @@ pub async fn verifier<T: AsyncWrite + AsyncRead + Send + Unpin + 'static>(
     let verifier = Verifier::new(verifier_config);
 
     info!("✅ Created verifier");
-
-    // Receive authenticated data.
-    info!("🔄 Starting MPC-TLS verification...");
-    info!("⏳ BLOCKING: Waiting for prover to connect and send MPC-TLS handshake data...");
-    info!("   This will block until prover completes the TLS connection");
-    debug!("About to call verifier.verify() - this is the blocking point");
 
     let VerifierOutput {
         server_name,
@@ -62,7 +55,7 @@ pub async fn verifier<T: AsyncWrite + AsyncRead + Send + Unpin + 'static>(
         transcript.ok_or_else(|| eyre!("prover should have revealed transcript data"))?;
 
     info!("server_name: {:?}", server_name);
-    info!("transcript: {:?}", transcript);
+    debug!("transcript: {:?}", &transcript);
 
     // Extract sent and received data
     info!("Extracting transcript data...");
