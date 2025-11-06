@@ -65,7 +65,10 @@ async fn main() {
     );
     info!("Proxy WebSocket endpoint: ws://{}/proxy?host=<host>", addr);
 
-    axum::serve(listener, app).await.expect("Server error");
+    axum::serve(listener, app)
+        .tcp_nodelay(true)
+        .await
+        .expect("Server error");
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
