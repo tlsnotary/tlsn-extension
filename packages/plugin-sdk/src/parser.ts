@@ -61,6 +61,11 @@ export interface BodyRangeOptions {
   hideValue?: boolean;
 }
 
+/**
+ * Represents a segment in a JSON path
+ */
+type PathSegment = string | number;
+
 export class Parser {
   private data: Uint8Array;
   private parsed: ParsedMessage | null = null;
@@ -73,6 +78,78 @@ export class Parser {
       this.data = data;
     }
     this.parse();
+  }
+
+  /**
+   * Parses a JSON path into segments.
+   * Supports dot notation and array indexing.
+   *
+   * @param path - JSON path (e.g., "a.b", "items[0]", "user.addresses[1].city")
+   * @returns Array of path segments (strings for keys, numbers for array indices)
+   *
+   * @example
+   * parsePath("a.b") // ["a", "b"]
+   * parsePath("items[0]") // ["items", 0]
+   * parsePath("user.addresses[0].city") // ["user", "addresses", 0, "city"]
+   */
+  private parsePath(path: string): PathSegment[] {
+    if (!path || path.trim() === '') {
+      return [];
+    }
+
+    const segments: PathSegment[] = [];
+    let current = '';
+    let i = 0;
+
+    while (i < path.length) {
+      const char = path[i];
+
+      if (char === '.') {
+        // End of a segment
+        if (current) {
+          segments.push(current);
+          current = '';
+        }
+        i++;
+      } else if (char === '[') {
+        // Start of array index
+        if (current) {
+          segments.push(current);
+          current = '';
+        }
+
+        // Find closing bracket
+        i++;
+        let indexStr = '';
+        while (i < path.length && path[i] !== ']') {
+          indexStr += path[i];
+          i++;
+        }
+
+        if (i >= path.length) {
+          throw new Error(`Invalid path: missing closing bracket in "${path}"`);
+        }
+
+        // Parse index
+        const index = parseInt(indexStr, 10);
+        if (isNaN(index) || index < 0) {
+          throw new Error(`Invalid array index: "${indexStr}" in path "${path}"`);
+        }
+
+        segments.push(index);
+        i++; // Skip closing bracket
+      } else {
+        current += char;
+        i++;
+      }
+    }
+
+    // Add remaining segment
+    if (current) {
+      segments.push(current);
+    }
+
+    return segments;
   }
 
   private parse(): void {
@@ -360,7 +437,7 @@ export class Parser {
   }
 
   private parseJsonWithRanges(text: string, baseOffset: number): any {
-    // Parse JSON and track ranges for each key-value pair
+    // Parse JSON and track ranges for each key-value pair (including nested)
     const json = JSON.parse(text);
     const result: any = {};
 
@@ -368,60 +445,102 @@ export class Parser {
       // Convert text to bytes for accurate byte offset calculation
       const textBytes = Buffer.from(text, 'utf8');
 
-      for (const key in json) {
-        const keyStr = `"${key}"`;
-        const keyBytes = Buffer.from(keyStr, 'utf8');
+      // Recursively process all fields
+      this.processJsonObject(json, textBytes, baseOffset, result, []);
+    }
 
-        // Find key in bytes (not string index!)
-        const keyByteIndex = textBytes.indexOf(keyBytes);
-        if (keyByteIndex === -1) continue;
+    return result;
+  }
 
-        // Find the colon after the key
-        const colonBytes = Buffer.from(':', 'utf8');
-        const colonByteIndex = textBytes.indexOf(colonBytes, keyByteIndex);
-        if (colonByteIndex === -1) continue;
+  /**
+   * Recursively processes a JSON object and tracks ranges for all fields (including nested).
+   * Stores fields with flat keys like "a.b" for nested paths.
+   */
+  private processJsonObject(
+    obj: any,
+    textBytes: Buffer,
+    baseOffset: number,
+    result: any,
+    pathPrefix: PathSegment[],
+  ): void {
+    for (const key in obj) {
+      const keyStr = `"${key}"`;
+      const keyBytes = Buffer.from(keyStr, 'utf8');
 
-        const value = json[key];
+      // Find key in bytes (not string index!)
+      const keyByteIndex = textBytes.indexOf(keyBytes);
+      if (keyByteIndex === -1) continue;
+
+      // Find the colon after the key
+      const colonBytes = Buffer.from(':', 'utf8');
+      const colonByteIndex = textBytes.indexOf(colonBytes, keyByteIndex);
+      if (colonByteIndex === -1) continue;
+
+      const value = obj[key];
+
+      // Build the full path for this field
+      const currentPath = [...pathPrefix, key];
+      const pathKey = this.pathToString(currentPath);
+
+      // Find where the value actually starts (skip whitespace after colon)
+      let actualValueByteStart = colonByteIndex + 1;
+      while (
+        actualValueByteStart < textBytes.length &&
+        (textBytes[actualValueByteStart] === 0x20 || // space
+          textBytes[actualValueByteStart] === 0x09 || // tab
+          textBytes[actualValueByteStart] === 0x0a || // newline
+          textBytes[actualValueByteStart] === 0x0d) // carriage return
+      ) {
+        actualValueByteStart++;
+      }
+
+      // Handle different value types
+      if (typeof value === 'object' && value !== null) {
+        if (Array.isArray(value)) {
+          // Handle array
+          this.processJsonArray(value, textBytes, baseOffset, result, currentPath, actualValueByteStart);
+        } else {
+          // Handle nested object
+          const valueStr = JSON.stringify(value);
+          const valueBytes = Buffer.from(valueStr, 'utf8');
+          const valueByteIndex = textBytes.indexOf(valueBytes, actualValueByteStart);
+
+          if (valueByteIndex !== -1) {
+            const valueByteEnd = valueByteIndex + valueBytes.length;
+
+            // Store the nested object itself
+            result[pathKey] = {
+              value: value,
+              ranges: {
+                start: baseOffset + keyByteIndex,
+                end: baseOffset + valueByteEnd,
+              },
+              keyRange: {
+                start: baseOffset + keyByteIndex,
+                end: baseOffset + keyByteIndex + keyBytes.length,
+              },
+              valueRange: {
+                start: baseOffset + valueByteIndex,
+                end: baseOffset + valueByteEnd,
+              },
+            };
+
+            // Recursively process nested fields
+            // Extract the nested object's JSON text
+            const nestedText = textBytes.slice(valueByteIndex, valueByteEnd).toString('utf8');
+            const nestedTextBytes = Buffer.from(nestedText, 'utf8');
+            this.processJsonObject(value, nestedTextBytes, baseOffset + valueByteIndex, result, currentPath);
+          }
+        }
+      } else {
+        // Primitive value (string, number, boolean, null)
         const valueStr = JSON.stringify(value);
         const valueBytes = Buffer.from(valueStr, 'utf8');
-
-        // Find where the value actually starts (skip whitespace after colon)
-        let actualValueByteStart = colonByteIndex + 1;
-        while (
-          actualValueByteStart < textBytes.length &&
-          (textBytes[actualValueByteStart] === 0x20 || // space
-            textBytes[actualValueByteStart] === 0x09 || // tab
-            textBytes[actualValueByteStart] === 0x0a || // newline
-            textBytes[actualValueByteStart] === 0x0d) // carriage return
-        ) {
-          actualValueByteStart++;
-        }
-
-        // Find value in bytes starting from after the colon
         const valueByteIndex = textBytes.indexOf(valueBytes, actualValueByteStart);
-        if (valueByteIndex === -1) {
-          // Value not found exactly, use calculated position
-          // This can happen with nested objects or special formatting
-          const valueByteEnd = actualValueByteStart + valueBytes.length;
-          result[key] = {
-            value: value,
-            ranges: {
-              start: baseOffset + keyByteIndex,
-              end: baseOffset + valueByteEnd,
-            },
-            keyRange: {
-              start: baseOffset + keyByteIndex,
-              end: baseOffset + keyByteIndex + keyBytes.length,
-            },
-            valueRange: {
-              start: baseOffset + actualValueByteStart,
-              end: baseOffset + valueByteEnd,
-            },
-          };
-        } else {
-          // Value found exactly
+
+        if (valueByteIndex !== -1) {
           const valueByteEnd = valueByteIndex + valueBytes.length;
-          result[key] = {
+          result[pathKey] = {
             value: value,
             ranges: {
               start: baseOffset + keyByteIndex,
@@ -436,11 +555,99 @@ export class Parser {
               end: baseOffset + valueByteEnd,
             },
           };
+        } else {
+          // Fallback for values not found exactly
+          const valueByteEnd = actualValueByteStart + valueBytes.length;
+          result[pathKey] = {
+            value: value,
+            ranges: {
+              start: baseOffset + keyByteIndex,
+              end: baseOffset + valueByteEnd,
+            },
+            keyRange: {
+              start: baseOffset + keyByteIndex,
+              end: baseOffset + keyByteIndex + keyBytes.length,
+            },
+            valueRange: {
+              start: baseOffset + actualValueByteStart,
+              end: baseOffset + valueByteEnd,
+            },
+          };
         }
       }
     }
+  }
 
-    return result;
+  /**
+   * Recursively processes a JSON array and tracks ranges for all elements.
+   * Stores elements with keys like "items[0]".
+   */
+  private processJsonArray(
+    arr: any[],
+    textBytes: Buffer,
+    baseOffset: number,
+    result: any,
+    pathPrefix: PathSegment[],
+    arrayStartOffset: number,
+  ): void {
+    // For each array element
+    for (let i = 0; i < arr.length; i++) {
+      const element = arr[i];
+      const currentPath = [...pathPrefix, i];
+      const pathKey = this.pathToString(currentPath);
+
+      // Serialize the element to find it in the byte stream
+      const elementStr = JSON.stringify(element);
+      const elementBytes = Buffer.from(elementStr, 'utf8');
+
+      // Search for the element starting from the array start
+      const elementByteIndex = textBytes.indexOf(elementBytes, arrayStartOffset);
+
+      if (elementByteIndex !== -1) {
+        const elementByteEnd = elementByteIndex + elementBytes.length;
+
+        // Store the array element (no keyRange for array elements)
+        result[pathKey] = {
+          value: element,
+          ranges: {
+            start: baseOffset + elementByteIndex,
+            end: baseOffset + elementByteEnd,
+          },
+          valueRange: {
+            start: baseOffset + elementByteIndex,
+            end: baseOffset + elementByteEnd,
+          },
+        };
+
+        // If element is an object, recursively process it
+        if (typeof element === 'object' && element !== null && !Array.isArray(element)) {
+          const nestedText = textBytes.slice(elementByteIndex, elementByteEnd).toString('utf8');
+          const nestedTextBytes = Buffer.from(nestedText, 'utf8');
+          this.processJsonObject(element, nestedTextBytes, baseOffset + elementByteIndex, result, currentPath);
+        } else if (Array.isArray(element)) {
+          // Nested array
+          const nestedText = textBytes.slice(elementByteIndex, elementByteEnd).toString('utf8');
+          const nestedTextBytes = Buffer.from(nestedText, 'utf8');
+          this.processJsonArray(element, nestedTextBytes, baseOffset + elementByteIndex, result, currentPath, 0);
+        }
+      }
+    }
+  }
+
+  /**
+   * Converts a path array to a string key.
+   * Examples: ["a", "b"] → "a.b", ["items", 0] → "items[0]"
+   */
+  private pathToString(path: PathSegment[]): string {
+    if (path.length === 0) return '';
+
+    return path.reduce((acc, segment, index) => {
+      if (typeof segment === 'number') {
+        return `${acc}[${segment}]`;
+      } else {
+        return index === 0 ? segment : `${acc}.${segment}`;
+      }
+    }, '' as string);
   }
 
   private findSequence(data: Uint8Array, startOffset: number, sequence: string): number {
@@ -611,11 +818,26 @@ export class Parser {
           throw new Error('Path must be a string for JSON type');
         }
 
-        const field = this.parsed.body.json[path];
+        // Check if path contains nested notation (. or [)
+        const isNestedPath = path.includes('.') || path.includes('[');
+
+        // For nested paths, parse and look up by the constructed key
+        const lookupKey = isNestedPath ? path : path;
+
+        const field = this.parsed.body.json[lookupKey];
         if (!field) {
           return [];
         }
 
+        // Check if this is an array element (no keyRange)
+        const isArrayElement = !field.keyRange;
+
+        if (isArrayElement) {
+          // For array elements, ignore hideKey/hideValue and return the element value
+          return [field.valueRange];
+        }
+
+        // For object fields, respect hideKey/hideValue options
         if (options?.hideKey && options?.hideValue) {
           throw new Error('Cannot hide both key and value');
         }

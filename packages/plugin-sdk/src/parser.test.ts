@@ -776,6 +776,344 @@ describe('Parser', () => {
     });
   });
 
+  describe('Range Methods - Nested JSON Paths', () => {
+    describe('Nested Object Paths', () => {
+      it('should extract simple nested field', () => {
+        const request =
+          'POST /api HTTP/1.1\r\n' +
+          'Content-Type: application/json\r\n' +
+          '\r\n' +
+          '{"screen_name":"bob","a":{"b":2}}';
+
+        const parser = new Parser(request);
+        const ranges = parser.ranges.body('a.b', { type: 'json' });
+
+        expect(ranges).toHaveLength(1);
+        const extracted = request.substring(ranges[0].start, ranges[0].end);
+        expect(extracted).toContain('"b"');
+        expect(extracted).toContain('2');
+      });
+
+      it('should extract deep nested field', () => {
+        const request =
+          'POST /api HTTP/1.1\r\n' +
+          'Content-Type: application/json\r\n' +
+          '\r\n' +
+          '{"user":{"profile":{"name":"Alice","age":30}}}';
+
+        const parser = new Parser(request);
+        const ranges = parser.ranges.body('user.profile.name', { type: 'json' });
+
+        expect(ranges).toHaveLength(1);
+        const extracted = request.substring(ranges[0].start, ranges[0].end);
+        expect(extracted).toContain('"name"');
+        expect(extracted).toContain('"Alice"');
+      });
+
+      it('should respect hideKey option for nested fields', () => {
+        const request =
+          'POST /api HTTP/1.1\r\n' +
+          'Content-Type: application/json\r\n' +
+          '\r\n' +
+          '{"a":{"b":2}}';
+
+        const parser = new Parser(request);
+        const ranges = parser.ranges.body('a.b', { type: 'json', hideKey: true });
+
+        expect(ranges).toHaveLength(1);
+        const extracted = request.substring(ranges[0].start, ranges[0].end);
+        expect(extracted).toBe('2');
+        expect(extracted).not.toContain('"b"');
+      });
+
+      it('should respect hideValue option for nested fields', () => {
+        const request =
+          'POST /api HTTP/1.1\r\n' +
+          'Content-Type: application/json\r\n' +
+          '\r\n' +
+          '{"a":{"b":2}}';
+
+        const parser = new Parser(request);
+        const ranges = parser.ranges.body('a.b', { type: 'json', hideValue: true });
+
+        expect(ranges).toHaveLength(1);
+        const extracted = request.substring(ranges[0].start, ranges[0].end);
+        expect(extracted).toBe('"b"');
+        expect(extracted).not.toContain('2');
+      });
+
+      it('should return empty array for non-existent nested path', () => {
+        const request =
+          'POST /api HTTP/1.1\r\n' +
+          'Content-Type: application/json\r\n' +
+          '\r\n' +
+          '{"a":{"b":2}}';
+
+        const parser = new Parser(request);
+        const ranges = parser.ranges.body('a.x', { type: 'json' });
+
+        expect(ranges).toHaveLength(0);
+      });
+    });
+
+    describe('Array Indexing', () => {
+      it('should extract array element', () => {
+        const request =
+          'POST /api HTTP/1.1\r\n' +
+          'Content-Type: application/json\r\n' +
+          '\r\n' +
+          '{"c":[0,1,2,3]}';
+
+        const parser = new Parser(request);
+        const ranges = parser.ranges.body('c[0]', { type: 'json' });
+
+        expect(ranges).toHaveLength(1);
+        const extracted = request.substring(ranges[0].start, ranges[0].end);
+        expect(extracted).toBe('0');
+      });
+
+      it('should extract element from middle of array', () => {
+        const request =
+          'POST /api HTTP/1.1\r\n' +
+          'Content-Type: application/json\r\n' +
+          '\r\n' +
+          '{"items":["a","b","c"]}';
+
+        const parser = new Parser(request);
+        const ranges = parser.ranges.body('items[1]', { type: 'json' });
+
+        expect(ranges).toHaveLength(1);
+        const extracted = request.substring(ranges[0].start, ranges[0].end);
+        expect(extracted).toBe('"b"');
+      });
+
+      it('should ignore hideKey option for array elements', () => {
+        const request =
+          'POST /api HTTP/1.1\r\n' +
+          'Content-Type: application/json\r\n' +
+          '\r\n' +
+          '{"c":[0,1,2,3]}';
+
+        const parser = new Parser(request);
+        const ranges = parser.ranges.body('c[0]', { type: 'json', hideKey: true });
+
+        expect(ranges).toHaveLength(1);
+        const extracted = request.substring(ranges[0].start, ranges[0].end);
+        expect(extracted).toBe('0'); // hideKey has no effect
+      });
+
+      it('should ignore hideValue option for array elements', () => {
+        const request =
+          'POST /api HTTP/1.1\r\n' +
+          'Content-Type: application/json\r\n' +
+          '\r\n' +
+          '{"c":[0,1,2,3]}';
+
+        const parser = new Parser(request);
+        const ranges = parser.ranges.body('c[0]', { type: 'json', hideValue: true });
+
+        expect(ranges).toHaveLength(1);
+        const extracted = request.substring(ranges[0].start, ranges[0].end);
+        expect(extracted).toBe('0'); // hideValue has no effect
+      });
+
+      it('should return empty array for out of bounds index', () => {
+        const request =
+          'POST /api HTTP/1.1\r\n' +
+          'Content-Type: application/json\r\n' +
+          '\r\n' +
+          '{"c":[0,1,2]}';
+
+        const parser = new Parser(request);
+        const ranges = parser.ranges.body('c[999]', { type: 'json' });
+
+        expect(ranges).toHaveLength(0);
+      });
+    });
+
+    describe('Mixed Paths (Objects and Arrays)', () => {
+      it('should extract nested field from array element', () => {
+        const request =
+          'POST /api HTTP/1.1\r\n' +
+          'Content-Type: application/json\r\n' +
+          '\r\n' +
+          '{"users":[{"name":"Alice"},{"name":"Bob"}]}';
+
+        const parser = new Parser(request);
+        const ranges = parser.ranges.body('users[1].name', { type: 'json' });
+
+        expect(ranges).toHaveLength(1);
+        const extracted = request.substring(ranges[0].start, ranges[0].end);
+        expect(extracted).toContain('"name"');
+        expect(extracted).toContain('"Bob"');
+      });
+
+      it('should extract from complex nested structure', () => {
+        const request =
+          'POST /api HTTP/1.1\r\n' +
+          'Content-Type: application/json\r\n' +
+          '\r\n' +
+          '{"data":{"users":[{"profile":{"email":"alice@example.com"}}]}}';
+
+        const parser = new Parser(request);
+        const ranges = parser.ranges.body('data.users[0].profile.email', {
+          type: 'json',
+          hideKey: true,
+        });
+
+        expect(ranges).toHaveLength(1);
+        const extracted = request.substring(ranges[0].start, ranges[0].end);
+        expect(extracted).toBe('"alice@example.com"');
+      });
+
+      it('should handle array within nested object', () => {
+        const request =
+          'POST /api HTTP/1.1\r\n' +
+          'Content-Type: application/json\r\n' +
+          '\r\n' +
+          '{"user":{"addresses":[{"city":"NYC"},{"city":"LA"}]}}';
+
+        const parser = new Parser(request);
+        const ranges = parser.ranges.body('user.addresses[0].city', { type: 'json' });
+
+        expect(ranges).toHaveLength(1);
+        const extracted = request.substring(ranges[0].start, ranges[0].end);
+        expect(extracted).toContain('"city"');
+        expect(extracted).toContain('"NYC"');
+      });
+    });
+
+    describe('Example from Task Document', () => {
+      it('should work with all examples from task document', () => {
+        const request =
+          'POST /api HTTP/1.1\r\n' +
+          'Content-Type: application/json\r\n' +
+          '\r\n' +
+          '{"screen_name":"bob","a":{"b":2},"c":[0,1,2,3]}';
+
+        const parser = new Parser(request);
+
+        // Test 1: Simple top-level field (should work as before)
+        const ranges1 = parser.ranges.body('screen_name', { type: 'json' });
+        expect(ranges1).toHaveLength(1);
+        const extracted1 = request.substring(ranges1[0].start, ranges1[0].end);
+        expect(extracted1).toContain('"screen_name"');
+        expect(extracted1).toContain('"bob"');
+
+        // Test 2: Nested object field
+        const ranges2 = parser.ranges.body('a.b', { type: 'json' });
+        expect(ranges2).toHaveLength(1);
+        const extracted2 = request.substring(ranges2[0].start, ranges2[0].end);
+        expect(extracted2).toContain('"b"');
+        expect(extracted2).toContain('2');
+
+        // Test 3: Nested object field with hideKey
+        const ranges3 = parser.ranges.body('a.b', { type: 'json', hideKey: true });
+        expect(ranges3).toHaveLength(1);
+        const extracted3 = request.substring(ranges3[0].start, ranges3[0].end);
+        expect(extracted3).toBe('2');
+
+        // Test 4: Array element (hideKey/hideValue ignored)
+        const ranges4 = parser.ranges.body('c[0]', { type: 'json' });
+        expect(ranges4).toHaveLength(1);
+        const extracted4 = request.substring(ranges4[0].start, ranges4[0].end);
+        expect(extracted4).toBe('0');
+
+        // Test 5: Array element with hideKey (should be ignored)
+        const ranges5 = parser.ranges.body('c[0]', { type: 'json', hideKey: true });
+        expect(ranges5).toHaveLength(1);
+        const extracted5 = request.substring(ranges5[0].start, ranges5[0].end);
+        expect(extracted5).toBe('0'); // Same as without hideKey
+      });
+    });
+
+    describe('Edge Cases', () => {
+      it('should handle compact JSON (whitespace in formatted JSON is complex)', () => {
+        // Note: Handling arbitrary whitespace/formatting in nested JSON is complex
+        // because we search for stringified values. This works fine for compact JSON
+        // which is the typical format from API responses.
+        const request =
+          'POST /api HTTP/1.1\r\n' +
+          'Content-Type: application/json\r\n' +
+          '\r\n' +
+          '{"a":{"b":2},"c":[1,2,3]}';
+
+        const parser = new Parser(request);
+        const ranges = parser.ranges.body('a.b', { type: 'json' });
+
+        expect(ranges).toHaveLength(1);
+        const extracted = request.substring(ranges[0].start, ranges[0].end);
+        expect(extracted).toContain('"b"');
+        expect(extracted).toContain('2');
+      });
+
+      it('should handle nested arrays', () => {
+        const request =
+          'POST /api HTTP/1.1\r\n' +
+          'Content-Type: application/json\r\n' +
+          '\r\n' +
+          '{"matrix":[[1,2],[3,4]]}';
+
+        const parser = new Parser(request);
+        const ranges = parser.ranges.body('matrix[0][1]', { type: 'json' });
+
+        expect(ranges).toHaveLength(1);
+        const extracted = request.substring(ranges[0].start, ranges[0].end);
+        expect(extracted).toBe('2');
+      });
+
+      it('should handle number field names', () => {
+        const request =
+          'POST /api HTTP/1.1\r\n' +
+          'Content-Type: application/json\r\n' +
+          '\r\n' +
+          '{"obj":{"123":"value"}}';
+
+        const parser = new Parser(request);
+        const ranges = parser.ranges.body('obj.123', { type: 'json' });
+
+        expect(ranges).toHaveLength(1);
+        const extracted = request.substring(ranges[0].start, ranges[0].end);
+        expect(extracted).toContain('"123"');
+        expect(extracted).toContain('"value"');
+      });
+    });
+
+    describe('Backward Compatibility', () => {
+      it('should maintain compatibility with simple top-level paths', () => {
+        const request =
+          'POST /api HTTP/1.1\r\n' +
+          'Content-Type: application/json\r\n' +
+          '\r\n' +
+          '{"name":"test","age":30}';
+
+        const parser = new Parser(request);
+        const ranges = parser.ranges.body('name', { type: 'json' });
+
+        expect(ranges).toHaveLength(1);
+        const extracted = request.substring(ranges[0].start, ranges[0].end);
+        expect(extracted).toContain('"name"');
+        expect(extracted).toContain('"test"');
+      });
+
+      it('should maintain hideKey behavior for top-level fields', () => {
+        const request =
+          'POST /api HTTP/1.1\r\n' +
+          'Content-Type: application/json\r\n' +
+          '\r\n' +
+          '{"name":"test"}';
+
+        const parser = new Parser(request);
+        const ranges = parser.ranges.body('name', { type: 'json', hideKey: true });
+
+        expect(ranges).toHaveLength(1);
+        const extracted = request.substring(ranges[0].start, ranges[0].end);
+        expect(extracted).toBe('"test"');
+        expect(extracted).not.toContain('"name"');
+      });
+    });
+  });
+
   describe('Byte Offset Handling (Bug Fix)', () => {
     it('should demonstrate string vs byte index difference with multi-byte UTF-8', () => {
       const textWithEmoji = '{"emoji":"🙈","name":"test"}';

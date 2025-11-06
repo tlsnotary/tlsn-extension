@@ -480,5 +480,76 @@ describe('rangeExtractor', () => {
         ),
       ).toBe('example.com');
     });
+
+    it('should handle nested JSON paths in body handlers', () => {
+      const request =
+        'POST /api HTTP/1.1\r\n' +
+        'Content-Type: application/json\r\n' +
+        '\r\n' +
+        '{"user":{"profile":{"email":"alice@example.com"}}}';
+
+      const response = 'HTTP/1.1 200 OK\r\n\r\n';
+
+      const parsedSent = new Parser(request);
+      const parsedRecv = new Parser(response);
+
+      const handlers: Handler[] = [
+        {
+          type: HandlerType.SENT,
+          part: HandlerPart.BODY,
+          action: HandlerAction.REVEAL,
+          params: {
+            type: 'json',
+            path: 'user.profile.email',
+            hideKey: true,
+          },
+        },
+      ];
+
+      const result = processHandlers(handlers, parsedSent, parsedRecv);
+
+      expect(result.sentRanges).toHaveLength(1);
+      const extracted = request.substring(
+        result.sentRanges[0].start,
+        result.sentRanges[0].end,
+      );
+      expect(extracted).toBe('"alice@example.com"');
+      expect(extracted).not.toContain('"email"');
+    });
+
+    it('should handle array indexing in body handlers', () => {
+      const request =
+        'POST /api HTTP/1.1\r\n' +
+        'Content-Type: application/json\r\n' +
+        '\r\n' +
+        '{"items":[{"name":"Alice"},{"name":"Bob"}]}';
+
+      const response = 'HTTP/1.1 200 OK\r\n\r\n';
+
+      const parsedSent = new Parser(request);
+      const parsedRecv = new Parser(response);
+
+      const handlers: Handler[] = [
+        {
+          type: HandlerType.SENT,
+          part: HandlerPart.BODY,
+          action: HandlerAction.REVEAL,
+          params: {
+            type: 'json',
+            path: 'items[1].name',
+            hideKey: true,
+          },
+        },
+      ];
+
+      const result = processHandlers(handlers, parsedSent, parsedRecv);
+
+      expect(result.sentRanges).toHaveLength(1);
+      const extracted = request.substring(
+        result.sentRanges[0].start,
+        result.sentRanges[0].end,
+      );
+      expect(extracted).toBe('"Bob"');
+    });
   });
 });
