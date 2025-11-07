@@ -40,8 +40,10 @@ async function onClick() {
                 { type: 'SENT', part: 'START_LINE', action: 'REVEAL', },
                 { type: 'RECV', part: 'START_LINE', action: 'REVEAL', },
                 { type: 'RECV', part: 'BODY', action: 'REVEAL', params: { type: 'json', path: 'account_id' }, },
-                { type: 'RECV', part: 'BODY', action: 'REVEAL', params: { type: 'json', path: 'accounts' }, },
+                { type: 'RECV', part: 'BODY', action: 'REVEAL', params: { type: 'json', path: 'accounts.CHF' }, },
+                { type: 'RECV', part: 'ALL', action: 'REVEAL', params: { type: 'regex', regex: '"USD"\s*:\s*"[^"]+"' }, },
             ]
+
         }
     );
 
