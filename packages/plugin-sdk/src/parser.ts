@@ -647,7 +647,7 @@ export class Parser {
       } else {
         return index === 0 ? segment : `${acc}.${segment}`;
       }
-    }, '' as string);
+    }, '' as string).toString();
   }
 
   private findSequence(data: Uint8Array, startOffset: number, sequence: string): number {

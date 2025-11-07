@@ -295,7 +295,7 @@ describe('rangeExtractor', () => {
           type: HandlerType.SENT,
           part: HandlerPart.ALL,
           action: HandlerAction.REVEAL,
-          params: { type: 'regex', regex: /Bearer [A-Z0-9]+/g },
+          params: { type: 'regex', regex: "/Bearer [A-Z0-9]+/g" },
         };
 
         const ranges = extractRanges(handler, parser);
@@ -317,7 +317,7 @@ describe('rangeExtractor', () => {
           type: HandlerType.SENT,
           part: HandlerPart.ALL,
           action: HandlerAction.REVEAL,
-          params: { type: 'regex', regex: /Bearer [A-Z0-9]+/g },
+          params: { type: 'regex', regex: "/Bearer [A-Z0-9]+/g" },
         };
 
         const ranges = extractRanges(handler, parser);
@@ -466,7 +466,7 @@ describe('rangeExtractor', () => {
           type: HandlerType.SENT,
           part: HandlerPart.ALL,
           action: HandlerAction.REVEAL,
-          params: { type: 'regex', regex: /example\.com/g },
+          params: { type: 'regex', regex: "/example\.com/g" },
         },
       ];
 
