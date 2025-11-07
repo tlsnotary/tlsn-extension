@@ -73,17 +73,14 @@
         name: 'Twitter profile Plugin',
         file: 'twitter.js',
         parseResult: (json) => {
-          const screen_name_result = json.results[3].value;
-          const screen_name = screen_name_result.match(/"screen_name":"([^"]+)"/)[1];
-          return `Proven Twitter Screen name: <b>${screen_name}</b>`;
+          return json.results[json.results.length - 1].value;
         }
       },
       swissbank: {
         name: 'Swiss Bank Plugin',
         file: 'swissbank.js',
         parseResult: (json) => {
-          // Add specific parsing for swissbank results here
-          return `Swiss Bank verification completed`;
+          return json.results[json.results.length - 1].value;
         }
       }
     };

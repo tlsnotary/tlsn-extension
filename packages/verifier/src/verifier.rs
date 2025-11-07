@@ -66,47 +66,9 @@ pub async fn verifier<T: AsyncWrite + AsyncRead + Send + Unpin + 'static>(
     let ServerName::Dns(dns_name) = server_name;
     info!("Server name verified: {:?}", dns_name);
 
-    match dns_name.as_str() {
-        "api.x.com" => {
-            let received_string = bytes_to_redacted_string(&received, "").unwrap();
-            dbg!(&received_string);
-            let screen_name = {
-                let re = regex::Regex::new(r#""screen_name":"([^"]+)""#).unwrap();
-                re.captures(&received_string)
-                    .and_then(|caps| caps.get(1))
-                    .map(|m| m.as_str())
-                    .unwrap_or("unknown")
-            };
-            if screen_name == "unknown" {
-                info!("============================================");
-                info!("❌ Failed verifying screen name ❌");
-                info!("============================================");
-            } else {
-                info!("============================================");
-                info!("✅ Verified screen name: \"{}\"", screen_name);
-                info!("============================================");
-            }
-        }
-        "swissbank.tlsnotary.org" => {
-            let received_string = bytes_to_redacted_string(&received, "").unwrap();
-            let chf = {
-                let re = regex::Regex::new(r#""CHF":"([^"]+)""#).unwrap();
-                re.captures(&received_string)
-                    .and_then(|caps| caps.get(1))
-                    .map(|m| m.as_str())
-                    .unwrap_or("unknown")
-            };
-
-            info!("============================================");
-            info!("✅ Verified Swiss Frank (CHF) balance: \"{}\"", chf);
-            info!("============================================");
-        }
-        _ => {
-            info!("============================================");
-            info!("✅ Verification successful!");
-            info!("============================================");
-        }
-    }
+    info!("============================================");
+    info!("✅ MPC-TLS Verification successful!");
+    info!("============================================");
 
     let sent_string = compress_redacted_sequences(bytes_to_redacted_string(&sent, "🙈")?);
     let received_string = compress_redacted_sequences(bytes_to_redacted_string(&received, "🙈")?);

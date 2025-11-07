@@ -9,6 +9,7 @@ use axum::{
     Router,
 };
 use axum_websocket::{WebSocket, WebSocketUpgrade};
+use eyre::eyre;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::net::SocketAddr;
@@ -636,7 +637,7 @@ async fn run_verifier_task(
 
     // Handle the verification result
     match verification_result {
-        Ok(Ok((_server_name, sent_bytes, recv_bytes))) => {
+        Ok(Ok((server_name, sent_bytes, recv_bytes))) => {
             info!("[{}] ✅ Verification completed successfully!", session_id);
             info!(
                 "[{}] Sent data length: {} bytes",
@@ -744,6 +745,59 @@ async fn run_verifier_task(
                 });
             }
 
+            if server_name.as_str() == "api.x.com" {
+                let received_string = bytes_to_redacted_string(&recv_bytes, "").unwrap();
+                dbg!(&received_string);
+                let screen_name = {
+                    let re = regex::Regex::new(r#""screen_name":"([^"]+)""#).unwrap();
+                    re.captures(&received_string)
+                        .and_then(|caps| caps.get(1))
+                        .map(|m| m.as_str())
+                        .unwrap_or("unknown")
+                };
+
+                let result = if screen_name == "unknown" {
+                    format!("❌ Failed verifying screen name ❌")
+                } else {
+                    format!("✅ Verified screen name: \"{}\"", screen_name)
+                };
+                info!("============================================");
+                info!("{}", result);
+                info!("============================================");
+                let extra_entry = HandlerResult {
+                    handler: Handler {
+                        handler_type: HandlerType::Recv,
+                        part: HandlerPart::All,
+                    },
+                    value: result,
+                };
+                handler_results.push(extra_entry);
+            };
+
+            if server_name.as_str() == "swissbank.tlsnotary.org" {
+                let received_string = bytes_to_redacted_string(&recv_bytes, "").unwrap();
+                let chf = {
+                    let re = regex::Regex::new(r#""CHF":"([^"]+)""#).unwrap();
+                    re.captures(&received_string)
+                        .and_then(|caps| caps.get(1))
+                        .map(|m| m.as_str())
+                        .unwrap_or("unknown")
+                };
+
+                let result: String = format!("✅ Verified Swiss Frank (CHF) balance: \"{}\"", chf);
+                info!("============================================");
+                info!("{}", result);
+                info!("============================================");
+                let extra_entry = HandlerResult {
+                    handler: Handler {
+                        handler_type: HandlerType::Recv,
+                        part: HandlerPart::All,
+                    },
+                    value: result,
+                };
+                handler_results.push(extra_entry);
+            };
+
             // Send result to extension via the result channel
             let result = VerificationResult {
                 results: handler_results,
@@ -783,4 +837,11 @@ async fn cleanup_session(state: &Arc<AppState>, session_id: &str) {
     if sessions.remove(session_id).is_some() {
         info!("[{}] Session removed from state", session_id);
     }
+}
+
+/// Render redacted bytes as `🙈`.
+fn bytes_to_redacted_string(bytes: &[u8], to: &str) -> Result<String, eyre::ErrReport> {
+    Ok(String::from_utf8(bytes.to_vec())
+        .map_err(|err| eyre!("Failed to parse bytes to redacted string: {err}"))?
+        .replace('\0', to))
 }
