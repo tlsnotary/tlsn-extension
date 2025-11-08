@@ -1,0 +1,11 @@
+{
+    "name": "tlsnotary-tutorial",
+    "version": "1.0.0",
+    "description": "TLSNotary Plugin Tutorial",
+    "scripts": {
+        "start": "serve -l 8080 ."
+    },
+    "devDependencies": {
+        "serve": "^14.2.4"
+    }
+}

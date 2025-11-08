@@ -70,8 +70,8 @@ pub async fn verifier<T: AsyncWrite + AsyncRead + Send + Unpin + 'static>(
     info!("✅ MPC-TLS Verification successful!");
     info!("============================================");
 
-    let sent_string = compress_redacted_sequences(bytes_to_redacted_string(&sent, "🙈")?);
-    let received_string = compress_redacted_sequences(bytes_to_redacted_string(&received, "🙈")?);
+    let sent_string = (bytes_to_redacted_string(&sent, "🙈")?);
+    let received_string = (bytes_to_redacted_string(&received, "🙈")?);
 
     info!("Sent data: {:?}", sent_string);
     info!("Received data: {:?}", received_string);

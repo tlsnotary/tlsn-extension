@@ -27,7 +27,7 @@ use ws_stream_tungstenite::WsStream;
 
 #[tokio::main]
 async fn main() {
-    // Initialize tracing with DEBUG level
+    // Initialize tracing
     tracing_subscriber::fmt()
         .with_target(true)
         .with_max_level(tracing::Level::INFO)
@@ -746,8 +746,8 @@ async fn run_verifier_task(
             }
 
             if server_name.as_str() == "api.x.com" {
-                let received_string = bytes_to_redacted_string(&recv_bytes, "").unwrap();
-                dbg!(&received_string);
+                let received_string = unredacted_bytes_to_string(&recv_bytes).unwrap();
+                // dbg!(&received_string);
                 let screen_name = {
                     let re = regex::Regex::new(r#""screen_name":"([^"]+)""#).unwrap();
                     re.captures(&received_string)
@@ -764,18 +764,18 @@ async fn run_verifier_task(
                 info!("============================================");
                 info!("{}", result);
                 info!("============================================");
-                let extra_entry = HandlerResult {
+                // push result to prover
+                handler_results.push(HandlerResult {
                     handler: Handler {
                         handler_type: HandlerType::Recv,
                         part: HandlerPart::All,
                     },
                     value: result,
-                };
-                handler_results.push(extra_entry);
+                });
             };
 
             if server_name.as_str() == "swissbank.tlsnotary.org" {
-                let received_string = bytes_to_redacted_string(&recv_bytes, "").unwrap();
+                let received_string = unredacted_bytes_to_string(&recv_bytes).unwrap();
                 let chf = {
                     let re = regex::Regex::new(r#""CHF":"([^"]+)""#).unwrap();
                     re.captures(&received_string)
@@ -783,19 +783,22 @@ async fn run_verifier_task(
                         .map(|m| m.as_str())
                         .unwrap_or("unknown")
                 };
-
-                let result: String = format!("✅ Verified Swiss Frank (CHF) balance: \"{}\"", chf);
+                let result = if chf == "unknown" {
+                    format!("❌ Failed verifying Swiss Frank (CHF) balance ❌")
+                } else {
+                    format!("✅ Verified Swiss Frank (CHF) balance: \"{}\"", chf)
+                };
                 info!("============================================");
                 info!("{}", result);
                 info!("============================================");
-                let extra_entry = HandlerResult {
+                // push result to prover
+                handler_results.push(HandlerResult {
                     handler: Handler {
                         handler_type: HandlerType::Recv,
                         part: HandlerPart::All,
                     },
                     value: result,
-                };
-                handler_results.push(extra_entry);
+                });
             };
 
             // Send result to extension via the result channel
@@ -839,9 +842,9 @@ async fn cleanup_session(state: &Arc<AppState>, session_id: &str) {
     }
 }
 
-/// Render redacted bytes as `🙈`.
-fn bytes_to_redacted_string(bytes: &[u8], to: &str) -> Result<String, eyre::ErrReport> {
-    Ok(String::from_utf8(bytes.to_vec())
-        .map_err(|err| eyre!("Failed to parse bytes to redacted string: {err}"))?
-        .replace('\0', to))
+// filter redacted bytes and convert to string
+fn unredacted_bytes_to_string(bytes: &[u8]) -> Result<String, eyre::ErrReport> {
+    let unredacted_bytes: Vec<u8> = bytes.iter().copied().filter(|&b| b != 0).collect();
+    String::from_utf8(unredacted_bytes)
+        .map_err(|err| eyre!("Failed to parse bytes to string: {err}"))
 }

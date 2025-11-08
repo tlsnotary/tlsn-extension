@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>TLSNotary Extension Plugin Tutorial</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .step {
+            margin: 30px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+
+        .step.completed {
+            background: #f0f8f0;
+            border-color: #28a745;
+        }
+
+        .step.blocked {
+            background: #f8f8f8;
+            color: #666;
+        }
+
+        .status {
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .status.checking {
+            color: #007bff;
+        }
+
+        .status.success {
+            color: #28a745;
+        }
+
+        .status.error {
+            color: #dc3545;
+        }
+
+        .result {
+            background: #e8f5e8;
+            border: 2px solid #28a745;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 20px 0;
+            font-size: 18px;
+            display: inline-block;
+        }
+
+        .debug {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 12px;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+
+        code {
+            background: #f8f9fa;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🔐 TLSNotary Extension Plugin Tutorial</h1>
+
+    <div class="step">
+        <h2>Welcome to the TLSNotary Browser Extension Plugin Tutorial</h2>
+        <p>This tutorial will guide you through creating and running TLSNotary plugins. You'll learn how to:</p>
+        <ul>
+            <li>Set up the TLSNotary browser extension and a verifier server</li>
+            <li>Test your setup with the example Twitter plugin</li>
+            <li>Create and test your own Swiss Bank plugin</li>
+            <li>Challenge yourself to complete the extra challenge</li>
+        </ul>
+    </div>
+
+    <div id="step-extension" class="step blocked">
+        <h2>Step 1: Install TLSNotary Extension</h2>
+        <div id="extension-status" class="status checking">Checking extension...</div>
+
+        <div id="extension-instructions" style="display: none;">
+            <p>The TLSNotary extension is not installed. Please install it from the Chrome Web Store:</p>
+            <ul>
+                <li>
+                    <p><a href="https://chromewebstore.google.com/detail/tlsn-extension/gcfkkledipjbgdbimfpijgbkhajiaaph?pli=1"
+                            target="_blank">Install TLSNotary Extension</a></p>
+                    (TODO/FIXME: add correct link here)
+                </li>
+                <li>
+                    <p>Or build it locally:</p>
+                    <pre><code># In the project root directory
+            npm install
+            npm run build</code></pre>
+
+                    <p>Then install in Chrome:</p>
+                    <ol>
+                        <li>Open <code>chrome://extensions/</code></li>
+                        <li>Enable "Developer mode" (toggle in top right)</li>
+                        <li>Click "Load unpacked"</li>
+                        <li>Select the <code>packages/extension/build/</code> folder</li>
+                    </ol>
+                </li>
+            </ul>
+
+            <button onclick="location.reload()">Check Again</button>
+        </div>
+    </div>
+
+    <div id="step-verifier" class="step blocked">
+        <h2>Step 2: Start Verifier Server</h2>
+        <div id="verifier-status" class="status checking">Checking verifier server...</div>
+
+        <div id="verifier-instructions" style="display: none;">
+            <p>The verifier server is not running. Please start it:</p>
+            <pre><code>cd packages/verifier
+cargo run --release</code></pre>
+
+            <p><strong>💡 Tip:</strong> Keep the terminal open to see verification logs. Run this side-by-side with your
+                browser!</p>
+
+            <button onclick="checkVerifier()">Check Again</button>
+        </div>
+    </div>
+
+    <div id="step-twitter" class="step blocked">
+        <h2>Step 3: Run Twitter Plugin (Example)</h2>
+        <p>Let's start with a complete working example to understand how TLSNotary plugins work.</p>
+
+        <div id="twitter-ready" style="display: none;">
+            <p>This plugin will prove your Twitter screen name by:</p>
+            <ol>
+                <li>Opening Twitter in a new window</li>
+                <li>Log in if you haven't already</li>
+                <li>Click the prove button to start the TLSNotary MPC-TLS protocol with the verifier server</li>
+                <li>The prover will only reveal the screen name and a few headers to the verifier</li>
+                <li>Make sure to check the verifier output</li>
+            </ol>
+
+            <p><strong>📄 Source code:</strong> <a href="twitter.js" target="_blank">View twitter.js</a></p>
+
+            <button id="twitter-button" onclick="runPlugin('twitter')">Run Twitter Plugin</button>
+        </div>
+    </div>
+
+    <div id="step-swissbank" class="step blocked">
+        <h2>Step 4: Run Swiss Bank Plugin</h2>
+
+        <div id="swissbank-ready" style="display: none;">
+            <p>Now let's write our own plugin. Let's prove the Swiss Frank (CHF) balance on the EF's Swiss Bank account.
+            </p>
+            <p>Follow these steps:</p>
+            <ol>
+                <li>Log in to the bank: https://swissbank.tlsnotary.org/login
+                    <ul>
+                        <li>Username: "tkstanczak"</li>
+                        <li>Password: "TLSNotary is my favorite project"</li>
+                    </ul>
+                </li>
+                <li>Open Chrome Developers tools (F12) and check the Network tab to get the API address to get the
+                    balances. (Check for a json request)</li>
+                <li>Open <code>/packages/tutorial/swissbank.js</code> in your editor and add the missing:</li>
+                <ul>
+                    <li>hostname and the balances path</li>
+                    <li>the regex pattern to reveal the CHF balance <code>"CHF"\s*:\s*"[\d_]+"</code></li>
+                </ul>
+                <li>Save the plugin file</li>
+                <li>Click the <b>Run Swiss Bank Plugin</b> button</li>
+                <li>Verify that you get the expected verified balance</li>
+            </ol>
+
+            <p><strong>Expected result:</strong> You should see "✅ Verified Swiss Frank (CHF) balance: 50_000_000"</p>
+
+            <button id="swissbank-button" onclick="runPlugin('swissbank')">Run Swiss Bank Plugin</button>
+        </div>
+    </div>
+
+    <div id="step-next" class="step blocked">
+        <h2>Step 5: Extra challenge</h2>
+        <button id="step5-toggle" onclick="showStep5()" style="margin-left: 10px; font-size: 14px;">Show
+            Challenge</button>
+
+        <div id="next-content" style="display: none;">
+            <p>Now that you have written your first plugin, it's time to take it to the next level!</p>
+
+            <p>So far we have focused on the prover only. Verification is of course also extremely important. You always
+                have to carefully verify the data you receive from users. Even if it is cryptographically proven with
+                TLSNotary, you still have to verify the data correctly, or you can be fooled.</p>
+
+            <p>In this extra challenge, you should examine how the verifier checks the balance and modify the prover to
+                make the verifier believe you have more CHF in your bank account than you actually do.</p>
+
+            <p><strong>Hint</strong></p>
+            <ul>
+                <li>Look how naive the check is for "swissbank.tlsnotary.org" in `packages/verifier/main.rs`</li>
+                <li>Manipulate the existing regex in the prover and add an extra entry to prove a different number</li>
+            </ul>
+
+            <p><strong>📄 Source code:</strong> <a href="swissbank.js" target="_blank">View swissbank.js</a> - Modify
+                this to complete the challenge!</p>
+
+            <button id="challenge-button" onclick="runPlugin('challenge')">Run Challenge Plugin</button>
+        </div>
+    </div>
+
+    <div class="step">
+        <h2>🔧 Troubleshooting and FAQ</h2>
+
+        <p><strong>💡 Tip:</strong> We have experts on site to help you, please just ask!</p>
+
+        <h4>Why is the plugin using a websocket proxy?</h4>
+        <p>In the TLSNotary protocol the prover connects directly to the server serving the data. The prover sets up a
+            TCP
+            connection and to the server this looks like any other connection. Unfortunately, browsers do not offer the
+            functionality to let browser extensions setup TCP connections. A workaround is to connect to a websocket
+            proxy
+            that sets up the TCP connection instead.</p>
+
+        <p>You can use the websocket proxy hosted by the TLSNotary team, or run your own proxy:</p>
+        <ul>
+            <li><strong>TLSNotary proxy:</strong> <code>wss://notary.pse.dev/proxy?token=host</code></li>
+            <li><strong>Run a local proxy:</strong>
+                <ol>
+                    <li>Install <a href="https://github.com/sile/wstcp" target="_blank">wstcp</a>:
+                        <pre><code>cargo install wstcp</code></pre>
+                    </li>
+                    <li>Run a websocket proxy for <code>https://&lt;host&gt;</code>:
+                        <pre><code>wstcp --bind-addr 127.0.0.1:55688 &lt;host&gt;:443</code></pre>
+                    </li>
+                </ol>
+            </li>
+        </ul>
+
+        <h4>Common Issues</h4>
+
+        <h5><b>Prove</b> button does not appear</h5>
+        <ul>
+            <li>Are you logged in?</li>
+            <li>Bug: open the <b>inspect</b> view console and the dialog appears</li>
+        </ul>
+
+        <h5>Plugin Execution Problems</h5>
+        <ol>
+            <li>For detailed extension logs, check the service worker logs:
+                <ul>
+                    <li>Go to <code>chrome://extensions/</code></li>
+                    <li>Find TLSNotary extension and click "service worker"</li>
+                    <li><strong>Or copy and paste this into address bar:</strong><br>
+                        <code>chrome://extensions/?id=lihhbeidchpkifaeepopfabenlcpfhjn</code>
+                    </li>
+                    <li>Look for "offscreen.html" and click "inspect" to view detailed logs</li>
+                </ul>
+            </li>
+        </ol>
+        </li>
+
+    </div>
+
+    <script>
+        // Plugin configurations
+        const plugins = {
+            twitter: {
+                name: 'Twitter Profile',
+                file: 'twitter.js',
+                parseResult: (json) => {
+                    const screen_name_result = json.results[3].value;
+                    const screen_name = screen_name_result.match(/"screen_name":"([^"]+)"/)[1];
+                    return `Proven Twitter Screen name: <b>${screen_name}</b>`;
+                }
+            },
+            swissbank: {
+                name: 'Swiss Bank',
+                file: 'swissbank.js',
+                parseResult: (json) => {
+                    const lastResult = json.results[json.results.length - 1].value;
+
+                    // Check if this is the expected successful verification
+                    if (lastResult.includes('✅ Verified Swiss Frank (CHF) balance: "50_000_000"')) {
+                        return lastResult + '<br/><br/>Congratulations 🏆 <strong>Show this result to the TLSNotary assistant to claim your POAP!</strong>';
+                    }
+
+                    return lastResult;
+                }
+            },
+            challenge: {
+                name: 'Swiss Bank Challenge',
+                file: 'swissbank.js',
+                parseResult: (json) => {
+                    const lastResult = json.results[json.results.length - 1].value;
+
+                    // Check for any balance verification (allowing manipulation)
+                    if (lastResult.includes('✅ Verified Swiss Frank (CHF) balance:')) {
+                        return lastResult + '<br/><br/>🏆 <strong>Challenge completed! Show this to the TLSNotary assistant!</strong>';
+                    }
+
+                    return lastResult;
+                }
+            }
+        };
+
+        let extensionReady = false;
+        let verifierReady = false;
+
+        // Check extension status
+        async function checkExtension() {
+            const status = document.getElementById('extension-status');
+            const instructions = document.getElementById('extension-instructions');
+            const step = document.getElementById('step-extension');
+
+            status.textContent = 'Checking extension...';
+            status.className = 'status checking';
+
+            // Wait a bit for tlsn to load if page just loaded
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            if (typeof window.tlsn !== 'undefined') {
+                status.textContent = '✅ Extension installed and ready';
+                status.className = 'status success';
+                instructions.style.display = 'none';
+                step.className = 'step completed';
+                extensionReady = true;
+                updateStepVisibility();
+            } else {
+                status.textContent = '❌ Extension not found';
+                status.className = 'status error';
+                instructions.style.display = 'block';
+                step.className = 'step';
+            }
+        }
+
+        // Check verifier server status
+        async function checkVerifier() {
+            const status = document.getElementById('verifier-status');
+            const instructions = document.getElementById('verifier-instructions');
+            const step = document.getElementById('step-verifier');
+
+            status.textContent = 'Checking verifier server...';
+            status.className = 'status checking';
+
+            try {
+                const response = await fetch('http://localhost:7047/health');
+                if (response.ok && await response.text() === 'ok') {
+                    status.textContent = '✅ Verifier server running';
+                    status.className = 'status success';
+                    instructions.style.display = 'none';
+                    step.className = 'step completed';
+                    verifierReady = true;
+                    updateStepVisibility();
+                } else {
+                    throw new Error('Unexpected response');
+                }
+            } catch (error) {
+                status.textContent = '❌ Verifier server not responding';
+                status.className = 'status error';
+                instructions.style.display = 'block';
+                step.className = 'step';
+            }
+        }
+
+        // Update step visibility based on prerequisites
+        function updateStepVisibility() {
+            const twitterStep = document.getElementById('step-twitter');
+            const swissbankStep = document.getElementById('step-swissbank');
+            const step5 = document.getElementById('step-next');
+
+            if (extensionReady && verifierReady) {
+                twitterStep.className = 'step';
+                document.getElementById('twitter-ready').style.display = 'block';
+
+                swissbankStep.className = 'step';
+                document.getElementById('swissbank-ready').style.display = 'block';
+
+                // Make step 5 available (but still collapsed)
+                step5.className = 'step';
+            }
+        }
+
+        // Show Step 5 (used for both manual click and auto-open)
+        function showStep5() {
+            const content = document.getElementById('next-content');
+            const button = document.getElementById('step5-toggle');
+
+            content.style.display = 'block';
+            button.style.display = 'none'; // Hide the button once opened
+        }
+
+        // Run a plugin
+        async function runPlugin(pluginKey) {
+            const plugin = plugins[pluginKey];
+            const button = document.getElementById(`${pluginKey}-button`);
+
+            // Handle step-next for challenge plugin
+            let step;
+            if (pluginKey === 'challenge') {
+                step = document.getElementById('step-next');
+            } else {
+                step = document.getElementById(`step-${pluginKey}`);
+            }
+
+            try {
+                console.log(`Running ${plugin.name} plugin...`);
+                button.disabled = true;
+                button.textContent = 'Running...';
+
+                // Clear previous results in this step
+                const existingResults = step.querySelectorAll('.result, .debug, h4');
+                existingResults.forEach(el => el.remove());
+
+                const pluginCode = await fetch(plugin.file).then(r => r.text());
+                const result = await window.tlsn.execCode(pluginCode);
+                if (!result || typeof result !== 'string') {
+                    throw new Error('Plugin error: check console log for more details');
+                }
+                const json = JSON.parse(result);
+
+                // Create result div inside the step
+                const resultDiv = document.createElement('div');
+                resultDiv.className = 'result';
+                resultDiv.innerHTML = plugin.parseResult(json);
+                step.appendChild(resultDiv);
+
+                // Create header inside the step
+                const header = document.createElement('h4');
+                header.textContent = `${plugin.name} Results:`;
+                step.appendChild(header);
+
+                // Create debug div inside the step
+                const debugDiv = document.createElement('div');
+                debugDiv.className = 'debug';
+                debugDiv.textContent = JSON.stringify(json.results, null, 2);
+                step.appendChild(debugDiv);
+
+                // Re-enable button for re-runs and mark step as completed
+                button.textContent = `Run ${plugin.name} Again`;
+                button.disabled = false;
+                step.className = 'step completed';
+
+                // Auto-open Step 5 when Step 4 (swissbank) is completed
+                if (pluginKey === 'swissbank') {
+                    showStep5();
+                }
+
+            } catch (err) {
+                console.error(err);
+
+                // Clear previous error messages
+                const existingErrors = step.querySelectorAll('pre[style*="color: red"]');
+                existingErrors.forEach(el => el.remove());
+
+                // Create error div inside the step
+                const errorDiv = document.createElement('pre');
+                errorDiv.style.color = 'red';
+                errorDiv.textContent = err.message;
+                step.appendChild(errorDiv);
+
+                button.textContent = `Run ${plugin.name}`;
+                button.disabled = false;
+            }
+        }
+
+        // Initialize checks when page loads
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                checkExtension();
+                checkVerifier();
+            }, 500);
+        });
+    </script>
+</body>
+
+</html>
