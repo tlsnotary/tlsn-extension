@@ -651,9 +651,9 @@ ${code};
         if (result) {
           console.log('Main function executed:', result);
 
-          if (executionContextRegistry.get(uuid)?.windowId) {
-            onRenderPluginUi(executionContextRegistry.get(uuid)!.windowId!, result);
-          }
+          waitForWindow(async () => executionContextRegistry.get(uuid)?.windowId).then((windowId: number) => {
+            onRenderPluginUi(windowId!, result);
+          });
         }
 
         return result;
@@ -694,5 +694,19 @@ ${code};
   };
 }
 
+async function waitForWindow(callback: () => Promise<any>, retry = 0): Promise<any | null> {
+  const resp = await callback();
+
+  if (resp) return resp;
+
+  if (retry < 100) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    return waitForWindow(callback, retry + 1);
+  }
+
+  return null;
+}
+
 // Default export
 export default Host;
+
