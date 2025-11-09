@@ -3,9 +3,9 @@ const config = {
     description: 'This plugin will prove your Swiss Bank account balance.',
 };
 
-const host = 'swissbank.tlsnotary.org';
+const host = TODO; // hostname of the swiss bank website
 const ui_path = '/account';
-const path = '/balances';
+const path = '/TODO'; // path to the balances json file
 const url = `https://${host}${path}`;
 
 
@@ -44,13 +44,7 @@ async function onClick() {
             handlers: [
                 { type: 'SENT', part: 'START_LINE', action: 'REVEAL', },
                 { type: 'RECV', part: 'START_LINE', action: 'REVEAL', },
-                { type: 'RECV', part: 'BODY', action: 'REVEAL', params: { type: 'json', path: 'account_id' }, },
-                // { type: 'RECV', part: 'BODY', action: 'REVEAL', params: { type: 'json', path: 'accounts.CHF' }, },
-                { type: 'RECV', part: 'ALL', action: 'REVEAL', params: { type: 'regex', regex: '"CHF"\s*:\s*"[^"]+"' }, },
-                // { type: 'RECV', part: 'ALL', action: 'REVEAL', params: { type: 'regex', regex: '"CHF"\s*:' }, },
-                // { type: 'RECV', part: 'ALL', action: 'REVEAL', params: { type: 'regex', regex: '"275_000_000"' }, },
-            ]
-
+                { type: 'RECV', part: 'BODY', action: 'REVEAL', params: { type: 'json', path: 'account_id' }, },]
         }
     );
 
