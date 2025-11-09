@@ -106,7 +106,14 @@
 </head>
 
 <body>
-    <h1>🔐 TLSNotary Extension Plugin Tutorial</h1>
+    <div id="browser-check" class="step" style="display: none;">
+        <h2>⚠️ Browser Compatibility</h2>
+        <div class="status error">
+            <strong>Unsupported Browser Detected</strong>
+        </div>
+        <p>TLSNotary extension requires a Chrome-based browser (Chrome, Edge, Brave, etc.).</p>
+        <p>Please switch to a supported browser to continue with this tutorial.</p>
+    </div>
 
     <div class="step">
         <h2>Welcome to the TLSNotary Browser Extension Plugin Tutorial</h2>
@@ -241,9 +248,9 @@ cargo run --release</code></pre>
         </div>
     </div>
 
-    <div id="step-next" class="step blocked">
-        <h2>Step 5: Extra challenge</h2>
-        <button id="step5-toggle" onclick="showStep5()" style="margin-left: 10px; font-size: 14px;">Show
+    <div id="step-extra" class="step blocked">
+        <h2>Extra challenge</h2>
+        <button id="step-extra-toggle" onclick="showExtraStep()" style="margin-left: 10px; font-size: 14px;">Show
             Challenge</button>
 
         <div id="next-content" style="display: none;">
@@ -436,11 +443,35 @@ cargo run --release</code></pre>
             }
         }
 
+        // Check if browser is Chrome-based
+        function checkBrowserCompatibility() {
+            const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+            const isEdge = /Edg/.test(navigator.userAgent);
+            const isBrave = navigator.brave && typeof navigator.brave.isBrave === 'function';
+            const isChromium = /Chromium/.test(navigator.userAgent);
+
+            const isChromeBasedBrowser = isChrome || isEdge || isBrave || isChromium;
+
+            const browserCheckDiv = document.getElementById('browser-check');
+
+            if (!isChromeBasedBrowser) {
+                browserCheckDiv.style.display = 'block';
+                // Optionally disable the rest of the tutorial
+                document.querySelectorAll('.step:not(#browser-check)').forEach(step => {
+                    step.style.opacity = '0.5';
+                    step.style.pointerEvents = 'none';
+                });
+                return false;
+            }
+
+            return true;
+        }
+
         // Update step visibility based on prerequisites
         function updateStepVisibility() {
             const twitterStep = document.getElementById('step-twitter');
             const swissbankStep = document.getElementById('step-swissbank');
-            const step5 = document.getElementById('step-next');
+            const stepExtra = document.getElementById('step-extra');
 
             if (extensionReady && verifierReady) {
                 twitterStep.className = 'step';
@@ -449,15 +480,14 @@ cargo run --release</code></pre>
                 swissbankStep.className = 'step';
                 document.getElementById('swissbank-ready').style.display = 'block';
 
-                // Make step 5 available (but still collapsed)
-                step5.className = 'step';
+                // Make extra step available (but still collapsed)
+                stepExtra.className = 'step';
             }
         }
 
-        // Show Step 5 (used for both manual click and auto-open)
-        function showStep5() {
+        function showExtraStep() {
             const content = document.getElementById('next-content');
-            const button = document.getElementById('step5-toggle');
+            const button = document.getElementById('step-extra-toggle'); // Fix: Use correct ID
 
             content.style.display = 'block';
             button.style.display = 'none'; // Hide the button once opened
@@ -468,10 +498,10 @@ cargo run --release</code></pre>
             const plugin = plugins[pluginKey];
             const button = document.getElementById(`${pluginKey}-button`);
 
-            // Handle step-next for challenge plugin
+            // Handle step-extra for challenge plugin
             let step;
             if (pluginKey === 'challenge') {
-                step = document.getElementById('step-next');
+                step = document.getElementById('step-extra');
             } else {
                 step = document.getElementById(`step-${pluginKey}`);
             }
@@ -514,9 +544,9 @@ cargo run --release</code></pre>
                 button.disabled = false;
                 step.className = 'step completed';
 
-                // Auto-open Step 5 when Step 4 (swissbank) is completed
+                // Auto-open Extra Step when Step 4 (swissbank) is completed
                 if (pluginKey === 'swissbank') {
-                    showStep5();
+                    showExtraStep();
                 }
 
             } catch (err) {
@@ -539,10 +569,15 @@ cargo run --release</code></pre>
 
         // Initialize checks when page loads
         window.addEventListener('load', () => {
-            setTimeout(() => {
-                checkExtension();
-                checkVerifier();
-            }, 500);
+            // Check browser compatibility first
+            const browserSupported = checkBrowserCompatibility();
+
+            if (browserSupported) {
+                setTimeout(() => {
+                    checkExtension();
+                    checkVerifier();
+                }, 500);
+            }
         });
     </script>
 </body>
