@@ -102,6 +102,19 @@
             border-radius: 5px;
             overflow-x: auto;
         }
+
+        /* Add this single CSS rule */
+        .faq-question {
+            font-weight: bold;
+            font-size: 16px;
+            margin: 20px 0 10px 0;
+        }
+
+        .faq-item {
+            border-left: 3px solid #007bff;
+            padding-left: 15px;
+            margin-bottom: 25px;
+        }
     </style>
 </head>
 
@@ -320,27 +333,40 @@ cargo run --release</code></pre>
 
         <h4>Common Issues</h4>
 
-        <h5><b>Prove</b> button does not appear</h5>
-        <ul>
-            <li>Are you logged in?</li>
-            <li>Bug: open the <b>inspect</b> view console and the dialog appears</li>
-        </ul>
+        <div class="faq-item">
+            <div class="faq-question">Prove button does not appear</div>
+            <ul>
+                <li>Are you logged in?</li>
+                <li>Bug: open the <b>inspect</b> view console and the dialog appears</li>
+            </ul>
+        </div>
 
-        <h5>Plugin Execution Problems</h5>
-        <ol>
-            <li>For detailed extension logs, check the service worker logs:
-                <ul>
-                    <li>Go to <code>chrome://extensions/</code></li>
-                    <li>Find TLSNotary extension and click "service worker"</li>
-                    <li><strong>Or copy and paste this into address bar:</strong><br>
-                        <code>chrome://extensions/?id=lihhbeidchpkifaeepopfabenlcpfhjn</code>
-                    </li>
-                    <li>Look for "offscreen.html" and click "inspect" to view detailed logs</li>
-                </ul>
-            </li>
-        </ol>
-        </li>
+        <div class="faq-item">
+            <div class="faq-question">Plugin Execution Problems</div>
+            <p>For detailed extension logs, check the service worker logs:</p>
+            <ul>
+                <li>Go to <code>chrome://extensions/</code></li>
+                <li>Find TLSNotary extension and click "service worker"</li>
+                <li><strong>Or copy and paste this into address bar:</strong><br>
+                    <code>chrome://extensions/?id=lihhbeidchpkifaeepopfabenlcpfhjn</code>
+                </li>
+                <li>Look for "offscreen.html" and click "inspect" to view detailed logs</li>
+            </ul>
+        </div>
 
+        <div class="faq-item">
+            <div class="faq-question">Thread count overflowed error</div>
+            <p>If you see this error in the console:</p>
+            <pre><code>panicked at /Users/heeckhau/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sharded-slab-0.1.7/src/shard.rs:295:9: 
+Thread count overflowed the configured max count. Thread index = 142, max threads = 128.</code></pre>
+            <p><strong>Workaround:</strong> Restart the extension:</p>
+            <ol>
+                <li>Go to <code>chrome://extensions/?id=lihhbeidchpkifaeepopfabenlcpfhjn</code></li>
+                <li>Click the toggle to disable the extension</li>
+                <li>Click the toggle again to re-enable it</li>
+            </ol>
+            <p>This is a known issue: <a href="https://github.com/tlsnotary/tlsn/issues/959" target="_blank">tlsn#959</a></p>
+        </div>
     </div>
 
     <script>
