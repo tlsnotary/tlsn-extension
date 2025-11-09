@@ -1,26 +1,18 @@
 # TLSNotary Plugin Tutorial
 
-A step-by-step tutorial for learning TLSNotary plugins.
-
-## Quick Start
-
-1. **Start the tutorial server:**
-   ```bash
-   cd packages/tutorial
-   npm start
-   ```
-
-2. **Open the tutorial:**
-   Navigate to http://localhost:8080
-
-3. **Follow the steps:**
-   The tutorial will guide you through installation and setup.
+Interactive tutorial that teaches you to run and write TLSNotary plugins in the browser.
 
 ## What You'll Learn
+- High-level understanding of TLSNotary's MPC-TLS protocol
+- How to install the extension and run a verifier server
+- Complete Twitter and Swiss Bank examples: prove and redact data
+- See how naive verification can be exploited (extra challenge)
 
-- How to install and configure TLSNotary
-- Running example plugins (Twitter, Swiss Bank)
-- Understanding the verification process
-- Next steps for building your own plugins
+## Quick Start
+1. **Start tutorial:** `npm run tutorial` (from project root)
+2. **Open browser:** http://localhost:8080
+3. **Follow steps:** Auto-detects setup and unlocks progressively
 
-The tutorial includes automatic detection of prerequisites and progressive step unlocking.
+## Time: 15-30 minutes
+
+Perfect for workshops or self-guided learning.

@@ -197,14 +197,15 @@ cargo run --release</code></pre>
     </div>
 
     <div id="step-twitter" class="step blocked">
-        <h2>Step 3: Run Twitter Plugin (Example)</h2>
+        <h2>Step 3: Run Twitter Plugin (Example) - Optional</h2>
         <p>Let's start with a complete working example to understand how TLSNotary plugins work.</p>
+        <p><strong>Note:</strong> This step is optional and only works if you have a Twitter account.</p>
 
         <div id="twitter-ready" style="display: none;">
             <p>This plugin will prove your Twitter screen name by:</p>
             <ol>
                 <li>Opening Twitter in a new window</li>
-                <li>Log in if you haven't already</li>
+                <li>Log in if you haven't already (requires Twitter account)</li>
                 <li>Click the prove button to start the TLSNotary MPC-TLS protocol with the verifier server</li>
                 <li>The prover will only reveal the screen name and a few headers to the verifier</li>
                 <li>Make sure to check the verifier output</li>
@@ -213,6 +214,7 @@ cargo run --release</code></pre>
             <p><strong>📄 Source code:</strong> <a href="twitter.js" target="_blank">View twitter.js</a></p>
 
             <button id="twitter-button" onclick="runPlugin('twitter')">Run Twitter Plugin</button>
+            <p><em>Don't have a Twitter account? Skip to Step 4 below.</em></p>
         </div>
     </div>
 
@@ -222,6 +224,7 @@ cargo run --release</code></pre>
         <div id="swissbank-ready" style="display: none;">
             <p>Now let's write our own plugin. Let's prove the Swiss Frank (CHF) balance on the EF's Swiss Bank account.
             </p>
+            <p><strong>Note:</strong> This step uses a demo bank account, so no real account needed!</p>
             <p>Follow these steps:</p>
             <ol>
                 <li>Log in to the bank: https://swissbank.tlsnotary.org/login
