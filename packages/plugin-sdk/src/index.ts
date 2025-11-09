@@ -161,11 +161,22 @@ function makeUseHeaders(
 function makeUseState(
   uuid: string,
   stateStore: {[key: string]: any},
+  eventEmitter: {
+    emit: (message: any) => void;
+  },
 ) {
   return (key: string, defaultValue: any) => {
+    const executionContext = executionContextRegistry.get(uuid);
+    if (!executionContext) {
+      throw new Error('Execution context not found');
+    }
     if (!stateStore[key] && defaultValue !== undefined) {
       stateStore[key] = defaultValue;
     }
+    // eventEmitter.emit({
+    //   type: 'TO_BG_RE_RENDER_PLUGIN_UI',
+    //   windowId: executionContextRegistry.get(uuid)?.windowId || 0,
+    // });
     return stateStore[key];
   };
 }
@@ -173,9 +184,23 @@ function makeUseState(
 function makeSetState(
   uuid: string,
   stateStore: {[key: string]: any},
+  eventEmitter: {
+    emit: (message: WindowMessage) => void;
+  },
 ) {
   return (key: string, value: any) => {
+    const executionContext = executionContextRegistry.get(uuid);
+    if (!executionContext) {
+      throw new Error('Execution context not found');
+    }
     stateStore[key] = value;
+    if (deepEqual(stateStore, executionContext.stateStore)) {
+      return;
+    }
+    eventEmitter.emit({
+      type: 'TO_BG_RE_RENDER_PLUGIN_UI',
+      windowId: executionContextRegistry.get(uuid)?.windowId || 0,
+    });
   };
 }
 
@@ -269,6 +294,15 @@ function makeOpenWindow(
               });
               console.log('Callback result:', result);
             }
+          }
+
+          if (message.type === 'RE_RENDER_PLUGIN_UI') {
+            console.log('[makeOpenWindow] RE_RENDER_PLUGIN_UI', message.windowId);
+            const executionContext = executionContextRegistry.get(uuid);
+            if (!executionContext) {
+              throw new Error('Execution context not found');
+            }
+            executionContext.main();
           }
 
           if (message.type === 'WINDOW_CLOSED') {
@@ -480,6 +514,7 @@ ${code};
       eventEmitter: {
         addListener: (listener: (message: WindowMessage) => void) => void;
         removeListener: (listener: (message: WindowMessage) => void) => void;
+        emit: (message: WindowMessage) => void;
       };
     },
   ): Promise<unknown> {
@@ -536,8 +571,8 @@ ${code};
       useEffect: makeUseEffect(uuid, context),
       useRequests: makeUseRequests(uuid, context),
       useHeaders: makeUseHeaders(uuid, context),
-      useState: makeUseState(uuid, stateStore),
-      setState: makeSetState(uuid, stateStore),
+      useState: makeUseState(uuid, stateStore, eventEmitter),
+      setState: makeSetState(uuid, stateStore, eventEmitter),
       prove: onProve,
       done: (args?: any[]) => {
         // Close the window if it exists

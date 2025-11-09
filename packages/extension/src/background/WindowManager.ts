@@ -254,6 +254,20 @@ export class WindowManager implements IWindowManager {
     }
   }
 
+  reRenderPluginUI(windowId: number): void {
+    const window = this.windows.get(windowId);
+    if (!window) {
+      console.error(
+        `[WindowManager] Cannot re-render plugin UI for non-existent window: ${windowId}`,
+      );
+      return;
+    }
+    browser.runtime.sendMessage({
+      type: 'RE_RENDER_PLUGIN_UI',
+      windowId,
+    });
+  }
+
   addHeader(windowId: number, header: InterceptedRequestHeader): void {
     const window = this.windows.get(windowId);
     if (!window) {

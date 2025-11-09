@@ -302,6 +302,11 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
     return true; // Keep message channel open for async response
   }
 
+  if (request.type === 'TO_BG_RE_RENDER_PLUGIN_UI') {
+    windowManager.reRenderPluginUI(request.windowId);
+    return false;
+  }
+
   return true; // Keep message channel open for async response
 });
 

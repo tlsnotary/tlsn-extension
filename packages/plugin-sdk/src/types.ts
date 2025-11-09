@@ -101,6 +101,10 @@ export type WindowMessage =
   | {
       type: 'WINDOW_CLOSED';
       windowId: number;
+    }
+  | {
+      type: 'RE_RENDER_PLUGIN_UI';
+      windowId: number;
     };
 
 export enum HandlerType {

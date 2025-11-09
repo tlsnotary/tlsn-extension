@@ -164,6 +164,9 @@ export class SessionManager {
         removeListener: (listener: (message: any) => void) => {
           chromeRuntime.onMessage.removeListener(listener);
         },
+        emit: (message: any) => {
+          chromeRuntime.sendMessage(message);
+        },
       },
     });
   }
