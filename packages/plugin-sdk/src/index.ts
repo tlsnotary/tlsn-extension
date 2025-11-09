@@ -69,31 +69,6 @@ function createDomJson(
   };
 }
 
-// Pure function for creating useState hook without `this` binding
-function makeUseState(
-  uuid: string,
-  stateStore: Map<string, any>,
-  triggerRerender: () => void,
-) {
-  const useState = (key: string, defaultValue?: any) => {
-    if (!stateStore.has(key) && defaultValue !== undefined) {
-      stateStore.set(key, defaultValue);
-    }
-    return stateStore.get(key);
-  };
-
-  const setState = (key: string, value: any) => {
-    const currentValue = stateStore.get(key);
-    if (!deepEqual(currentValue, value)) {
-      stateStore.set(key, value);
-      // Trigger re-render when state changes
-      triggerRerender();
-    }
-  };
-
-  return { useState, setState };
-}
-
 // Pure function for creating useEffect hook without `this` binding
 function makeUseEffect(
   uuid: string,
@@ -494,9 +469,6 @@ ${code};
       };
     } = {};
 
-    // State store for useState hook
-    const stateStore = new Map<string, any>();
-
     let doneResolve: (args?: any[]) => void;
 
     const donePromise = new Promise((resolve) => {
@@ -529,22 +501,6 @@ ${code};
     const onOpenWindow = this.onOpenWindow;
     const onProve = this.onProve;
 
-    // Create a reference to main that can be called for re-renders
-    let mainFunctionRef: (() => any) | null = null;
-
-    // Create trigger function for state changes
-    const triggerRerender = () => {
-      if (mainFunctionRef) {
-        const executionContext = executionContextRegistry.get(uuid);
-        if (executionContext) {
-          executionContext.main();
-        }
-      }
-    };
-
-    // Create useState and setState functions
-    const { useState, setState } = makeUseState(uuid, stateStore, triggerRerender);
-
     const sandbox = await this.createEvalCode({
       div: (param1?: DomOptions | DomJson[], param2?: DomJson[]) =>
         createDomJson('div', param1, param2),
@@ -554,8 +510,6 @@ ${code};
       useEffect: makeUseEffect(uuid, context),
       useRequests: makeUseRequests(uuid, context),
       useHeaders: makeUseHeaders(uuid, context),
-      useState,
-      setState,
       prove: onProve,
       done: (args?: any[]) => {
         // Close the window if it exists
@@ -574,8 +528,6 @@ const openWindow = env.openWindow;
 const useEffect = env.useEffect;
 const useRequests = env.useRequests;
 const useHeaders = env.useHeaders;
-const useState = env.useState;
-const setState = env.setState;
 const prove = env.prove;
 const closeWindow = env.closeWindow;
 const done = env.done;
@@ -643,9 +595,6 @@ ${code};
         return null;
       }
     };
-
-    // Set the main function reference for re-rendering on state changes
-    mainFunctionRef = main;
 
     executionContextRegistry.set(uuid, {
       id: uuid,
