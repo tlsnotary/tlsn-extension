@@ -37,7 +37,7 @@ function updateExecutionContext(
       };
     };
     currentContext?: string;
-    stateStore?: {[key: string]: any};
+    stateStore?: { [key: string]: any };
   },
 ): void {
   const context = executionContextRegistry.get(uuid);
@@ -160,7 +160,7 @@ function makeUseHeaders(
 
 function makeUseState(
   uuid: string,
-  stateStore: {[key: string]: any},
+  stateStore: { [key: string]: any },
   eventEmitter: {
     emit: (message: any) => void;
   },
@@ -183,7 +183,7 @@ function makeUseState(
 
 function makeSetState(
   uuid: string,
-  stateStore: {[key: string]: any},
+  stateStore: { [key: string]: any },
   eventEmitter: {
     emit: (message: WindowMessage) => void;
   },
@@ -197,8 +197,9 @@ function makeSetState(
     if (deepEqual(stateStore, executionContext.stateStore)) {
       return;
     }
+
     eventEmitter.emit({
-      type: 'TO_BG_RE_RENDER_PLUGIN_UI',
+      type: 'RE_RENDER_PLUGIN_UI',
       windowId: executionContextRegistry.get(uuid)?.windowId || 0,
     });
   };
@@ -527,7 +528,7 @@ ${code};
       };
     } = {};
 
-    const stateStore: {[key: string]: any} = {};
+    const stateStore: { [key: string]: any } = {};
 
     let doneResolve: (args?: any[]) => void;
 

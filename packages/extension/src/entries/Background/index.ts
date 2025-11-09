@@ -304,10 +304,11 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
 
   if (request.type === 'TO_BG_RE_RENDER_PLUGIN_UI') {
     windowManager.reRenderPluginUI(request.windowId);
-    return false;
+    return;
   }
 
   return true; // Keep message channel open for async response
+
 });
 
 // Create offscreen document if needed (Chrome 109+)
@@ -357,4 +358,4 @@ setTimeout(() => {
   });
 }, 10000);
 
-export {};
+export { };
