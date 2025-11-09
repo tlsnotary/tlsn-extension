@@ -122,6 +122,12 @@ const config = {
  * 5. Return the proof result to the caller via done()
  */
 async function onClick() {
+  const isRequestPending = useState('isRequestPending', false);
+
+  if (isRequestPending) return;
+
+  setState('isRequestPending', true);
+
   // Step 1: Get the intercepted header from the X.com API request
   // useHeaders() provides access to all intercepted HTTP request headers
   // We filter for the specific X.com API endpoint we want to prove
@@ -261,6 +267,7 @@ function main() {
   // Subscribe to intercepted headers for the X.com API endpoint
   // This will reactively update whenever new headers matching the filter arrive
   const [header] = useHeaders(headers => headers.filter(header => header.url.includes('https://api.x.com/1.1/account/settings.json')));
+  const isRequestPending = useState('isRequestPending', false);
 
   // Run once on plugin load: Open X.com in a new window
   // The empty dependency array [] means this runs only once
@@ -306,11 +313,13 @@ function main() {
         style: {
           color: 'black',
           backgroundColor: 'white',
+          opacity: isRequestPending ? 0.5 : 1,
+          cursor: isRequestPending ? 'not-allowed' : 'pointer',
         },
         // The onclick attribute references the onClick function name
         // When clicked, the onClick() function will be called
         onclick: 'onClick',
-      }, ['Prove'])
+      }, [isRequestPending ? 'Proving...' : 'Prove'])
       : div({ style: {color: 'black'}}, ['Please login to x.com'])
   ]);
 }

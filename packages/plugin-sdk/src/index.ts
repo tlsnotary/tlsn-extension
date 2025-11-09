@@ -544,6 +544,7 @@ ${code};
         if (context?.windowId) {
           onCloseWindow(context.windowId);
         }
+        executionContextRegistry.delete(uuid);
         doneResolve(args);
       },
     });
@@ -555,6 +556,8 @@ const openWindow = env.openWindow;
 const useEffect = env.useEffect;
 const useRequests = env.useRequests;
 const useHeaders = env.useHeaders;
+const useState = env.useState;
+const setState = env.setState;
 const prove = env.prove;
 const closeWindow = env.closeWindow;
 const done = env.done;
