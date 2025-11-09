@@ -332,12 +332,25 @@ cargo run --release</code></pre>
                 parseResult: (json) => {
                     const lastResult = json.results[json.results.length - 1].value;
 
-                    // Check for any balance verification (allowing manipulation)
-                    if (lastResult.includes('✅ Verified Swiss Frank (CHF) balance:')) {
-                        return lastResult + '<br/><br/>🏆 <strong>Challenge completed! Show this to the TLSNotary assistant!</strong>';
+                    // Check for any balance verification
+                    const match = lastResult.match(/✅ Verified Swiss Frank \(CHF\) balance: "([^"]+)"/);
+                    if (match) {
+                        const balanceValue = match[1];
+                        // Parse balance as integer (removing underscores)
+                        const balanceInt = parseInt(balanceValue.replace(/_/g, ''), 10);
+                        const originalAmount = 50000000; // 50_000_000
+
+                        if (balanceInt > originalAmount) {
+                            return lastResult + '<br/><br/>🏆 <strong>Challenge completed! Show this to the TLSNotary assistant!</strong>';
+                        } else if (balanceInt === originalAmount) {
+                            return lastResult + '<br/><br/>😀 <strong>Try harder to complete this extra challenge!</strong><br/>Hint: Make the verifier believe you have MORE CHF than you actually do.';
+                        } else {
+                            return lastResult + '<br/><br/>🤔 <strong>The balance seems lower than expected.</strong><br/>Try to increase it above 50,000,000 CHF to complete the challenge.';
+                        }
                     }
 
-                    return lastResult;
+                    // If no balance match found
+                    return lastResult + '<br/><br/>❓ <strong>No CHF balance found in verification.</strong> Make sure your regex correctly extracts the balance.';
                 }
             }
         };
