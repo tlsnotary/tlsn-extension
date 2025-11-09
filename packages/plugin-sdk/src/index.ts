@@ -37,6 +37,7 @@ function updateExecutionContext(
       };
     };
     currentContext?: string;
+    stateStore?: {[key: string]: any};
   },
 ): void {
   const context = executionContextRegistry.get(uuid);
@@ -156,6 +157,28 @@ function makeUseHeaders(
     return result;
   };
 }
+
+function makeUseState(
+  uuid: string,
+  stateStore: {[key: string]: any},
+) {
+  return (key: string, defaultValue: any) => {
+    if (!stateStore[key] && defaultValue !== undefined) {
+      stateStore[key] = defaultValue;
+    }
+    return stateStore[key];
+  };
+}
+
+function makeSetState(
+  uuid: string,
+  stateStore: {[key: string]: any},
+) {
+  return (key: string, value: any) => {
+    stateStore[key] = value;
+  };
+}
+
 
 // Pure function for creating openWindow without `this` binding
 function makeOpenWindow(
@@ -469,6 +492,8 @@ ${code};
       };
     } = {};
 
+    const stateStore: {[key: string]: any} = {};
+
     let doneResolve: (args?: any[]) => void;
 
     const donePromise = new Promise((resolve) => {
@@ -510,6 +535,8 @@ ${code};
       useEffect: makeUseEffect(uuid, context),
       useRequests: makeUseRequests(uuid, context),
       useHeaders: makeUseHeaders(uuid, context),
+      useState: makeUseState(uuid, stateStore),
+      setState: makeSetState(uuid, stateStore),
       prove: onProve,
       done: (args?: any[]) => {
         // Close the window if it exists
@@ -559,8 +586,9 @@ ${code};
         let result = mainFn();
         const lastSelectors = executionContextRegistry.get(uuid)?.context['main']?.selectors;
         const selectors = context['main']?.selectors;
+        const lastStateStore = executionContextRegistry.get(uuid)?.stateStore;
 
-        if (deepEqual(lastSelectors, selectors)) {
+        if (deepEqual(lastSelectors, selectors) && deepEqual(lastStateStore, stateStore)) {
           result = null;
         }
 
@@ -573,6 +601,7 @@ ${code};
               selectors: JSON.parse(JSON.stringify(context['main']?.selectors)),
             },
           },
+          stateStore: JSON.parse(JSON.stringify(stateStore)),
         });
 
         if (context['main']) {
@@ -605,6 +634,7 @@ ${code};
       sandbox,
       main: main,
       callbacks: callbacks,
+      stateStore: {},
     });
 
     main();

@@ -38,6 +38,7 @@ export type ExecutionContext = {
       selectors: any[][];
     };
   };
+  stateStore: {[key: string]: any};
   currentContext: string;
   sandbox: {
     eval: (code: string) => Promise<unknown>;
