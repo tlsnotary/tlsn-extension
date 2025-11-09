@@ -526,6 +526,7 @@ ${code};
     const onOpenWindow = this.onOpenWindow;
     const onProve = this.onProve;
 
+    console.log('createEvalCode', uuid, stateStore);
     const sandbox = await this.createEvalCode({
       div: (param1?: DomOptions | DomJson[], param2?: DomJson[]) =>
         createDomJson('div', param1, param2),
