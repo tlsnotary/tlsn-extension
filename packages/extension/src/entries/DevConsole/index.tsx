@@ -188,10 +188,10 @@ async function onClick() {
       proxyUrl: 'wss://notary.pse.dev/proxy?token=api.x.com',
 
       // Maximum bytes to receive from server (response size limit)
-      maxRecvData: 2600,
+      maxRecvData: 3200,
 
       // Maximum bytes to send to server (request size limit)
-      maxSentData: 1300,
+      maxSentData: 1600,
 
       // -----------------------------------------------------------------------
       // HANDLERS
