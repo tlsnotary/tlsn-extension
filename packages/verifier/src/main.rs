@@ -390,7 +390,7 @@ async fn verifier_ws_handler(
             );
             Ok(ws.on_upgrade(move |socket| async move {
                 // Send the WebSocket to the waiting verifier
-                if let Err(_) = sender.send(socket) {
+                if sender.send(socket).is_err() {
                     error!(
                         "[{}] Failed to send socket to verifier - channel closed",
                         session_id
@@ -757,7 +757,7 @@ async fn run_verifier_task(
                 };
 
                 let result = if screen_name == "unknown" {
-                    format!("❌ Failed verifying screen name ❌")
+                    "❌ Failed verifying screen name ❌".to_string()
                 } else {
                     format!("✅ Verified screen name: \"{}\"", screen_name)
                 };
@@ -784,7 +784,7 @@ async fn run_verifier_task(
                         .unwrap_or("unknown")
                 };
                 let result = if chf == "unknown" {
-                    format!("❌ Failed verifying Swiss Frank (CHF) balance ❌")
+                    "❌ Failed verifying Swiss Frank (CHF) balance ❌".to_string()
                 } else {
                     format!("✅ Verified Swiss Frank (CHF) balance: \"{}\"", chf)
                 };

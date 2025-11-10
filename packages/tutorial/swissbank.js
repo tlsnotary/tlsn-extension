@@ -3,9 +3,9 @@ const config = {
     description: 'This plugin will prove your Swiss Bank account balance.',
 };
 
-const host = TODO; // hostname of the swiss bank website
+const host = 'swissbank.tlsnotary.org';
 const ui_path = '/account';
-const path = '/TODO'; // path to the balances json file
+const path = '/balances';
 const url = `https://${host}${path}`;
 
 
@@ -49,7 +49,10 @@ async function onClick() {
             handlers: [
                 { type: 'SENT', part: 'START_LINE', action: 'REVEAL', },
                 { type: 'RECV', part: 'START_LINE', action: 'REVEAL', },
-                { type: 'RECV', part: 'BODY', action: 'REVEAL', params: { type: 'json', path: 'account_id' }, },]
+                { type: 'RECV', part: 'BODY', action: 'REVEAL', params: { type: 'json', path: 'account_id' }, },
+                // TODO: add handler to reveal CHF balance here
+
+            ]
         }
     );
 

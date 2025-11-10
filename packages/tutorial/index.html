@@ -210,7 +210,8 @@ cargo run --release</code></pre>
     <div id="step-twitter" class="step blocked">
         <h2>Step 3: Run Twitter Plugin (Example) - Optional</h2>
         <p>Let's start with a complete working example to understand how TLSNotary plugins work.</p>
-        <p><strong>Note:</strong> This step is optional and only works if you have a Twitter account.</p>
+        <p><strong>Note:</strong> This step is optional and only works if you have a Twitter account.
+            Feel free to skip this step if you have limited time.</p>
 
         <div id="twitter-ready" style="display: none;">
             <p>This plugin will prove your Twitter screen name by:</p>
@@ -238,33 +239,45 @@ cargo run --release</code></pre>
             <p><strong>Note:</strong> This step uses a demo bank account, so no real account needed!</p>
             <p>Follow these steps:</p>
             <ol>
-                <li>Log in to the bank: https://swissbank.tlsnotary.org/login
+                <li>Check <a href="https://swissbank.tlsnotary.org/balances"
+                        target="_blank">https://swissbank.tlsnotary.org/balances</a>, you should have <b>no</b> access.
+                </li>
+                <li>Log in to the bank via <a href="https://swissbank.tlsnotary.org/login"
+                        target="_blank">https://swissbank.tlsnotary.org/login</a>
                     <ul>
                         <li>Username: <code>tkstanczak</code></li>
                         <li>Password: <code>TLSNotary is my favorite project</code></li>
                     </ul>
                 </li>
-                <li>Open Chrome Developers tools (F12) and check the Network tab to get the API address to get the
-                    balances. (Check for a json request)</li>
-                <li>Open <code>/packages/tutorial/swissbank.js</code> in your editor and add the missing:</li>
-                <ul>
-                    <li>hostname and the balances path</li>
-                    <li>the regex pattern to reveal the CHF balance
-                        <ul>
-                            <li>The syntax for a regex reveal is:<br />
-                                <code>
-                                { type: 'RECV', part: 'ALL', action: 'REVEAL', params: { type: 'regex', regex: '...' },
-                                },
-                                </code>
-                            </li>
-                            <li>the regex pattern to reveal the CHF balance could be something like
-                                <code>"XXX"\s*:\s*"[\d_]+"</code>
-                            </li>
-                        </ul>
-                    </li>
+                <li>Check <a href="https://swissbank.tlsnotary.org/balances"
+                        target="_blank">https://swissbank.tlsnotary.org/balances</a> again, you should have access now.
+                </li>
+                <li>Open <code>/packages/tutorial/swissbank.js</code> in your favorite editor and add the missing
+                    handler to
+                    reveal the Swiss Franks (CHF) balance to the verfier:
+                    <pre><code>
+                { type: 'RECV', part: 'ALL', action: 'REVEAL', params: { type: 'regex', regex: '"CHF"\s*:\s*"[^"]+"' }, },
+                    </code></pre>
+                    What does this mean?
+                    <dl>
+                        <dt><strong>type: 'RECV'</strong></dt>
+                        <dd>This means we are handling data received from the server (the bank)</dd>
 
-                </ul>
-                <li>Save the plugin file</li>
+                        <dt><strong>part: 'ALL'</strong></dt>
+                        <dd>This means we are looking at the entire response (headers + body)</dd>
+
+                        <dt><strong>action: 'REVEAL'</strong></dt>
+                        <dd>This means we want to reveal some data to the verifier</dd>
+
+                        <dt><strong>params: { type: 'regex', regex: '...' }</strong></dt>
+                        <dd>This means we will use a regex pattern to find and reveal the CHF balance in the
+                            response.<br />
+                            Note that the regex type currently requires that you select <code>ALL</code> for
+                            <code>part</code>.
+                        </dd>
+                    </dl>
+                </li>
+                <li>Next, save the plugin file</li>
                 <li>Click the <b>Run Swiss Bank Plugin</b> button</li>
                 <li>Verify that you get the expected verified balance</li>
             </ol>
@@ -292,7 +305,8 @@ cargo run --release</code></pre>
 
             <p><strong>Hint</strong></p>
             <ul>
-                <li>Look how naive the check is for "swissbank.tlsnotary.org" in `packages/verifier/main.rs`</li>
+                <li>Look how naive the check is for "swissbank.tlsnotary.org" in <code>packages/verifier/main.rs</code>
+                </li>
                 <li>Manipulate the existing regex in the prover and add an extra entry to prove a different number</li>
             </ul>
 
@@ -365,7 +379,8 @@ Thread count overflowed the configured max count. Thread index = 142, max thread
                 <li>Click the toggle to disable the extension</li>
                 <li>Click the toggle again to re-enable it</li>
             </ol>
-            <p>This is a known issue: <a href="https://github.com/tlsnotary/tlsn/issues/959" target="_blank">tlsn#959</a></p>
+            <p>This is a known issue: <a href="https://github.com/tlsnotary/tlsn/issues/959"
+                    target="_blank">tlsn#959</a></p>
         </div>
     </div>
 

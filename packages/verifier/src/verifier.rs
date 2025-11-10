@@ -70,8 +70,8 @@ pub async fn verifier<T: AsyncWrite + AsyncRead + Send + Unpin + 'static>(
     info!("✅ MPC-TLS Verification successful!");
     info!("============================================");
 
-    let sent_string = (bytes_to_redacted_string(&sent, "🙈")?);
-    let received_string = (bytes_to_redacted_string(&received, "🙈")?);
+    let sent_string = bytes_to_redacted_string(&sent, "🙈")?;
+    let received_string = bytes_to_redacted_string(&received, "🙈")?;
 
     info!("Sent data: {:?}", sent_string);
     info!("Received data: {:?}", received_string);
@@ -81,6 +81,7 @@ pub async fn verifier<T: AsyncWrite + AsyncRead + Send + Unpin + 'static>(
 }
 
 /// Compress long sequences of redacted emojis for better readability
+#[allow(unused)]
 fn compress_redacted_sequences(text: String) -> String {
     let re = regex::Regex::new(r"🙈{5,}").unwrap();
     re.replace_all(&text, "🙈…🙈").to_string()
