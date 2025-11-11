@@ -101,6 +101,13 @@
             padding: 15px;
             border-radius: 5px;
             overflow-x: auto;
+            white-space: pre-wrap;
+            margin: 0;
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
         }
 
         /* Add this single CSS rule */
@@ -197,6 +204,10 @@ npm run build</code></pre>
 
         <div id="verifier-instructions" style="display: none;">
             <p>The verifier server is not running. Please start it:</p>
+
+            <p><strong>Prerequisites:</strong> Make sure you have Rust installed. If not, install it from <a
+                    href="https://rustup.rs/" target="_blank">rustup.rs</a></p>
+
             <pre><code>cd packages/verifier
 cargo run --release</code></pre>
 
@@ -255,9 +266,7 @@ cargo run --release</code></pre>
                 <li>Open <code>/packages/tutorial/swissbank.js</code> in your favorite editor and add the missing
                     handler to
                     reveal the Swiss Franks (CHF) balance to the verfier:
-                    <pre><code>
-                { type: 'RECV', part: 'ALL', action: 'REVEAL', params: { type: 'regex', regex: '"CHF"\s*:\s*"[^"]+"' }, },
-                    </code></pre>
+                    <pre><code>{ type: 'RECV', part: 'ALL', action: 'REVEAL', params: { type: 'regex', regex: '"CHF"\s*:\s*"[^"]+"' }, },</code></pre>
                     What does this mean?
                     <dl>
                         <dt><strong>type: 'RECV'</strong></dt>
