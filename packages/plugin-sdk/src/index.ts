@@ -414,6 +414,7 @@ export class Host {
     const options: SandboxOptions = {
       allowFetch: false,
       allowFs: false,
+      maxStackSize: 0,
       env: {
         ...Object.fromEntries(this.capabilities),
         ...(capabilities || {}),
