@@ -26,8 +26,5 @@
     "tls",
     "tlsn",
     "tlsnotary"
-  ],
-  "scripts": {
-    "lint": "echo 'Skipping lint for pre-built WASM package'"
-  }
+  ]
 }

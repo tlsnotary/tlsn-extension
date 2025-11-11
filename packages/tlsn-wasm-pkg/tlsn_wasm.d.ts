@@ -10,12 +10,14 @@ export function initialize(logging_config: LoggingConfig | null | undefined, thr
 export function startSpawner(): Promise<any>;
 export function web_spawn_start_worker(worker: number): void;
 export function web_spawn_recover_spawner(spawner: number): Spawner;
-export type LoggingLevel = "Trace" | "Debug" | "Info" | "Warn" | "Error";
-
 export interface CrateLogFilter {
     level: LoggingLevel;
     name: string;
 }
+
+export type SpanEvent = "New" | "Close" | "Active";
+
+export type LoggingLevel = "Trace" | "Debug" | "Info" | "Warn" | "Error";
 
 export interface LoggingConfig {
     level: LoggingLevel | undefined;
@@ -23,37 +25,23 @@ export interface LoggingConfig {
     span_events: SpanEvent[] | undefined;
 }
 
-export type SpanEvent = "New" | "Close" | "Active";
-
 export interface Reveal {
     sent: { start: number; end: number }[];
     recv: { start: number; end: number }[];
     server_identity: boolean;
 }
 
-export interface Transcript {
-    sent: number[];
-    recv: number[];
-}
-
-export type Method = "GET" | "POST" | "PUT" | "DELETE";
-
 export type TlsVersion = "V1_2" | "V1_3";
 
-export type NetworkSetting = "Bandwidth" | "Latency";
-
-export type Body = JsonValue;
+export interface ConnectionInfo {
+    time: number;
+    version: TlsVersion;
+    transcript_length: TranscriptLength;
+}
 
 export interface Commit {
     sent: { start: number; end: number }[];
     recv: { start: number; end: number }[];
-}
-
-export interface PartialTranscript {
-    sent: number[];
-    sent_authed: { start: number; end: number }[];
-    recv: number[];
-    recv_authed: { start: number; end: number }[];
 }
 
 export interface HttpResponse {
@@ -61,10 +49,9 @@ export interface HttpResponse {
     headers: [string, number[]][];
 }
 
-export interface ConnectionInfo {
-    time: number;
-    version: TlsVersion;
-    transcript_length: TranscriptLength;
+export interface TranscriptLength {
+    sent: number;
+    recv: number;
 }
 
 export interface HttpRequest {
@@ -74,15 +61,28 @@ export interface HttpRequest {
     body: Body | undefined;
 }
 
-export interface TranscriptLength {
-    sent: number;
-    recv: number;
-}
-
 export interface VerifierOutput {
     server_name: string | undefined;
     connection_info: ConnectionInfo;
     transcript: PartialTranscript | undefined;
+}
+
+export type NetworkSetting = "Bandwidth" | "Latency";
+
+export type Method = "GET" | "POST" | "PUT" | "DELETE";
+
+export type Body = JsonValue;
+
+export interface Transcript {
+    sent: number[];
+    recv: number[];
+}
+
+export interface PartialTranscript {
+    sent: number[];
+    sent_authed: { start: number; end: number }[];
+    recv: number[];
+    recv_authed: { start: number; end: number }[];
 }
 
 export interface ProverConfig {
@@ -182,19 +182,20 @@ export interface InitOutput {
   readonly web_spawn_recover_spawner: (a: number) => number;
   readonly web_spawn_start_worker: (a: number) => void;
   readonly ring_core_0_17_14__bn_mul_mont: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
+  readonly wasm_bindgen__convert__closures_____invoke__h94ee810a5da3a3bd: (a: number, b: number, c: any) => void;
+  readonly wasm_bindgen__closure__destroy__h3dd092fac2688418: (a: number, b: number) => void;
+  readonly wasm_bindgen__convert__closures_____invoke__h4a15e0be9db665d7: (a: number, b: number) => void;
+  readonly wasm_bindgen__convert__closures_____invoke__h1221e6fae8f79e66: (a: number, b: number, c: any) => void;
+  readonly wasm_bindgen__closure__destroy__h77926bfd4964395c: (a: number, b: number) => void;
+  readonly wasm_bindgen__convert__closures_____invoke__he1146594190fdf85: (a: number, b: number, c: any, d: any) => void;
   readonly memory: WebAssembly.Memory;
   readonly __wbindgen_malloc: (a: number, b: number) => number;
   readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
   readonly __wbindgen_exn_store: (a: number) => void;
   readonly __externref_table_alloc: () => number;
-  readonly __wbindgen_export_5: WebAssembly.Table;
+  readonly __wbindgen_externrefs: WebAssembly.Table;
   readonly __wbindgen_free: (a: number, b: number, c: number) => void;
-  readonly __wbindgen_export_7: WebAssembly.Table;
   readonly __externref_table_dealloc: (a: number) => void;
-  readonly wasm_bindgen__convert__closures_____invoke__h5261d4aab6ab8312: (a: number, b: number) => void;
-  readonly closure1906_externref_shim: (a: number, b: number, c: any) => void;
-  readonly closure43_externref_shim: (a: number, b: number, c: any) => void;
-  readonly closure3297_externref_shim: (a: number, b: number, c: any, d: any) => void;
   readonly __wbindgen_thread_destroy: (a?: number, b?: number, c?: number) => void;
   readonly __wbindgen_start: (a: number) => void;
 }
