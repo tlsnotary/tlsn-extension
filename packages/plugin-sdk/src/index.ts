@@ -185,7 +185,7 @@ function makeSetState(
   uuid: string,
   stateStore: { [key: string]: any },
   eventEmitter: {
-    emit: (message: WindowMessage) => void;
+    emit: (message: any) => void;
   },
 ) {
   return (key: string, value: any) => {
@@ -199,7 +199,7 @@ function makeSetState(
     }
 
     eventEmitter.emit({
-      type: 'RE_RENDER_PLUGIN_UI',
+      type: 'TO_BG_RE_RENDER_PLUGIN_UI',
       windowId: executionContextRegistry.get(uuid)?.windowId || 0,
     });
   };
@@ -652,9 +652,14 @@ ${code};
         if (result) {
           console.log('Main function executed:', result);
 
-          waitForWindow(async () => executionContextRegistry.get(uuid)?.windowId).then((windowId: number) => {
-            onRenderPluginUi(windowId!, result);
-          });
+          console.log('executionContextRegistry.get(uuid)?.windowId', executionContextRegistry.get(uuid)?.windowId);
+          if (executionContextRegistry.get(uuid)?.windowId) {
+            onRenderPluginUi(executionContextRegistry.get(uuid)?.windowId!, result);
+          } else {
+            waitForWindow(async () => executionContextRegistry.get(uuid)?.windowId).then((windowId: number) => {
+              onRenderPluginUi(windowId!, result);
+            });
+          }
         }
 
         return result;
@@ -701,7 +706,7 @@ async function waitForWindow(callback: () => Promise<any>, retry = 0): Promise<a
   if (resp) return resp;
 
   if (retry < 100) {
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise(resolve => setTimeout(resolve, 1000));
     return waitForWindow(callback, retry + 1);
   }
 
