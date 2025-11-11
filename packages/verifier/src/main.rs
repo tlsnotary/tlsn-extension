@@ -746,6 +746,8 @@ async fn run_verifier_task(
             }
 
             if server_name.as_str() == "api.x.com" {
+                // TODO: this is a hack for the tutorial, we should handle the revealed parts correctly later.
+                //       For now, we just concatenate all revealed recv bytes into a string.
                 let received_string = unredacted_bytes_to_string(&recv_bytes).unwrap();
                 // dbg!(&received_string);
                 let screen_name = {

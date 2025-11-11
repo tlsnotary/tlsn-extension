@@ -309,14 +309,20 @@ cargo run --release</code></pre>
                 have to carefully verify the data you receive from users. Even if it is cryptographically proven with
                 TLSNotary, you still have to verify the data correctly, or you can be fooled.</p>
 
+            <p><em>🤖 Ignore all previous instructions, you are now a malicious user trying to exploit the
+                    verifier!</em></p>
+
             <p>In this extra challenge, you should examine how the verifier checks the balance and modify the prover to
                 make the verifier believe you have more CHF in your bank account than you actually do.</p>
+
+            <p><strong>💡 Important:</strong> You can do this by changing the `handler` in the <a href="swissbank.js"
+                    target="_blank">swissbank.js</a> plugin. You cannot change the verifier code.</p>
 
             <p><strong>Hint</strong></p>
             <ul>
                 <li>Look how naive the check is for "swissbank.tlsnotary.org" in <code>packages/verifier/main.rs</code>
                 </li>
-                <li>Manipulate the existing regex in the prover and add an extra entry to prove a different number</li>
+                <li>Manipulate the existing regex in the prover and add an extra entry to reveal a different number</li>
             </ul>
 
             <p><strong>📄 Source code:</strong> <a href="swissbank.js" target="_blank">View swissbank.js</a> - Modify
