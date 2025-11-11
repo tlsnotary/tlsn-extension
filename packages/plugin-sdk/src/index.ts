@@ -562,7 +562,6 @@ ${code};
     const onOpenWindow = this.onOpenWindow;
     const onProve = this.onProve;
 
-    console.log('createEvalCode', uuid, stateStore);
     const sandbox = await this.createEvalCode({
       div: (param1?: DomOptions | DomJson[], param2?: DomJson[]) =>
         createDomJson('div', param1, param2),
@@ -617,6 +616,8 @@ ${code};
       }
     }
 
+    let json: DomJson | null = null;
+
     const main = () => {
       try {
         updateExecutionContext(uuid, {
@@ -653,13 +654,12 @@ ${code};
           console.log('Main function executed:', result);
 
           console.log('executionContextRegistry.get(uuid)?.windowId', executionContextRegistry.get(uuid)?.windowId);
-          if (executionContextRegistry.get(uuid)?.windowId) {
-            onRenderPluginUi(executionContextRegistry.get(uuid)?.windowId!, result);
-          } else {
-            waitForWindow(async () => executionContextRegistry.get(uuid)?.windowId).then((windowId: number) => {
-              onRenderPluginUi(windowId!, result);
-            });
-          }
+
+          json = result;
+          waitForWindow(async () => executionContextRegistry.get(uuid)?.windowId).then((windowId: number) => {
+            console.log('render result', json as DomJson);
+            onRenderPluginUi(windowId!, json as DomJson);
+          });
         }
 
         return result;
