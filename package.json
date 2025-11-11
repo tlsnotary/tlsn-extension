@@ -20,7 +20,7 @@
     "test": "npm run test --workspaces",
     "serve:test": "npm run serve:test --workspace=extension",
     "clean": "rm -rf packages/*/node_modules packages/*/dist packages/*/build node_modules",
-    "build:wasm": "sh packages/tlsn-wasm/build.sh v0.1.0-alpha.13",
+    "build:wasm": "sh packages/tlsn-wasm/build.sh v0.1.0-alpha.13 --no-logging",
     "demo": "serve -l 8080 packages/demo",
     "tutorial": "serve -l 8080 packages/tutorial"
   },

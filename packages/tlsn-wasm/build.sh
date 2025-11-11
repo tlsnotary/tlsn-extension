@@ -6,6 +6,11 @@ set -e # Exit on error
 cd "$(dirname "$0")"
 
 VERSION=${1:-origin/dev} # use `dev` branch if no version is set
+NO_LOGGING=${2}
+
+TARGET_DIR="../../tlsn-wasm-pkg/"
+
+rm -rf "$TARGET_DIR"
 
 rm -rf pkg
 
@@ -28,10 +33,26 @@ fi
 git checkout "${VERSION}" --force
 git reset --hard
 
+# Apply no-logging modification if requested
+if [ "$NO_LOGGING" = "--no-logging" ]; then
+    echo "Applying no-logging configuration..."
+    cd crates/wasm
+    
+    # Add it to the wasm32 target section (after the section header)
+    sed -i.bak '/^\[target\.\x27cfg(target_arch = "wasm32")\x27\.dependencies\]$/a\
+# Disable tracing events as a workaround for issue 959.\
+tracing = { workspace = true, features = ["release_max_level_off"] }' Cargo.toml
+    
+    # Clean up backup file
+    rm Cargo.toml.bak
+    
+    cd ../..
+fi
+
 cd crates/wasm
 cargo update
 ./build.sh
 cd ../../
 
-cp -r crates/wasm/pkg ../../tlsn-wasm-pkg/
-rm ../../tlsn-wasm-pkg/.gitignore
+cp -r crates/wasm/pkg "$TARGET_DIR"
+rm "$TARGET_DIR/.gitignore"
