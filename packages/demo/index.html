@@ -37,6 +37,58 @@
       padding: 10px 20px;
       font-size: 16px;
     }
+
+    .check-item {
+      margin: 10px 0;
+      padding: 10px;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+    }
+
+    .check-item.checking {
+      background: #f0f8ff;
+      border-color: #007bff;
+    }
+
+    .check-item.success {
+      background: #f0f8f0;
+      border-color: #28a745;
+    }
+
+    .check-item.error {
+      background: #fff0f0;
+      border-color: #dc3545;
+    }
+
+    .status {
+      font-weight: bold;
+      margin-left: 10px;
+    }
+
+    .status.checking {
+      color: #007bff;
+    }
+
+    .status.success {
+      color: #28a745;
+    }
+
+    .status.error {
+      color: #dc3545;
+    }
+
+    .warning-box {
+      background: #fff3cd;
+      border: 2px solid #ffc107;
+      border-radius: 8px;
+      padding: 16px;
+      margin: 20px 0;
+    }
+
+    .warning-box h3 {
+      margin-top: 0;
+      color: #856404;
+    }
   </style>
 </head>
 
@@ -45,14 +97,35 @@
   <p>
     This page demonstrates TLSNotary plugins. Choose a plugin to test below.
   </p>
-  <div>
-    <strong>Requirements:</strong>
-    <ul>
-      <li>Double check that the TLSNotary extension is installed and enabled in your browser.</li>
-      <li>Make sure the verifier server is running (<code>cd packages/verifier; cargo run --release</code>).</li>
-    </ul>
+
+  <!-- Browser compatibility warning -->
+  <div id="browser-warning" class="warning-box" style="display: none;">
+    <h3>⚠️ Browser Compatibility</h3>
+    <p><strong>Unsupported Browser Detected</strong></p>
+    <p>TLSNotary extension requires a Chrome-based browser (Chrome, Edge, Brave, etc.).</p>
+    <p>Please switch to a supported browser to continue.</p>
   </div>
+
+  <!-- System checks -->
   <div>
+    <strong>System Checks:</strong>
+    <div id="check-browser" class="check-item checking">
+      🌐 Browser: <span class="status checking">Checking...</span>
+    </div>
+    <div id="check-extension" class="check-item checking">
+      🔌 Extension: <span class="status checking">Checking...</span>
+    </div>
+    <div id="check-verifier" class="check-item checking">
+      ✅ Verifier: <span class="status checking">Checking...</span>
+      <div id="verifier-instructions" style="display: none; margin-top: 10px; font-size: 14px;">
+        <p>Start the verifier server:</p>
+        <code>cd packages/verifier; cargo run --release</code>
+        <button onclick="checkVerifier()" style="margin-left: 10px; padding: 5px 10px;">Check Again</button>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top: 20px;">
     <strong>Steps:</strong>
     <ol>
       <li>Click one of the plugin "Run" buttons below.</li>
@@ -67,6 +140,116 @@
 
   <script>
     console.log('Testing TLSNotary plugins...');
+
+    let allChecksPass = false;
+
+    // Check browser compatibility
+    function checkBrowserCompatibility() {
+      const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+      const isEdge = /Edg/.test(navigator.userAgent);
+      const isBrave = navigator.brave && typeof navigator.brave.isBrave === 'function';
+      const isChromium = /Chromium/.test(navigator.userAgent);
+
+      const isChromeBasedBrowser = isChrome || isEdge || isBrave || isChromium;
+
+      const checkDiv = document.getElementById('check-browser');
+      const warningDiv = document.getElementById('browser-warning');
+      const statusSpan = checkDiv.querySelector('.status');
+
+      if (isChromeBasedBrowser) {
+        checkDiv.className = 'check-item success';
+        statusSpan.className = 'status success';
+        statusSpan.textContent = '✅ Chrome-based browser detected';
+        return true;
+      } else {
+        checkDiv.className = 'check-item error';
+        statusSpan.className = 'status error';
+        statusSpan.textContent = '❌ Unsupported browser';
+        warningDiv.style.display = 'block';
+        return false;
+      }
+    }
+
+    // Check extension
+    async function checkExtension() {
+      const checkDiv = document.getElementById('check-extension');
+      const statusSpan = checkDiv.querySelector('.status');
+
+      // Wait a bit for tlsn to load if page just loaded
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      if (typeof window.tlsn !== 'undefined') {
+        checkDiv.className = 'check-item success';
+        statusSpan.className = 'status success';
+        statusSpan.textContent = '✅ Extension installed';
+        return true;
+      } else {
+        checkDiv.className = 'check-item error';
+        statusSpan.className = 'status error';
+        statusSpan.innerHTML = '❌ Extension not found - <a href="chrome://extensions/" target="_blank">Install extension</a>';
+        return false;
+      }
+    }
+
+    // Check verifier server
+    async function checkVerifier() {
+      const checkDiv = document.getElementById('check-verifier');
+      const statusSpan = checkDiv.querySelector('.status');
+      const instructions = document.getElementById('verifier-instructions');
+
+      statusSpan.textContent = 'Checking...';
+      statusSpan.className = 'status checking';
+      checkDiv.className = 'check-item checking';
+
+      try {
+        const response = await fetch('http://localhost:7047/health');
+        if (response.ok && await response.text() === 'ok') {
+          checkDiv.className = 'check-item success';
+          statusSpan.className = 'status success';
+          statusSpan.textContent = '✅ Verifier running';
+          instructions.style.display = 'none';
+          return true;
+        } else {
+          throw new Error('Unexpected response');
+        }
+      } catch (error) {
+        checkDiv.className = 'check-item error';
+        statusSpan.className = 'status error';
+        statusSpan.textContent = '❌ Verifier not running';
+        instructions.style.display = 'block';
+        return false;
+      }
+    }
+
+    // Run all checks
+    async function runAllChecks() {
+      const browserOk = checkBrowserCompatibility();
+      if (!browserOk) {
+        allChecksPass = false;
+        return;
+      }
+
+      const extensionOk = await checkExtension();
+      const verifierOk = await checkVerifier();
+
+      allChecksPass = extensionOk && verifierOk;
+      updateButtonState();
+    }
+
+    // Update button state based on checks
+    function updateButtonState() {
+      const container = document.getElementById('buttonContainer');
+      const buttons = container.querySelectorAll('button');
+
+      buttons.forEach(button => {
+        button.disabled = !allChecksPass;
+        if (!allChecksPass) {
+          button.title = 'Please complete all system checks first';
+        } else {
+          button.title = '';
+        }
+      });
+    }
 
     const plugins = {
       twitter: {
@@ -142,6 +325,16 @@
         button.onclick = () => runPlugin(key);
         container.appendChild(button);
       });
+
+      // Update button states after creating them
+      updateButtonState();
+    });
+
+    // Run checks on page load
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        runAllChecks();
+      }, 500);
     });
   </script>
 </body>
