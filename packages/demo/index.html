@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>TLSNotary Plugin test page</title>
+  <style>
+    .result {
+      background: #e8f5e8;
+      border: 2px solid #28a745;
+      border-radius: 8px;
+      padding: 16px;
+      margin: 20px 0;
+      font-size: 18px;
+      display: inline-block;
+    }
+
+    .debug {
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 4px;
+      padding: 12px;
+      margin: 20px 0;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .plugin-buttons {
+      margin: 20px 0;
+    }
+
+    .plugin-buttons button {
+      margin-right: 10px;
+      padding: 10px 20px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>TLSNotary Plugin Demo</h1>
+  <p>
+    This page demonstrates TLSNotary plugins. Choose a plugin to test below.
+  </p>
+  <div>
+    <strong>Requirements:</strong>
+    <ul>
+      <li>Double check that the TLSNotary extension is installed and enabled in your browser.</li>
+      <li>Make sure the verifier server is running (<code>cd packages/verifier; cargo run --release</code>).</li>
+    </ul>
+  </div>
+  <div>
+    <strong>Steps:</strong>
+    <ol>
+      <li>Click one of the plugin "Run" buttons below.</li>
+      <li>The plugin will open a new browser window with the target website.</li>
+      <li>Log in to the website if you are not already logged in.</li>
+      <li>A TLSNotary overlay will appear in the bottom right corner.</li>
+      <li>Click the <strong>Prove</strong> button in the overlay to start the proving process.</li>
+      <li>After successful proving, you can close the browser window and the results will appear on this page.</li>
+    </ol>
+  </div>
+  <div class="plugin-buttons" id="buttonContainer"></div>
+
+  <script>
+    console.log('Testing TLSNotary plugins...');
+
+    const plugins = {
+      twitter: {
+        name: 'Twitter profile Plugin',
+        file: 'twitter.js',
+        parseResult: (json) => {
+          return json.results[json.results.length - 1].value;
+        }
+      },
+      swissbank: {
+        name: 'Swiss Bank Plugin',
+        file: 'swissbank.js',
+        parseResult: (json) => {
+          return json.results[json.results.length - 1].value;
+        }
+      }
+    };
+
+    async function runPlugin(pluginKey) {
+      const plugin = plugins[pluginKey];
+      const button = document.getElementById(`${pluginKey}Button`);
+
+      try {
+        console.log(`Running ${plugin.name} plugin...`);
+        button.disabled = true;
+        button.textContent = 'Running...';
+
+        const pluginCode = await fetch(plugin.file).then(r => r.text());
+        const result = await window.tlsn.execCode(pluginCode);
+        const json = JSON.parse(result);
+
+        // Create result div
+        const resultDiv = document.createElement('div');
+        resultDiv.className = 'result';
+        resultDiv.innerHTML = plugin.parseResult(json);
+        document.body.appendChild(resultDiv);
+
+        // Create header
+        const header = document.createElement('h3');
+        header.textContent = `${plugin.name} Results:`;
+        document.body.appendChild(header);
+
+        // Create debug div
+        const debugDiv = document.createElement('div');
+        debugDiv.className = 'debug';
+        debugDiv.textContent = JSON.stringify(json.results, null, 2);
+        document.body.appendChild(debugDiv);
+
+        // Remove the button after successful execution
+        button.remove();
+      } catch (err) {
+        console.error(err);
+
+        // Create error div
+        const errorDiv = document.createElement('pre');
+        errorDiv.style.color = 'red';
+        errorDiv.textContent = err.message;
+        document.body.appendChild(errorDiv);
+
+        button.textContent = `Run ${plugin.name}`;
+        button.disabled = false;
+      }
+    }
+
+    window.addEventListener('tlsn_loaded', () => {
+      console.log('TLSNotary client loaded, showing plugin buttons...');
+      const container = document.getElementById('buttonContainer');
+
+      Object.entries(plugins).forEach(([key, plugin]) => {
+        const button = document.createElement('button');
+        button.id = `${key}Button`;
+        button.textContent = `Run ${plugin.name}`;
+        button.onclick = () => runPlugin(key);
+        container.appendChild(button);
+      });
+    });
+  </script>
+</body>
+
+</html>

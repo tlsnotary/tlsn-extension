@@ -1,0 +1,32 @@
+{
+  "name": "tlsn-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "TLSN Extension monorepo with plugin SDK",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tlsnotary/tlsn-extension.git"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace=extension",
+    "build:all": "npm run build --workspaces",
+    "dev": "npm run dev --workspace=extension",
+    "lint": "npm run lint --workspaces",
+    "lint:fix": "npm run lint:fix --workspaces",
+    "test": "npm run test --workspaces",
+    "serve:test": "npm run serve:test --workspace=extension",
+    "clean": "rm -rf packages/*/node_modules packages/*/dist packages/*/build node_modules",
+    "build:wasm": "sh packages/tlsn-wasm/build.sh v0.1.0-alpha.13 --no-logging",
+    "demo": "serve -l 8080 packages/demo",
+    "tutorial": "serve -l 8080 packages/tutorial"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4",
+    "vite": "^7.1.7",
+    "serve": "^14.2.4"
+  }
+}

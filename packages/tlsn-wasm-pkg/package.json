@@ -1,0 +1,30 @@
+{
+  "name": "tlsn-wasm",
+  "type": "module",
+  "description": "A core WebAssembly package for TLSNotary.",
+  "version": "0.1.0-alpha.13",
+  "license": "MIT OR Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tlsnotary/tlsn.git"
+  },
+  "files": [
+    "tlsn_wasm_bg.wasm",
+    "tlsn_wasm.js",
+    "tlsn_wasm.d.ts",
+    "tlsn_wasm_bg.wasm.d.ts",
+    "spawn.js",
+    "snippets/"
+  ],
+  "main": "tlsn_wasm.js",
+  "homepage": "https://tlsnotary.org",
+  "types": "tlsn_wasm.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ],
+  "keywords": [
+    "tls",
+    "tlsn",
+    "tlsnotary"
+  ]
+}
