@@ -173,16 +173,11 @@
         <div id="extension-status" class="status checking">Checking extension...</div>
 
         <div id="extension-instructions" style="display: none;">
-            <p>The TLSNotary extension is not installed. Please install it from the Chrome Web Store:</p>
+            <p>The TLSNotary extension is not installed. Please  build it locally:</p>
             <ul>
-                <!-- <li>
-                    <p><a href="https://chromewebstore.google.com/detail/tlsn-extension/gcfkkledipjbgdbimfpijgbkhajiaaph?pli=1"
-                            target="_blank">Install TLSNotary Extension</a></p>
-                    (TODO/FIXME: add correct link here)
-                </li> -->
                 <li>
-                    <p>Or build it locally:</p>
-                    <pre><code>npm install
+                    <pre><code>cd ./packages/extension
+npm install
 npm run build</code></pre>
                     <p>Then install in Chrome:</p>
                     <ol>
