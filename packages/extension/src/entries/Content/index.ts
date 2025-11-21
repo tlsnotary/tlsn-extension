@@ -97,6 +97,19 @@ function createNode(json: DomJson, windowId: number): HTMLElement | Text {
 browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
   console.log('Content script received message:', request);
 
+  // Forward offscreen logs to page
+  if (request.type === 'OFFSCREEN_LOG') {
+    window.postMessage(
+      {
+        type: 'TLSN_OFFSCREEN_LOG',
+        level: request.level,
+        message: request.message
+      },
+      window.location.origin
+    );
+    return true;
+  }
+
   if (request.type === 'GET_PAGE_INFO') {
     // Example: Get page information
     sendResponse({
