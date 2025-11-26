@@ -145,7 +145,6 @@ type ProverSocketSender = oneshot::Sender<WebSocket>;
 // Session data stored in AppState
 struct SessionData {
     prover_socket_tx: ProverSocketSender,
-    reveal_config: Arc<Mutex<Option<RevealConfig>>>,
 }
 
 // Application state for sharing data between handlers
@@ -252,13 +251,7 @@ async fn handle_session_websocket(mut socket: WebSocket, state: Arc<AppState>) {
     // Store session data WITHOUT reveal config yet (so prover can connect)
     {
         let mut sessions = state.sessions.lock().await;
-        sessions.insert(
-            session_id.clone(),
-            SessionData {
-                prover_socket_tx,
-                reveal_config: reveal_config_storage.clone(),
-            },
-        );
+        sessions.insert(session_id.clone(), SessionData { prover_socket_tx });
     }
 
     info!(
@@ -703,130 +696,30 @@ async fn run_verifier_task(
                 session_id
             );
 
-            // Map revealed ranges to handler results using RAW byte vectors
-            // IMPORTANT: Use sent_bytes/recv_bytes (raw transcript with \0 for unrevealed)
-            // NOT sent_string/recv_string (which have 🙈 emoji replacing \0)
+            // Map revealed ranges to handler results using raw transcript bytes
+
             let mut handler_results = Vec::new();
 
-            // Process sent ranges - extract from raw bytes
-            for range_with_handler in &reveal_config.sent {
-                let value = if range_with_handler.start < sent_bytes.len()
-                    && range_with_handler.end <= sent_bytes.len()
-                    && range_with_handler.start < range_with_handler.end
-                {
-                    // Extract bytes from RAW transcript (before \0 → 🙈 conversion)
-                    let bytes = &sent_bytes[range_with_handler.start..range_with_handler.end];
-                    String::from_utf8_lossy(bytes).to_string()
-                } else {
-                    format!(
-                        "ERROR: Invalid range [{}, {})",
-                        range_with_handler.start, range_with_handler.end
-                    )
-                };
+            // Process ranges using unified function to eliminate duplication
+            handler_results.extend(process_ranges(
+                &reveal_config.sent,
+                &sent_bytes,
+                "SENT",
+                &session_id,
+            ));
+            handler_results.extend(process_ranges(
+                &reveal_config.recv,
+                &recv_bytes,
+                "RECV",
+                &session_id,
+            ));
 
-                info!(
-                    "[{}] Mapped SENT range [{}, {}) to handler {:?}: {} bytes",
-                    session_id,
-                    range_with_handler.start,
-                    range_with_handler.end,
-                    range_with_handler.handler.part,
-                    value.len()
-                );
-
-                handler_results.push(HandlerResult {
-                    handler: range_with_handler.handler.clone(),
-                    value,
-                });
+            // Handle domain-specific verification using extracted functions
+            if let Some(domain_result) =
+                handle_domain_verification(server_name.as_str(), &recv_bytes)
+            {
+                handler_results.push(domain_result);
             }
-
-            // Process recv ranges - extract from raw bytes
-            for range_with_handler in &reveal_config.recv {
-                let value = if range_with_handler.start < recv_bytes.len()
-                    && range_with_handler.end <= recv_bytes.len()
-                    && range_with_handler.start < range_with_handler.end
-                {
-                    // Extract bytes from RAW transcript (before \0 → 🙈 conversion)
-                    let bytes = &recv_bytes[range_with_handler.start..range_with_handler.end];
-                    String::from_utf8_lossy(bytes).to_string()
-                } else {
-                    format!(
-                        "ERROR: Invalid range [{}, {})",
-                        range_with_handler.start, range_with_handler.end
-                    )
-                };
-
-                info!(
-                    "[{}] Mapped RECV range [{}, {}) to handler {:?}: {} bytes",
-                    session_id,
-                    range_with_handler.start,
-                    range_with_handler.end,
-                    range_with_handler.handler.part,
-                    value.len()
-                );
-
-                handler_results.push(HandlerResult {
-                    handler: range_with_handler.handler.clone(),
-                    value,
-                });
-            }
-
-            if server_name.as_str() == "api.x.com" {
-                // TODO: this is a hack for the tutorial, we should handle the revealed parts correctly later.
-                //       For now, we just concatenate all revealed recv bytes into a string.
-                let received_string = unredacted_bytes_to_string(&recv_bytes).unwrap();
-                // dbg!(&received_string);
-                let screen_name = {
-                    let re = regex::Regex::new(r#""screen_name":"([^"]+)""#).unwrap();
-                    re.captures(&received_string)
-                        .and_then(|caps| caps.get(1))
-                        .map(|m| m.as_str())
-                        .unwrap_or("unknown")
-                };
-
-                let result = if screen_name == "unknown" {
-                    "❌ Failed verifying screen name ❌".to_string()
-                } else {
-                    format!("✅ Verified screen name: \"{}\"", screen_name)
-                };
-                info!("============================================");
-                info!("{}", result);
-                info!("============================================");
-                // push result to prover
-                handler_results.push(HandlerResult {
-                    handler: Handler {
-                        handler_type: HandlerType::Recv,
-                        part: HandlerPart::All,
-                    },
-                    value: result,
-                });
-            };
-
-            if server_name.as_str() == "swissbank.tlsnotary.org" {
-                let received_string = unredacted_bytes_to_string(&recv_bytes).unwrap();
-                let chf = {
-                    let re = regex::Regex::new(r#""CHF":"([^"]+)""#).unwrap();
-                    re.captures(&received_string)
-                        .and_then(|caps| caps.get(1))
-                        .map(|m| m.as_str())
-                        .unwrap_or("unknown")
-                };
-                let result = if chf == "unknown" {
-                    "❌ Failed verifying Swiss Frank (CHF) balance ❌".to_string()
-                } else {
-                    format!("✅ Verified Swiss Frank (CHF) balance: \"{}\"", chf)
-                };
-                info!("============================================");
-                info!("{}", result);
-                info!("============================================");
-                // push result to prover
-                handler_results.push(HandlerResult {
-                    handler: Handler {
-                        handler_type: HandlerType::Recv,
-                        part: HandlerPart::All,
-                    },
-                    value: result,
-                });
-            };
 
             // Send result to extension via the result channel
             let result = VerificationResult {
@@ -899,7 +792,118 @@ async fn cleanup_session(state: &Arc<AppState>, session_id: &str) {
     }
 }
 
-// filter redacted bytes and convert to string
+/// Processes ranges and extracts values from transcript bytes
+fn process_ranges(
+    ranges: &[RangeWithHandler],
+    bytes: &[u8],
+    direction: &str,
+    session_id: &str,
+) -> Vec<HandlerResult> {
+    ranges
+        .iter()
+        .map(|range_with_handler| {
+            let value = if range_with_handler.start < bytes.len()
+                && range_with_handler.end <= bytes.len()
+                && range_with_handler.start < range_with_handler.end
+            {
+                let extracted_bytes = &bytes[range_with_handler.start..range_with_handler.end];
+                String::from_utf8_lossy(extracted_bytes).to_string()
+            } else {
+                format!(
+                    "ERROR: Invalid range [{}, {})",
+                    range_with_handler.start, range_with_handler.end
+                )
+            };
+
+            debug!(
+                "[{}] Mapped {} range [{}, {}) to handler {:?}: {} bytes",
+                session_id,
+                direction,
+                range_with_handler.start,
+                range_with_handler.end,
+                range_with_handler.handler.part,
+                value.len()
+            );
+
+            HandlerResult {
+                handler: range_with_handler.handler.clone(),
+                value,
+            }
+        })
+        .collect()
+}
+
+/// Handles domain-specific verification for known domains
+fn handle_domain_verification(domain: &str, recv_bytes: &[u8]) -> Option<HandlerResult> {
+    match domain {
+        "api.x.com" => extract_x_screen_name(recv_bytes),
+        "swissbank.tlsnotary.org" => extract_swiss_bank_balance(recv_bytes),
+        _ => None,
+    }
+}
+
+/// Extracts and verifies X.com screen name
+fn extract_x_screen_name(recv_bytes: &[u8]) -> Option<HandlerResult> {
+    let received_string = unredacted_bytes_to_string(recv_bytes).ok()?;
+    let re = regex::Regex::new(r#""screen_name":"([^"]+)""#).unwrap();
+    let screen_name = re
+        .captures(&received_string)
+        .and_then(|caps| caps.get(1))
+        .map(|m| m.as_str())
+        .unwrap_or("unknown");
+
+    let result = if screen_name == "unknown" {
+        "❌ Failed verifying screen name ❌".to_string()
+    } else {
+        format!("✅ Verified screen name: \"{}\"", screen_name)
+    };
+
+    log_verification_result(&result);
+
+    Some(HandlerResult {
+        handler: Handler {
+            handler_type: HandlerType::Recv,
+            part: HandlerPart::All,
+        },
+        value: result,
+    })
+}
+
+/// Extracts and verifies Swiss bank CHF balance
+fn extract_swiss_bank_balance(recv_bytes: &[u8]) -> Option<HandlerResult> {
+    let received_string = unredacted_bytes_to_string(recv_bytes).ok()?;
+    let re = regex::Regex::new(r#""CHF":"([^"]+)""#).unwrap();
+    let chf = re
+        .captures(&received_string)
+        .and_then(|caps| caps.get(1))
+        .map(|m| m.as_str())
+        .unwrap_or("unknown");
+
+    let result = if chf == "unknown" {
+        "❌ Failed verifying Swiss Frank (CHF) balance ❌".to_string()
+    } else {
+        format!("✅ Verified Swiss Frank (CHF) balance: \"{}\"", chf)
+    };
+
+    log_verification_result(&result);
+
+    Some(HandlerResult {
+        handler: Handler {
+            handler_type: HandlerType::Recv,
+            part: HandlerPart::All,
+        },
+        value: result,
+    })
+}
+
+/// Logs verification results with consistent formatting
+fn log_verification_result(result: &str) {
+    info!("============================================");
+    info!("{}", result);
+    info!("============================================");
+}
+
+/// Filter redacted bytes and convert to string
 fn unredacted_bytes_to_string(bytes: &[u8]) -> Result<String, eyre::ErrReport> {
     let unredacted_bytes: Vec<u8> = bytes.iter().copied().filter(|&b| b != 0).collect();
     String::from_utf8(unredacted_bytes)
