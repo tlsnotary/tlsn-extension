@@ -10,17 +10,19 @@ use axum::{
 };
 use axum_websocket::{WebSocket, WebSocketUpgrade};
 use eyre::eyre;
+use rangeset::RangeSet;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
+use tlsn::transcript::PartialTranscript;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::{oneshot, Mutex};
 use tokio::time::timeout;
 use tokio_util::compat::FuturesAsyncReadCompatExt;
 use tower_http::cors::CorsLayer;
-use tracing::{error, info};
+use tracing::{debug, error, info};
 use uuid::Uuid;
 use verifier::verifier;
 use ws_stream_tungstenite::WsStream;
@@ -637,17 +639,24 @@ async fn run_verifier_task(
 
     // Handle the verification result
     match verification_result {
-        Ok(Ok((server_name, sent_bytes, recv_bytes))) => {
+        Ok(Ok((server_name, transcript))) => {
             info!("[{}] ✅ Verification completed successfully!", session_id);
+
+            // Extract sent and received data
+            let sent_bytes = transcript.sent_unsafe().to_vec();
+            let recv_bytes = transcript.received_unsafe().to_vec();
+
             info!(
-                "[{}] Sent data length: {} bytes",
+                "[{}] Sent data length: {} bytes (authed: {} bytes)",
                 session_id,
-                sent_bytes.len()
+                sent_bytes.len(),
+                transcript.sent_authed().iter().sum::<usize>(),
             );
             info!(
-                "[{}] Received data length: {} bytes",
+                "[{}] Received data length: {} bytes (authed: {} bytes)",
                 session_id,
-                recv_bytes.len()
+                recv_bytes.len(),
+                transcript.received_authed().iter().sum::<usize>()
             );
 
             // Wait for RevealConfig to be available (with polling and timeout)
@@ -677,6 +686,22 @@ async fn run_verifier_task(
                 info!("[{}] Waiting for RevealConfig...", session_id);
                 tokio::time::sleep(Duration::from_millis(100)).await;
             };
+
+            // Validate that reveal_config ranges match authenticated transcript ranges
+            if let Err((direction, start, end)) = verify_reveal_config(&reveal_config, &transcript)
+            {
+                error!(
+                    "[{}] ❌ Invalid {} range [{}, {}) - not fully within authenticated ranges",
+                    session_id, direction, start, end
+                );
+                cleanup_session(&state, &session_id).await;
+                return;
+            }
+
+            info!(
+                "[{}] ✅ All reveal_config ranges validated against authenticated transcript",
+                session_id
+            );
 
             // Map revealed ranges to handler results using RAW byte vectors
             // IMPORTANT: Use sent_bytes/recv_bytes (raw transcript with \0 for unrevealed)
@@ -834,6 +859,36 @@ async fn run_verifier_task(
     cleanup_session(&state, &session_id).await;
 
     info!("[{}] Verifier task completed and cleaned up", session_id);
+}
+
+/// Validates that all ranges in reveal config are fully within authenticated transcript ranges.
+/// Returns error with (direction, start, end) if any range contains unauthenticated data.
+fn verify_reveal_config(
+    reveal_config: &RevealConfig,
+    transcript: &PartialTranscript,
+) -> Result<(), (String, usize, usize)> {
+    fn validate_ranges_against_auth_set(
+        ranges: &[RangeWithHandler],
+        auth_set: &RangeSet<usize>,
+        direction: &str,
+    ) -> Result<(), (String, usize, usize)> {
+        for range in ranges {
+            if !(range.start..range.end).all(|i| auth_set.contains(&i)) {
+                return Err((direction.to_string(), range.start, range.end));
+            }
+
+            debug!(
+                "✅ {} range [{}, {}) validated - fully within authenticated ranges",
+                direction, range.start, range.end
+            );
+        }
+        Ok(())
+    }
+
+    validate_ranges_against_auth_set(&reveal_config.sent, transcript.sent_authed(), "sent")?;
+    validate_ranges_against_auth_set(&reveal_config.recv, transcript.received_authed(), "recv")?;
+
+    Ok(())
 }
 
 // Helper function to clean up session from state

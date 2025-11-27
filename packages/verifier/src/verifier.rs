@@ -2,6 +2,7 @@ use eyre::eyre;
 use tlsn::{
     config::ProtocolConfigValidator,
     connection::{DnsName, ServerName},
+    transcript::PartialTranscript,
     verifier::{Verifier, VerifierConfig, VerifierOutput, VerifyConfig},
 };
 use tokio::io::{AsyncRead, AsyncWrite};
@@ -16,7 +17,7 @@ pub async fn verifier<T: AsyncWrite + AsyncRead + Send + Unpin + 'static>(
     socket: T,
     max_sent_data: usize,
     max_recv_data: usize,
-) -> Result<(DnsName, Vec<u8>, Vec<u8>), eyre::ErrReport> {
+) -> Result<(DnsName, PartialTranscript), eyre::ErrReport> {
     info!(
         "Starting verification with maxSentData={}, maxRecvData={}",
         max_sent_data, max_recv_data
@@ -70,21 +71,21 @@ pub async fn verifier<T: AsyncWrite + AsyncRead + Send + Unpin + 'static>(
     info!("✅ MPC-TLS Verification successful!");
     info!("============================================");
 
-    let sent_string = bytes_to_redacted_string(&sent, "🙈")?;
-    let received_string = bytes_to_redacted_string(&received, "🙈")?;
-
-    info!("Sent data: {:?}", sent_string);
-    info!("Received data: {:?}", received_string);
+    info!("Sent data: {:?}", bytes_to_redacted_string(&sent, "█")?);
+    info!(
+        "Received data: {:?}",
+        bytes_to_redacted_string(&received, "█")?
+    );
 
     // Return both raw bytes (for range extraction) and display strings (for logging)
-    Ok((dns_name, sent, received))
+    Ok((dns_name, transcript))
 }
 
 /// Compress long sequences of redacted emojis for better readability
 #[allow(unused)]
 fn compress_redacted_sequences(text: String) -> String {
-    let re = regex::Regex::new(r"🙈{5,}").unwrap();
-    re.replace_all(&text, "🙈…🙈").to_string()
+    let re = regex::Regex::new(r"█{5,}").unwrap();
+    re.replace_all(&text, "█…█").to_string()
 }
 
 /// Render redacted bytes as `🙈`.
