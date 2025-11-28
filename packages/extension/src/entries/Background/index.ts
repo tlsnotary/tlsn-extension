@@ -13,17 +13,17 @@ console.log('Background script loaded');
 // Initialize WindowManager for multi-window support
 const windowManager = new WindowManager();
 
-// Create context menu for Developer Console
+// Create context menu for Developer Console - only for extension icon
 browser.contextMenus.create({
   id: 'developer-console',
   title: 'Developer Console',
-  contexts: ['all'],
+  contexts: ['action'],
 });
 
 // Handle context menu clicks
 browser.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === 'developer-console') {
-    // Open Developer Console in a new tab
+    // Open Developer Console
     browser.tabs.create({
       url: browser.runtime.getURL('devConsole.html'),
     });
