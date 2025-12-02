@@ -68,23 +68,26 @@ Key message handlers:
 - `PING` → `PONG` (connectivity test)
 - `OPEN_WINDOW` → Creates new managed window with URL validation, request tracking, and optional overlay
 - `TLSN_CONTENT_TO_EXTENSION` → Legacy handler that opens x.com window (backward compatibility)
+- `CONTENT_SCRIPT_READY` → Triggers plugin UI re-render when content script initializes in a managed window
 
 #### 2. **Content Script** (`src/entries/Content/index.ts`)
 Injected into all HTTP/HTTPS pages via manifest. Responsibilities:
 - **Script Injection**: Injects `content.bundle.js` into page context to expose page-accessible API
-- **TLSN Overlay Management**: Creates/updates full-screen overlay showing intercepted requests
+- **Plugin UI Rendering**: Renders plugin UI from DOM JSON into actual DOM elements in container
 - **Message Bridge**: Bridges messages between page scripts and extension background
-- **Request Display**: Real-time updates of intercepted requests in overlay UI
+- **Lifecycle Notifications**: Notifies background when content script is ready
 
 Message handlers:
 - `GET_PAGE_INFO` → Returns page title, URL, domain
-- `SHOW_TLSN_OVERLAY` → Creates overlay with initial requests
-- `UPDATE_TLSN_REQUESTS` → Updates overlay with new requests
-- `HIDE_TLSN_OVERLAY` → Removes overlay and clears state
+- `RE_RENDER_PLUGIN_UI` → Renders plugin UI from DOM JSON structure into DOM container
+- `HIDE_TLSN_OVERLAY` → Removes plugin UI container and clears state
 
 Window message handler:
 - Listens for `TLSN_CONTENT_SCRIPT_MESSAGE` from page scripts
 - Forwards to background via `TLSN_CONTENT_TO_EXTENSION`
+
+On initialization:
+- Sends `CONTENT_SCRIPT_READY` message to background to trigger UI re-render for managed windows
 
 #### 3. **Content Module** (`src/entries/Content/content.ts`)
 Injected script running in page context (not content script context):
@@ -229,6 +232,17 @@ Browser: HTTP request in managed window
 Background: WindowManager.addRequest()
   ↓ browser.tabs.sendMessage(UPDATE_TLSN_REQUESTS)
 Content Script: Update overlay UI
+```
+
+**Plugin UI Re-rendering Flow**:
+```
+Content Script: Loads in managed window
+  ↓ browser.runtime.sendMessage(CONTENT_SCRIPT_READY)
+Background: Receives CONTENT_SCRIPT_READY
+  ↓ WindowManager.reRenderPluginUI(windowId)
+  ↓ SessionManager calls main(true) to force re-render
+  ↓ browser.tabs.sendMessage(RE_RENDER_PLUGIN_UI)
+Content Script: Renders plugin UI from DOM JSON
 ```
 
 **Multi-Window Management**:
@@ -424,6 +438,7 @@ const ranges = parser.ranges.body('screen_name', { type: 'json', hideKey: true }
 - Network and filesystem access disabled by default
 - Host controls available capabilities through `env` object
 - Reactive rendering: `main()` function called whenever hook state changes
+- Force re-render: `main(true)` can be called to force UI re-render even if state hasn't changed (used on content script initialization)
 
 ### Build Configuration
 - **Vite**: Builds isomorphic package for Node.js and browser
