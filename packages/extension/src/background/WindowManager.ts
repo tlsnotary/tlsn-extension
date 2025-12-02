@@ -22,6 +22,46 @@ import {
 } from '../constants/limits';
 
 /**
+ * Helper function to convert ArrayBuffers to number arrays for JSON serialization
+ * This is needed because Chrome's webRequest API returns ArrayBuffers in requestBody.raw[].bytes
+ * which cannot be JSON stringified
+ */
+function convertArrayBuffersToArrays(obj: any): any {
+  // Handle null/undefined
+  if (obj == null) {
+    return obj;
+  }
+
+  // Check for ArrayBuffer
+  if (obj instanceof ArrayBuffer || obj.constructor?.name === 'ArrayBuffer') {
+    return Array.from(new Uint8Array(obj));
+  }
+
+  // Check for typed arrays (Uint8Array, Int8Array, etc.)
+  if (ArrayBuffer.isView(obj)) {
+    return Array.from(obj as any);
+  }
+
+  // Handle regular arrays
+  if (Array.isArray(obj)) {
+    return obj.map(convertArrayBuffersToArrays);
+  }
+
+  // Handle objects (but not Date, RegExp, etc.)
+  if (typeof obj === 'object' && obj.constructor === Object) {
+    const converted: any = {};
+    for (const key in obj) {
+      if (obj.hasOwnProperty(key)) {
+        converted[key] = convertArrayBuffersToArrays(obj[key]);
+      }
+    }
+    return converted;
+  }
+
+  return obj;
+}
+
+/**
  * WindowManager implementation
  *
  * Provides centralized management for multiple browser windows with:
@@ -226,11 +266,16 @@ export class WindowManager implements IWindowManager {
       request.timestamp = Date.now();
     }
 
-    window.requests.push(request);
+    // Convert ArrayBuffers to number arrays for JSON serialization
+    const convertedRequest = convertArrayBuffersToArrays(
+      request,
+    ) as InterceptedRequest;
+
+    window.requests.push(convertedRequest);
 
     browser.runtime.sendMessage({
       type: 'REQUEST_INTERCEPTED',
-      request,
+      request: convertedRequest,
       windowId,
     });
 
