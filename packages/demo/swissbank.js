@@ -50,8 +50,8 @@ async function onClick() {
                 { type: 'SENT', part: 'START_LINE', action: 'REVEAL', },
                 { type: 'RECV', part: 'START_LINE', action: 'REVEAL', },
                 { type: 'RECV', part: 'BODY', action: 'REVEAL', params: { type: 'json', path: 'account_id' }, },
-                // { type: 'RECV', part: 'BODY', action: 'REVEAL', params: { type: 'json', path: 'accounts.CHF' }, },
-                { type: 'RECV', part: 'ALL', action: 'REVEAL', params: { type: 'regex', regex: '"CHF"\s*:\s*"[^"]+"' }, },
+                { type: 'RECV', part: 'BODY', action: 'REVEAL', params: { type: 'json', path: 'accounts.CHF' }, },
+                // { type: 'RECV', part: 'ALL', action: 'REVEAL', params: { type: 'regex', regex: '"CHF"\s*:\s*"[^"]+"' }, },
                 // { type: 'RECV', part: 'ALL', action: 'REVEAL', params: { type: 'regex', regex: '"CHF"\s*:' }, },
                 // { type: 'RECV', part: 'ALL', action: 'REVEAL', params: { type: 'regex', regex: '"275_000_000"' }, },
             ]
