@@ -44,7 +44,7 @@ export type ExecutionContext = {
     eval: (code: string) => Promise<unknown>;
     dispose: () => void;
   };
-  main: () => any;
+  main: (force?: boolean) => any;
   callbacks: {
     [callbackName: string]: () => Promise<void>;
   };

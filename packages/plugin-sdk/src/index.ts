@@ -303,7 +303,7 @@ function makeOpenWindow(
             if (!executionContext) {
               throw new Error('Execution context not found');
             }
-            executionContext.main();
+            executionContext.main(true);
           }
 
           if (message.type === 'WINDOW_CLOSED') {
@@ -619,7 +619,7 @@ ${code};
 
     let json: DomJson | null = null;
 
-    const main = () => {
+    const main = (force = false) => {
       try {
         updateExecutionContext(uuid, {
           currentContext: 'main',
@@ -630,7 +630,7 @@ ${code};
         const selectors = context['main']?.selectors;
         const lastStateStore = executionContextRegistry.get(uuid)?.stateStore;
 
-        if (deepEqual(lastSelectors, selectors) && deepEqual(lastStateStore, stateStore)) {
+        if (!force && deepEqual(lastSelectors, selectors) && deepEqual(lastStateStore, stateStore)) {
           result = null;
         }
 

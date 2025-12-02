@@ -119,17 +119,27 @@ browser.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
   console.log('[Background] Message received:', request.type);
 
+  if (request.type === 'CONTENT_SCRIPT_READY') {
+    if (!sender.tab?.windowId) {
+      return;
+    }
+    windowManager.reRenderPluginUI(sender.tab.windowId as number);
+    return true;
+  }
+
   // Handle console logs from offscreen document and forward to all tabs
   if (request.type === 'CONSOLE_LOG') {
     // Broadcast log to all tabs
-    browser.tabs.query({}).then(tabs => {
-      tabs.forEach(tab => {
+    browser.tabs.query({}).then((tabs) => {
+      tabs.forEach((tab) => {
         if (tab.id) {
-          browser.tabs.sendMessage(tab.id, {
-            type: 'OFFSCREEN_LOG',
-            level: request.level,
-            message: request.message
-          }).catch(() => {}); // Ignore errors if content script not loaded
+          browser.tabs
+            .sendMessage(tab.id, {
+              type: 'OFFSCREEN_LOG',
+              level: request.level,
+              message: request.message,
+            })
+            .catch(() => {}); // Ignore errors if content script not loaded
         }
       });
     });
@@ -325,7 +335,6 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
   }
 
   return true; // Keep message channel open for async response
-
 });
 
 // Create offscreen document if needed (Chrome 109+)
@@ -375,4 +384,4 @@ setTimeout(() => {
   });
 }, 10000);
 
-export { };
+export {};

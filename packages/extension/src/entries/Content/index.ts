@@ -12,34 +12,6 @@ function injectScript() {
   script.onload = () => script.remove();
 }
 
-// Function to create and show the TLSN overlay
-function createTLSNOverlay() {
-  // Remove any existing overlay
-  const existingOverlay = document.getElementById('tlsn-overlay');
-  if (existingOverlay) {
-    existingOverlay.remove();
-  }
-
-  // Create overlay container
-  const overlay = document.createElement('div');
-  overlay.id = 'tlsn-overlay';
-  overlay.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.85);
-    z-index: 999999;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-  `;
-
-  document.body.appendChild(overlay);
-}
-
 function renderPluginUI(json: DomJson, windowId: number) {
   let container = document.getElementById('tlsn-plugin-container');
 
