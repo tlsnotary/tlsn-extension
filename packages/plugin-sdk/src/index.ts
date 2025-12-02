@@ -102,13 +102,28 @@ function makeUseEffect(
 
 // Helper function to convert ArrayBuffers to number arrays for JSON serialization
 function convertArrayBuffersToArrays(obj: any): any {
-  if (obj instanceof ArrayBuffer) {
+  // Handle null/undefined
+  if (obj == null) {
+    return obj;
+  }
+
+  // Check for ArrayBuffer
+  if (obj instanceof ArrayBuffer || obj.constructor?.name === 'ArrayBuffer') {
     return Array.from(new Uint8Array(obj));
   }
+
+  // Check for typed arrays (Uint8Array, Int8Array, etc.)
+  if (ArrayBuffer.isView(obj)) {
+    return Array.from(obj as any);
+  }
+
+  // Handle regular arrays
   if (Array.isArray(obj)) {
     return obj.map(convertArrayBuffersToArrays);
   }
-  if (obj !== null && typeof obj === 'object') {
+
+  // Handle objects (but not Date, RegExp, etc.)
+  if (typeof obj === 'object' && obj.constructor === Object) {
     const converted: any = {};
     for (const key in obj) {
       if (obj.hasOwnProperty(key)) {
@@ -117,6 +132,7 @@ function convertArrayBuffersToArrays(obj: any): any {
     }
     return converted;
   }
+
   return obj;
 }
 
