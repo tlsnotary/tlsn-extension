@@ -13,6 +13,16 @@ export interface InterceptedRequest {
 
   /** Tab ID where the request originated */
   tabId: number;
+
+  /** Request Body */
+  requestBody?: {
+    error?: string;
+    formData?: Record<string, string>;
+    raw?: {
+      bytes?: any;
+      file?: string;
+    }[];
+  };
 }
 
 export interface InterceptedRequestHeader {

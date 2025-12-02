@@ -157,9 +157,7 @@ function makeUseRequests(
       selectors: [],
     };
     const selectors = context[functionName].selectors;
-    // Serialize requests to break circular references and convert ArrayBuffers
-    const convertedRequests = convertArrayBuffersToArrays(executionContext.requests || []);
-    const requests = JSON.parse(JSON.stringify(convertedRequests));
+    const requests = JSON.parse(JSON.stringify(executionContext.requests || []));
     const result = filterFn(requests);
     selectors.push(result);
     return result;

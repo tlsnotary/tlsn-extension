@@ -48,7 +48,12 @@ browser.webRequest.onBeforeRequest.addListener(
         url: details.url,
         timestamp: Date.now(),
         tabId: details.tabId,
+        requestBody: details.requestBody,
       };
+
+      // if (details.requestBody) {
+      //   console.log(details.requestBody);
+      // }
 
       // Add request to window's request history
       windowManager.addRequest(managedWindow.id, request);
