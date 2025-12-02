@@ -100,6 +100,26 @@ function makeUseEffect(
   };
 }
 
+// Helper function to convert ArrayBuffers to number arrays for JSON serialization
+function convertArrayBuffersToArrays(obj: any): any {
+  if (obj instanceof ArrayBuffer) {
+    return Array.from(new Uint8Array(obj));
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(convertArrayBuffersToArrays);
+  }
+  if (obj !== null && typeof obj === 'object') {
+    const converted: any = {};
+    for (const key in obj) {
+      if (obj.hasOwnProperty(key)) {
+        converted[key] = convertArrayBuffersToArrays(obj[key]);
+      }
+    }
+    return converted;
+  }
+  return obj;
+}
+
 // Pure function for creating useRequests hook without `this` binding
 function makeUseRequests(
   uuid: string,
@@ -121,8 +141,9 @@ function makeUseRequests(
       selectors: [],
     };
     const selectors = context[functionName].selectors;
-    // Serialize requests to break circular references
-    const requests = JSON.parse(JSON.stringify(executionContext.requests || []));
+    // Serialize requests to break circular references and convert ArrayBuffers
+    const convertedRequests = convertArrayBuffersToArrays(executionContext.requests || []);
+    const requests = JSON.parse(JSON.stringify(convertedRequests));
     const result = filterFn(requests);
     selectors.push(result);
     return result;
