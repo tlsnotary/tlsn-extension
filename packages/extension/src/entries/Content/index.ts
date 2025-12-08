@@ -1,7 +1,10 @@
 import browser from 'webextension-polyfill';
 import { DomJson } from '@tlsn/plugin-sdk/src/types';
+import { logger, LogLevel } from '@tlsn/common';
 
-console.log('Content script loaded on:', window.location.href);
+// Initialize logger at DEBUG level for content scripts (no IndexedDB access)
+logger.init(LogLevel.DEBUG);
+logger.debug('Content script loaded on:', window.location.href);
 
 // Inject a script into the page if needed
 function injectScript() {
@@ -67,7 +70,7 @@ function createNode(json: DomJson, windowId: number): HTMLElement | Text {
 
 // Listen for messages from the extension
 browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
-  console.log('Content script received message:', request);
+  logger.debug('Content script received message:', request);
 
   // Forward offscreen logs to page
   if (request.type === 'OFFSCREEN_LOG') {
@@ -102,7 +105,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
   // }
 
   // if (request.type === 'UPDATE_TLSN_REQUESTS') {
-  //   console.log('updateTLSNOverlay', request.requests);
+  //   logger.debug('updateTLSNOverlay', request.requests);
   //   updateTLSNOverlay(request.requests || []);
   //   sendResponse({ success: true });
   // }
@@ -133,7 +136,7 @@ window.addEventListener('message', (event) => {
 
   // Handle TLSN window.tlsn.open() calls
   if (event.data?.type === 'TLSN_OPEN_WINDOW') {
-    console.log(
+    logger.debug(
       '[Content Script] Received TLSN_OPEN_WINDOW request:',
       event.data.payload,
     );
@@ -148,7 +151,7 @@ window.addEventListener('message', (event) => {
         showOverlay: event.data.payload.showOverlay,
       })
       .catch((error) => {
-        console.error(
+        logger.error(
           '[Content Script] Failed to send OPEN_WINDOW message:',
           error,
         );
@@ -157,7 +160,7 @@ window.addEventListener('message', (event) => {
 
   // Handle code execution requests
   if (event.data?.type === 'TLSN_EXEC_CODE') {
-    console.log(
+    logger.debug(
       '[Content Script] Received TLSN_EXEC_CODE request:',
       event.data.payload,
     );
@@ -170,7 +173,7 @@ window.addEventListener('message', (event) => {
         requestId: event.data.payload.requestId,
       })
       .then((response) => {
-        console.log('[Content Script] EXEC_CODE response:', response);
+        logger.debug('[Content Script] EXEC_CODE response:', response);
 
         // Check if background returned success or error
         if (response && response.success === false) {
@@ -198,7 +201,7 @@ window.addEventListener('message', (event) => {
         }
       })
       .catch((error) => {
-        console.error('[Content Script] Failed to execute code:', error);
+        logger.error('[Content Script] Failed to execute code:', error);
         // Send error back to page
         window.postMessage(
           {

@@ -1,7 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import browser from 'webextension-polyfill';
+import { logger, LogLevel } from '@tlsn/common';
 import './index.scss';
+
+// Initialize logger at DEBUG level for popup (no IndexedDB access)
+logger.init(LogLevel.DEBUG);
 
 interface PluginInfo {
   name: string;
@@ -78,7 +82,7 @@ const ConfirmPopup: React.FC = () => {
       });
       window.close();
     } catch (err) {
-      console.error('Failed to send allow response:', err);
+      logger.error('Failed to send allow response:', err);
     }
   }, [requestId]);
 
@@ -93,7 +97,7 @@ const ConfirmPopup: React.FC = () => {
       });
       window.close();
     } catch (err) {
-      console.error('Failed to send deny response:', err);
+      logger.error('Failed to send deny response:', err);
     }
   }, [requestId]);
 

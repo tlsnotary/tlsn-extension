@@ -20,6 +20,7 @@
     "serve:test": "python3 -m http.server 8081 --directory ./tests/integration"
   },
   "dependencies": {
+    "@tlsn/common": "*",
     "@codemirror/lang-javascript": "^6.2.4",
     "@codemirror/state": "^6.5.2",
     "@codemirror/theme-one-dark": "^6.1.3",

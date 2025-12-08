@@ -2,6 +2,7 @@
   "manifest_version": 3,
   "name": "TLSN Extension",
   "description": "A Chrome extension for TLSN",
+  "options_page": "options.html",
   "background": {
     "service_worker": "background.bundle.js"
   },

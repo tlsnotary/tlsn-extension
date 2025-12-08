@@ -7,6 +7,7 @@
 import { SandboxEvalCode, type SandboxOptions, loadQuickJs } from '@sebastianwessel/quickjs';
 import variant from '@jitl/quickjs-ng-wasmfile-release-sync';
 import { v4 as uuidv4 } from 'uuid';
+import { logger, LogLevel, DEFAULT_LOG_LEVEL } from '@tlsn/common';
 import {
   DomJson,
   DomOptions,
@@ -102,7 +103,7 @@ function makeUseEffect(
 }
 
 // Helper function to convert ArrayBuffers to number arrays for JSON serialization
-function convertArrayBuffersToArrays(obj: any): any {
+function _convertArrayBuffersToArrays(obj: any): any {
   // Handle null/undefined
   if (obj == null) {
     return obj;
@@ -120,7 +121,7 @@ function convertArrayBuffersToArrays(obj: any): any {
 
   // Handle regular arrays
   if (Array.isArray(obj)) {
-    return obj.map(convertArrayBuffersToArrays);
+    return obj.map(_convertArrayBuffersToArrays);
   }
 
   // Handle objects (but not Date, RegExp, etc.)
@@ -128,7 +129,7 @@ function convertArrayBuffersToArrays(obj: any): any {
     const converted: any = {};
     for (const key in obj) {
       if (obj.hasOwnProperty(key)) {
-        converted[key] = convertArrayBuffersToArrays(obj[key]);
+        converted[key] = _convertArrayBuffersToArrays(obj[key]);
       }
     }
     return converted;
@@ -197,7 +198,7 @@ function makeUseHeaders(
 function makeUseState(
   uuid: string,
   stateStore: { [key: string]: any },
-  eventEmitter: {
+  _eventEmitter: {
     emit: (message: any) => void;
   },
 ) {
@@ -313,14 +314,14 @@ function makeOpenWindow(
           }
 
           if (message.type === 'PLUGIN_UI_CLICK') {
-            console.log('PLUGIN_UI_CLICK', message);
+            logger.debug('PLUGIN_UI_CLICK', message);
             const executionContext = executionContextRegistry.get(uuid);
             if (!executionContext) {
               throw new Error('Execution context not found');
             }
             const cb = executionContext.callbacks[message.onclick];
 
-            console.log('Callback:', cb);
+            logger.debug('Callback:', cb);
             if (cb) {
               updateExecutionContext(uuid, {
                 currentContext: message.onclick,
@@ -329,12 +330,12 @@ function makeOpenWindow(
               updateExecutionContext(uuid, {
                 currentContext: '',
               });
-              console.log('Callback result:', result);
+              logger.debug('Callback result:', result);
             }
           }
 
           if (message.type === 'RE_RENDER_PLUGIN_UI') {
-            console.log('[makeOpenWindow] RE_RENDER_PLUGIN_UI', message.windowId);
+            logger.debug('[makeOpenWindow] RE_RENDER_PLUGIN_UI', message.windowId);
             const executionContext = executionContextRegistry.get(uuid);
             if (!executionContext) {
               throw new Error('Execution context not found');
@@ -358,7 +359,7 @@ function makeOpenWindow(
 
       throw new Error('Invalid response from background script');
     } catch (error) {
-      console.error('[makeOpenWindow] Failed to open window:', error);
+      logger.error('[makeOpenWindow] Failed to open window:', error);
       throw error;
     }
   };
@@ -430,11 +431,15 @@ export class Host {
         showOverlay?: boolean;
       },
     ) => Promise<OpenWindowResponse>;
+    logLevel?: LogLevel;
   }) {
     this.onProve = options.onProve;
     this.onRenderPluginUi = options.onRenderPluginUi;
     this.onCloseWindow = options.onCloseWindow;
     this.onOpenWindow = options.onOpenWindow;
+
+    // Initialize logger with provided level or default to WARN
+    logger.init(options.logLevel ?? DEFAULT_LOG_LEVEL);
   }
 
   addCapability(name: string, handler: (...args: any[]) => any): void {
@@ -688,20 +693,20 @@ ${code};
         }
 
         if (result) {
-          console.log('Main function executed:', result);
+          logger.debug('Main function executed:', result);
 
-          console.log('executionContextRegistry.get(uuid)?.windowId', executionContextRegistry.get(uuid)?.windowId);
+          logger.debug('executionContextRegistry.get(uuid)?.windowId', executionContextRegistry.get(uuid)?.windowId);
 
           json = result;
           waitForWindow(async () => executionContextRegistry.get(uuid)?.windowId).then((windowId: number) => {
-            console.log('render result', json as DomJson);
+            logger.debug('render result', json as DomJson);
             onRenderPluginUi(windowId!, json as DomJson);
           });
         }
 
         return result;
       } catch (error) {
-        console.error('Main function error:', error);
+        logger.error('Main function error:', error);
         sandbox.dispose();
         return null;
       }
@@ -800,13 +805,16 @@ export async function extractConfig(code: string): Promise<PluginConfig | null> 
 
     return config;
   } catch (error) {
-    console.error('[extractConfig] Failed to extract plugin config:', error);
+    logger.error('[extractConfig] Failed to extract plugin config:', error);
     return null;
   }
 }
 
 // Export types
 export type { PluginConfig };
+
+// Re-export LogLevel for consumers
+export { LogLevel } from '@tlsn/common';
 
 // Default export
 export default Host;

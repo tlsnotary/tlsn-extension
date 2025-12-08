@@ -20,6 +20,7 @@ import {
   OVERLAY_RETRY_DELAY_MS,
   MAX_OVERLAY_RETRY_ATTEMPTS,
 } from '../constants/limits';
+import { logger } from '@tlsn/common';
 
 /**
  * Helper function to convert ArrayBuffers to number arrays for JSON serialization
@@ -100,7 +101,7 @@ export class WindowManager implements IWindowManager {
     // Check maximum window limit
     if (this.windows.size >= MAX_MANAGED_WINDOWS) {
       const error = `Maximum window limit reached (${MAX_MANAGED_WINDOWS}). Currently managing ${this.windows.size} windows. Please close some windows before opening new ones.`;
-      console.error(`[WindowManager] ${error}`);
+      logger.error(`[WindowManager] ${error}`);
       throw new Error(error);
     }
 
@@ -119,7 +120,7 @@ export class WindowManager implements IWindowManager {
 
     this.windows.set(config.id, managedWindow);
 
-    console.log(
+    logger.debug(
       `[WindowManager] Window registered: ${managedWindow.uuid} (ID: ${managedWindow.id}, Tab: ${managedWindow.tabId}, showOverlayWhenReady: ${managedWindow.showOverlayWhenReady}) [${this.windows.size}/${MAX_MANAGED_WINDOWS}]`,
     );
 
@@ -142,7 +143,7 @@ export class WindowManager implements IWindowManager {
   async closeWindow(windowId: number): Promise<void> {
     const window = this.windows.get(windowId);
     if (!window) {
-      console.warn(
+      logger.warn(
         `[WindowManager] Attempted to close non-existent window: ${windowId}`,
       );
       return;
@@ -151,7 +152,7 @@ export class WindowManager implements IWindowManager {
     // Hide overlay before closing
     if (window.overlayVisible) {
       await this.hideOverlay(windowId).catch((error) => {
-        console.warn(
+        logger.warn(
           `[WindowManager] Failed to hide overlay for window ${windowId}:`,
           error,
         );
@@ -168,7 +169,7 @@ export class WindowManager implements IWindowManager {
       windowId,
     });
 
-    console.log(
+    logger.debug(
       `[WindowManager] Window closed: ${window.uuid} (ID: ${window.id})`,
     );
   }
@@ -183,7 +184,7 @@ export class WindowManager implements IWindowManager {
    * ```typescript
    * const window = windowManager.getWindow(123);
    * if (window) {
-   *   console.log(`Window has ${window.requests.length} requests`);
+   *   logger.debug(`Window has ${window.requests.length} requests`);
    * }
    * ```
    */
@@ -225,7 +226,7 @@ export class WindowManager implements IWindowManager {
    * @example
    * ```typescript
    * const allWindows = windowManager.getAllWindows();
-   * console.log(`Managing ${allWindows.size} windows`);
+   * logger.debug(`Managing ${allWindows.size} windows`);
    * ```
    */
   getAllWindows(): Map<number, ManagedWindow> {
@@ -255,7 +256,7 @@ export class WindowManager implements IWindowManager {
   addRequest(windowId: number, request: InterceptedRequest): void {
     const window = this.windows.get(windowId);
     if (!window) {
-      console.error(
+      logger.error(
         `[WindowManager] Cannot add request to non-existent window: ${windowId}`,
       );
       return;
@@ -282,7 +283,7 @@ export class WindowManager implements IWindowManager {
     // Update overlay if visible
     if (window.overlayVisible) {
       this.updateOverlay(windowId).catch((error) => {
-        console.warn(
+        logger.warn(
           `[WindowManager] Failed to update overlay for window ${windowId}:`,
           error,
         );
@@ -293,7 +294,7 @@ export class WindowManager implements IWindowManager {
     if (window.requests.length > MAX_REQUESTS_PER_WINDOW) {
       const removed = window.requests.length - MAX_REQUESTS_PER_WINDOW;
       window.requests.splice(0, removed);
-      console.warn(
+      logger.warn(
         `[WindowManager] Request limit reached for window ${windowId}. Removed ${removed} oldest request(s). Current: ${window.requests.length}/${MAX_REQUESTS_PER_WINDOW}`,
       );
     }
@@ -302,7 +303,7 @@ export class WindowManager implements IWindowManager {
   reRenderPluginUI(windowId: number): void {
     const window = this.windows.get(windowId);
     if (!window) {
-      console.error(
+      logger.error(
         `[WindowManager] Cannot re-render plugin UI for non-existent window: ${windowId}`,
       );
       return;
@@ -316,7 +317,7 @@ export class WindowManager implements IWindowManager {
   addHeader(windowId: number, header: InterceptedRequestHeader): void {
     const window = this.windows.get(windowId);
     if (!window) {
-      console.error(
+      logger.error(
         `[WindowManager] Cannot add header to non-existent window: ${windowId}`,
       );
       return;
@@ -334,7 +335,7 @@ export class WindowManager implements IWindowManager {
     if (window.headers.length > MAX_REQUESTS_PER_WINDOW) {
       const removed = window.headers.length - MAX_REQUESTS_PER_WINDOW;
       window.headers.splice(0, removed);
-      console.warn(
+      logger.warn(
         `[WindowManager] Header limit reached for window ${windowId}. Removed ${removed} oldest request(s). Current: ${window.headers.length}/${MAX_REQUESTS_PER_WINDOW}`,
       );
     }
@@ -349,7 +350,7 @@ export class WindowManager implements IWindowManager {
    * @example
    * ```typescript
    * const requests = windowManager.getWindowRequests(123);
-   * console.log(`Window has ${requests.length} requests`);
+   * logger.debug(`Window has ${requests.length} requests`);
    * ```
    */
   getWindowRequests(windowId: number): InterceptedRequest[] {
@@ -369,7 +370,7 @@ export class WindowManager implements IWindowManager {
   ): Promise<void> {
     const window = this.windows.get(windowId);
     if (!window) {
-      console.error(
+      logger.error(
         `[WindowManager] Cannot show plugin UI for non-existent window: ${windowId}`,
       );
       return;
@@ -383,11 +384,11 @@ export class WindowManager implements IWindowManager {
       });
 
       window.pluginUIVisible = true;
-      console.log(`[WindowManager] Plugin UI shown for window ${windowId}`);
+      logger.debug(`[WindowManager] Plugin UI shown for window ${windowId}`);
     } catch (error) {
       // Retry if content script not ready
       if (retryCount < MAX_OVERLAY_RETRY_ATTEMPTS) {
-        console.log(
+        logger.debug(
           `[WindowManager] Plugin UI display failed for window ${windowId}, retry ${retryCount + 1}/${MAX_OVERLAY_RETRY_ATTEMPTS} in ${OVERLAY_RETRY_DELAY_MS}ms`,
         );
 
@@ -400,12 +401,12 @@ export class WindowManager implements IWindowManager {
         if (this.windows.has(windowId)) {
           return this.showOverlay(windowId, retryCount + 1);
         } else {
-          console.warn(
+          logger.warn(
             `[WindowManager] Window ${windowId} closed during retry, aborting plugin UI display`,
           );
         }
       } else {
-        console.warn(
+        logger.warn(
           `[WindowManager] Failed to show plugin UI for window ${windowId} after ${MAX_OVERLAY_RETRY_ATTEMPTS} attempts:`,
           error,
         );
@@ -430,7 +431,7 @@ export class WindowManager implements IWindowManager {
   async showOverlay(windowId: number, retryCount = 0): Promise<void> {
     const window = this.windows.get(windowId);
     if (!window) {
-      console.error(
+      logger.error(
         `[WindowManager] Cannot show overlay for non-existent window: ${windowId}`,
       );
       return;
@@ -444,11 +445,11 @@ export class WindowManager implements IWindowManager {
 
       window.overlayVisible = true;
       window.showOverlayWhenReady = false; // Clear the pending flag
-      console.log(`[WindowManager] Overlay shown for window ${windowId}`);
+      logger.debug(`[WindowManager] Overlay shown for window ${windowId}`);
     } catch (error) {
       // Retry if content script not ready
       if (retryCount < MAX_OVERLAY_RETRY_ATTEMPTS) {
-        console.log(
+        logger.debug(
           `[WindowManager] Overlay display failed for window ${windowId}, retry ${retryCount + 1}/${MAX_OVERLAY_RETRY_ATTEMPTS} in ${OVERLAY_RETRY_DELAY_MS}ms`,
         );
 
@@ -461,12 +462,12 @@ export class WindowManager implements IWindowManager {
         if (this.windows.has(windowId)) {
           return this.showOverlay(windowId, retryCount + 1);
         } else {
-          console.warn(
+          logger.warn(
             `[WindowManager] Window ${windowId} closed during retry, aborting overlay display`,
           );
         }
       } else {
-        console.warn(
+        logger.warn(
           `[WindowManager] Failed to show overlay for window ${windowId} after ${MAX_OVERLAY_RETRY_ATTEMPTS} attempts:`,
           error,
         );
@@ -491,7 +492,7 @@ export class WindowManager implements IWindowManager {
   async hideOverlay(windowId: number): Promise<void> {
     const window = this.windows.get(windowId);
     if (!window) {
-      console.error(
+      logger.error(
         `[WindowManager] Cannot hide overlay for non-existent window: ${windowId}`,
       );
       return;
@@ -503,9 +504,9 @@ export class WindowManager implements IWindowManager {
       });
 
       window.overlayVisible = false;
-      console.log(`[WindowManager] Overlay hidden for window ${windowId}`);
+      logger.debug(`[WindowManager] Overlay hidden for window ${windowId}`);
     } catch (error) {
-      console.warn(
+      logger.warn(
         `[WindowManager] Failed to hide overlay for window ${windowId}:`,
         error,
       );
@@ -522,7 +523,7 @@ export class WindowManager implements IWindowManager {
    * @example
    * ```typescript
    * if (windowManager.isOverlayVisible(123)) {
-   *   console.log('Overlay is currently displayed');
+   *   logger.debug('Overlay is currently displayed');
    * }
    * ```
    */
@@ -550,11 +551,11 @@ export class WindowManager implements IWindowManager {
         requests: window.requests,
       });
 
-      console.log(
+      logger.debug(
         `[WindowManager] Overlay updated for window ${windowId} with ${window.requests.length} requests`,
       );
     } catch (error) {
-      console.warn(
+      logger.warn(
         `[WindowManager] Failed to update overlay for window ${windowId}:`,
         error,
       );
@@ -592,14 +593,14 @@ export class WindowManager implements IWindowManager {
         this.windows.delete(windowId);
         cleanedCount++;
 
-        console.log(
+        logger.debug(
           `[WindowManager] Cleaned up invalid window: ${window?.uuid} (ID: ${windowId})`,
         );
       }
     }
 
     if (cleanedCount > 0) {
-      console.log(
+      logger.debug(
         `[WindowManager] Cleanup complete: ${cleanedCount} window(s) removed`,
       );
     }

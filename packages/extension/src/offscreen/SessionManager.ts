@@ -3,6 +3,7 @@ import { ProveManager } from './ProveManager';
 import { Method } from 'tlsn-js';
 import { DomJson, Handler } from '@tlsn/plugin-sdk/src/types';
 import { processHandlers } from './rangeExtractor';
+import { logger } from '@tlsn/common';
 
 export class SessionManager {
   private host: Host;
@@ -61,8 +62,8 @@ export class SessionManager {
         const parsedSent = new Parser(Buffer.from(sent));
         const parsedRecv = new Parser(Buffer.from(recv));
 
-        console.log('parsedSent', parsedSent.json());
-        console.log('parsedRecv', parsedRecv.json());
+        logger.debug('parsedSent', parsedSent.json());
+        logger.debug('parsedRecv', parsedRecv.json());
 
         // Use refactored range extraction logic
         const {
@@ -72,8 +73,8 @@ export class SessionManager {
           recvRangesWithHandlers,
         } = processHandlers(proverOptions.handlers, parsedSent, parsedRecv);
 
-        console.log('sentRanges', sentRanges);
-        console.log('recvRanges', recvRanges);
+        logger.debug('sentRanges', sentRanges);
+        logger.debug('recvRanges', recvRanges);
 
         // Send reveal config (ranges + handlers) to verifier BEFORE calling reveal()
         await this.proveManager.sendRevealConfig(proverId, {
@@ -113,7 +114,7 @@ export class SessionManager {
         if (!chromeRuntime?.sendMessage) {
           throw new Error('Chrome runtime not available');
         }
-        console.log('onCloseWindow', windowId);
+        logger.debug('onCloseWindow', windowId);
         return chromeRuntime.sendMessage({
           type: 'CLOSE_WINDOW',
           windowId,

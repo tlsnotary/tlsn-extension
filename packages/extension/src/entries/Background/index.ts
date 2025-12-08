@@ -7,10 +7,16 @@ import type {
   InterceptedRequestHeader,
 } from '../../types/window-manager';
 import { validateUrl } from '../../utils/url-validator';
+import { logger } from '@tlsn/common';
+import { getStoredLogLevel } from '../../utils/logLevelStorage';
 
 const chrome = global.chrome as any;
-// Basic background script setup
-console.log('Background script loaded');
+
+// Initialize logger with stored log level
+getStoredLogLevel().then((level) => {
+  logger.init(level);
+  logger.info('Background script loaded');
+});
 
 // Initialize WindowManager for multi-window support
 const windowManager = new WindowManager();
@@ -34,7 +40,7 @@ browser.contextMenus.onClicked.addListener((info, tab) => {
 
 // Handle extension install/update
 browser.runtime.onInstalled.addListener((details) => {
-  console.log('Extension installed/updated:', details.reason);
+  logger.info('Extension installed/updated:', details.reason);
 });
 
 // Set up webRequest listener to intercept all requests
@@ -93,8 +99,8 @@ browser.webRequest.onBeforeSendHeaders.addListener(
 browser.windows.onRemoved.addListener(async (windowId) => {
   const managedWindow = windowManager.getWindow(windowId);
   if (managedWindow) {
-    console.log(
-      `[Background] Managed window closed: ${managedWindow.uuid} (ID: ${windowId})`,
+    logger.debug(
+      `Managed window closed: ${managedWindow.uuid} (ID: ${windowId})`,
     );
     await windowManager.closeWindow(windowId);
   }
@@ -115,8 +121,8 @@ browser.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 
   // If overlay should be shown but isn't visible yet, show it now
   if (managedWindow.showOverlayWhenReady && !managedWindow.overlayVisible) {
-    console.log(
-      `[Background] Tab ${tabId} complete, showing overlay for window ${managedWindow.id}`,
+    logger.debug(
+      `Tab ${tabId} complete, showing overlay for window ${managedWindow.id}`,
     );
     await windowManager.showOverlay(managedWindow.id);
   }
@@ -124,7 +130,7 @@ browser.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 
 // Basic message handler
 browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
-  console.log('[Background] Message received:', request.type);
+  logger.debug('Message received:', request.type);
 
   if (request.type === 'CONTENT_SCRIPT_READY') {
     if (!sender.tab?.windowId) {
@@ -141,8 +147,8 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
   }
 
   if (request.type === 'RENDER_PLUGIN_UI') {
-    console.log(
-      '[Background] RENDER_PLUGIN_UI request received:',
+    logger.debug(
+      'RENDER_PLUGIN_UI request received:',
       request.json,
       request.windowId,
     );
@@ -152,7 +158,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
 
   // Handle plugin confirmation responses from popup
   if (request.type === 'PLUGIN_CONFIRM_RESPONSE') {
-    console.log('[Background] PLUGIN_CONFIRM_RESPONSE received:', request);
+    logger.debug('PLUGIN_CONFIRM_RESPONSE received:', request);
     confirmationManager.handleConfirmationResponse(
       request.requestId,
       request.allowed,
@@ -162,7 +168,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
 
   // Handle code execution requests
   if (request.type === 'EXEC_CODE') {
-    console.log('[Background] EXEC_CODE request received');
+    logger.debug('EXEC_CODE request received');
 
     (async () => {
       try {
@@ -170,12 +176,9 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
         let pluginConfig: PluginConfig | null = null;
         try {
           pluginConfig = await extractConfig(request.code);
-          console.log('[Background] Extracted plugin config:', pluginConfig);
+          logger.debug('Extracted plugin config:', pluginConfig);
         } catch (extractError) {
-          console.warn(
-            '[Background] Failed to extract plugin config:',
-            extractError,
-          );
+          logger.warn('Failed to extract plugin config:', extractError);
           // Continue with null config - user will see "Unknown Plugin" warning
         }
 
@@ -189,7 +192,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
             confirmRequestId,
           );
         } catch (confirmError) {
-          console.error('[Background] Confirmation error:', confirmError);
+          logger.error('Confirmation error:', confirmError);
           sendResponse({
             success: false,
             error:
@@ -202,7 +205,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
 
         // Step 3: If user denied, return rejection error
         if (!userAllowed) {
-          console.log('[Background] User rejected plugin execution');
+          logger.info('User rejected plugin execution');
           sendResponse({
             success: false,
             error: 'User rejected plugin execution',
@@ -211,9 +214,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
         }
 
         // Step 4: User allowed - proceed with execution
-        console.log(
-          '[Background] User allowed plugin execution, proceeding...',
-        );
+        logger.info('User allowed plugin execution, proceeding...');
 
         // Ensure offscreen document exists
         await createOffscreenDocument();
@@ -224,10 +225,10 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
           code: request.code,
           requestId: request.requestId,
         });
-        console.log('[Background] EXEC_CODE_OFFSCREEN response:', response);
+        logger.debug('EXEC_CODE_OFFSCREEN response:', response);
         sendResponse(response);
       } catch (error) {
-        console.error('[Background] Error executing code:', error);
+        logger.error('Error executing code:', error);
         sendResponse({
           success: false,
           error:
@@ -241,13 +242,10 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
 
   // Handle CLOSE_WINDOW requests
   if (request.type === 'CLOSE_WINDOW') {
-    console.log(
-      '[Background] CLOSE_WINDOW request received:',
-      request.windowId,
-    );
+    logger.debug('CLOSE_WINDOW request received:', request.windowId);
 
     if (!request.windowId) {
-      console.error('[Background] No windowId provided');
+      logger.error('No windowId provided');
       sendResponse({
         type: 'WINDOW_ERROR',
         payload: {
@@ -262,7 +260,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
     windowManager
       .closeWindow(request.windowId)
       .then(() => {
-        console.log(`[Background] Window ${request.windowId} closed`);
+        logger.debug(`Window ${request.windowId} closed`);
         sendResponse({
           type: 'WINDOW_CLOSED',
           payload: {
@@ -271,7 +269,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
         });
       })
       .catch((error) => {
-        console.error('[Background] Error closing window:', error);
+        logger.error('Error closing window:', error);
         sendResponse({
           type: 'WINDOW_ERROR',
           payload: {
@@ -286,12 +284,12 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
 
   // Handle OPEN_WINDOW requests from content scripts
   if (request.type === 'OPEN_WINDOW') {
-    console.log('[Background] OPEN_WINDOW request received:', request.url);
+    logger.debug('OPEN_WINDOW request received:', request.url);
 
     // Validate URL using comprehensive validator
     const urlValidation = validateUrl(request.url);
     if (!urlValidation.valid) {
-      console.error('[Background] URL validation failed:', urlValidation.error);
+      logger.error('URL validation failed:', urlValidation.error);
       sendResponse({
         type: 'WINDOW_ERROR',
         payload: {
@@ -323,7 +321,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
         const windowId = window.id;
         const tabId = window.tabs[0].id;
 
-        console.log(`[Background] Window created: ${windowId}, Tab: ${tabId}`);
+        logger.info(`Window created: ${windowId}, Tab: ${tabId}`);
 
         try {
           // Register window with WindowManager
@@ -334,7 +332,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
             showOverlay: request.showOverlay !== false, // Default to true
           });
 
-          console.log(`[Background] Window registered: ${managedWindow.uuid}`);
+          logger.debug(`Window registered: ${managedWindow.uuid}`);
 
           // Send success response
           sendResponse({
@@ -348,10 +346,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
         } catch (registrationError) {
           // Registration failed (e.g., window limit exceeded)
           // Close the window we just created
-          console.error(
-            '[Background] Window registration failed:',
-            registrationError,
-          );
+          logger.error('Window registration failed:', registrationError);
           await browser.windows.remove(windowId).catch(() => {
             // Ignore errors if window already closed
           });
@@ -366,7 +361,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
         }
       })
       .catch((error) => {
-        console.error('[Background] Error creating window:', error);
+        logger.error('Error creating window:', error);
         sendResponse({
           type: 'WINDOW_ERROR',
           payload: {
@@ -391,7 +386,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
 async function createOffscreenDocument() {
   // Check if we're in a Chrome environment that supports offscreen documents
   if (!chrome?.offscreen) {
-    console.log('Offscreen API not available');
+    logger.debug('Offscreen API not available');
     return;
   }
 
@@ -416,21 +411,23 @@ async function createOffscreenDocument() {
 }
 
 // Initialize offscreen document
-createOffscreenDocument().catch(console.error);
+createOffscreenDocument().catch((err) =>
+  logger.error('Offscreen document error:', err),
+);
 
 // Periodic cleanup of invalid windows (every 5 minutes)
 const CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 setInterval(() => {
-  console.log('[Background] Running periodic window cleanup...');
+  logger.debug('Running periodic window cleanup...');
   windowManager.cleanupInvalidWindows().catch((error) => {
-    console.error('[Background] Error during cleanup:', error);
+    logger.error('Error during cleanup:', error);
   });
 }, CLEANUP_INTERVAL_MS);
 
 // Run initial cleanup after 10 seconds
 setTimeout(() => {
   windowManager.cleanupInvalidWindows().catch((error) => {
-    console.error('[Background] Error during initial cleanup:', error);
+    logger.error('Error during initial cleanup:', error);
   });
 }, 10000);
 

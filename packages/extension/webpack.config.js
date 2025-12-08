@@ -50,6 +50,7 @@ var options = {
   entry: {
     devConsole: path.join(__dirname, "src", "entries", "DevConsole", "index.tsx"),
     confirmPopup: path.join(__dirname, "src", "entries", "ConfirmPopup", "index.tsx"),
+    options: path.join(__dirname, "src", "entries", "Options", "index.tsx"),
     background: path.join(__dirname, "src", "entries", "Background", "index.ts"),
     contentScript: path.join(__dirname, "src", "entries", "Content", "index.ts"),
     content: path.join(__dirname, "src", "entries", "Content", "content.ts"),
@@ -261,6 +262,12 @@ var options = {
       template: path.join(__dirname, "src", "entries", "Offscreen", "index.html"),
       filename: "offscreen.html",
       chunks: ["offscreen"],
+      cache: false,
+    }),
+    new HtmlWebpackPlugin({
+      template: path.join(__dirname, "src", "entries", "Options", "index.html"),
+      filename: "options.html",
+      chunks: ["options"],
       cache: false,
     }),
   ].filter(Boolean),

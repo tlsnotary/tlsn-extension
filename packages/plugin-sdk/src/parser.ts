@@ -88,11 +88,12 @@ export class Parser {
    * @returns Array of path segments (strings for keys, numbers for array indices)
    *
    * @example
-   * parsePath("a.b") // ["a", "b"]
-   * parsePath("items[0]") // ["items", 0]
-   * parsePath("user.addresses[0].city") // ["user", "addresses", 0, "city"]
+   * _parsePath("a.b") // ["a", "b"]
+   * _parsePath("items[0]") // ["items", 0]
+   * _parsePath("user.addresses[0].city") // ["user", "addresses", 0, "city"]
    */
-  private parsePath(path: string): PathSegment[] {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  private _parsePath(path: string): PathSegment[] {
     if (!path || path.trim() === '') {
       return [];
     }

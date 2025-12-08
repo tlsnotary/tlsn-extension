@@ -2,6 +2,10 @@ import React from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../reducers';
 import browser from 'webextension-polyfill';
+import { logger, LogLevel } from '@tlsn/common';
+
+// Initialize logger at DEBUG level for popup
+logger.init(LogLevel.DEBUG);
 
 const Popup: React.FC = () => {
   const message = useSelector((state: RootState) => state.app.message);
@@ -9,7 +13,7 @@ const Popup: React.FC = () => {
   const handleClick = async () => {
     // Send message to background script
     const response = await browser.runtime.sendMessage({ type: 'PING' });
-    console.log('Response from background:', response);
+    logger.debug('Response from background:', response);
   };
 
   return (

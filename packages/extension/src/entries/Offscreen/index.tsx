@@ -1,14 +1,20 @@
 import React, { useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { SessionManager } from '../../offscreen/SessionManager';
+import { logger } from '@tlsn/common';
+import { getStoredLogLevel } from '../../utils/logLevelStorage';
 
 const OffscreenApp: React.FC = () => {
   useEffect(() => {
-    console.log('Offscreen document loaded');
+    // Initialize logger with stored log level
+    getStoredLogLevel().then((level) => {
+      logger.init(level);
+      logger.info('Offscreen document loaded');
+    });
 
     // Initialize SessionManager
     const sessionManager = new SessionManager();
-    console.log('SessionManager initialized in Offscreen');
+    logger.debug('SessionManager initialized in Offscreen');
 
     // Listen for messages from background script
     chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
@@ -21,7 +27,7 @@ const OffscreenApp: React.FC = () => {
 
       // Handle code execution requests
       if (request.type === 'EXEC_CODE_OFFSCREEN') {
-        console.log('Offscreen executing code:', request.code);
+        logger.debug('Offscreen executing code:', request.code);
 
         if (!sessionManager) {
           sendResponse({
@@ -37,7 +43,7 @@ const OffscreenApp: React.FC = () => {
           .awaitInit()
           .then((sessionManager) => sessionManager.executePlugin(request.code))
           .then((result) => {
-            console.log('Plugin execution result:', result);
+            logger.debug('Plugin execution result:', result);
             sendResponse({
               success: true,
               result,
@@ -45,7 +51,7 @@ const OffscreenApp: React.FC = () => {
             });
           })
           .catch((error) => {
-            console.error('Plugin execution error:', error);
+            logger.error('Plugin execution error:', error);
             sendResponse({
               success: false,
               error: error.message,

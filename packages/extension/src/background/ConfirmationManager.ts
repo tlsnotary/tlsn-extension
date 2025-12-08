@@ -1,4 +1,5 @@
 import browser from 'webextension-polyfill';
+import { logger } from '@tlsn/common';
 
 export interface PluginConfig {
   name: string;
@@ -50,7 +51,7 @@ export class ConfirmationManager {
   ): Promise<boolean> {
     // Check if there's already a pending confirmation
     if (this.pendingConfirmations.size > 0) {
-      console.warn(
+      logger.warn(
         '[ConfirmationManager] Another confirmation is already pending, rejecting new request',
       );
       throw new Error('Another plugin confirmation is already in progress');
@@ -80,7 +81,7 @@ export class ConfirmationManager {
         const timeoutId = setTimeout(() => {
           const pending = this.pendingConfirmations.get(requestId);
           if (pending) {
-            console.log('[ConfirmationManager] Confirmation timed out');
+            logger.debug('[ConfirmationManager] Confirmation timed out');
             this.cleanup(requestId);
             resolve(false); // Treat timeout as denial
           }
@@ -95,11 +96,11 @@ export class ConfirmationManager {
           timeoutId,
         });
 
-        console.log(
+        logger.debug(
           `[ConfirmationManager] Confirmation popup opened: ${window.id} for request: ${requestId}`,
         );
       } catch (error) {
-        console.error(
+        logger.error(
           '[ConfirmationManager] Failed to open confirmation popup:',
           error,
         );
@@ -118,13 +119,13 @@ export class ConfirmationManager {
   handleConfirmationResponse(requestId: string, allowed: boolean): void {
     const pending = this.pendingConfirmations.get(requestId);
     if (!pending) {
-      console.warn(
+      logger.warn(
         `[ConfirmationManager] No pending confirmation found for request: ${requestId}`,
       );
       return;
     }
 
-    console.log(
+    logger.debug(
       `[ConfirmationManager] Received response for ${requestId}: ${allowed ? 'allowed' : 'denied'}`,
     );
 
@@ -151,12 +152,12 @@ export class ConfirmationManager {
       return;
     }
 
-    console.log('[ConfirmationManager] Confirmation popup window closed');
+    logger.debug('[ConfirmationManager] Confirmation popup window closed');
 
     // Find and resolve any pending confirmation for this window
     for (const [requestId, pending] of this.pendingConfirmations.entries()) {
       if (pending.windowId === windowId) {
-        console.log(
+        logger.debug(
           `[ConfirmationManager] Treating window close as denial for request: ${requestId}`,
         );
         pending.resolve(false); // Treat close as denial

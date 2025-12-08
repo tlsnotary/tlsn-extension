@@ -6,7 +6,7 @@
   "types": "dist/index.d.ts",
   "type": "module",
   "scripts": {
-    "build": "vite build && tsc --emitDeclarationOnly",
+    "build": "vite build",
     "test": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
@@ -66,6 +66,7 @@
   "dependencies": {
     "@jitl/quickjs-ng-wasmfile-release-sync": "^0.31.0",
     "@sebastianwessel/quickjs": "^3.0.0",
+    "@tlsn/common": "*",
     "quickjs-emscripten": "^0.31.0"
   }
 }

@@ -1,4 +1,5 @@
-console.log('Page script injected');
+// Note: This file runs in page context, not extension context
+// We use console.log here intentionally as @tlsn/common may not be available
 
 /**
  * ExtensionAPI - Public API exposed to web pages via window.tlsn

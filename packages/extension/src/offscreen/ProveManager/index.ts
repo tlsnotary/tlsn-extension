@@ -4,6 +4,7 @@ import type {
   Prover as TProver,
   Method,
 } from '../../../../tlsn-wasm-pkg/tlsn_wasm';
+import { logger } from '@tlsn/common';
 
 const { init, Prover } = Comlink.wrap<{
   init: any;
@@ -24,7 +25,7 @@ export class ProveManager {
       ],
     });
 
-    console.log('ProveManager initialized');
+    logger.debug('ProveManager initialized');
   }
 
   private sessionWebSocket: WebSocket | null = null;
@@ -37,13 +38,13 @@ export class ProveManager {
     maxSentData = 4096,
   ): Promise<string> {
     return new Promise((resolve, reject) => {
-      console.log('[ProveManager] Getting verifier session URL:', verifierUrl);
+      logger.debug('[ProveManager] Getting verifier session URL:', verifierUrl);
       const _url = new URL(verifierUrl);
       const protocol = _url.protocol === 'https:' ? 'wss' : 'ws';
       const pathname = _url.pathname;
       const sessionWsUrl = `${protocol}://${_url.host}${pathname === '/' ? '' : pathname}/session`;
 
-      console.log(
+      logger.debug(
         '[ProveManager] Connecting to session WebSocket:',
         sessionWsUrl,
       );
@@ -52,7 +53,7 @@ export class ProveManager {
       this.sessionWebSocket = ws;
 
       ws.onopen = () => {
-        console.log('[ProveManager] Session WebSocket connected');
+        logger.debug('[ProveManager] Session WebSocket connected');
       };
 
       ws.onmessage = (event) => {
@@ -62,7 +63,7 @@ export class ProveManager {
           // First message: session ID
           if (data.sessionId) {
             const sessionId = data.sessionId;
-            console.log('[ProveManager] Received session ID:', sessionId);
+            logger.debug('[ProveManager] Received session ID:', sessionId);
 
             // Store the current session ID
             this.currentSessionId = sessionId;
@@ -72,21 +73,21 @@ export class ProveManager {
               maxRecvData,
               maxSentData,
             };
-            console.log('[ProveManager] Sending config:', config);
+            logger.debug('[ProveManager] Sending config:', config);
             ws.send(JSON.stringify(config));
 
             // Construct verifier URL for prover
             const verifierUrl = `${protocol}://${_url.host}${pathname === '/' ? '' : pathname}/verifier?sessionId=${sessionId}`;
-            console.log('[ProveManager] Prover will connect to:', verifierUrl);
+            logger.debug('[ProveManager] Prover will connect to:', verifierUrl);
 
             resolve(verifierUrl);
           }
           // Second message: verification result with handler results
           else if (data.results !== undefined) {
-            console.log(
+            logger.debug(
               '[ProveManager] ✅ Received verification result from verifier',
             );
-            console.log(
+            logger.debug(
               '[ProveManager] Handler results count:',
               data.results.length,
             );
@@ -94,7 +95,7 @@ export class ProveManager {
             // Store the response with the session ID
             if (this.currentSessionId) {
               this.sessionResponses.set(this.currentSessionId, data);
-              console.log(
+              logger.debug(
                 '[ProveManager] Stored response for session:',
                 this.currentSessionId,
               );
@@ -103,7 +104,7 @@ export class ProveManager {
             // WebSocket will be closed by the server
           }
         } catch (error) {
-          console.error(
+          logger.error(
             '[ProveManager] Error parsing WebSocket message:',
             error,
           );
@@ -111,12 +112,12 @@ export class ProveManager {
       };
 
       ws.onerror = (error) => {
-        console.error('[ProveManager] WebSocket error:', error);
+        logger.error('[ProveManager] WebSocket error:', error);
         reject(new Error('WebSocket connection failed'));
       };
 
       ws.onclose = () => {
-        console.log('[ProveManager] Session WebSocket closed');
+        logger.debug('[ProveManager] Session WebSocket closed');
         this.sessionWebSocket = null;
         this.currentSessionId = null;
       };
@@ -140,7 +141,7 @@ export class ProveManager {
     // Store the mapping from proverId to sessionId
     if (this.currentSessionId) {
       this.proverToSessionId.set(proverId, this.currentSessionId);
-      console.log(
+      logger.debug(
         '[ProveManager] Mapped proverId',
         proverId,
         'to sessionId',
@@ -148,7 +149,7 @@ export class ProveManager {
       );
     }
 
-    console.log('[ProveManager] Creating prover with config:', {
+    logger.debug('[ProveManager] Creating prover with config:', {
       server_name: serverDns,
       max_recv_data: maxRecvData,
       max_sent_data: maxSentData,
@@ -167,19 +168,19 @@ export class ProveManager {
         defer_decryption_from_start: undefined,
         client_auth: undefined,
       });
-      console.log(
+      logger.debug(
         '[ProveManager] Prover instance created, calling setup...',
         sessionUrl,
       );
 
       await prover.setup(sessionUrl as string);
-      console.log('[ProveManager] Prover setup completed');
+      logger.debug('[ProveManager] Prover setup completed');
 
       this.provers.set(proverId, prover as any);
-      console.log('[ProveManager] Prover registered with ID:', proverId);
+      logger.debug('[ProveManager] Prover registered with ID:', proverId);
       return proverId;
     } catch (error) {
-      console.error('[ProveManager] Failed to create prover:', error);
+      logger.error('[ProveManager] Failed to create prover:', error);
       throw error;
     }
   }
@@ -211,14 +212,14 @@ export class ProveManager {
       throw new Error('Session ID not found for prover');
     }
 
-    console.log('[ProveManager] Sending reveal config to verifier:', {
+    logger.debug('[ProveManager] Sending reveal config to verifier:', {
       sessionId,
       sentRanges: revealConfig.sent.length,
       recvRanges: revealConfig.recv.length,
     });
 
     this.sessionWebSocket.send(JSON.stringify(revealConfig));
-    console.log('[ProveManager] ✅ Reveal config sent to verifier');
+    logger.debug('[ProveManager] ✅ Reveal config sent to verifier');
   }
 
   async sendRequest(
@@ -269,7 +270,7 @@ export class ProveManager {
   async getResponse(proverId: string, retry = 60): Promise<any | null> {
     const sessionId = this.proverToSessionId.get(proverId);
     if (!sessionId) {
-      console.warn(
+      logger.warn(
         '[ProveManager] No session ID found for proverId:',
         proverId,
       );
@@ -294,7 +295,7 @@ export class ProveManager {
    */
   closeSession() {
     if (this.sessionWebSocket) {
-      console.log('[ProveManager] Closing session WebSocket');
+      logger.debug('[ProveManager] Closing session WebSocket');
       this.sessionWebSocket.close();
       this.sessionWebSocket = null;
     }
