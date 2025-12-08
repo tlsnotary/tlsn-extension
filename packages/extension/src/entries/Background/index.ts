@@ -132,25 +132,6 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
     return true;
   }
 
-  // Handle console logs from offscreen document and forward to all tabs
-  if (request.type === 'CONSOLE_LOG') {
-    // Broadcast log to all tabs
-    browser.tabs.query({}).then((tabs) => {
-      tabs.forEach((tab) => {
-        if (tab.id) {
-          browser.tabs
-            .sendMessage(tab.id, {
-              type: 'OFFSCREEN_LOG',
-              level: request.level,
-              message: request.message,
-            })
-            .catch(() => {}); // Ignore errors if content script not loaded
-        }
-      });
-    });
-    return true;
-  }
-
   // Example response
   if (request.type === 'PING') {
     sendResponse({ type: 'PONG' });

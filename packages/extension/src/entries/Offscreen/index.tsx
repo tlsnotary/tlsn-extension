@@ -6,68 +6,6 @@ const OffscreenApp: React.FC = () => {
   useEffect(() => {
     console.log('Offscreen document loaded');
 
-    // Override console.log to forward logs to background
-    const originalConsoleLog = console.log;
-    const originalConsoleError = console.error;
-    const originalConsoleWarn = console.warn;
-
-    console.log = function (...args: any[]) {
-      const message = args
-        .map((arg) =>
-          typeof arg === 'object' ? JSON.stringify(arg) : String(arg),
-        )
-        .join(' ');
-
-      // Forward to background for relay to page
-      chrome.runtime
-        .sendMessage({
-          type: 'CONSOLE_LOG',
-          level: 'info',
-          message: message,
-        })
-        .catch(() => {
-          /* Ignore errors if no listeners */
-        });
-
-      originalConsoleLog.apply(console, args);
-    };
-
-    console.error = function (...args: any[]) {
-      const message = args
-        .map((arg) =>
-          typeof arg === 'object' ? JSON.stringify(arg) : String(arg),
-        )
-        .join(' ');
-
-      chrome.runtime
-        .sendMessage({
-          type: 'CONSOLE_LOG',
-          level: 'error',
-          message: message,
-        })
-        .catch(() => {});
-
-      originalConsoleError.apply(console, args);
-    };
-
-    console.warn = function (...args: any[]) {
-      const message = args
-        .map((arg) =>
-          typeof arg === 'object' ? JSON.stringify(arg) : String(arg),
-        )
-        .join(' ');
-
-      chrome.runtime
-        .sendMessage({
-          type: 'CONSOLE_LOG',
-          level: 'warning',
-          message: message,
-        })
-        .catch(() => {});
-
-      originalConsoleWarn.apply(console, args);
-    };
-
     // Initialize SessionManager
     const sessionManager = new SessionManager();
     console.log('SessionManager initialized in Offscreen');
