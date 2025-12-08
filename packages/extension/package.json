@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@tlsn/common": "*",
+    "@tlsn/plugin-sdk": "*",
     "@codemirror/lang-javascript": "^6.2.4",
     "@codemirror/state": "^6.5.2",
     "@codemirror/theme-one-dark": "^6.1.3",

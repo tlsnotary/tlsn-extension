@@ -29,8 +29,8 @@ jobs:
       - name: Test extension and plugin-sdk
         run: npm run test --workspace=extension --workspace=plugin-sdk
 
-      - name: Build extension and plugin-sdk
-        run: npm run build --workspace=extension --workspace=plugin-sdk
+      - name: Build extension and dependencies
+        run: npm run build
 
       - name: Save extension zip file for releases
         if: github.event_name == 'release'

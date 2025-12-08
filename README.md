@@ -171,7 +171,7 @@ cd tlsn-extension
 npm install
 ```
 
-This will install dependencies for all packages in the monorepo.
+This installs dependencies for all packages in the monorepo and automatically sets up workspace links between packages.
 
 ## Development
 
@@ -182,7 +182,7 @@ This will install dependencies for all packages in the monorepo.
 npm run dev
 ```
 
-This starts webpack-dev-server on port 3000 with hot module replacement. Files are written to `packages/extension/build/`.
+This automatically builds all dependencies (common, plugin-sdk) and then starts webpack-dev-server on port 3000 with hot module replacement. Files are written to `packages/extension/build/`.
 
 2. Load the extension in Chrome:
    - Navigate to `chrome://extensions/`
@@ -230,6 +230,8 @@ npm run lint             # Run all linters
 npm run lint:fix         # Auto-fix issues
 ```
 
+> **Note:** The plugin-SDK builds automatically when the extension is built, so manual building is usually not necessary.
+
 **Verifier:**
 ```bash
 cd packages/verifier
@@ -248,11 +250,18 @@ From the repository root:
 NODE_ENV=production npm run build
 ```
 
-This creates:
-- Optimized build in `packages/extension/build/`
-- Packaged extension in `packages/extension/zip/tlsn-extension-{version}.zip`
+This automatically:
+1. Builds dependencies (`@tlsn/common` and `@tlsn/plugin-sdk`)
+2. Builds the extension with production optimizations
+3. Creates:
+   - Optimized build in `packages/extension/build/`
+   - Packaged extension in `packages/extension/zip/extension-{version}.zip`
 
 The zip file is ready for Chrome Web Store submission.
+
+**Alternative build commands:**
+- `npm run build:extension` - Build only the extension (assumes dependencies are built)
+- `npm run build:deps` - Build only the dependencies
 
 ### Build All Packages
 
@@ -445,7 +454,7 @@ NODE_ENV=production npm run build
 
 2. Test the extension thoroughly
 
-3. Upload `packages/extension/zip/tlsn-extension-{version}.zip` to [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole)
+3. Upload `packages/extension/zip/extension-{version}.zip` to [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole)
 
 4. Follow the [Chrome Web Store publishing guide](https://developer.chrome.com/webstore/publish)
 

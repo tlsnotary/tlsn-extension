@@ -5,9 +5,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ### Monorepo Commands (from root)
-- `npm install` - Install all dependencies for all packages
-- `npm run dev` - Start extension development server on port 3000
-- `npm run build` - Build production extension
+- `npm install` - Install all dependencies for all packages and set up workspace links
+- `npm run dev` - Start extension development server on port 3000 (auto-builds dependencies)
+- `npm run build` - Build production extension (auto-builds dependencies first)
+- `npm run build:deps` - Build only dependencies (@tlsn/common and @tlsn/plugin-sdk)
+- `npm run build:extension` - Build only extension (assumes dependencies are built)
 - `npm run build:all` - Build all packages in monorepo
 - `npm run test` - Run tests for all packages
 - `npm run lint` - Run linting for all packages
