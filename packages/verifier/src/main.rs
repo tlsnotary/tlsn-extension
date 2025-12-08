@@ -714,13 +714,6 @@ async fn run_verifier_task(
                 &session_id,
             ));
 
-            // Handle domain-specific verification using extracted functions
-            if let Some(domain_result) =
-                handle_domain_verification(server_name.as_str(), &recv_bytes)
-            {
-                handler_results.push(domain_result);
-            }
-
             // Send result to extension via the result channel
             let result = VerificationResult {
                 results: handler_results,
@@ -831,69 +824,6 @@ fn process_ranges(
             }
         })
         .collect()
-}
-
-/// Handles domain-specific verification for known domains
-fn handle_domain_verification(domain: &str, recv_bytes: &[u8]) -> Option<HandlerResult> {
-    match domain {
-        "api.x.com" => extract_x_screen_name(recv_bytes),
-        "swissbank.tlsnotary.org" => extract_swiss_bank_balance(recv_bytes),
-        _ => None,
-    }
-}
-
-/// Extracts and verifies X.com screen name
-fn extract_x_screen_name(recv_bytes: &[u8]) -> Option<HandlerResult> {
-    let received_string = unredacted_bytes_to_string(recv_bytes).ok()?;
-    let re = regex::Regex::new(r#""screen_name":"([^"]+)""#).unwrap();
-    let screen_name = re
-        .captures(&received_string)
-        .and_then(|caps| caps.get(1))
-        .map(|m| m.as_str())
-        .unwrap_or("unknown");
-
-    let result = if screen_name == "unknown" {
-        "❌ Failed verifying screen name ❌".to_string()
-    } else {
-        format!("✅ Verified screen name: \"{}\"", screen_name)
-    };
-
-    log_verification_result(&result);
-
-    Some(HandlerResult {
-        handler: Handler {
-            handler_type: HandlerType::Recv,
-            part: HandlerPart::All,
-        },
-        value: result,
-    })
-}
-
-/// Extracts and verifies Swiss bank CHF balance
-fn extract_swiss_bank_balance(recv_bytes: &[u8]) -> Option<HandlerResult> {
-    let received_string = unredacted_bytes_to_string(recv_bytes).ok()?;
-    let re = regex::Regex::new(r#""CHF":"([^"]+)""#).unwrap();
-    let chf = re
-        .captures(&received_string)
-        .and_then(|caps| caps.get(1))
-        .map(|m| m.as_str())
-        .unwrap_or("unknown");
-
-    let result = if chf == "unknown" {
-        "❌ Failed verifying Swiss Frank (CHF) balance ❌".to_string()
-    } else {
-        format!("✅ Verified Swiss Frank (CHF) balance: \"{}\"", chf)
-    };
-
-    log_verification_result(&result);
-
-    Some(HandlerResult {
-        handler: Handler {
-            handler_type: HandlerType::Recv,
-            part: HandlerPart::All,
-        },
-        value: result,
-    })
 }
 
 /// Logs verification results with consistent formatting
