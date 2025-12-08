@@ -16,6 +16,7 @@ import {
   OpenWindowResponse,
   WindowMessage,
   Handler,
+  PluginConfig,
 } from './types';
 import deepEqual from 'fast-deep-equal';
 
@@ -748,6 +749,64 @@ async function waitForWindow(callback: () => Promise<any>, retry = 0): Promise<a
 
   return null;
 }
+
+/**
+ * Extract plugin configuration from plugin code without executing it.
+ * Uses regex-based parsing to extract the config object from the source code
+ * without running any JavaScript.
+ *
+ * @param code - The plugin source code
+ * @returns The plugin config object, or null if extraction fails
+ */
+export async function extractConfig(code: string): Promise<PluginConfig | null> {
+  try {
+    // Pattern to match config object definition:
+    // const config = { name: '...', description: '...' }
+    // or
+    // const config = { name: "...", description: "..." }
+    const configPattern =
+      /const\s+config\s*=\s*\{([^}]*name\s*:\s*['"`]([^'"`]+)['"`][^}]*description\s*:\s*['"`]([^'"`]+)['"`][^}]*|[^}]*description\s*:\s*['"`]([^'"`]+)['"`][^}]*name\s*:\s*['"`]([^'"`]+)['"`][^}]*)\}/s;
+
+    const match = code.match(configPattern);
+
+    if (!match) {
+      return null;
+    }
+
+    // Extract name and description (could be in either order)
+    const name = match[2] || match[5];
+    const description = match[3] || match[4];
+
+    if (!name) {
+      return null;
+    }
+
+    const config: PluginConfig = {
+      name,
+      description: description || 'No description provided',
+    };
+
+    // Try to extract optional version
+    const versionMatch = code.match(/version\s*:\s*['"`]([^'"`]+)['"`]/);
+    if (versionMatch) {
+      config.version = versionMatch[1];
+    }
+
+    // Try to extract optional author
+    const authorMatch = code.match(/author\s*:\s*['"`]([^'"`]+)['"`]/);
+    if (authorMatch) {
+      config.author = authorMatch[1];
+    }
+
+    return config;
+  } catch (error) {
+    console.error('[extractConfig] Failed to extract plugin config:', error);
+    return null;
+  }
+}
+
+// Export types
+export type { PluginConfig };
 
 // Default export
 export default Host;

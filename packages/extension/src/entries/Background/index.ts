@@ -1,5 +1,7 @@
 import browser from 'webextension-polyfill';
 import { WindowManager } from '../../background/WindowManager';
+import { confirmationManager } from '../../background/ConfirmationManager';
+import { extractConfig, type PluginConfig } from '@tlsn/plugin-sdk';
 import type {
   InterceptedRequest,
   InterceptedRequestHeader,
@@ -148,13 +150,74 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
     return true;
   }
 
+  // Handle plugin confirmation responses from popup
+  if (request.type === 'PLUGIN_CONFIRM_RESPONSE') {
+    console.log('[Background] PLUGIN_CONFIRM_RESPONSE received:', request);
+    confirmationManager.handleConfirmationResponse(
+      request.requestId,
+      request.allowed,
+    );
+    return true;
+  }
+
   // Handle code execution requests
   if (request.type === 'EXEC_CODE') {
     console.log('[Background] EXEC_CODE request received');
 
-    // Ensure offscreen document exists
-    createOffscreenDocument()
-      .then(async () => {
+    (async () => {
+      try {
+        // Step 1: Extract plugin config for confirmation
+        let pluginConfig: PluginConfig | null = null;
+        try {
+          pluginConfig = await extractConfig(request.code);
+          console.log('[Background] Extracted plugin config:', pluginConfig);
+        } catch (extractError) {
+          console.warn(
+            '[Background] Failed to extract plugin config:',
+            extractError,
+          );
+          // Continue with null config - user will see "Unknown Plugin" warning
+        }
+
+        // Step 2: Request user confirmation
+        const confirmRequestId = `confirm_${Date.now()}_${Math.random()}`;
+        let userAllowed: boolean;
+
+        try {
+          userAllowed = await confirmationManager.requestConfirmation(
+            pluginConfig,
+            confirmRequestId,
+          );
+        } catch (confirmError) {
+          console.error('[Background] Confirmation error:', confirmError);
+          sendResponse({
+            success: false,
+            error:
+              confirmError instanceof Error
+                ? confirmError.message
+                : 'Confirmation failed',
+          });
+          return;
+        }
+
+        // Step 3: If user denied, return rejection error
+        if (!userAllowed) {
+          console.log('[Background] User rejected plugin execution');
+          sendResponse({
+            success: false,
+            error: 'User rejected plugin execution',
+          });
+          return;
+        }
+
+        // Step 4: User allowed - proceed with execution
+        console.log(
+          '[Background] User allowed plugin execution, proceeding...',
+        );
+
+        // Ensure offscreen document exists
+        await createOffscreenDocument();
+
         // Forward to offscreen document
         const response = await chrome.runtime.sendMessage({
           type: 'EXEC_CODE_OFFSCREEN',
@@ -163,14 +226,15 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
         });
         console.log('[Background] EXEC_CODE_OFFSCREEN response:', response);
         sendResponse(response);
-      })
-      .catch((error) => {
+      } catch (error) {
         console.error('[Background] Error executing code:', error);
         sendResponse({
           success: false,
-          error: error.message || 'Code execution failed',
+          error:
+            error instanceof Error ? error.message : 'Code execution failed',
         });
-      });
+      }
+    })();
 
     return true; // Keep message channel open for async response
   }

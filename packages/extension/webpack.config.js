@@ -49,6 +49,7 @@ var options = {
   ],
   entry: {
     devConsole: path.join(__dirname, "src", "entries", "DevConsole", "index.tsx"),
+    confirmPopup: path.join(__dirname, "src", "entries", "ConfirmPopup", "index.tsx"),
     background: path.join(__dirname, "src", "entries", "Background", "index.ts"),
     contentScript: path.join(__dirname, "src", "entries", "Content", "index.ts"),
     content: path.join(__dirname, "src", "entries", "Content", "content.ts"),
@@ -248,6 +249,12 @@ var options = {
       template: path.join(__dirname, "src", "entries", "DevConsole", "index.html"),
       filename: "devConsole.html",
       chunks: ["devConsole"],
+      cache: false,
+    }),
+    new HtmlWebpackPlugin({
+      template: path.join(__dirname, "src", "entries", "ConfirmPopup", "index.html"),
+      filename: "confirmPopup.html",
+      chunks: ["confirmPopup"],
       cache: false,
     }),
     new HtmlWebpackPlugin({

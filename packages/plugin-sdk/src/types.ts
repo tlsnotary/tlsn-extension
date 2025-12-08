@@ -184,3 +184,17 @@ export type AllHandler = {
 };
 
 export type Handler = StartLineHandler | HeadersHandler | BodyHandler | AllHandler;
+
+/**
+ * Plugin configuration object that all plugins must export
+ */
+export interface PluginConfig {
+  /** Display name of the plugin */
+  name: string;
+  /** Description of what the plugin does */
+  description: string;
+  /** Optional version string */
+  version?: string;
+  /** Optional author name */
+  author?: string;
+}

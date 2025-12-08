@@ -75,9 +75,9 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
       {
         type: 'TLSN_OFFSCREEN_LOG',
         level: request.level,
-        message: request.message
+        message: request.message,
       },
-      window.location.origin
+      window.location.origin,
     );
     return true;
   }
@@ -171,16 +171,31 @@ window.addEventListener('message', (event) => {
       })
       .then((response) => {
         console.log('[Content Script] EXEC_CODE response:', response);
-        // Send response back to page
-        window.postMessage(
-          {
-            type: 'TLSN_EXEC_CODE_RESPONSE',
-            requestId: event.data.payload.requestId,
-            success: true,
-            result: response.result,
-          },
-          window.location.origin,
-        );
+
+        // Check if background returned success or error
+        if (response && response.success === false) {
+          // Background returned an error (e.g., user rejected plugin)
+          window.postMessage(
+            {
+              type: 'TLSN_EXEC_CODE_RESPONSE',
+              requestId: event.data.payload.requestId,
+              success: false,
+              error: response.error || 'Code execution failed',
+            },
+            window.location.origin,
+          );
+        } else {
+          // Success - send result back to page
+          window.postMessage(
+            {
+              type: 'TLSN_EXEC_CODE_RESPONSE',
+              requestId: event.data.payload.requestId,
+              success: true,
+              result: response?.result,
+            },
+            window.location.origin,
+          );
+        }
       })
       .catch((error) => {
         console.error('[Content Script] Failed to execute code:', error);
