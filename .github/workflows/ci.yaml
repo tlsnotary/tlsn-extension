@@ -23,11 +23,11 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Lint extension and plugin-sdk
-        run: npm run lint --workspace=extension --workspace=plugin-sdk
+      - name: Lint common, extension and plugin-sdk
+        run: npm run lint --workspace=@tlsn/common --workspace=extension --workspace=@tlsn/plugin-sdk
 
-      - name: Test extension and plugin-sdk
-        run: npm run test --workspace=extension --workspace=plugin-sdk
+      - name: Test common, extension and plugin-sdk
+        run: npm run test --workspace=@tlsn/common --workspace=extension --workspace=@tlsn/plugin-sdk
 
       - name: Build extension and dependencies
         run: npm run build

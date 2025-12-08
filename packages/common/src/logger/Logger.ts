@@ -14,6 +14,7 @@ export class Logger {
   private level: LogLevel = DEFAULT_LOG_LEVEL;
   private initialized = false;
 
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
   private constructor() {}
 
   /**

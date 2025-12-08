@@ -270,10 +270,7 @@ export class ProveManager {
   async getResponse(proverId: string, retry = 60): Promise<any | null> {
     const sessionId = this.proverToSessionId.get(proverId);
     if (!sessionId) {
-      logger.warn(
-        '[ProveManager] No session ID found for proverId:',
-        proverId,
-      );
+      logger.warn('[ProveManager] No session ID found for proverId:', proverId);
       return null;
     }
 

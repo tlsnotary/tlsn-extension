@@ -18,9 +18,20 @@
     "build": "tsc",
     "clean": "rm -rf dist",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "lint": "npm run lint:eslint && npm run lint:prettier && npm run lint:typescript",
+    "lint:eslint": "eslint . --ext .ts",
+    "lint:prettier": "prettier --check .",
+    "lint:typescript": "tsc --noEmit",
+    "lint:fix": "eslint . --ext .ts --fix && prettier --write ."
   },
   "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^5.62.0",
+    "@typescript-eslint/parser": "^5.62.0",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^9.1.2",
+    "eslint-plugin-prettier": "^5.5.4",
+    "prettier": "^3.6.2",
     "typescript": "^5.0.0",
     "vitest": "^1.0.0"
   }

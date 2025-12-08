@@ -80,79 +80,6 @@ export class Parser {
     this.parse();
   }
 
-  /**
-   * Parses a JSON path into segments.
-   * Supports dot notation and array indexing.
-   *
-   * @param path - JSON path (e.g., "a.b", "items[0]", "user.addresses[1].city")
-   * @returns Array of path segments (strings for keys, numbers for array indices)
-   *
-   * @example
-   * _parsePath("a.b") // ["a", "b"]
-   * _parsePath("items[0]") // ["items", 0]
-   * _parsePath("user.addresses[0].city") // ["user", "addresses", 0, "city"]
-   */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  private _parsePath(path: string): PathSegment[] {
-    if (!path || path.trim() === '') {
-      return [];
-    }
-
-    const segments: PathSegment[] = [];
-    let current = '';
-    let i = 0;
-
-    while (i < path.length) {
-      const char = path[i];
-
-      if (char === '.') {
-        // End of a segment
-        if (current) {
-          segments.push(current);
-          current = '';
-        }
-        i++;
-      } else if (char === '[') {
-        // Start of array index
-        if (current) {
-          segments.push(current);
-          current = '';
-        }
-
-        // Find closing bracket
-        i++;
-        let indexStr = '';
-        while (i < path.length && path[i] !== ']') {
-          indexStr += path[i];
-          i++;
-        }
-
-        if (i >= path.length) {
-          throw new Error(`Invalid path: missing closing bracket in "${path}"`);
-        }
-
-        // Parse index
-        const index = parseInt(indexStr, 10);
-        if (isNaN(index) || index < 0) {
-          throw new Error(`Invalid array index: "${indexStr}" in path "${path}"`);
-        }
-
-        segments.push(index);
-        i++; // Skip closing bracket
-      } else {
-        current += char;
-        i++;
-      }
-    }
-
-    // Add remaining segment
-    if (current) {
-      segments.push(current);
-    }
-
-    return segments;
-  }
-
   private parse(): void {
     const offset = 0;
 
@@ -499,7 +426,14 @@ export class Parser {
       if (typeof value === 'object' && value !== null) {
         if (Array.isArray(value)) {
           // Handle array
-          this.processJsonArray(value, textBytes, baseOffset, result, currentPath, actualValueByteStart);
+          this.processJsonArray(
+            value,
+            textBytes,
+            baseOffset,
+            result,
+            currentPath,
+            actualValueByteStart,
+          );
         } else {
           // Handle nested object
           const valueStr = JSON.stringify(value);
@@ -530,7 +464,13 @@ export class Parser {
             // Extract the nested object's JSON text
             const nestedText = textBytes.slice(valueByteIndex, valueByteEnd).toString('utf8');
             const nestedTextBytes = Buffer.from(nestedText, 'utf8');
-            this.processJsonObject(value, nestedTextBytes, baseOffset + valueByteIndex, result, currentPath);
+            this.processJsonObject(
+              value,
+              nestedTextBytes,
+              baseOffset + valueByteIndex,
+              result,
+              currentPath,
+            );
           }
         }
       } else {
@@ -624,12 +564,25 @@ export class Parser {
         if (typeof element === 'object' && element !== null && !Array.isArray(element)) {
           const nestedText = textBytes.slice(elementByteIndex, elementByteEnd).toString('utf8');
           const nestedTextBytes = Buffer.from(nestedText, 'utf8');
-          this.processJsonObject(element, nestedTextBytes, baseOffset + elementByteIndex, result, currentPath);
+          this.processJsonObject(
+            element,
+            nestedTextBytes,
+            baseOffset + elementByteIndex,
+            result,
+            currentPath,
+          );
         } else if (Array.isArray(element)) {
           // Nested array
           const nestedText = textBytes.slice(elementByteIndex, elementByteEnd).toString('utf8');
           const nestedTextBytes = Buffer.from(nestedText, 'utf8');
-          this.processJsonArray(element, nestedTextBytes, baseOffset + elementByteIndex, result, currentPath, 0);
+          this.processJsonArray(
+            element,
+            nestedTextBytes,
+            baseOffset + elementByteIndex,
+            result,
+            currentPath,
+            0,
+          );
         }
       }
     }
@@ -642,13 +595,15 @@ export class Parser {
   private pathToString(path: PathSegment[]): string {
     if (path.length === 0) return '';
 
-    return path.reduce((acc, segment, index) => {
-      if (typeof segment === 'number') {
-        return `${acc}[${segment}]`;
-      } else {
-        return index === 0 ? segment : `${acc}.${segment}`;
-      }
-    }, '' as string).toString();
+    return path
+      .reduce((acc, segment, index) => {
+        if (typeof segment === 'number') {
+          return `${acc}[${segment}]`;
+        } else {
+          return index === 0 ? segment : `${acc}.${segment}`;
+        }
+      }, '' as string)
+      .toString();
   }
 
   private findSequence(data: Uint8Array, startOffset: number, sequence: string): number {

@@ -102,42 +102,6 @@ function makeUseEffect(
   };
 }
 
-// Helper function to convert ArrayBuffers to number arrays for JSON serialization
-function _convertArrayBuffersToArrays(obj: any): any {
-  // Handle null/undefined
-  if (obj == null) {
-    return obj;
-  }
-
-  // Check for ArrayBuffer
-  if (obj instanceof ArrayBuffer || obj.constructor?.name === 'ArrayBuffer') {
-    return Array.from(new Uint8Array(obj));
-  }
-
-  // Check for typed arrays (Uint8Array, Int8Array, etc.)
-  if (ArrayBuffer.isView(obj)) {
-    return Array.from(obj as any);
-  }
-
-  // Handle regular arrays
-  if (Array.isArray(obj)) {
-    return obj.map(_convertArrayBuffersToArrays);
-  }
-
-  // Handle objects (but not Date, RegExp, etc.)
-  if (typeof obj === 'object' && obj.constructor === Object) {
-    const converted: any = {};
-    for (const key in obj) {
-      if (obj.hasOwnProperty(key)) {
-        converted[key] = _convertArrayBuffersToArrays(obj[key]);
-      }
-    }
-    return converted;
-  }
-
-  return obj;
-}
-
 // Pure function for creating useRequests hook without `this` binding
 function makeUseRequests(
   uuid: string,
@@ -241,7 +205,6 @@ function makeSetState(
     });
   };
 }
-
 
 // Pure function for creating openWindow without `this` binding
 function makeOpenWindow(
@@ -671,7 +634,11 @@ ${code};
         const selectors = context['main']?.selectors;
         const lastStateStore = executionContextRegistry.get(uuid)?.stateStore;
 
-        if (!force && deepEqual(lastSelectors, selectors) && deepEqual(lastStateStore, stateStore)) {
+        if (
+          !force &&
+          deepEqual(lastSelectors, selectors) &&
+          deepEqual(lastStateStore, stateStore)
+        ) {
           result = null;
         }
 
@@ -695,13 +662,18 @@ ${code};
         if (result) {
           logger.debug('Main function executed:', result);
 
-          logger.debug('executionContextRegistry.get(uuid)?.windowId', executionContextRegistry.get(uuid)?.windowId);
+          logger.debug(
+            'executionContextRegistry.get(uuid)?.windowId',
+            executionContextRegistry.get(uuid)?.windowId,
+          );
 
           json = result;
-          waitForWindow(async () => executionContextRegistry.get(uuid)?.windowId).then((windowId: number) => {
-            logger.debug('render result', json as DomJson);
-            onRenderPluginUi(windowId!, json as DomJson);
-          });
+          waitForWindow(async () => executionContextRegistry.get(uuid)?.windowId).then(
+            (windowId: number) => {
+              logger.debug('render result', json as DomJson);
+              onRenderPluginUi(windowId!, json as DomJson);
+            },
+          );
         }
 
         return result;
@@ -748,7 +720,7 @@ async function waitForWindow(callback: () => Promise<any>, retry = 0): Promise<a
   if (resp) return resp;
 
   if (retry < 100) {
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     return waitForWindow(callback, retry + 1);
   }
 
@@ -818,4 +790,3 @@ export { LogLevel } from '@tlsn/common';
 
 // Default export
 export default Host;
-
