@@ -19,7 +19,7 @@
     "dev": "npm run dev --workspace=extension",
     "lint": "npm run build:deps && npm run lint --workspace=@tlsn/common --workspace=extension --workspace=@tlsn/plugin-sdk",
     "lint:fix": "npm run build:deps && npm run lint:fix --workspace=@tlsn/common --workspace=extension --workspace=@tlsn/plugin-sdk",
-    "test": "npm run test --workspaces --workspace=!tlsn-wasm",
+    "test": "npm run test --workspaces --workspace=!tlsn-wasm --workspace=!tlsn-wasm-pkg",
     "serve:test": "npm run serve:test --workspace=extension",
     "clean": "rm -rf packages/*/node_modules packages/*/dist packages/*/build node_modules",
     "build:wasm": "sh packages/tlsn-wasm/build.sh v0.1.0-alpha.13 --no-logging",
