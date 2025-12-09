@@ -283,6 +283,7 @@ describe('WindowManager', () => {
       windowManager.addRequest(999, request);
 
       expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.any(String), // timestamp like "[10:21:39] [ERROR]"
         expect.stringContaining('Cannot add request to non-existent window'),
       );
 
