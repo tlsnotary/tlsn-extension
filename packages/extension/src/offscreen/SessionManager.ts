@@ -25,6 +25,7 @@ export class SessionManager {
           maxRecvData?: number;
           maxSentData?: number;
           handlers: Handler[];
+          sessionData?: Record<string, string>;
         },
       ) => {
         let url;
@@ -35,11 +36,17 @@ export class SessionManager {
           throw new Error('Invalid URL');
         }
 
+        // Build sessionData with defaults + user-provided data
+        const sessionData: Record<string, string> = {
+          ...proverOptions.sessionData,
+        };
+
         const proverId = await this.proveManager.createProver(
           url.hostname,
           proverOptions.verifierUrl,
           proverOptions.maxRecvData,
           proverOptions.maxSentData,
+          sessionData,
         );
 
         const prover = await this.proveManager.getProver(proverId);

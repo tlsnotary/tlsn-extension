@@ -11,6 +11,30 @@ const { init, Prover } = Comlink.wrap<{
   Prover: typeof TProver;
 }>(new Worker(new URL('./worker.ts', import.meta.url)));
 
+// ============================================================================
+// WebSocket Message Types (matching Rust verifier)
+// ============================================================================
+
+/** Client message types (sent to server) */
+type ClientMessage =
+  | {
+      type: 'register';
+      maxRecvData: number;
+      maxSentData: number;
+      sessionData?: Record<string, string>;
+    }
+  | {
+      type: 'reveal_config';
+      sent: Array<{ start: number; end: number; handler: any }>;
+      recv: Array<{ start: number; end: number; handler: any }>;
+    };
+
+/** Server message types (received from server) */
+type ServerMessage =
+  | { type: 'session_registered'; sessionId: string }
+  | { type: 'session_completed'; results: any[] }
+  | { type: 'error'; message: string };
+
 export class ProveManager {
   private provers: Map<string, TProver> = new Map();
   private proverToSessionId: Map<string, string> = new Map();
@@ -36,6 +60,7 @@ export class ProveManager {
     verifierUrl: string,
     maxRecvData = 16384,
     maxSentData = 4096,
+    sessionData: Record<string, string> = {},
   ): Promise<string> {
     return new Promise((resolve, reject) => {
       logger.debug('[ProveManager] Getting verifier session URL:', verifierUrl);
@@ -54,54 +79,100 @@ export class ProveManager {
 
       ws.onopen = () => {
         logger.debug('[ProveManager] Session WebSocket connected');
+
+        // Send "register" message immediately on connect
+        const registerMsg: ClientMessage = {
+          type: 'register',
+          maxRecvData,
+          maxSentData,
+          sessionData,
+        };
+        logger.debug('[ProveManager] Sending register message:', registerMsg);
+        ws.send(JSON.stringify(registerMsg));
       };
 
       ws.onmessage = (event) => {
         try {
-          const data = JSON.parse(event.data);
+          const data = JSON.parse(event.data) as ServerMessage;
 
-          // First message: session ID
-          if (data.sessionId) {
-            const sessionId = data.sessionId;
-            logger.debug('[ProveManager] Received session ID:', sessionId);
-
-            // Store the current session ID
-            this.currentSessionId = sessionId;
-
-            // Send configuration WITHOUT handlers (handlers come later with ranges)
-            const config = {
-              maxRecvData,
-              maxSentData,
-            };
-            logger.debug('[ProveManager] Sending config:', config);
-            ws.send(JSON.stringify(config));
-
-            // Construct verifier URL for prover
-            const verifierUrl = `${protocol}://${_url.host}${pathname === '/' ? '' : pathname}/verifier?sessionId=${sessionId}`;
-            logger.debug('[ProveManager] Prover will connect to:', verifierUrl);
-
-            resolve(verifierUrl);
-          }
-          // Second message: verification result with handler results
-          else if (data.results !== undefined) {
-            logger.debug(
-              '[ProveManager] ✅ Received verification result from verifier',
-            );
-            logger.debug(
-              '[ProveManager] Handler results count:',
-              data.results.length,
-            );
-
-            // Store the response with the session ID
-            if (this.currentSessionId) {
-              this.sessionResponses.set(this.currentSessionId, data);
+          switch (data.type) {
+            case 'session_registered': {
+              const sessionId = data.sessionId;
               logger.debug(
-                '[ProveManager] Stored response for session:',
-                this.currentSessionId,
+                '[ProveManager] Received session_registered:',
+                sessionId,
               );
+
+              // Store the current session ID
+              this.currentSessionId = sessionId;
+
+              // Construct verifier URL for prover
+              const verifierWsUrl = `${protocol}://${_url.host}${pathname === '/' ? '' : pathname}/verifier?sessionId=${sessionId}`;
+              logger.debug(
+                '[ProveManager] Prover will connect to:',
+                verifierWsUrl,
+              );
+
+              resolve(verifierWsUrl);
+              break;
             }
 
-            // WebSocket will be closed by the server
+            case 'session_completed': {
+              logger.debug(
+                '[ProveManager] ✅ Received session_completed from verifier',
+              );
+              logger.debug(
+                '[ProveManager] Handler results count:',
+                data.results.length,
+              );
+
+              // Store the response with the session ID
+              if (this.currentSessionId) {
+                this.sessionResponses.set(this.currentSessionId, {
+                  results: data.results,
+                });
+                logger.debug(
+                  '[ProveManager] Stored response for session:',
+                  this.currentSessionId,
+                );
+              }
+
+              // WebSocket will be closed by the server
+              break;
+            }
+
+            case 'error': {
+              logger.error('[ProveManager] Server error:', data.message);
+              reject(new Error(data.message));
+              break;
+            }
+
+            default: {
+              // Handle legacy format for backward compatibility during transition
+              const legacyData = data as any;
+              if (legacyData.sessionId) {
+                // Old format: { sessionId: "..." }
+                logger.warn(
+                  '[ProveManager] Received legacy sessionId format, falling back',
+                );
+                this.currentSessionId = legacyData.sessionId;
+                const verifierWsUrl = `${protocol}://${_url.host}${pathname === '/' ? '' : pathname}/verifier?sessionId=${legacyData.sessionId}`;
+                resolve(verifierWsUrl);
+              } else if (legacyData.results !== undefined) {
+                // Old format: { results: [...] }
+                logger.warn(
+                  '[ProveManager] Received legacy results format, falling back',
+                );
+                if (this.currentSessionId) {
+                  this.sessionResponses.set(this.currentSessionId, legacyData);
+                }
+              } else {
+                logger.warn(
+                  '[ProveManager] Unknown message type:',
+                  (data as any).type,
+                );
+              }
+            }
           }
         } catch (error) {
           logger.error(
@@ -129,6 +200,7 @@ export class ProveManager {
     verifierUrl: string,
     maxRecvData = 16384,
     maxSentData = 4096,
+    sessionData: Record<string, string> = {},
   ) {
     const proverId = uuidv4();
 
@@ -136,6 +208,7 @@ export class ProveManager {
       verifierUrl,
       maxRecvData,
       maxSentData,
+      sessionData,
     );
 
     // Store the mapping from proverId to sessionId
@@ -212,14 +285,21 @@ export class ProveManager {
       throw new Error('Session ID not found for prover');
     }
 
-    logger.debug('[ProveManager] Sending reveal config to verifier:', {
+    // Send as typed message
+    const message: ClientMessage = {
+      type: 'reveal_config',
+      sent: revealConfig.sent,
+      recv: revealConfig.recv,
+    };
+
+    logger.debug('[ProveManager] Sending reveal_config message:', {
       sessionId,
       sentRanges: revealConfig.sent.length,
       recvRanges: revealConfig.recv.length,
     });
 
-    this.sessionWebSocket.send(JSON.stringify(revealConfig));
-    logger.debug('[ProveManager] ✅ Reveal config sent to verifier');
+    this.sessionWebSocket.send(JSON.stringify(message));
+    logger.debug('[ProveManager] ✅ reveal_config sent to verifier');
   }
 
   async sendRequest(

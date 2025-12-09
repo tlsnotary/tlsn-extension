@@ -1,0 +1,20 @@
+# TLSNotary Verifier Server Configuration
+#
+# This file configures webhook endpoints that receive verification results.
+# Webhooks are triggered after successful MPC-TLS verification.
+
+webhooks:
+  # Example: Twitter/X API webhook
+  # "api.x.com":
+  #   url: "https://your-backend.example.com/webhook/twitter"
+  #   headers:
+  #     Authorization: "Bearer your-secret-token"
+  #     X-Source: "tlsn-verifier"
+
+  # Example: GitHub API webhook
+  # "api.github.com":
+  #   url: "https://your-backend.example.com/webhook/github"
+
+  # Wildcard: catch-all for any unmatched server_name
+  # "*":
+  #   url: "https://your-backend.example.com/webhook/default"

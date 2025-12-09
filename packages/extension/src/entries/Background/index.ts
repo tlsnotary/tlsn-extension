@@ -1,7 +1,8 @@
 import browser from 'webextension-polyfill';
 import { WindowManager } from '../../background/WindowManager';
 import { confirmationManager } from '../../background/ConfirmationManager';
-import { extractConfig, type PluginConfig } from '@tlsn/plugin-sdk';
+// Import extractConfig from separate entry point to avoid QuickJS dependency in service worker
+import { extractConfig, type PluginConfig } from '@tlsn/plugin-sdk/src/extractConfig';
 import type {
   InterceptedRequest,
   InterceptedRequestHeader,

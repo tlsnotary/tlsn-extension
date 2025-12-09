@@ -9,11 +9,11 @@ use axum::{
     Router,
 };
 use axum_websocket::{WebSocket, WebSocketUpgrade};
-use eyre::eyre;
 use rangeset::RangeSet;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::net::SocketAddr;
+use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 use tlsn::transcript::PartialTranscript;
@@ -22,7 +22,7 @@ use tokio::sync::{oneshot, Mutex};
 use tokio::time::timeout;
 use tokio_util::compat::FuturesAsyncReadCompatExt;
 use tower_http::cors::CorsLayer;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 use verifier::verifier;
 use ws_stream_tungstenite::WsStream;
@@ -37,9 +37,20 @@ async fn main() {
         .with_line_number(true)
         .init();
 
-    // Create application state with session storage
+    // Load configuration from YAML file
+    let config = Config::load(Path::new("config.yaml"));
+    info!(
+        "Webhook configurations loaded: {} endpoints",
+        config.webhooks.len()
+    );
+    for (server_name, webhook) in &config.webhooks {
+        info!("  {} -> {}", server_name, webhook.url);
+    }
+
+    // Create application state with session storage and config
     let app_state = Arc::new(AppState {
         sessions: Arc::new(Mutex::new(HashMap::new())),
+        config: Arc::new(config),
     });
 
     // Build router with routes
@@ -142,7 +153,7 @@ struct VerificationResult {
 // Type alias for the prover WebSocket sender
 type ProverSocketSender = oneshot::Sender<WebSocket>;
 
-// Session data stored in AppState
+// Session data stored in AppState (only prover socket sender - config/sessionData passed directly to verifier task)
 struct SessionData {
     prover_socket_tx: ProverSocketSender,
 }
@@ -151,13 +162,7 @@ struct SessionData {
 #[derive(Clone)]
 struct AppState {
     sessions: Arc<Mutex<HashMap<String, SessionData>>>,
-}
-
-// Response body for session creation (sent via WebSocket)
-#[derive(Debug, Serialize)]
-struct CreateSessionResponse {
-    #[serde(rename = "sessionId")]
-    session_id: String,
+    config: Arc<Config>,
 }
 
 // Query parameters for verifier WebSocket connection
@@ -173,6 +178,170 @@ struct ProxyQuery {
     host: String,
 }
 
+// ============================================================================
+// WebSocket Message Protocol (Typed Messages)
+// ============================================================================
+
+/// Incoming messages from client (extension)
+#[derive(Debug, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum ClientMessage {
+    /// Registration message - sent first to establish session
+    Register {
+        #[serde(rename = "maxRecvData")]
+        max_recv_data: usize,
+        #[serde(rename = "maxSentData")]
+        max_sent_data: usize,
+        #[serde(rename = "sessionData", default)]
+        session_data: HashMap<String, String>,
+    },
+    /// Reveal configuration - sent with ranges and handlers
+    RevealConfig {
+        sent: Vec<RangeWithHandler>,
+        recv: Vec<RangeWithHandler>,
+    },
+}
+
+/// Outgoing messages to client (extension)
+#[derive(Debug, Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum ServerMessage {
+    /// Session registered successfully
+    SessionRegistered {
+        #[serde(rename = "sessionId")]
+        session_id: String,
+    },
+    /// Session completed with results
+    SessionCompleted {
+        results: Vec<HandlerResult>,
+    },
+    /// Error occurred
+    Error {
+        message: String,
+    },
+}
+
+// ============================================================================
+// Webhook Types
+// ============================================================================
+
+/// Webhook configuration for a specific server
+#[derive(Debug, Clone, Deserialize)]
+struct WebhookConfig {
+    url: String,
+    #[serde(default)]
+    headers: HashMap<String, String>,
+}
+
+/// Application configuration loaded from YAML
+#[derive(Debug, Clone, Deserialize, Default)]
+struct Config {
+    #[serde(default)]
+    webhooks: HashMap<String, WebhookConfig>,
+}
+
+impl Config {
+    /// Load configuration from YAML file, returns default if file doesn't exist
+    fn load(path: &Path) -> Self {
+        match std::fs::read_to_string(path) {
+            Ok(contents) => match serde_yaml::from_str(&contents) {
+                Ok(config) => {
+                    info!("Loaded config from {:?}", path);
+                    config
+                }
+                Err(e) => {
+                    warn!("Failed to parse config file {:?}: {}", path, e);
+                    Self::default()
+                }
+            },
+            Err(_) => {
+                info!("No config file found at {:?}, using defaults", path);
+                Self::default()
+            }
+        }
+    }
+
+    /// Get webhook configuration for a server name (with wildcard fallback)
+    fn get_webhook(&self, server_name: &str) -> Option<&WebhookConfig> {
+        self.webhooks
+            .get(server_name)
+            .or_else(|| self.webhooks.get("*"))
+    }
+}
+
+/// Webhook payload sent to configured endpoints
+#[derive(Debug, Serialize)]
+struct WebhookPayload {
+    /// The server name (hostname) from the TLS connection
+    server_name: String,
+    /// Handler results with revealed values
+    results: Vec<HandlerResult>,
+    /// The reveal configuration (ranges + handlers)
+    config: RevealConfigForWebhook,
+    /// Session metadata
+    session: SessionInfo,
+    /// Redacted transcripts (bytes outside revealed ranges replaced with 0x00)
+    transcript: RedactedTranscript,
+}
+
+/// Reveal config for webhook (same structure, different purpose)
+#[derive(Debug, Serialize)]
+struct RevealConfigForWebhook {
+    sent: Vec<RangeWithHandler>,
+    recv: Vec<RangeWithHandler>,
+}
+
+/// Session information for webhook
+#[derive(Debug, Serialize)]
+struct SessionInfo {
+    id: String,
+    #[serde(flatten)]
+    data: HashMap<String, String>,
+}
+
+/// Redacted transcript data - bytes outside revealed ranges are zeroed out
+#[derive(Debug, Serialize)]
+struct RedactedTranscript {
+    /// Redacted sent data (request) - unrevealed bytes replaced with 0x00
+    sent: String,
+    /// Redacted received data (response) - unrevealed bytes replaced with 0x00
+    recv: String,
+    /// Original sent length before redaction
+    sent_length: usize,
+    /// Original recv length before redaction
+    recv_length: usize,
+}
+
+impl RedactedTranscript {
+    /// Create redacted transcript from raw bytes and reveal config
+    fn from_transcript(
+        sent_bytes: &[u8],
+        recv_bytes: &[u8],
+        reveal_config: &RevealConfig,
+    ) -> Self {
+        Self {
+            sent: Self::redact_bytes(sent_bytes, &reveal_config.sent),
+            recv: Self::redact_bytes(recv_bytes, &reveal_config.recv),
+            sent_length: sent_bytes.len(),
+            recv_length: recv_bytes.len(),
+        }
+    }
+
+    /// Redact bytes by zeroing out bytes outside the revealed ranges
+    fn redact_bytes(bytes: &[u8], ranges: &[RangeWithHandler]) -> String {
+        let mut redacted = vec![0u8; bytes.len()];
+
+        for range in ranges {
+            if range.start < bytes.len() && range.end <= bytes.len() {
+                redacted[range.start..range.end].copy_from_slice(&bytes[range.start..range.end]);
+            }
+        }
+
+        // Convert to string - using lossy conversion for non-UTF8 bytes
+        String::from_utf8_lossy(&redacted).to_string()
+    }
+}
+
 // Health check endpoint handler
 async fn health_handler() -> impl IntoResponse {
     "ok"
@@ -186,69 +355,117 @@ async fn session_ws_handler(
     ws.on_upgrade(move |socket| handle_session_websocket(socket, state))
 }
 
-// Handle the session WebSocket connection
-async fn handle_session_websocket(mut socket: WebSocket, state: Arc<AppState>) {
-    use futures_util::StreamExt;
-
-    // Generate a new session ID
-    let session_id = Uuid::new_v4().to_string();
-    info!("[{}] New session WebSocket connected", session_id);
-
-    // Send session ID to client
-    let session_response = CreateSessionResponse {
-        session_id: session_id.clone(),
-    };
-
-    if let Err(e) = socket
+/// Helper to send typed server messages
+async fn send_server_message(socket: &mut WebSocket, message: &ServerMessage) -> bool {
+    match socket
         .send(axum_websocket::Message::Text(
-            serde_json::to_string(&session_response).unwrap(),
+            serde_json::to_string(message).unwrap(),
         ))
         .await
     {
-        error!("[{}] Failed to send session ID: {}", session_id, e);
-        return;
+        Ok(_) => true,
+        Err(e) => {
+            error!("Failed to send message: {}", e);
+            false
+        }
     }
+}
 
-    info!("[{}] Sent session ID to extension", session_id);
+/// Helper to send error message
+async fn send_error(socket: &mut WebSocket, message: &str) {
+    let _ = send_server_message(socket, &ServerMessage::Error {
+        message: message.to_string(),
+    })
+    .await;
+}
 
-    // Receive configuration from client
-    let config_msg = match socket.next().await {
+// Handle the session WebSocket connection with typed message protocol
+async fn handle_session_websocket(mut socket: WebSocket, state: Arc<AppState>) {
+    use futures_util::StreamExt;
+
+    // Generate session ID upfront (but don't send yet - wait for register)
+    let session_id = Uuid::new_v4().to_string();
+    info!("[{}] New session WebSocket connected", session_id);
+
+    // Wait for "register" message first
+    let register_msg = match socket.next().await {
         Some(Ok(axum_websocket::Message::Text(text))) => text,
         Some(Ok(msg)) => {
             error!("[{}] Expected text message, got: {:?}", session_id, msg);
+            send_error(&mut socket, "Expected text message").await;
             return;
         }
         Some(Err(e)) => {
-            error!("[{}] Error receiving config: {}", session_id, e);
+            error!("[{}] Error receiving message: {}", session_id, e);
             return;
         }
         None => {
-            error!("[{}] Connection closed before receiving config", session_id);
+            error!("[{}] Connection closed before registration", session_id);
             return;
         }
     };
 
-    let config: SessionConfig = match serde_json::from_str(&config_msg) {
-        Ok(config) => config,
+    // Parse as ClientMessage
+    let client_msg: ClientMessage = match serde_json::from_str(&register_msg) {
+        Ok(msg) => msg,
         Err(e) => {
-            error!("[{}] Failed to parse config: {}", session_id, e);
+            error!("[{}] Failed to parse message: {}", session_id, e);
+            send_error(&mut socket, &format!("Invalid message format: {}", e)).await;
+            return;
+        }
+    };
+
+    // Expect "register" message type
+    let (max_recv_data, max_sent_data, session_data) = match client_msg {
+        ClientMessage::Register {
+            max_recv_data,
+            max_sent_data,
+            session_data,
+        } => (max_recv_data, max_sent_data, session_data),
+        _ => {
+            error!("[{}] Expected 'register' message type", session_id);
+            send_error(&mut socket, "Expected 'register' message type").await;
             return;
         }
     };
 
     info!(
-        "[{}] Received config: maxRecvData={}, maxSentData={}",
-        session_id, config.max_recv_data, config.max_sent_data
+        "[{}] Received registration: maxRecvData={}, maxSentData={}, sessionData keys: {:?}",
+        session_id,
+        max_recv_data,
+        max_sent_data,
+        session_data.keys().collect::<Vec<_>>()
     );
+
+    // Send session_registered response
+    if !send_server_message(
+        &mut socket,
+        &ServerMessage::SessionRegistered {
+            session_id: session_id.clone(),
+        },
+    )
+    .await
+    {
+        error!("[{}] Failed to send session_registered", session_id);
+        return;
+    }
+
+    info!("[{}] Sent session_registered to client", session_id);
 
     // Create channels for prover socket and results
     let (prover_socket_tx, prover_socket_rx) = oneshot::channel::<WebSocket>();
     let (result_tx, result_rx) = oneshot::channel::<VerificationResult>();
 
-    // Create shared reveal config storage
+    // Create shared reveal config storage and session data storage
     let reveal_config_storage = Arc::new(Mutex::new(None));
+    let session_data_storage = Arc::new(session_data.clone());
 
-    // Store session data WITHOUT reveal config yet (so prover can connect)
+    let session_config = SessionConfig {
+        max_recv_data,
+        max_sent_data,
+    };
+
+    // Store session data (so prover can connect)
     {
         let mut sessions = state.sessions.lock().await;
         sessions.insert(session_id.clone(), SessionData { prover_socket_tx });
@@ -263,10 +480,12 @@ async fn handle_session_websocket(mut socket: WebSocket, state: Arc<AppState>) {
     let session_id_clone = session_id.clone();
     let state_clone = state.clone();
     let reveal_config_storage_clone = reveal_config_storage.clone();
+    let session_data_clone = session_data_storage.clone();
     tokio::spawn(async move {
         run_verifier_task(
             session_id_clone,
-            config,
+            session_config,
+            (*session_data_clone).clone(),
             reveal_config_storage_clone,
             prover_socket_rx,
             result_tx,
@@ -280,39 +499,52 @@ async fn handle_session_websocket(mut socket: WebSocket, state: Arc<AppState>) {
         session_id
     );
 
-    // Wait for RevealConfig message (ranges + handlers) - can come anytime now
+    // Wait for reveal_config message
     let reveal_msg = match socket.next().await {
         Some(Ok(axum_websocket::Message::Text(text))) => text,
         Some(Ok(msg)) => {
             error!(
-                "[{}] Expected text message for reveal config, got: {:?}",
+                "[{}] Expected text message for reveal_config, got: {:?}",
                 session_id, msg
             );
+            send_error(&mut socket, "Expected text message").await;
             return;
         }
         Some(Err(e)) => {
-            error!("[{}] Error receiving reveal config: {}", session_id, e);
+            error!("[{}] Error receiving reveal_config: {}", session_id, e);
             return;
         }
         None => {
             error!(
-                "[{}] Connection closed before receiving reveal config",
+                "[{}] Connection closed before receiving reveal_config",
                 session_id
             );
             return;
         }
     };
 
-    let reveal_config: RevealConfig = match serde_json::from_str(&reveal_msg) {
-        Ok(config) => config,
+    // Parse as ClientMessage
+    let client_msg: ClientMessage = match serde_json::from_str(&reveal_msg) {
+        Ok(msg) => msg,
         Err(e) => {
-            error!("[{}] Failed to parse reveal config: {}", session_id, e);
+            error!("[{}] Failed to parse reveal_config: {}", session_id, e);
+            send_error(&mut socket, &format!("Invalid message format: {}", e)).await;
+            return;
+        }
+    };
+
+    // Expect "reveal_config" message type
+    let reveal_config = match client_msg {
+        ClientMessage::RevealConfig { sent, recv } => RevealConfig { sent, recv },
+        _ => {
+            error!("[{}] Expected 'reveal_config' message type", session_id);
+            send_error(&mut socket, "Expected 'reveal_config' message type").await;
             return;
         }
     };
 
     info!(
-        "[{}] Received reveal config: {} sent ranges, {} recv ranges",
+        "[{}] Received reveal_config: {} sent ranges, {} recv ranges",
         session_id,
         reveal_config.sent.len(),
         reveal_config.recv.len()
@@ -337,15 +569,18 @@ async fn handle_session_websocket(mut socket: WebSocket, state: Arc<AppState>) {
                 session_id
             );
 
-            // Send result to extension
-            let result_json = serde_json::to_string(&result).unwrap();
-            if let Err(e) = socket
-                .send(axum_websocket::Message::Text(result_json))
-                .await
+            // Send session_completed to extension
+            if send_server_message(
+                &mut socket,
+                &ServerMessage::SessionCompleted {
+                    results: result.results,
+                },
+            )
+            .await
             {
-                error!("[{}] Failed to send result: {}", session_id, e);
+                info!("[{}] ✅ Sent session_completed to extension", session_id);
             } else {
-                info!("[{}] ✅ Sent verification result to extension", session_id);
+                error!("[{}] Failed to send session_completed", session_id);
             }
         }
         Err(_) => {
@@ -353,6 +588,7 @@ async fn handle_session_websocket(mut socket: WebSocket, state: Arc<AppState>) {
                 "[{}] ❌ Verifier task closed without sending result",
                 session_id
             );
+            send_error(&mut socket, "Verification failed").await;
         }
     }
 
@@ -566,6 +802,7 @@ async fn handle_proxy_connection(ws: WebSocket, host: String) {
 async fn run_verifier_task(
     session_id: String,
     config: SessionConfig,
+    session_data: HashMap<String, String>,
     reveal_config_storage: Arc<Mutex<Option<RevealConfig>>>,
     socket_rx: oneshot::Receiver<WebSocket>,
     result_tx: oneshot::Sender<VerificationResult>,
@@ -714,6 +951,43 @@ async fn run_verifier_task(
                 &session_id,
             ));
 
+            // Check if webhook is configured for this server_name
+            let server_name_str = server_name.as_ref();
+            if let Some(webhook_config) = state.config.get_webhook(server_name_str) {
+                info!(
+                    "[{}] Webhook configured for {}, sending POST to {}",
+                    session_id, server_name_str, webhook_config.url
+                );
+
+                // Create redacted transcript - only revealed ranges are visible
+                let redacted_transcript = RedactedTranscript::from_transcript(
+                    &sent_bytes,
+                    &recv_bytes,
+                    &reveal_config,
+                );
+
+                let payload = WebhookPayload {
+                    server_name: server_name_str.to_string(),
+                    results: handler_results.clone(),
+                    config: RevealConfigForWebhook {
+                        sent: reveal_config.sent.clone(),
+                        recv: reveal_config.recv.clone(),
+                    },
+                    session: SessionInfo {
+                        id: session_id.clone(),
+                        data: session_data.clone(),
+                    },
+                    transcript: redacted_transcript,
+                };
+
+                // Fire and forget - don't block on webhook
+                let webhook_config = webhook_config.clone();
+                let session_id_for_webhook = session_id.clone();
+                tokio::spawn(async move {
+                    send_webhook(&webhook_config, &payload, &session_id_for_webhook).await;
+                });
+            }
+
             // Send result to extension via the result channel
             let result = VerificationResult {
                 results: handler_results,
@@ -826,16 +1100,40 @@ fn process_ranges(
         .collect()
 }
 
-/// Logs verification results with consistent formatting
-fn log_verification_result(result: &str) {
-    info!("============================================");
-    info!("{}", result);
-    info!("============================================");
-}
 
-/// Filter redacted bytes and convert to string
-fn unredacted_bytes_to_string(bytes: &[u8]) -> Result<String, eyre::ErrReport> {
-    let unredacted_bytes: Vec<u8> = bytes.iter().copied().filter(|&b| b != 0).collect();
-    String::from_utf8(unredacted_bytes)
-        .map_err(|err| eyre!("Failed to parse bytes to string: {err}"))
+/// Send webhook POST request to configured endpoint
+async fn send_webhook(config: &WebhookConfig, payload: &WebhookPayload, session_id: &str) {
+    let client = reqwest::Client::new();
+
+    let mut request = client.post(&config.url).json(payload);
+
+    // Add custom headers from config
+    for (key, value) in &config.headers {
+        request = request.header(key, value);
+    }
+
+    match request.send().await {
+        Ok(response) => {
+            if response.status().is_success() {
+                info!(
+                    "[{}] ✅ Webhook POST successful: {}",
+                    session_id, config.url
+                );
+            } else {
+                error!(
+                    "[{}] ❌ Webhook POST failed with status {}: {}",
+                    session_id,
+                    response.status(),
+                    config.url
+                );
+            }
+        }
+        Err(e) => {
+            // Log error but don't fail the verification
+            error!(
+                "[{}] ❌ Webhook POST error: {} - {}",
+                session_id, config.url, e
+            );
+        }
+    }
 }
