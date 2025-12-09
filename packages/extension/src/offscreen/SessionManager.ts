@@ -178,4 +178,11 @@ export class SessionManager {
       },
     });
   }
+
+  /**
+   * Extract plugin config using QuickJS sandbox (more reliable than regex)
+   */
+  async extractConfig(code: string): Promise<any> {
+    return this.host.getPluginConfig(code);
+  }
 }

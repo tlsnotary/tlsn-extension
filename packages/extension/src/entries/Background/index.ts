@@ -1,8 +1,7 @@
 import browser from 'webextension-polyfill';
 import { WindowManager } from '../../background/WindowManager';
 import { confirmationManager } from '../../background/ConfirmationManager';
-// Import extractConfig from separate entry point to avoid QuickJS dependency in service worker
-import { extractConfig, type PluginConfig } from '@tlsn/plugin-sdk/src/extractConfig';
+import type { PluginConfig } from '@tlsn/plugin-sdk/src/types';
 import type {
   InterceptedRequest,
   InterceptedRequestHeader,
@@ -173,10 +172,10 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
 
     (async () => {
       try {
-        // Step 1: Extract plugin config for confirmation
+        // Step 1: Extract plugin config for confirmation (via offscreen QuickJS)
         let pluginConfig: PluginConfig | null = null;
         try {
-          pluginConfig = await extractConfig(request.code);
+          pluginConfig = await extractConfigViaOffscreen(request.code);
           logger.debug('Extracted plugin config:', pluginConfig);
         } catch (extractError) {
           logger.warn('Failed to extract plugin config:', extractError);
@@ -415,6 +414,35 @@ async function createOffscreenDocument() {
 createOffscreenDocument().catch((err) =>
   logger.error('Offscreen document error:', err),
 );
+
+/**
+ * Extract plugin config by sending code to offscreen document where QuickJS runs.
+ * This is more reliable than regex-based extraction.
+ */
+async function extractConfigViaOffscreen(
+  code: string,
+): Promise<PluginConfig | null> {
+  try {
+    // Ensure offscreen document exists
+    await createOffscreenDocument();
+
+    // Send message to offscreen and wait for response
+    const response = await chrome.runtime.sendMessage({
+      type: 'EXTRACT_CONFIG',
+      code,
+    });
+
+    if (response?.success && response.config) {
+      return response.config as PluginConfig;
+    }
+
+    logger.warn('Config extraction returned no config:', response?.error);
+    return null;
+  } catch (error) {
+    logger.error('Failed to extract config via offscreen:', error);
+    return null;
+  }
+}
 
 // Periodic cleanup of invalid windows (every 5 minutes)
 const CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes

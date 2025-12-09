@@ -25,6 +25,39 @@ const OffscreenApp: React.FC = () => {
         return true;
       }
 
+      // Handle config extraction requests (uses QuickJS)
+      if (request.type === 'EXTRACT_CONFIG') {
+        logger.debug('Offscreen extracting config from code');
+
+        if (!sessionManager) {
+          sendResponse({
+            success: false,
+            error: 'SessionManager not initialized',
+          });
+          return true;
+        }
+
+        sessionManager
+          .awaitInit()
+          .then((sm) => sm.extractConfig(request.code))
+          .then((config) => {
+            logger.debug('Extracted config:', config);
+            sendResponse({
+              success: true,
+              config,
+            });
+          })
+          .catch((error) => {
+            logger.error('Config extraction error:', error);
+            sendResponse({
+              success: false,
+              error: error.message,
+            });
+          });
+
+        return true; // Keep message channel open for async response
+      }
+
       // Handle code execution requests
       if (request.type === 'EXEC_CODE_OFFSCREEN') {
         logger.debug('Offscreen executing code:', request.code);
