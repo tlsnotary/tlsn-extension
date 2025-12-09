@@ -18,20 +18,17 @@ jobs:
           node-version: 20
           cache: "npm"
 
-      - name: Remove package-lock.json
-        run: rm -f package-lock.json
-
       - name: Install dependencies
-        run: npm install
+        run: npm ci
+
+      - name: Build extension and dependencies
+        run: npm run build
 
       - name: Lint common, extension and plugin-sdk
         run: npm run lint
 
       - name: Test common, extension and plugin-sdk
         run: npm run test
-
-      - name: Build extension and dependencies
-        run: npm run build
 
       - name: Save extension zip file for releases
         if: github.event_name == 'release'
