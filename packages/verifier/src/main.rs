@@ -1,6 +1,9 @@
 mod axum_websocket;
 mod verifier;
 
+#[cfg(test)]
+mod tests;
+
 use axum::{
     extract::{Query, State},
     http::StatusCode,
@@ -87,14 +90,14 @@ async fn main() {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "UPPERCASE")]
-enum HandlerType {
+pub(crate) enum HandlerType {
     Sent,
     Recv,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-enum HandlerPart {
+pub(crate) enum HandlerPart {
     StartLine,
     Protocol,
     Method,
@@ -106,10 +109,10 @@ enum HandlerPart {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct Handler {
+pub(crate) struct Handler {
     #[serde(rename = "type")]
-    handler_type: HandlerType,
-    part: HandlerPart,
+    pub(crate) handler_type: HandlerType,
+    pub(crate) part: HandlerPart,
 }
 
 // Session data structure (without handlers - they come later with ranges)
@@ -123,10 +126,10 @@ struct SessionConfig {
 
 // Range with handler metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct RangeWithHandler {
-    start: usize,
-    end: usize,
-    handler: Handler,
+pub(crate) struct RangeWithHandler {
+    pub(crate) start: usize,
+    pub(crate) end: usize,
+    pub(crate) handler: Handler,
 }
 
 // Reveal configuration sent before prover.reveal()
@@ -154,15 +157,15 @@ struct VerificationResult {
 type ProverSocketSender = oneshot::Sender<WebSocket>;
 
 // Session data stored in AppState (only prover socket sender - config/sessionData passed directly to verifier task)
-struct SessionData {
-    prover_socket_tx: ProverSocketSender,
+pub(crate) struct SessionData {
+    pub(crate) prover_socket_tx: ProverSocketSender,
 }
 
 // Application state for sharing data between handlers
 #[derive(Clone)]
-struct AppState {
-    sessions: Arc<Mutex<HashMap<String, SessionData>>>,
-    config: Arc<Config>,
+pub(crate) struct AppState {
+    pub(crate) sessions: Arc<Mutex<HashMap<String, SessionData>>>,
+    pub(crate) config: Arc<Config>,
 }
 
 // Query parameters for verifier WebSocket connection
@@ -227,17 +230,17 @@ enum ServerMessage {
 
 /// Webhook configuration for a specific server
 #[derive(Debug, Clone, Deserialize)]
-struct WebhookConfig {
-    url: String,
+pub(crate) struct WebhookConfig {
+    pub(crate) url: String,
     #[serde(default)]
-    headers: HashMap<String, String>,
+    pub(crate) headers: HashMap<String, String>,
 }
 
 /// Application configuration loaded from YAML
 #[derive(Debug, Clone, Deserialize, Default)]
-struct Config {
+pub(crate) struct Config {
     #[serde(default)]
-    webhooks: HashMap<String, WebhookConfig>,
+    pub(crate) webhooks: HashMap<String, WebhookConfig>,
 }
 
 impl Config {
@@ -348,7 +351,7 @@ async fn health_handler() -> impl IntoResponse {
 }
 
 // WebSocket session handler for extension
-async fn session_ws_handler(
+pub(crate) async fn session_ws_handler(
     ws: WebSocketUpgrade,
     State(state): State<Arc<AppState>>,
 ) -> impl IntoResponse {
@@ -598,7 +601,7 @@ async fn handle_session_websocket(mut socket: WebSocket, state: Arc<AppState>) {
 }
 
 // WebSocket handler for verifier (prover connection)
-async fn verifier_ws_handler(
+pub(crate) async fn verifier_ws_handler(
     ws: WebSocketUpgrade,
     State(state): State<Arc<AppState>>,
     Query(query): Query<VerifierQuery>,
@@ -645,7 +648,7 @@ async fn verifier_ws_handler(
 }
 
 // WebSocket proxy handler - bridges WebSocket to TCP
-async fn proxy_ws_handler(
+pub(crate) async fn proxy_ws_handler(
     ws: WebSocketUpgrade,
     Query(query): Query<ProxyQuery>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
