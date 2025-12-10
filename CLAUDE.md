@@ -27,6 +27,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run lint` / `npm run lint:fix` - ESLint checks and fixes
 - `npm run serve:test` - Python HTTP server for integration tests
 
+### Common Package Commands (`packages/common`)
+- `npm run build` - Build TypeScript to dist/
+- `npm run test` - Run Vitest tests
+- `npm run lint` - Run all linters (ESLint, Prettier, TypeScript)
+- `npm run lint:fix` - Auto-fix linting issues
+
 ### Plugin SDK Package Commands
 - `npm run build` - Build isomorphic package with Vite + TypeScript declarations
 - `npm run test` - Run Vitest tests
@@ -42,11 +48,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Monorepo Architecture
 
-The project is organized as a monorepo using npm workspaces with three main packages:
+The project is organized as a monorepo using npm workspaces with the following packages:
 
+- **`packages/common`**: Shared utilities (logging system) used by extension and plugin-sdk
 - **`packages/extension`**: Chrome Extension (Manifest V3) for TLSNotary proof generation
 - **`packages/plugin-sdk`**: SDK for developing and running TLSN plugins using QuickJS sandboxing
 - **`packages/verifier`**: Rust-based WebSocket server for TLSNotary verification
+
+**Build Dependencies:**
+The extension depends on `@tlsn/common` and `@tlsn/plugin-sdk`. These must be built before the extension:
+```bash
+# From root - builds all dependencies automatically
+npm run dev
+
+# Or manually build dependencies first
+cd packages/common && npm run build
+cd packages/plugin-sdk && npm run build
+cd packages/extension && npm run dev
+```
 
 **Important**: The extension must match the version of the notary server it connects to.
 

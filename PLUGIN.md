@@ -74,6 +74,7 @@ The TLSN Extension features a **secure plugin system** that allows developers to
 │  │  │  │  Access via env object:   │ │           │        │
 │  │  │  │  - env.openWindow()       │ │           │        │
 │  │  │  │  - env.useRequests()      │ │           │        │
+│  │  │  │  - env.useState/setState()│ │           │        │
 │  │  │  │  - env.prove()            │ │           │        │
 │  │  │  │  - env.div(), env.button()│ │           │        │
 │  │  │  └────────────────────────────┘ │           │        │
@@ -112,6 +113,8 @@ const sandboxOptions = {
     useEffect: (callback, deps) => { /* ... */ },
     useRequests: (filter) => { /* ... */ },
     useHeaders: (filter) => { /* ... */ },
+    useState: (key, defaultValue) => { /* ... */ },
+    setState: (key, value) => { /* ... */ },
     prove: (request, proverOptions) => { /* ... */ },
     done: (result) => { /* ... */ },
   },
@@ -348,6 +351,79 @@ function main() {
 }
 ```
 
+#### `useState(key, defaultValue)`
+
+Get a state value by key, with optional default value.
+
+**Parameters:**
+- `key` - String key to identify the state value
+- `defaultValue` - Optional default value if key doesn't exist
+
+**Returns:** The current state value for the given key
+
+**Example:**
+
+```javascript
+function main() {
+  // Get state with default value
+  const count = useState('count', 0);
+  const username = useState('username', '');
+
+  return div({}, [
+    `Count: ${count}`,
+    `Username: ${username}`,
+  ]);
+}
+```
+
+#### `setState(key, value)`
+
+Set a state value by key. Triggers a UI re-render when the state changes.
+
+**Parameters:**
+- `key` - String key to identify the state value
+- `value` - The new value to set
+
+**Behavior:**
+- Updates the state store with the new value
+- Compares new state with previous state using deep equality
+- Only triggers re-render if state actually changed
+- Sends `TO_BG_RE_RENDER_PLUGIN_UI` message to trigger UI update
+
+**Example:**
+
+```javascript
+async function onClick() {
+  // Update state - triggers re-render
+  setState('count', useState('count', 0) + 1);
+  setState('username', 'newUser');
+}
+```
+
+**Complete useState/setState Example:**
+
+```javascript
+function main() {
+  const count = useState('count', 0);
+  const status = useState('status', 'idle');
+
+  return div({}, [
+    div({}, [`Status: ${status}`]),
+    div({}, [`Count: ${count}`]),
+    button({ onclick: 'increment' }, ['Increment']),
+  ]);
+}
+
+async function increment() {
+  setState('status', 'updating');
+  const current = useState('count', 0);
+  setState('count', current + 1);
+  setState('status', 'idle');
+}
+
+export default { main, increment };
+```
+
 #### `useRequests(filterFn)`
 
 Get filtered intercepted HTTP requests for the current window.
@@ -366,8 +442,16 @@ interface InterceptedRequest {
   id: string;          // Chrome request ID
   url: string;         // Full request URL
   method: string;      // HTTP method (GET, POST, etc.)
-  timestamp: number;   // Unix timestamp
-  tabId: number;       // Tab ID
+  timestamp: number;   // Unix timestamp (milliseconds)
+  tabId: number;       // Tab ID where request originated
+  requestBody?: {      // Optional request body data
+    error?: string;    // Error message if body couldn't be read
+    formData?: Record<string, string>;  // Form data (if applicable)
+    raw?: Array<{      // Raw body data
+      bytes?: any;     // ArrayBuffer-like bytes
+      file?: string;   // File path (if uploading)
+    }>;
+  };
 }
 ```
 
@@ -456,6 +540,7 @@ if (authHeader) {
 - `maxRecvData` - Optional number, max received bytes (default: 16384)
 - `maxSentData` - Optional number, max sent bytes (default: 4096)
 - `handlers` - Array of Handler objects specifying what to handle
+- `sessionData` - Optional object, custom key-value data to include in the session (passed to verifier)
 
 **Handler Structure:**
 
@@ -463,7 +548,7 @@ if (authHeader) {
 type Handler = {
   type: 'SENT' | 'RECV';           // Which direction (request/response)
   part: 'START_LINE' | 'PROTOCOL' | 'METHOD' | 'REQUEST_TARGET' |
-        'STATUS_CODE' | 'HEADERS' | 'BODY';
+        'STATUS_CODE' | 'HEADERS' | 'BODY' | 'ALL';
   action: 'REVEAL' | 'PEDERSEN';   // Reveal plaintext or commit hash
   params?: {
     // For HEADERS:
@@ -475,12 +560,26 @@ type Handler = {
     type?: 'json';
     path?: string;                 // JSON field path (e.g., 'screen_name')
 
-    // For BODY with regex:
+    // For ALL with regex (matches across entire transcript):
     type?: 'regex';
-    regex?: RegExp;                // Pattern to match
+    regex?: string;                // Regex pattern as string
+    flags?: string;                // Regex flags (e.g., 'g', 'i', 'gi')
   };
 };
 ```
+
+**Handler Part Values:**
+
+| Part | Description | Applicable To |
+|------|-------------|---------------|
+| `START_LINE` | Full first line (e.g., `GET /path HTTP/1.1`) | SENT, RECV |
+| `PROTOCOL` | HTTP version (e.g., `HTTP/1.1`) | SENT, RECV |
+| `METHOD` | HTTP method (e.g., `GET`, `POST`) | SENT only |
+| `REQUEST_TARGET` | Request path (e.g., `/1.1/account/settings.json`) | SENT only |
+| `STATUS_CODE` | Response status (e.g., `200`) | RECV only |
+| `HEADERS` | HTTP headers section | SENT, RECV |
+| `BODY` | HTTP body content | SENT, RECV |
+| `ALL` | Entire transcript (use with regex) | SENT, RECV |
 
 **Returns:** Promise<ProofResponse> - The generated proof data
 
@@ -666,14 +765,15 @@ console.log('Proof generated:', proof);
   },
 }
 
-// Example 5: Reveal regex match in body
+// Example 5: Reveal regex match across entire transcript
 {
   type: 'RECV',
-  part: 'BODY',
+  part: 'ALL',
   action: 'REVEAL',
   params: {
     type: 'regex',
-    regex: /user_id=\d+/g,
+    regex: 'user_id=\\d+',  // Regex as string
+    flags: 'g',              // Global flag
   },
 }
 
@@ -1177,6 +1277,8 @@ handlers: [
 - `useEffect(effect, deps)` - Side effect with dependencies
 - `useRequests(filterFn)` - Get filtered requests
 - `useHeaders(filterFn)` - Get filtered headers
+- `useState(key, defaultValue?)` - Get state value by key
+- `setState(key, value)` - Set state value and trigger re-render
 
 ### TLS Proof
 - `prove(requestOptions, proverOptions)` - **Unified proof generation API**
@@ -1186,6 +1288,6 @@ handlers: [
 
 ---
 
-**Last Updated:** October 2025
+**Last Updated:** December 2025
 **Plugin SDK Version:** 0.1.0
 **Extension Version:** 0.1.0
