@@ -157,14 +157,10 @@ function makeUseHeaders(
 
     // Validate that filterFn returned an array
     if (result === undefined) {
-      throw new Error(
-        `useHeaders: filter function returned undefined. expect an erray`
-      );
+      throw new Error(`useHeaders: filter function returned undefined. expect an erray`);
     }
     if (!Array.isArray(result)) {
-      throw new Error(
-        `useHeaders: filter function must return an array, got ${typeof result}. `
-      );
+      throw new Error(`useHeaders: filter function must return an array, got ${typeof result}. `);
     }
 
     selectors.push(result);
