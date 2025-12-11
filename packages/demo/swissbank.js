@@ -36,7 +36,7 @@ async function onClick() {
         {
             // Verifier URL: The notary server that verifies the TLS connection
             verifierUrl: 'http://localhost:7047',
-            proxyUrl: 'wss://notary.pse.dev/proxy?token=swissbank.tlsnotary.org',
+            proxyUrl: 'ws://localhost:7047/proxy?token=swissbank.tlsnotary.org',
             // proxyUrl: 'ws://localhost:55688',
             maxRecvData: 460, // Maximum bytes to receive from server (response size limit)
             maxSentData: 180,// Maximum bytes to send to server (request size limit)

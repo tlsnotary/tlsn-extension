@@ -95,7 +95,7 @@ async function onClick() {
 
             // Proxy URL: WebSocket proxy that relays TLS data to the target server
             // The token parameter specifies which server to connect to
-            proxyUrl: 'wss://notary.pse.dev/proxy?token=api.x.com',
+            proxyUrl: 'ws://localhost:7047/proxy?token=api.x.com',
 
             // Maximum bytes to receive from server (response size limit)
             maxRecvData: 4000,

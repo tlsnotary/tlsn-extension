@@ -80,7 +80,7 @@ async fn main() {
         "Verifier WebSocket endpoint: ws://{}/verifier?sessionId=<id>",
         addr
     );
-    info!("Proxy WebSocket endpoint: ws://{}/proxy?host=<host>", addr);
+    info!("Proxy WebSocket endpoint: ws://{}/proxy?token=<host>", addr);
 
     axum::serve(listener, app)
         .tcp_nodelay(true)
@@ -176,9 +176,11 @@ struct VerifierQuery {
 }
 
 // Query parameters for proxy WebSocket connection
+// Supports both `token` (notary.pse.dev compatible) and `host` (legacy)
 #[derive(Debug, Deserialize)]
 struct ProxyQuery {
-    host: String,
+    #[serde(alias = "host")]
+    token: String,
 }
 
 // ============================================================================
@@ -648,11 +650,12 @@ pub(crate) async fn verifier_ws_handler(
 }
 
 // WebSocket proxy handler - bridges WebSocket to TCP
+// Compatible with notary.pse.dev: /proxy?token=<host> or legacy /proxy?host=<host>
 pub(crate) async fn proxy_ws_handler(
     ws: WebSocketUpgrade,
     Query(query): Query<ProxyQuery>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    let host = query.host;
+    let host = query.token;
 
     info!("[Proxy] New proxy request for host: {}", host);
 
@@ -768,6 +771,10 @@ async fn handle_proxy_connection(ws: WebSocket, host: String) {
                         "[{}] TCP read EOF (server closed), forwarded {} bytes to WebSocket",
                         proxy_id_clone, total_bytes
                     );
+                    // Send WebSocket close frame to signal EOF to client
+                    if let Err(e) = ws_sink.send(axum_websocket::Message::Close(None)).await {
+                        error!("[{}] Failed to send WebSocket close frame: {}", proxy_id_clone, e);
+                    }
                     break;
                 }
                 Ok(n) => {
@@ -781,6 +788,8 @@ async fn handle_proxy_connection(ws: WebSocket, host: String) {
                 }
                 Err(e) => {
                     error!("[{}] TCP read error: {}", proxy_id_clone, e);
+                    // Send close frame on error too
+                    let _ = ws_sink.send(axum_websocket::Message::Close(None)).await;
                     break;
                 }
             }

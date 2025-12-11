@@ -54,3 +54,4 @@ http-body-util = "0.1"
 hyper-util = { version = "0.1", features = ["tokio", "http1"] }
 native-tls = "0.2"
 tokio-native-tls = "0.3"
+either = "1.13"

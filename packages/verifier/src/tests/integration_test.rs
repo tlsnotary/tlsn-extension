@@ -13,7 +13,7 @@ use std::time::Duration;
 
 use async_tungstenite::tungstenite::Message;
 use axum::{extract::State, routing::post, Json, Router};
-use futures_util::StreamExt;
+use futures_util::{io::AsyncRead, io::AsyncWrite, StreamExt};
 use http_body_util::Empty;
 use hyper::{body::Bytes, Request, StatusCode};
 use hyper_util::rt::TokioIo;
@@ -383,53 +383,14 @@ async fn connect_wss(
     Ok(ws)
 }
 
-/// Prover that connects to verifier and performs MPC-TLS with swapi.dev
-async fn run_prover(
-    verifier_ws_url: String,
-    proxy_url: String,
-    max_sent_data: usize,
-    max_recv_data: usize,
-) -> Result<(Vec<u8>, Vec<u8>), Box<dyn std::error::Error + Send + Sync>> {
-    info!("[Prover] Connecting to verifier at {}", verifier_ws_url);
-
-    // 1. Connect to verifier WebSocket (ws://)
-    let verifier_ws = connect_ws(&verifier_ws_url).await?;
-    info!("[Prover] Connected to verifier");
-
-    // Convert WebSocket to stream compatible with tlsn
-    // WsStream implements tokio::io::AsyncRead/AsyncWrite when inner implements futures_io traits
-    let verifier_stream = WsStream::new(verifier_ws);
-
-    // 2. Create prover config
-    let prover_config = ProverConfig::builder()
-        .server_name(ServerName::Dns("swapi.dev".try_into().unwrap()))
-        .protocol_config(
-            ProtocolConfig::builder()
-                .max_sent_data(max_sent_data)
-                .max_recv_data(max_recv_data)
-                .build()
-                .unwrap(),
-        )
-        .build()
-        .unwrap();
-
-    info!("[Prover] Setting up MPC-TLS with verifier");
-
-    // 3. Create prover and perform setup with verifier
-    // tlsn expects futures_io traits, so we don't need compat() - WsStream already provides them
-    let prover = Prover::new(prover_config)
-        .setup(verifier_stream)
-        .await
-        .map_err(|e| format!("Prover setup failed: {}", e))?;
-
-    info!("[Prover] Connecting to proxy at {}", proxy_url);
-
-    // 4. Connect to proxy WebSocket (wss://)
-    let proxy_ws = connect_wss(&proxy_url).await?;
-    info!("[Prover] Connected to proxy");
-
-    let proxy_stream = WsStream::new(proxy_ws);
-
+/// Helper function that performs MPC-TLS and HTTP request with a given proxy stream
+async fn run_prover_with_stream<S>(
+    prover: tlsn::prover::Prover<tlsn::prover::state::Setup>,
+    proxy_stream: S,
+) -> Result<(Vec<u8>, Vec<u8>), Box<dyn std::error::Error + Send + Sync>>
+where
+    S: AsyncRead + AsyncWrite + Send + Unpin + 'static,
+{
     // 5. Pass proxy connection into the prover for TLS
     let (mpc_tls_connection, prover_fut) = prover
         .connect(proxy_stream)
@@ -513,6 +474,61 @@ async fn run_prover(
     Ok((sent, recv))
 }
 
+/// Prover that connects to verifier and performs MPC-TLS with swapi.dev
+async fn run_prover(
+    verifier_ws_url: String,
+    proxy_url: String,
+    max_sent_data: usize,
+    max_recv_data: usize,
+) -> Result<(Vec<u8>, Vec<u8>), Box<dyn std::error::Error + Send + Sync>> {
+    info!("[Prover] Connecting to verifier at {}", verifier_ws_url);
+
+    // 1. Connect to verifier WebSocket (ws://)
+    let verifier_ws = connect_ws(&verifier_ws_url).await?;
+    info!("[Prover] Connected to verifier");
+
+    // Convert WebSocket to stream compatible with tlsn
+    // WsStream implements tokio::io::AsyncRead/AsyncWrite when inner implements futures_io traits
+    let verifier_stream = WsStream::new(verifier_ws);
+
+    // 2. Create prover config
+    let prover_config = ProverConfig::builder()
+        .server_name(ServerName::Dns("swapi.dev".try_into().unwrap()))
+        .protocol_config(
+            ProtocolConfig::builder()
+                .max_sent_data(max_sent_data)
+                .max_recv_data(max_recv_data)
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
+
+    info!("[Prover] Setting up MPC-TLS with verifier");
+
+    // 3. Create prover and perform setup with verifier
+    // tlsn expects futures_io traits, so we don't need compat() - WsStream already provides them
+    let prover = Prover::new(prover_config)
+        .setup(verifier_stream)
+        .await
+        .map_err(|e| format!("Prover setup failed: {}", e))?;
+
+    info!("[Prover] Connecting to proxy at {}", proxy_url);
+
+    // 4. Connect to proxy WebSocket (ws:// or wss://)
+    if proxy_url.starts_with("wss://") {
+        let proxy_ws = connect_wss(&proxy_url).await?;
+        info!("[Prover] Connected to proxy (wss)");
+        let proxy_stream = WsStream::new(proxy_ws);
+        run_prover_with_stream(prover, proxy_stream).await
+    } else {
+        let proxy_ws = connect_ws(&proxy_url).await?;
+        info!("[Prover] Connected to proxy (ws)");
+        let proxy_stream = WsStream::new(proxy_ws);
+        run_prover_with_stream(prover, proxy_stream).await
+    }
+}
+
 // ============================================================================
 // Integration Test
 // ============================================================================
@@ -557,7 +573,7 @@ async fn test_webhook_integration_with_swapi() {
         "ws://127.0.0.1:{}/verifier?sessionId={}",
         VERIFIER_PORT, session_id
     );
-    let proxy_url = "wss://notary.pse.dev/proxy?token=swapi.dev".to_string();
+    let proxy_url = format!("ws://127.0.0.1:{}/proxy?token=swapi.dev", VERIFIER_PORT);
 
     let prover_handle = tokio::spawn(async move {
         run_prover(verifier_ws_url, proxy_url, MAX_SENT_DATA, MAX_RECV_DATA).await
