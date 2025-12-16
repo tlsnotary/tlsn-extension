@@ -57,5 +57,31 @@ You can use the websocketproxy hosted by the TLSNotary team, or run your own pro
 
 ## 4. Launch the demo
 
-Run the demo with `npm run demo`.
+Run the demo with `npm run demo` from the repository root, or run it with docker using `npm run docker:up`.
+
+### Manual Setup
+
+If you want to run the scripts manually:
+
+```bash
+cd packages/demo
+./generate.sh && ./start.sh
+```
+
+The demo uses two scripts:
+- **`generate.sh`** - Generates plugin files with configured verifier URLs
+- **`start.sh`** - Starts Docker Compose services
+
+### Environment Variables
+
+Configure for different environments:
+```bash
+# Local development (default)
+./generate.sh && ./start.sh
+
+# Production with SSL
+VERIFIER_HOST=verifier.tlsnotary.org SSL=true ./generate.sh
+./start.sh
+```
+
 You can now open the demo by opening http://localhost:8080 in your browser with the TLSNotary extension
