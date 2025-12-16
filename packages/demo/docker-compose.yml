@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   verifier:
@@ -12,9 +12,8 @@ services:
     restart: unless-stopped
 
   demo-static:
-    image: nginx:alpine
-    volumes:
-      - ./generated:/usr/share/nginx/html:ro
+    build:
+      context: .
     restart: unless-stopped
 
   nginx:
