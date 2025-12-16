@@ -1,0 +1,316 @@
+@import url('https://fonts.googleapis.com/css?family=Open+Sans&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+  overflow: hidden;
+}
+
+.dev-console {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: #1e1e1e;
+}
+
+.editor-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border-bottom: 2px solid #333;
+  overflow: hidden;
+}
+
+.editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background-color: #252526;
+  border-bottom: 1px solid #333;
+}
+
+.editor-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #cccccc;
+  letter-spacing: 0.3px;
+}
+
+.editor-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn {
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+
+  &:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  &.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+
+    &:hover {
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+  }
+
+  &.btn-secondary {
+    background-color: #3e3e42;
+    color: #cccccc;
+
+    &:hover {
+      background-color: #4e4e52;
+    }
+  }
+}
+
+.editor-container {
+  flex: 1;
+  overflow: auto;
+  background-color: #1e1e1e;
+}
+
+.console-section {
+  height: 32rem;
+  display: flex;
+  flex-direction: column;
+  background-color: #1e1e1e;
+}
+
+.console-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background-color: #252526;
+  border-bottom: 1px solid #333;
+}
+
+.console-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #cccccc;
+  letter-spacing: 0.3px;
+}
+
+.console-output {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px;
+  font-family: 'Monaco', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+
+  &::-webkit-scrollbar {
+    width: 10px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: #252526;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #3e3e42;
+    border-radius: 5px;
+
+    &:hover {
+      background: #4e4e52;
+    }
+  }
+}
+
+.console-entry {
+  padding: 4px 0;
+  display: flex;
+  gap: 8px;
+
+  &.error {
+    color: #f48771;
+  }
+
+  &.success {
+    color: #89d185;
+  }
+
+  &.info {
+    color: #569cd6;
+  }
+}
+
+.console-timestamp {
+  color: #6a9955;
+  flex-shrink: 0;
+}
+
+.console-message {
+  flex: 1;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+// CodeMirror custom syntax highlighting styles
+.cm-editor {
+  .cm-content {
+    caret-color: #528bff;
+  }
+
+  // Line numbers
+  .cm-gutters {
+    background-color: #1e1e1e;
+    border-right: 1px solid #333;
+  }
+
+  .cm-lineNumbers .cm-gutterElement {
+    color: #858585;
+    padding: 0 8px 0 5px;
+  }
+
+  // Active line
+  .cm-activeLine {
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+
+  .cm-activeLineGutter {
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+
+  // Selection
+  .cm-selectionBackground,
+  &.cm-focused .cm-selectionBackground {
+    background-color: rgba(82, 139, 255, 0.3);
+  }
+
+  // JavaScript syntax highlighting colors
+  .cm-keyword {
+    color: #c586c0; // Keywords: const, let, var, function, async, await, etc.
+  }
+
+  .cm-variableName {
+    color: #9cdcfe; // Variable names
+  }
+
+  .cm-propertyName {
+    color: #9cdcfe; // Object properties
+  }
+
+  .cm-string {
+    color: #ce9178; // Strings
+  }
+
+  .cm-number {
+    color: #b5cea8; // Numbers
+  }
+
+  .cm-bool {
+    color: #569cd6; // Booleans: true, false
+  }
+
+  .cm-null {
+    color: #569cd6; // null, undefined
+  }
+
+  .cm-operator {
+    color: #d4d4d4; // Operators: =, +, -, etc.
+  }
+
+  .cm-punctuation {
+    color: #d4d4d4; // Punctuation: (), {}, [], etc.
+  }
+
+  .cm-comment {
+    color: #6a9955; // Comments
+    font-style: italic;
+  }
+
+  .cm-function {
+    color: #dcdcaa; // Function names
+  }
+
+  .cm-typeName,
+  .cm-className {
+    color: #4ec9b0; // Type/Class names
+  }
+
+  .cm-regexp {
+    color: #d16969; // Regular expressions
+  }
+
+  .cm-escape {
+    color: #d7ba7d; // Escape sequences in strings
+  }
+
+  .cm-meta {
+    color: #569cd6; // Meta keywords like import, export
+  }
+
+  .cm-definition {
+    color: #dcdcaa; // Function definitions
+  }
+
+  // Bracket matching
+  .cm-matchingBracket {
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 1px solid #888;
+  }
+
+  .cm-nonmatchingBracket {
+    background-color: rgba(255, 0, 0, 0.2);
+  }
+
+  // Cursor
+  .cm-cursor {
+    border-left-color: #aeafad;
+  }
+
+  // Search/selection matches
+  .cm-selectionMatch {
+    background-color: rgba(173, 214, 255, 0.15);
+  }
+
+  // Focused state
+  &.cm-focused {
+    outline: none;
+  }
+
+  // Fold gutter
+  .cm-foldGutter {
+    .cm-gutterElement {
+      color: #858585;
+
+      &:hover {
+        color: #c5c5c5;
+      }
+    }
+  }
+}

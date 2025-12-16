@@ -15,27 +15,27 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
-          cache: 'npm'
+          node-version: 20
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Build
+      - name: Build extension and dependencies
         run: npm run build
 
-      - name: Lint
+      - name: Lint common, extension and plugin-sdk
         run: npm run lint
 
-      - name: Test Webpack Build
-        run: npm run build:webpack
+      - name: Test common, extension and plugin-sdk
+        run: npm run test
 
       - name: Save extension zip file for releases
         if: github.event_name == 'release'
         uses: actions/upload-artifact@v4
         with:
-          name: tlsn-extension-${{ github.ref_name }}.zip
-          path: ./zip/tlsn-extension-${{ github.ref_name }}.zip
+          name: extension-build
+          path: ./packages/extension/zip/*.zip
           if-no-files-found: error
 
   release:
@@ -45,28 +45,36 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Download extension from build-lint-test job
         uses: actions/download-artifact@v4
         with:
-          name: tlsn-extension-${{ github.ref_name }}.zip
-          path: .
+          name: extension-build
+          path: ./dist
 
       - name: 📦 Add extension zip file to release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Find the extension zip file
+          EXTENSION_ZIP=$(find ./dist -name "extension-*.zip" -type f | head -n 1)
+          if [ -z "$EXTENSION_ZIP" ]; then
+            echo "Error: Extension zip file not found"
+            exit 1
+          fi
+          echo "Found extension zip: $EXTENSION_ZIP"
           gh release upload "${{ github.event.release.tag_name }}" \
-            ./tlsn-extension-${{ github.ref_name }}.zip \
+            "$EXTENSION_ZIP" \
             --clobber
 
-      # Get tokens as documented on 
+      # Get tokens as documented on
       # * https://developer.chrome.com/docs/webstore/using-api#beforeyoubegin
       # * https://github.com/fregante/chrome-webstore-upload-keys?tab=readme-ov-file
       - name: 💨 Publish to chrome store
         uses: browser-actions/release-chrome-extension@latest # https://github.com/browser-actions/release-chrome-extension/tree/latest/
         with:
           extension-id: "gcfkkledipjbgdbimfpijgbkhajiaaph"
-          extension-path: tlsn-extension-${{ github.ref_name }}.zip
+          extension-path: ./dist/extension-0.1.0.zip
           oauth-client-id: ${{ secrets.OAUTH_CLIENT_ID }}
           oauth-client-secret: ${{ secrets.OAUTH_CLIENT_SECRET }}
           oauth-refresh-token: ${{ secrets.OAUTH_REFRESH_TOKEN }}

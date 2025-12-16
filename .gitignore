@@ -9,3 +9,6 @@ build
 tlsn/
 zip
 .vscode
+.claude
+coverage
+packages/verifier/target/

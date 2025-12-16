@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  verifier:
+    build:
+      context: ../verifier
+      dockerfile: Dockerfile
+    ports:
+      - "7047:7047"
+    environment:
+      - RUST_LOG=info
+    restart: unless-stopped
+
+  demo-static:
+    image: nginx:alpine
+    volumes:
+      - ./generated:/usr/share/nginx/html:ro
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - verifier
+      - demo-static
+    restart: unless-stopped

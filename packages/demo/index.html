@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>TLSNotary Plugin test page</title>
+  <style>
+    .result {
+      background: #e8f5e8;
+      border: 2px solid #28a745;
+      border-radius: 8px;
+      padding: 16px;
+      margin: 20px 0;
+      font-size: 18px;
+      display: inline-block;
+    }
+
+    .debug {
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 4px;
+      padding: 12px;
+      margin: 20px 0;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .plugin-buttons {
+      margin: 20px 0;
+    }
+
+    .plugin-buttons button {
+      margin-right: 10px;
+      padding: 10px 20px;
+      font-size: 16px;
+    }
+
+    .check-item {
+      margin: 10px 0;
+      padding: 10px;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+    }
+
+    .check-item.checking {
+      background: #f0f8ff;
+      border-color: #007bff;
+    }
+
+    .check-item.success {
+      background: #f0f8f0;
+      border-color: #28a745;
+    }
+
+    .check-item.error {
+      background: #fff0f0;
+      border-color: #dc3545;
+    }
+
+    .status {
+      font-weight: bold;
+      margin-left: 10px;
+    }
+
+    .status.checking {
+      color: #007bff;
+    }
+
+    .status.success {
+      color: #28a745;
+    }
+
+    .status.error {
+      color: #dc3545;
+    }
+
+    .warning-box {
+      background: #fff3cd;
+      border: 2px solid #ffc107;
+      border-radius: 8px;
+      padding: 16px;
+      margin: 20px 0;
+    }
+
+    .warning-box h3 {
+      margin-top: 0;
+      color: #856404;
+    }
+
+    .console-section {
+      margin: 20px 0;
+      border: 1px solid #dee2e6;
+      border-radius: 8px;
+      background: #1e1e1e;
+      overflow: hidden;
+    }
+
+    .console-header {
+      background: #2d2d2d;
+      color: #fff;
+      padding: 10px 15px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #3d3d3d;
+    }
+
+    .console-title {
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .console-output {
+      max-height: 300px;
+      overflow-y: auto;
+      padding: 10px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      color: #d4d4d4;
+    }
+
+    .console-entry {
+      margin: 4px 0;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .console-entry.info {
+      color: #4fc3f7;
+    }
+
+    .console-entry.success {
+      color: #4caf50;
+    }
+
+    .console-entry.error {
+      color: #f44336;
+    }
+
+    .console-entry.warning {
+      color: #ff9800;
+    }
+
+    .console-timestamp {
+      color: #888;
+      margin-right: 8px;
+    }
+
+    .console-message {
+      color: inherit;
+    }
+
+    .btn-console {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 5px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .btn-console:hover {
+      background: #0056b3;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>TLSNotary Plugin Demo</h1>
+  <p>
+    This page demonstrates TLSNotary plugins. Choose a plugin to test below.
+  </p>
+
+  <!-- Browser compatibility warning -->
+  <div id="browser-warning" class="warning-box" style="display: none;">
+    <h3>⚠️ Browser Compatibility</h3>
+    <p><strong>Unsupported Browser Detected</strong></p>
+    <p>TLSNotary extension requires a Chrome-based browser (Chrome, Edge, Brave, etc.).</p>
+    <p>Please switch to a supported browser to continue.</p>
+  </div>
+
+  <!-- System checks -->
+  <div>
+    <strong>System Checks:</strong>
+    <div id="check-browser" class="check-item checking">
+      🌐 Browser: <span class="status checking">Checking...</span>
+    </div>
+    <div id="check-extension" class="check-item checking">
+      🔌 Extension: <span class="status checking">Checking...</span>
+    </div>
+    <div id="check-verifier" class="check-item checking">
+      ✅ Verifier: <span class="status checking">Checking...</span>
+      <div id="verifier-instructions" style="display: none; margin-top: 10px; font-size: 14px;">
+        <p>Start the verifier server:</p>
+        <code>cd packages/verifier; cargo run --release</code>
+        <button onclick="checkVerifier()" style="margin-left: 10px; padding: 5px 10px;">Check Again</button>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top: 20px;">
+    <strong>Steps:</strong>
+    <ol>
+      <li>Click one of the plugin "Run" buttons below.</li>
+      <li>The plugin will open a new browser window with the target website.</li>
+      <li>Log in to the website if you are not already logged in.</li>
+      <li>A TLSNotary overlay will appear in the bottom right corner.</li>
+      <li>Click the <strong>Prove</strong> button in the overlay to start the proving process.</li>
+      <li>After successful proving, you can close the browser window and the results will appear on this page.</li>
+    </ol>
+  </div>
+  <div class="plugin-buttons" id="buttonContainer"></div>
+
+  <!-- Console Section -->
+  <div class="console-section">
+    <div class="console-header">
+      <div class="console-title">Console Output</div>
+      <div style="display: flex; gap: 10px;">
+        <button class="btn-console" onclick="openExtensionLogs()" style="background: #6c757d;">View Extension Logs</button>
+        <button class="btn-console" onclick="clearConsole()">Clear</button>
+      </div>
+    </div>
+    <div class="console-output" id="consoleOutput">
+      <div class="console-entry info">
+        <span class="console-timestamp">[INFO]</span>
+        <span class="console-message">💡 TLSNotary proving logs will appear here in real-time. You can also view them in the extension console by clicking "View Extension Logs" above.</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    console.log('Testing TLSNotary plugins...');
+
+    let allChecksPass = false;
+
+    // Console functionality
+    function addConsoleEntry(message, type = 'info') {
+      const consoleOutput = document.getElementById('consoleOutput');
+      const timestamp = new Date().toLocaleTimeString();
+
+      const entry = document.createElement('div');
+      entry.className = `console-entry ${type}`;
+
+      const timestampSpan = document.createElement('span');
+      timestampSpan.className = 'console-timestamp';
+      timestampSpan.textContent = `[${timestamp}]`;
+
+      const messageSpan = document.createElement('span');
+      messageSpan.className = 'console-message';
+      messageSpan.textContent = message;
+
+      entry.appendChild(timestampSpan);
+      entry.appendChild(messageSpan);
+      consoleOutput.appendChild(entry);
+
+      // Auto-scroll to bottom
+      consoleOutput.scrollTop = consoleOutput.scrollHeight;
+    }
+
+    function clearConsole() {
+      const consoleOutput = document.getElementById('consoleOutput');
+      consoleOutput.innerHTML = '';
+      addConsoleEntry('Console cleared', 'info');
+      // Re-add the tip
+      const tipEntry = document.createElement('div');
+      tipEntry.className = 'console-entry info';
+      tipEntry.innerHTML = '<span class="console-timestamp">[INFO]</span><span class="console-message">💡 TLSNotary proving logs will appear here in real-time.</span>';
+      consoleOutput.insertBefore(tipEntry, consoleOutput.firstChild);
+    }
+
+    function openExtensionLogs() {
+      // Open extensions page
+      window.open('chrome://extensions/', '_blank');
+      addConsoleEntry('Opening chrome://extensions/ - Find TLSNotary extension → click "service worker" → find "offscreen.html" → click "inspect"', 'info');
+    }
+
+    // Listen for logs from offscreen document
+    window.addEventListener('message', (event) => {
+      if (event.origin !== window.location.origin) return;
+
+      if (event.data?.type === 'TLSN_OFFSCREEN_LOG') {
+        addConsoleEntry(event.data.message, event.data.level);
+      }
+    });
+
+    // Initialize console with welcome message
+    window.addEventListener('load', () => {
+      addConsoleEntry('TLSNotary Plugin Demo initialized', 'success');
+    });
+
+    // Check browser compatibility
+    function checkBrowserCompatibility() {
+      const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+      const isEdge = /Edg/.test(navigator.userAgent);
+      const isBrave = navigator.brave && typeof navigator.brave.isBrave === 'function';
+      const isChromium = /Chromium/.test(navigator.userAgent);
+
+      const isChromeBasedBrowser = isChrome || isEdge || isBrave || isChromium;
+
+      const checkDiv = document.getElementById('check-browser');
+      const warningDiv = document.getElementById('browser-warning');
+      const statusSpan = checkDiv.querySelector('.status');
+
+      if (isChromeBasedBrowser) {
+        checkDiv.className = 'check-item success';
+        statusSpan.className = 'status success';
+        statusSpan.textContent = '✅ Chrome-based browser detected';
+        return true;
+      } else {
+        checkDiv.className = 'check-item error';
+        statusSpan.className = 'status error';
+        statusSpan.textContent = '❌ Unsupported browser';
+        warningDiv.style.display = 'block';
+        return false;
+      }
+    }
+
+    // Check extension
+    async function checkExtension() {
+      const checkDiv = document.getElementById('check-extension');
+      const statusSpan = checkDiv.querySelector('.status');
+
+      // Wait a bit for tlsn to load if page just loaded
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      if (typeof window.tlsn !== 'undefined') {
+        checkDiv.className = 'check-item success';
+        statusSpan.className = 'status success';
+        statusSpan.textContent = '✅ Extension installed';
+        return true;
+      } else {
+        checkDiv.className = 'check-item error';
+        statusSpan.className = 'status error';
+        statusSpan.innerHTML = '❌ Extension not found - <a href="chrome://extensions/" target="_blank">Install extension</a>';
+        return false;
+      }
+    }
+
+    // Check verifier server
+    async function checkVerifier() {
+      const checkDiv = document.getElementById('check-verifier');
+      const statusSpan = checkDiv.querySelector('.status');
+      const instructions = document.getElementById('verifier-instructions');
+
+      statusSpan.textContent = 'Checking...';
+      statusSpan.className = 'status checking';
+      checkDiv.className = 'check-item checking';
+
+      try {
+        const response = await fetch('http://localhost:7047/health');
+        if (response.ok && await response.text() === 'ok') {
+          checkDiv.className = 'check-item success';
+          statusSpan.className = 'status success';
+          statusSpan.textContent = '✅ Verifier running';
+          instructions.style.display = 'none';
+          return true;
+        } else {
+          throw new Error('Unexpected response');
+        }
+      } catch (error) {
+        checkDiv.className = 'check-item error';
+        statusSpan.className = 'status error';
+        statusSpan.textContent = '❌ Verifier not running';
+        instructions.style.display = 'block';
+        return false;
+      }
+    }
+
+    // Run all checks
+    async function runAllChecks() {
+      const browserOk = checkBrowserCompatibility();
+      if (!browserOk) {
+        allChecksPass = false;
+        return;
+      }
+
+      const extensionOk = await checkExtension();
+      const verifierOk = await checkVerifier();
+
+      allChecksPass = extensionOk && verifierOk;
+
+      updateButtonState();
+    }
+
+    // Update button state based on checks
+    function updateButtonState() {
+      const container = document.getElementById('buttonContainer');
+      const buttons = container.querySelectorAll('button');
+
+      buttons.forEach(button => {
+        button.disabled = !allChecksPass;
+        if (!allChecksPass) {
+          button.title = 'Please complete all system checks first';
+        } else {
+          button.title = '';
+        }
+      });
+    }
+
+    const plugins = {
+      twitter: {
+        name: 'Twitter profile Plugin',
+        file: 'twitter.js',
+        parseResult: (json) => {
+          return json.results[json.results.length - 1].value;
+        }
+      },
+      swissbank: {
+        name: 'Swiss Bank Plugin',
+        file: 'swissbank.js',
+        parseResult: (json) => {
+          return json.results[json.results.length - 1].value;
+        }
+      }
+    };
+
+    async function runPlugin(pluginKey) {
+      const plugin = plugins[pluginKey];
+      const button = document.getElementById(`${pluginKey}Button`);
+
+      try {
+        addConsoleEntry(`🎬 Starting ${plugin.name} plugin...`, 'info');
+        console.log(`Running ${plugin.name} plugin...`);
+        button.disabled = true;
+        button.textContent = 'Running...';
+
+        const startTime = performance.now();
+        const pluginCode = await fetch(plugin.file).then(r => r.text());
+
+        addConsoleEntry('🔧 Executing plugin code...', 'info');
+        const result = await window.tlsn.execCode(pluginCode);
+        const executionTime = (performance.now() - startTime).toFixed(2);
+
+        const json = JSON.parse(result);
+
+        // Create result div
+        const resultDiv = document.createElement('div');
+        resultDiv.className = 'result';
+        resultDiv.innerHTML = plugin.parseResult(json);
+        document.body.appendChild(resultDiv);
+
+        // Create header
+        const header = document.createElement('h3');
+        header.textContent = `${plugin.name} Results:`;
+        document.body.appendChild(header);
+
+        // Create debug div
+        const debugDiv = document.createElement('div');
+        debugDiv.className = 'debug';
+        debugDiv.textContent = JSON.stringify(json.results, null, 2);
+        document.body.appendChild(debugDiv);
+
+        addConsoleEntry(`✅ ${plugin.name} completed successfully in ${executionTime}ms`, 'success');
+
+        // Remove the button after successful execution
+        button.remove();
+      } catch (err) {
+        console.error(err);
+
+        // Create error div
+        const errorDiv = document.createElement('pre');
+        errorDiv.style.color = 'red';
+        errorDiv.textContent = err.message;
+        document.body.appendChild(errorDiv);
+
+        button.textContent = `Run ${plugin.name}`;
+        button.disabled = false;
+      }
+    }
+
+    window.addEventListener('tlsn_loaded', () => {
+      console.log('TLSNotary client loaded, showing plugin buttons...');
+      const container = document.getElementById('buttonContainer');
+
+      Object.entries(plugins).forEach(([key, plugin]) => {
+        const button = document.createElement('button');
+        button.id = `${key}Button`;
+        button.textContent = `Run ${plugin.name}`;
+        button.onclick = () => runPlugin(key);
+        container.appendChild(button);
+      });
+
+      // Update button states after creating them
+      updateButtonState();
+    });
+
+    // Run checks on page load
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        runAllChecks();
+      }, 500);
+    });
+  </script>
+</body>
+
+</html>
