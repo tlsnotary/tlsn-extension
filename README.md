@@ -15,13 +15,14 @@ A Chrome Extension for TLSNotary with plugin SDK and verifier server.
 - [Development](#development)
 - [Production Build](#production-build)
 - [End-to-End Testing](#end-to-end-testing)
+- [Running the Demo](#running-the-demo)
 - [Websockify Integration](#websockify-integration)
 - [Publishing](#publishing)
 - [License](#license)
 
 ## Monorepo Structure
 
-This repository is organized as an npm workspaces monorepo with four main packages:
+This repository is organized as an npm workspaces monorepo with six main packages:
 
 ```
 tlsn-extension/
@@ -44,12 +45,24 @@ tlsn-extension/
 │   │   ├── examples/
 │   │   └── package.json
 │   │
+│   ├── common/              # Shared utilities (logging system)
+│   │   ├── src/
+│   │   │   └── logger/           # Centralized logging with configurable levels
+│   │   └── package.json
+│   │
 │   ├── verifier/            # Rust-based verifier server
 │   │   ├── src/
-│   │   │   ├── main.rs           # Server setup and routing
-│   │   │   ├── config.rs         # Configuration constants
-│   │   │   └── verifier.rs       # TLSNotary verification logic
+│   │   │   └── main.rs           # Server setup, routing, and verification
+│   │   ├── config.yaml           # Webhook configuration
 │   │   └── Cargo.toml
+│   │
+│   ├── demo/                # Demo server with Docker setup
+│   │   ├── *.js                  # Example plugin files
+│   │   ├── docker-compose.yml    # Docker services configuration
+│   │   └── start.sh              # Setup script with configurable URLs
+│   │
+│   ├── tutorial/            # Tutorial examples
+│   │   └── *.js                  # Tutorial plugin files
 │   │
 │   └── tlsn-wasm-pkg/       # Pre-built TLSN WebAssembly package
 │       └── (WASM binaries)
@@ -79,18 +92,35 @@ A browser extension that enables TLSNotary functionality with the following key 
 SDK for developing and running TLSN WebAssembly plugins with QuickJS sandboxing:
 - Secure JavaScript execution in isolated WebAssembly environment
 - Host capability system for controlled plugin access
+- React-like hooks: `useHeaders()`, `useRequests()`, `useEffect()`, `useState()`, `setState()`
 - Isomorphic package for Node.js and browser environments
 - TypeScript support with full type declarations
 
-#### 3. **verifier** - Verifier Server
+#### 3. **common** - Shared Utilities
+Centralized logging system used across packages:
+- Configurable log levels: `DEBUG`, `INFO`, `WARN`, `ERROR`
+- Timestamped output with level prefixes
+- Singleton pattern for consistent logging across modules
+
+#### 4. **verifier** - Verifier Server
 Rust-based HTTP/WebSocket server for TLSNotary verification:
-- Health check endpoint (`/health`)
-- Session creation endpoint (`/session`)
-- WebSocket verification endpoint (`/verifier`)
+- Health check endpoint (`GET /health`)
+- Session creation endpoint (`WS /session`)
+- WebSocket verification endpoint (`WS /verifier?sessionId=<id>`)
+- WebSocket proxy endpoint (`WS /proxy?token=<host>`) - compatible with notary.pse.dev
+- Webhook API for POST notifications to external services
+- YAML configuration for webhook endpoints (`config.yaml`)
 - CORS enabled for cross-origin requests
 - Runs on `localhost:7047` by default
 
-#### 4. **tlsn-wasm-pkg** - TLSN WebAssembly Package
+#### 5. **demo** - Demo Server
+Docker-based demo environment with:
+- Pre-configured example plugins (Twitter, SwissBank)
+- Docker Compose setup with verifier and nginx
+- Configurable verifier URLs via environment variables
+- Start script with SSL support
+
+#### 6. **tlsn-wasm-pkg** - TLSN WebAssembly Package
 Pre-built WebAssembly binaries for TLSNotary functionality in the browser.
 
 ## Architecture Overview
@@ -205,8 +235,21 @@ The server will start on `http://localhost:7047`.
 
 **Verifier API Endpoints:**
 - `GET /health` - Health check
-- `POST /session` - Create new verification session
+- `WS /session` - Create new verification session
 - `WS /verifier?sessionId=<id>` - WebSocket verification endpoint
+- `WS /proxy?token=<host>` - WebSocket proxy for TLS connections (compatible with notary.pse.dev)
+
+**Webhook Configuration:**
+Configure `packages/verifier/config.yaml` to receive POST notifications after successful verifications:
+```yaml
+webhooks:
+  "api.x.com":
+    url: "https://your-backend.example.com/webhook/twitter"
+    headers:
+      Authorization: "Bearer your-secret-token"
+  "*":  # Wildcard for unmatched server names
+    url: "https://your-backend.example.com/webhook/default"
+```
 
 ### Package-Specific Development
 
@@ -421,6 +464,53 @@ export default {
 - **Check Console Logs**: Look for WindowManager logs, request interception logs, and message routing logs
 - **Test Multiple Windows**: Try opening multiple managed windows simultaneously (max 10)
 - **Verifier Connection**: Ensure verifier is accessible at `localhost:7047` before running proofs
+
+## Running the Demo
+
+The demo package provides a complete environment for testing TLSNotary plugins.
+
+### Quick Start with Docker
+
+```bash
+# Start all services (verifier + demo server)
+npm run docker:up
+
+# Stop services
+npm run docker:down
+```
+
+This starts:
+- Verifier server on port 7047
+- Demo static files served via nginx on port 80
+
+### Manual Demo Setup
+
+```bash
+# Serve demo files locally
+npm run demo
+
+# Open http://localhost:8080 in your browser
+```
+
+### Environment Variables
+
+Configure the demo for different environments:
+```bash
+# Local development (default)
+./packages/demo/start.sh
+
+# Production with SSL
+VERIFIER_HOST=verifier.tlsnotary.org SSL=true ./packages/demo/start.sh
+```
+
+### Tutorial
+
+```bash
+# Serve tutorial examples
+npm run tutorial
+
+# Open http://localhost:8080 in your browser
+```
 
 ## Websockify Integration
 

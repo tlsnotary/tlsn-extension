@@ -16,6 +16,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run lint:fix` - Auto-fix linting issues for all packages
 - `npm run serve:test` - Serve test page on port 8081
 - `npm run clean` - Remove all node_modules, dist, and build directories
+- `npm run demo` - Serve demo page on port 8080
+- `npm run tutorial` - Serve tutorial page on port 8080
+- `npm run docker:up` - Start demo Docker services (verifier + nginx)
+- `npm run docker:down` - Stop demo Docker services
 
 ### Extension Package Commands
 - `npm run build` - Production build with zip creation
@@ -54,6 +58,8 @@ The project is organized as a monorepo using npm workspaces with the following p
 - **`packages/extension`**: Chrome Extension (Manifest V3) for TLSNotary proof generation
 - **`packages/plugin-sdk`**: SDK for developing and running TLSN plugins using QuickJS sandboxing
 - **`packages/verifier`**: Rust-based WebSocket server for TLSNotary verification
+- **`packages/demo`**: Demo server with Docker setup and example plugins
+- **`packages/tutorial`**: Tutorial examples for learning plugin development
 
 **Build Dependencies:**
 The extension depends on `@tlsn/common` and `@tlsn/plugin-sdk`. These must be built before the extension:
@@ -424,9 +430,28 @@ await host.executePlugin(pluginCode, { eventEmitter });
 - `useHeaders(filter)`: Subscribe to intercepted HTTP headers
 - `useRequests(filter)`: Subscribe to intercepted HTTP requests
 - `useEffect(callback, deps)`: React-like side effects
+- `useState(key, defaultValue)`: Get state value (returns current value or default)
+- `setState(key, value)`: Set state value (triggers UI re-render)
 - `div(options, children)`: Create div DOM elements
 - `button(options, children)`: Create button DOM elements
 - `done(result)`: Complete plugin execution
+
+**State Management Example:**
+```javascript
+function main() {
+  const count = useState('counter', 0);
+
+  return div({}, [
+    div({}, [`Count: ${count}`]),
+    button({ onclick: 'handleClick' }, ['Increment'])
+  ]);
+}
+
+async function handleClick() {
+  const count = useState('counter', 0);
+  setState('counter', count + 1);
+}
+```
 
 ### Parser Class
 HTTP message parser with byte-level range tracking:
@@ -476,18 +501,40 @@ Rust-based HTTP/WebSocket server for TLSNotary verification:
 - WebSocket endpoints for prover-verifier communication
 - Session management with UUID-based tracking
 - CORS enabled for cross-origin requests
+- Webhook system for external service notifications
 
 **Endpoints:**
 - `GET /health` → Health check (returns "ok")
 - `WS /session` → Create new verification session
 - `WS /verifier?sessionId=<id>` → WebSocket verification endpoint
-- `WS /proxy?host=<host>` → WebSocket proxy for TLS connections
+- `WS /proxy?token=<host>` → WebSocket proxy for TLS connections (compatible with notary.pse.dev)
 
 **Configuration:**
 - Default port: `7047`
 - Configurable max sent/received data sizes
 - Request timeout handling
 - Tracing with INFO level logging
+- YAML configuration file (`config.yaml`) for webhooks
+
+**Webhook Configuration (`config.yaml`):**
+```yaml
+webhooks:
+  # Per-server webhooks
+  "api.x.com":
+    url: "https://your-backend.example.com/webhook/twitter"
+    headers:
+      Authorization: "Bearer your-secret-token"
+      X-Source: "tlsn-verifier"
+
+  # Wildcard for unmatched servers
+  "*":
+    url: "https://your-backend.example.com/webhook/default"
+```
+
+Webhooks receive POST requests with:
+- Session info (ID, custom data)
+- Redacted transcripts (only revealed ranges visible)
+- Reveal configuration
 
 **Running the Server:**
 ```bash
@@ -501,9 +548,79 @@ cargo test                   # Tests
 1. Extension creates session via `/session` WebSocket
 2. Server returns `sessionId` and waits for verifier connection
 3. Extension connects to `/verifier?sessionId=<id>`
-4. Prover sends HTTP request through `/proxy?host=<host>`
+4. Prover sends HTTP request through `/proxy?token=<host>`
 5. Verifier validates TLS handshake and transcript
 6. Server returns verification result with transcripts
+7. If webhook configured, sends POST to configured endpoint (fire-and-forget)
+
+## Common Package (`packages/common`)
+
+Shared utilities used by extension and plugin-sdk:
+
+**Logger System:**
+Centralized logging with configurable levels:
+```typescript
+import { logger, LogLevel } from '@tlsn/common';
+
+// Initialize with log level
+logger.init(LogLevel.DEBUG);
+
+// Log at different levels
+logger.debug('Detailed debug info');
+logger.info('Informational message');
+logger.warn('Warning message');
+logger.error('Error message');
+
+// Change level at runtime
+logger.setLevel(LogLevel.WARN);
+```
+
+**Log Levels:**
+- `DEBUG` (0) - Most verbose, includes all messages
+- `INFO` (1) - Informational messages and above
+- `WARN` (2) - Warnings and errors only
+- `ERROR` (3) - Errors only
+
+**Output Format:**
+```
+[HH:MM:SS] [LEVEL] message
+```
+
+## Demo Package (`packages/demo`)
+
+Docker-based demo environment for testing plugins:
+
+**Files:**
+- `twitter.js`, `swissbank.js` - Example plugin files
+- `docker-compose.yml` - Docker services configuration
+- `nginx.conf` - Reverse proxy configuration
+- `start.sh` - Setup script with URL templating
+
+**Docker Services:**
+1. `verifier` - TLSNotary verifier server (port 7047)
+2. `demo-static` - nginx serving static plugin files
+3. `nginx` - Reverse proxy (port 80)
+
+**Environment Variables:**
+- `VERIFIER_HOST` - Verifier server host (default: `localhost:7047`)
+- `SSL` - Use https/wss protocols (default: `false`)
+
+**Usage:**
+```bash
+# Local development
+./start.sh
+
+# Production with SSL
+VERIFIER_HOST=verifier.tlsnotary.org SSL=true ./start.sh
+
+# Docker detached mode
+./start.sh -d
+```
+
+The `start.sh` script:
+1. Processes plugin files, replacing `verifierUrl` and `proxyUrl` placeholders
+2. Copies processed files to `generated/` directory
+3. Starts Docker Compose services
 
 ## Important Implementation Notes
 
