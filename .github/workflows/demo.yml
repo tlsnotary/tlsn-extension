@@ -1,4 +1,4 @@
-name: ci
+name: demo build and publish
 
 on:
     push:
@@ -7,6 +7,7 @@ on:
             - staging
         tags:
             - "[v]?[0-9]+.[0-9]+.[0-9]+*"
+    pull_request:
 
 permissions:
     id-token: write
@@ -16,6 +17,7 @@ permissions:
 env:
     CARGO_TERM_COLOR: always
     CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+    should_publish: ${{ github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && contains(github.ref, '.')) || github.ref == 'refs/heads/staging' }}
 
 jobs:
     build_and_publish_demo_verifier_server:
@@ -26,7 +28,6 @@ jobs:
             packages: write
         env:
             CONTAINER_REGISTRY: ghcr.io
-        if: github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && contains(github.ref, '.')) || github.ref == 'refs/heads/staging'
         steps:
             - name: Checkout repository
               uses: actions/checkout@v4
@@ -48,7 +49,7 @@ jobs:
               uses: docker/build-push-action@v4
               with:
                   context: packages/verifier
-                  push: true
+                  push: ${{ env.should_publish == 'true' }}
                   tags: ${{ steps.meta-prover-server.outputs.tags }}
                   labels: ${{ steps.meta-prover-server.outputs.labels }}
 
@@ -60,7 +61,6 @@ jobs:
             packages: write
         env:
             CONTAINER_REGISTRY: ghcr.io
-        if: github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && contains(github.ref, '.')) || github.ref == 'refs/heads/staging'
         steps:
             - name: Checkout repository
               uses: actions/checkout@v4
@@ -82,7 +82,7 @@ jobs:
               uses: docker/build-push-action@v4
               with:
                   context: packages/demo
-                  push: true
+                  push: ${{ env.should_publish == 'true' }}
                   tags: ${{ steps.meta-verifier-webapp.outputs.tags }}
                   labels: ${{ steps.meta-verifier-webapp.outputs.labels }}
                   build-args: |
