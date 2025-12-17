@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   verifier:
@@ -12,9 +12,11 @@ services:
     restart: unless-stopped
 
   demo-static:
-    image: nginx:alpine
-    volumes:
-      - ./generated:/usr/share/nginx/html:ro
+    build:
+      context: .
+      args:
+        VERIFIER_HOST: ${VERIFIER_HOST:-localhost:7047}
+        SSL: ${SSL:-false}
     restart: unless-stopped
 
   nginx:

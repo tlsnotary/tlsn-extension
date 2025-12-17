@@ -1,6 +1,5 @@
 /target
 **/*.rs.bk
-Cargo.lock
 bin/
 **/node_modules
 **/.DS_Store

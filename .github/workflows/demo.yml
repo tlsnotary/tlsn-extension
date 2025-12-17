@@ -1,0 +1,90 @@
+name: demo
+
+on:
+    push:
+        branches:
+            - main
+            - staging
+        tags:
+            - "[v]?[0-9]+.[0-9]+.[0-9]+*"
+    pull_request:
+
+permissions:
+    id-token: write
+    contents: read
+    attestations: write
+
+env:
+    CARGO_TERM_COLOR: always
+    CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+    should_publish: ${{ github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && contains(github.ref, '.')) || github.ref == 'refs/heads/staging' }}
+
+jobs:
+    build_and_publish_demo_verifier_server:
+        name: build and publish demo verifier server image
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            packages: write
+        env:
+            CONTAINER_REGISTRY: ghcr.io
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Log in to the Container registry
+              uses: docker/login-action@v2
+              with:
+                  registry: ${{ env.CONTAINER_REGISTRY }}
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Extract metadata (tags, labels) for Docker image
+              id: meta-prover-server
+              uses: docker/metadata-action@v4
+              with:
+                  images: ${{ env.CONTAINER_REGISTRY }}/${{ github.repository }}/demo-verifier-server
+
+            - name: Build and push Docker image
+              uses: docker/build-push-action@v4
+              with:
+                  context: packages/verifier
+                  push: ${{ env.should_publish == 'true' }}
+                  tags: ${{ steps.meta-prover-server.outputs.tags }}
+                  labels: ${{ steps.meta-prover-server.outputs.labels }}
+
+    build_and_publish_demo_frontend:
+        name: build and publish demo frontend image
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            packages: write
+        env:
+            CONTAINER_REGISTRY: ghcr.io
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Log in to the Container registry
+              uses: docker/login-action@v2
+              with:
+                  registry: ${{ env.CONTAINER_REGISTRY }}
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Extract metadata (tags, labels) for Docker image
+              id: meta-verifier-webapp
+              uses: docker/metadata-action@v4
+              with:
+                  images: ${{ env.CONTAINER_REGISTRY }}/${{ github.repository }}/demo-ui
+
+            - name: Build and push Docker image
+              uses: docker/build-push-action@v4
+              with:
+                  context: packages/demo
+                  push: ${{ env.should_publish == 'true' }}
+                  tags: ${{ steps.meta-verifier-webapp.outputs.tags }}
+                  labels: ${{ steps.meta-verifier-webapp.outputs.labels }}
+                  build-args: |
+                      VERIFIER_HOST=demo-staging.tlsnotary.org
+                      SSL=true

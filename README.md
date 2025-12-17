@@ -118,7 +118,8 @@ Docker-based demo environment with:
 - Pre-configured example plugins (Twitter, SwissBank)
 - Docker Compose setup with verifier and nginx
 - Configurable verifier URLs via environment variables
-- Start script with SSL support
+- Plugin file generator (`generate.sh`) with SSL support
+- Docker startup script (`start.sh`)
 
 #### 6. **tlsn-wasm-pkg** - TLSN WebAssembly Package
 Pre-built WebAssembly binaries for TLSNotary functionality in the browser.
@@ -497,11 +498,21 @@ npm run demo
 Configure the demo for different environments:
 ```bash
 # Local development (default)
-./packages/demo/start.sh
+cd packages/demo
+./generate.sh && ./start.sh
 
 # Production with SSL
-VERIFIER_HOST=verifier.tlsnotary.org SSL=true ./packages/demo/start.sh
+cd packages/demo
+VERIFIER_HOST=verifier.tlsnotary.org SSL=true ./generate.sh
+./start.sh
+
+# Docker detached mode
+./generate.sh && ./start.sh -d
 ```
+
+The demo uses two scripts:
+- **`generate.sh`** - Generates plugin files with configured verifier URLs (use environment variables here)
+- **`start.sh`** - Starts Docker Compose services (assumes `generated/` directory exists)
 
 ### Tutorial
 
