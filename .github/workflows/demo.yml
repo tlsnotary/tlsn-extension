@@ -1,4 +1,4 @@
-name: demo build and publish
+name: demo
 
 on:
     push:
@@ -21,7 +21,7 @@ env:
 
 jobs:
     build_and_publish_demo_verifier_server:
-        name: publish demo verifier server image
+        name: build and publish demo verifier server image
         runs-on: ubuntu-latest
         permissions:
             contents: read
@@ -53,8 +53,8 @@ jobs:
                   tags: ${{ steps.meta-prover-server.outputs.tags }}
                   labels: ${{ steps.meta-prover-server.outputs.labels }}
 
-    build_and_publish_demo_ui:
-        name: publish demo ui
+    build_and_publish_demo_frontend:
+        name: build and publish demo frontend image
         runs-on: ubuntu-latest
         permissions:
             contents: read
