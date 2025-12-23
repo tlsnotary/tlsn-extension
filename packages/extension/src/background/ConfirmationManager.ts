@@ -1,12 +1,6 @@
 import browser from 'webextension-polyfill';
 import { logger } from '@tlsn/common';
-
-export interface PluginConfig {
-  name: string;
-  description: string;
-  version?: string;
-  author?: string;
-}
+import { PluginConfig } from '@tlsn/plugin-sdk/src/types';
 
 interface PendingConfirmation {
   requestId: string;
@@ -30,7 +24,7 @@ export class ConfirmationManager {
 
   // Popup window dimensions
   private readonly POPUP_WIDTH = 600;
-  private readonly POPUP_HEIGHT = 400;
+  private readonly POPUP_HEIGHT = 550;
 
   constructor() {
     // Listen for window removal to handle popup close
@@ -191,6 +185,18 @@ export class ConfirmationManager {
 
       if (config.author) {
         params.set('author', encodeURIComponent(config.author));
+      }
+
+      // Pass permission arrays as JSON
+      if (config.requests && config.requests.length > 0) {
+        params.set(
+          'requests',
+          encodeURIComponent(JSON.stringify(config.requests)),
+        );
+      }
+
+      if (config.urls && config.urls.length > 0) {
+        params.set('urls', encodeURIComponent(JSON.stringify(config.urls)));
       }
     }
 

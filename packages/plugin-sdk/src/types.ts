@@ -186,6 +186,33 @@ export type AllHandler = {
 export type Handler = StartLineHandler | HeadersHandler | BodyHandler | AllHandler;
 
 /**
+ * Permission for making HTTP requests via prove()
+ */
+export interface RequestPermission {
+  /** HTTP method (GET, POST, etc.) */
+  method: string;
+
+  /** Host name (e.g., "api.x.com") */
+  host: string;
+
+  /**
+   * URL pathname pattern (URLPattern syntax, e.g., "/1.1/users/*")
+   * Supports wildcards: * matches any single segment, ** matches multiple segments
+   */
+  pathname: string;
+
+  /** Verifier URL to use for this request */
+  verifierUrl: string;
+
+  /**
+   * Proxy URL for WebSocket connection.
+   * Defaults to ws/wss of verifierUrl's /proxy endpoint if not specified.
+   * e.g., verifierUrl "https://verifier.example.com" -> "wss://verifier.example.com/proxy?token={host}"
+   */
+  proxyUrl?: string;
+}
+
+/**
  * Plugin configuration object that all plugins must export
  */
 export interface PluginConfig {
@@ -197,4 +224,17 @@ export interface PluginConfig {
   version?: string;
   /** Optional author name */
   author?: string;
+
+  /**
+   * Allowed HTTP requests the plugin can make via prove().
+   * Empty array or undefined means no prove() calls allowed.
+   */
+  requests?: RequestPermission[];
+
+  /**
+   * Allowed URLs the plugin can open via openWindow().
+   * Supports URLPattern syntax (e.g., "https://x.com/*").
+   * Empty array or undefined means no openWindow() calls allowed.
+   */
+  urls?: string[];
 }

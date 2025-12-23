@@ -7,11 +7,21 @@ import './index.scss';
 // Initialize logger at DEBUG level for popup (no IndexedDB access)
 logger.init(LogLevel.DEBUG);
 
+interface RequestPermission {
+  method: string;
+  host: string;
+  pathname: string;
+  verifierUrl: string;
+  proxyUrl?: string;
+}
+
 interface PluginInfo {
   name: string;
   description: string;
   version?: string;
   author?: string;
+  requests?: RequestPermission[];
+  urls?: string[];
 }
 
 const ConfirmPopup: React.FC = () => {
@@ -26,6 +36,8 @@ const ConfirmPopup: React.FC = () => {
     const description = params.get('description');
     const version = params.get('version');
     const author = params.get('author');
+    const requestsParam = params.get('requests');
+    const urlsParam = params.get('urls');
     const reqId = params.get('requestId');
 
     if (!reqId) {
@@ -36,6 +48,26 @@ const ConfirmPopup: React.FC = () => {
     setRequestId(reqId);
 
     if (name) {
+      // Parse permission arrays from JSON
+      let requests: RequestPermission[] | undefined;
+      let urls: string[] | undefined;
+
+      try {
+        if (requestsParam) {
+          requests = JSON.parse(decodeURIComponent(requestsParam));
+        }
+      } catch (e) {
+        logger.warn('Failed to parse requests param:', e);
+      }
+
+      try {
+        if (urlsParam) {
+          urls = JSON.parse(decodeURIComponent(urlsParam));
+        }
+      } catch (e) {
+        logger.warn('Failed to parse urls param:', e);
+      }
+
       setPluginInfo({
         name: decodeURIComponent(name),
         description: description
@@ -43,6 +75,8 @@ const ConfirmPopup: React.FC = () => {
           : 'No description provided',
         version: version ? decodeURIComponent(version) : undefined,
         author: author ? decodeURIComponent(author) : undefined,
+        requests,
+        urls,
       });
     } else {
       // No plugin info available - show unknown plugin warning
@@ -171,6 +205,62 @@ const ConfirmPopup: React.FC = () => {
           <div className="confirm-popup__field confirm-popup__field--inline">
             <label>Author</label>
             <p className="confirm-popup__value">{pluginInfo.author}</p>
+          </div>
+        )}
+
+        {/* Permissions Section */}
+        {(pluginInfo.requests || pluginInfo.urls) && (
+          <div className="confirm-popup__permissions">
+            <h2 className="confirm-popup__permissions-title">Permissions</h2>
+
+            {pluginInfo.requests && pluginInfo.requests.length > 0 && (
+              <div className="confirm-popup__permission-group">
+                <label>
+                  <span className="confirm-popup__permission-icon">🌐</span>
+                  Network Requests
+                </label>
+                <ul className="confirm-popup__permission-list">
+                  {pluginInfo.requests.map((req, index) => (
+                    <li key={index} className="confirm-popup__permission-item">
+                      <span className="confirm-popup__method">
+                        {req.method}
+                      </span>
+                      <span className="confirm-popup__host">{req.host}</span>
+                      <span className="confirm-popup__pathname">
+                        {req.pathname}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {pluginInfo.urls && pluginInfo.urls.length > 0 && (
+              <div className="confirm-popup__permission-group">
+                <label>
+                  <span className="confirm-popup__permission-icon">🔗</span>
+                  Allowed URLs
+                </label>
+                <ul className="confirm-popup__permission-list">
+                  {pluginInfo.urls.map((url, index) => (
+                    <li key={index} className="confirm-popup__permission-item">
+                      <span className="confirm-popup__url">{url}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* No permissions warning */}
+        {!pluginInfo.requests && !pluginInfo.urls && !isUnknown && (
+          <div className="confirm-popup__no-permissions">
+            <span className="confirm-popup__warning-icon">!</span>
+            <p>
+              This plugin has no permissions defined. It will not be able to
+              make network requests or open browser windows.
+            </p>
           </div>
         )}
 

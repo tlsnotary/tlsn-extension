@@ -1,6 +1,6 @@
 {
   "name": "tlsn-monorepo",
-  "version": "0.1.0",
+  "version": "0.1.0-alpha.13",
   "private": true,
   "description": "TLSN Extension monorepo with plugin SDK",
   "license": "MIT",

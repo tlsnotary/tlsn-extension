@@ -21,6 +21,9 @@
     "browser": true,
     "node": true
   },
+  "globals": {
+    "URLPattern": "readonly"
+  },
   "settings": {
     "import/resolver": "typescript"
   },
