@@ -18,6 +18,7 @@ import {
   WindowMessage,
   Handler,
   PluginConfig,
+  RequestPermission,
 } from './types';
 import deepEqual from 'fast-deep-equal';
 
@@ -738,8 +739,11 @@ async function waitForWindow(callback: () => Promise<any>, retry = 0): Promise<a
 
 /**
  * Extract plugin configuration from plugin code without executing it.
- * Uses regex-based parsing to extract the config object from the source code
- * without running any JavaScript.
+ * Uses regex-based parsing to extract the config object from the source code.
+ *
+ * Note: This regex-based approach cannot extract complex fields like arrays
+ * (requests, urls). For full config extraction including permissions, use
+ * Host.getPluginConfig() which uses the QuickJS sandbox.
  *
  * @param code - The plugin source code
  * @returns The plugin config object, or null if extraction fails
@@ -792,7 +796,7 @@ export async function extractConfig(code: string): Promise<PluginConfig | null> 
 }
 
 // Export types
-export type { PluginConfig };
+export type { PluginConfig, RequestPermission };
 
 // Re-export LogLevel for consumers
 export { LogLevel } from '@tlsn/common';

@@ -8,6 +8,17 @@
 const config = {
     name: 'X Profile Prover',
     description: 'This plugin will prove your X.com profile.',
+    requests: [
+        {
+            method: 'GET',
+            host: 'api.x.com',
+            pathname: '/1.1/account/settings.json',
+            verifierUrl: 'http://localhost:7047',
+        },
+    ],
+    urls: [
+        'https://x.com/*',
+    ],
 };
 
 // =============================================================================

@@ -1,6 +1,17 @@
 const config = {
     name: 'Swiss Bank Prover',
     description: 'This plugin will prove your Swiss Bank account balance.',
+    requests: [
+        {
+            method: 'GET',
+            host: 'swissbank.tlsnotary.org',
+            pathname: '/balances',
+            verifierUrl: 'http://localhost:7047',
+        },
+    ],
+    urls: [
+        'https://swissbank.tlsnotary.org/*',
+    ],
 };
 
 const host = 'swissbank.tlsnotary.org';

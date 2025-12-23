@@ -151,4 +151,7 @@ describe('extractConfig', () => {
     expect(result?.name).toBe('Backtick Plugin');
     expect(result?.description).toBe('Uses template literals');
   });
+
+  // Note: The regex-based extractConfig cannot handle array fields like requests and urls.
+  // For full config extraction including permissions, use Host.getPluginConfig() which uses QuickJS sandbox.
 });
