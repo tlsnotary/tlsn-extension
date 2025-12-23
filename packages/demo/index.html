@@ -221,14 +221,16 @@
     <div class="console-header">
       <div class="console-title">Console Output</div>
       <div style="display: flex; gap: 10px;">
-        <button class="btn-console" onclick="openExtensionLogs()" style="background: #6c757d;">View Extension Logs</button>
+        <button class="btn-console" onclick="openExtensionLogs()" style="background: #6c757d;">View Extension
+          Logs</button>
         <button class="btn-console" onclick="clearConsole()">Clear</button>
       </div>
     </div>
     <div class="console-output" id="consoleOutput">
       <div class="console-entry info">
         <span class="console-timestamp">[INFO]</span>
-        <span class="console-message">💡 TLSNotary proving logs will appear here in real-time. You can also view them in the extension console by clicking "View Extension Logs" above.</span>
+        <span class="console-message">💡 TLSNotary proving logs will appear here in real-time. You can also view them in
+          the extension console by clicking "View Extension Logs" above.</span>
       </div>
     </div>
   </div>
@@ -413,6 +415,13 @@
       swissbank: {
         name: 'Swiss Bank Plugin',
         file: 'swissbank.js',
+        parseResult: (json) => {
+          return json.results[json.results.length - 1].value;
+        }
+      },
+      spotify: {
+        name: 'Spotify Plugin',
+        file: 'spotify.js',
         parseResult: (json) => {
           return json.results[json.results.length - 1].value;
         }
