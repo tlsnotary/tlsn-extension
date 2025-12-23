@@ -425,7 +425,33 @@ export class Parser {
       // Handle different value types
       if (typeof value === 'object' && value !== null) {
         if (Array.isArray(value)) {
-          // Handle array
+          // Handle array - first store the array itself, then process elements
+          const valueStr = JSON.stringify(value);
+          const valueBytes = Buffer.from(valueStr, 'utf8');
+          const valueByteIndex = textBytes.indexOf(valueBytes, actualValueByteStart);
+
+          if (valueByteIndex !== -1) {
+            const valueByteEnd = valueByteIndex + valueBytes.length;
+
+            // Store the array itself as a field
+            result[pathKey] = {
+              value: value,
+              ranges: {
+                start: baseOffset + keyByteIndex,
+                end: baseOffset + valueByteEnd,
+              },
+              keyRange: {
+                start: baseOffset + keyByteIndex,
+                end: baseOffset + keyByteIndex + keyBytes.length,
+              },
+              valueRange: {
+                start: baseOffset + valueByteIndex,
+                end: baseOffset + valueByteEnd,
+              },
+            };
+          }
+
+          // Then recursively process array elements
           this.processJsonArray(
             value,
             textBytes,

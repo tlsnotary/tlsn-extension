@@ -929,6 +929,85 @@ describe('Parser', () => {
 
         expect(ranges).toHaveLength(0);
       });
+
+      it('should extract entire array value when accessing array field directly', () => {
+        const request =
+          'POST /api HTTP/1.1\r\n' +
+          'Content-Type: application/json\r\n' +
+          '\r\n' +
+          '{"a":[{"b":1},{"c":2}]}';
+
+        const parser = new Parser(request);
+        const ranges = parser.ranges.body('a', { type: 'json' });
+
+        expect(ranges).toHaveLength(1);
+        const extracted = request.substring(ranges[0].start, ranges[0].end);
+        // Should include the key and the entire array value
+        expect(extracted).toContain('"a"');
+        expect(extracted).toContain('[{"b":1},{"c":2}]');
+      });
+
+      it('should extract only array value with hideKey option', () => {
+        const request =
+          'POST /api HTTP/1.1\r\n' +
+          'Content-Type: application/json\r\n' +
+          '\r\n' +
+          '{"a":[{"b":1},{"c":2}]}';
+
+        const parser = new Parser(request);
+        const ranges = parser.ranges.body('a', { type: 'json', hideKey: true });
+
+        expect(ranges).toHaveLength(1);
+        const extracted = request.substring(ranges[0].start, ranges[0].end);
+        expect(extracted).toBe('[{"b":1},{"c":2}]');
+        expect(extracted).not.toContain('"a"');
+      });
+
+      it('should extract only array key with hideValue option', () => {
+        const request =
+          'POST /api HTTP/1.1\r\n' +
+          'Content-Type: application/json\r\n' +
+          '\r\n' +
+          '{"a":[{"b":1},{"c":2}]}';
+
+        const parser = new Parser(request);
+        const ranges = parser.ranges.body('a', { type: 'json', hideValue: true });
+
+        expect(ranges).toHaveLength(1);
+        const extracted = request.substring(ranges[0].start, ranges[0].end);
+        expect(extracted).toBe('"a"');
+        expect(extracted).not.toContain('[');
+      });
+
+      it('should extract array of primitives', () => {
+        const request =
+          'POST /api HTTP/1.1\r\n' +
+          'Content-Type: application/json\r\n' +
+          '\r\n' +
+          '{"numbers":[1,2,3,4,5]}';
+
+        const parser = new Parser(request);
+        const ranges = parser.ranges.body('numbers', { type: 'json', hideKey: true });
+
+        expect(ranges).toHaveLength(1);
+        const extracted = request.substring(ranges[0].start, ranges[0].end);
+        expect(extracted).toBe('[1,2,3,4,5]');
+      });
+
+      it('should extract nested array field', () => {
+        const request =
+          'POST /api HTTP/1.1\r\n' +
+          'Content-Type: application/json\r\n' +
+          '\r\n' +
+          '{"data":{"items":[1,2,3]}}';
+
+        const parser = new Parser(request);
+        const ranges = parser.ranges.body('data.items', { type: 'json', hideKey: true });
+
+        expect(ranges).toHaveLength(1);
+        const extracted = request.substring(ranges[0].start, ranges[0].end);
+        expect(extracted).toBe('[1,2,3]');
+      });
     });
 
     describe('Mixed Paths (Objects and Arrays)', () => {
