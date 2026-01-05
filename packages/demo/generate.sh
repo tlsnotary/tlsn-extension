@@ -63,10 +63,27 @@ process_plugin() {
         "$input_file" > "$output_file"
 }
 
-# Copy static files
+# Function to process index.html
+process_index_html() {
+    local input_file="$1"
+    local output_file="generated/$(basename "$input_file")"
+
+    echo "Processing: $input_file -> $output_file"
+
+    # Replace hardcoded health check URL with configured verifier URL
+    sed -E \
+        -e "s|http://localhost:7047/health|${VERIFIER_URL}/health|g" \
+        "$input_file" > "$output_file"
+}
+
+# Process index.html
 echo ""
-echo "Copying static files..."
-cp index.html generated/
+echo "Processing index.html..."
+process_index_html "index.html"
+
+# Copy other static files
+echo ""
+echo "Copying other static files..."
 cp favicon.ico generated/ 2>/dev/null || true
 
 # Process plugin files
