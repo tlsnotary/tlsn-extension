@@ -425,6 +425,13 @@
         parseResult: (json) => {
           return json.results[json.results.length - 1].value;
         }
+      },
+      duolingo: {
+        name: 'Duolingo Plugin',
+        file: 'duolingo.js',
+        parseResult: (json) => {
+          return json.results[json.results.length - 1].value;
+        }
       }
     };
 
