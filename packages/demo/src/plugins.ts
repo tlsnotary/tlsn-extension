@@ -2,22 +2,28 @@ import { Plugin } from './types';
 
 export const plugins: Record<string, Plugin> = {
     twitter: {
-        name: 'Twitter profile Plugin',
-        file: '/twitter.js',
+        name: 'Twitter Profile',
+        description: 'Prove your Twitter profile information with cryptographic verification',
+        logo: '𝕏',
+        file: '/plugins/twitter.js',
         parseResult: (json) => {
             return json.results[json.results.length - 1].value;
         },
     },
     swissbank: {
-        name: 'Swiss Bank Plugin',
-        file: '/swissbank.js',
+        name: 'Swiss Bank',
+        description: 'Verify your Swiss bank account balance securely and privately',
+        logo: '🏦',
+        file: '/plugins/swissbank.js',
         parseResult: (json) => {
             return json.results[json.results.length - 1].value;
         },
     },
     spotify: {
-        name: 'Spotify Plugin',
-        file: '/spotify.js',
+        name: 'Spotify',
+        description: 'Prove your Spotify listening history and music preferences',
+        logo: '🎵',
+        file: '/plugins/spotify.js',
         parseResult: (json) => {
             return json.results[json.results.length - 1].value;
         },

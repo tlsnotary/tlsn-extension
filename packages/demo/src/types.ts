@@ -1,43 +1,45 @@
 export interface Plugin {
-  name: string;
-  file: string;
-  parseResult: (json: PluginResult) => string;
+    name: string;
+    description: string;
+    logo: string;
+    file: string;
+    parseResult: (json: PluginResult) => string;
 }
 
 export interface PluginResult {
-  results: Array<{
-    value: string;
-  }>;
+    results: Array<{
+        value: string;
+    }>;
 }
 
 export interface ConsoleEntry {
-  timestamp: string;
-  message: string;
-  type: 'info' | 'success' | 'error' | 'warning';
+    timestamp: string;
+    message: string;
+    type: 'info' | 'success' | 'error' | 'warning';
 }
 
 export type CheckStatus = 'checking' | 'success' | 'error';
 
 export interface SystemCheck {
-  id: string;
-  label: string;
-  status: CheckStatus;
-  message: string;
-  showInstructions?: boolean;
+    id: string;
+    label: string;
+    status: CheckStatus;
+    message: string;
+    showInstructions?: boolean;
 }
 
 declare global {
-  interface Window {
-    tlsn?: {
-      execCode: (code: string) => Promise<string>;
-    };
-  }
+    interface Window {
+        tlsn?: {
+            execCode: (code: string) => Promise<string>;
+        };
+    }
 
-  interface Navigator {
-    brave?: {
-      isBrave: () => Promise<boolean>;
-    };
-  }
+    interface Navigator {
+        brave?: {
+            isBrave: () => Promise<boolean>;
+        };
+    }
 }
 
-export {};
+export { };
