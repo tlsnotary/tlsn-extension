@@ -57,14 +57,29 @@ You can use the websocketproxy hosted by the TLSNotary team, or run your own pro
 
 ## 4. Launch the demo
 
+### Development with React
+
+This demo is built with React + TypeScript + Vite. To run it locally:
+
+```bash
+cd packages/demo
+npm install
+npm run dev
+```
+
+The demo will open at `http://localhost:3000` in your browser with the TLSNotary extension.
+
+### Docker Setup
+
 Run the demo with `npm run demo` from the repository root, or run it with docker using `npm run docker:up`.
 
-### Manual Setup
+#### Manual Docker Setup
 
 If you want to run the scripts manually:
 
 ```bash
 cd packages/demo
+npm run build  # Build the React app first
 ./generate.sh && ./start.sh
 ```
 
@@ -72,14 +87,16 @@ The demo uses two scripts:
 - **`generate.sh`** - Generates plugin files with configured verifier URLs
 - **`start.sh`** - Starts Docker Compose services
 
-### Environment Variables
+#### Environment Variables
 
 Configure for different environments:
 ```bash
 # Local development (default)
+npm run build
 ./generate.sh && ./start.sh
 
 # Production with SSL
+npm run build
 VERIFIER_HOST=verifier.tlsnotary.org SSL=true ./generate.sh
 ./start.sh
 ```

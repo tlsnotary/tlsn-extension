@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Logger, LogLevel, DEFAULT_LOG_LEVEL } from './index';
 
 describe('Logger', () => {
@@ -9,6 +9,10 @@ describe('Logger', () => {
     // We'll use getInstance and reset its state
     logger = Logger.getInstance();
     logger.init(DEFAULT_LOG_LEVEL);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   describe('LogLevel', () => {
