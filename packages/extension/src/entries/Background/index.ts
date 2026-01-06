@@ -1,6 +1,7 @@
 import browser from 'webextension-polyfill';
 import { WindowManager } from '../../background/WindowManager';
 import { confirmationManager } from '../../background/ConfirmationManager';
+import { permissionManager } from '../../background/PermissionManager';
 import type { PluginConfig } from '@tlsn/plugin-sdk/src/types';
 import type {
   InterceptedRequest,
@@ -20,6 +21,187 @@ getStoredLogLevel().then((level) => {
 
 // Initialize WindowManager for multi-window support
 const windowManager = new WindowManager();
+
+// Temporary storage for granted origins pending window creation
+// When a plugin is executed, we store the granted origins here
+// Then when the plugin opens a window, we associate these origins with that window
+let pendingGrantedOrigins: string[] = [];
+
+// =============================================================================
+// DYNAMIC WEBREQUEST LISTENER MANAGEMENT
+// =============================================================================
+// Track active dynamic listeners by origin pattern
+// We need to store handler references to remove them later
+type ListenerHandlers = {
+  onBeforeRequest: (
+    details: browser.WebRequest.OnBeforeRequestDetailsType,
+  ) => void;
+  onBeforeSendHeaders: (
+    details: browser.WebRequest.OnBeforeSendHeadersDetailsType,
+  ) => void;
+};
+
+const dynamicListeners = new Map<string, ListenerHandlers>();
+
+/**
+ * Handler for onBeforeRequest - intercepts request body
+ */
+function createOnBeforeRequestHandler() {
+  return (details: browser.WebRequest.OnBeforeRequestDetailsType) => {
+    const managedWindow = windowManager.getWindowByTabId(details.tabId);
+
+    if (managedWindow && details.tabId !== undefined) {
+      const request: InterceptedRequest = {
+        id: `${details.requestId}`,
+        method: details.method,
+        url: details.url,
+        timestamp: Date.now(),
+        tabId: details.tabId,
+        requestBody: details.requestBody,
+      };
+
+      logger.debug(`[webRequest] Intercepted request: ${details.url}`);
+      windowManager.addRequest(managedWindow.id, request);
+    }
+  };
+}
+
+/**
+ * Handler for onBeforeSendHeaders - intercepts request headers
+ */
+function createOnBeforeSendHeadersHandler() {
+  return (details: browser.WebRequest.OnBeforeSendHeadersDetailsType) => {
+    const managedWindow = windowManager.getWindowByTabId(details.tabId);
+
+    if (managedWindow && details.tabId !== undefined) {
+      const header: InterceptedRequestHeader = {
+        id: `${details.requestId}`,
+        method: details.method,
+        url: details.url,
+        timestamp: details.timeStamp,
+        type: details.type,
+        requestHeaders: details.requestHeaders || [],
+        tabId: details.tabId,
+      };
+
+      logger.debug(`[webRequest] Intercepted headers for: ${details.url}`);
+      windowManager.addHeader(managedWindow.id, header);
+    }
+  };
+}
+
+/**
+ * Register dynamic webRequest listeners for specific origin patterns.
+ * Must be called AFTER permissions are granted for those origins.
+ */
+function registerDynamicListeners(origins: string[]): void {
+  logger.info(`[webRequest] registerDynamicListeners called with:`, origins);
+
+  for (const origin of origins) {
+    // Skip if already registered
+    if (dynamicListeners.has(origin)) {
+      logger.debug(`[webRequest] Listener already registered for: ${origin}`);
+      continue;
+    }
+
+    logger.info(`[webRequest] Registering listener for: "${origin}"`);
+
+    const onBeforeRequestHandler = createOnBeforeRequestHandler();
+    const onBeforeSendHeadersHandler = createOnBeforeSendHeadersHandler();
+
+    try {
+      browser.webRequest.onBeforeRequest.addListener(
+        onBeforeRequestHandler,
+        { urls: [origin] },
+        ['requestBody', 'extraHeaders'],
+      );
+
+      browser.webRequest.onBeforeSendHeaders.addListener(
+        onBeforeSendHeadersHandler,
+        { urls: [origin] },
+        ['requestHeaders', 'extraHeaders'],
+      );
+
+      dynamicListeners.set(origin, {
+        onBeforeRequest: onBeforeRequestHandler,
+        onBeforeSendHeaders: onBeforeSendHeadersHandler,
+      });
+
+      logger.info(
+        `[webRequest] Successfully registered listener for: ${origin}`,
+      );
+    } catch (error) {
+      logger.error(
+        `[webRequest] Failed to register listener for ${origin}:`,
+        error,
+      );
+    }
+  }
+}
+
+/**
+ * Unregister dynamic webRequest listeners for specific origin patterns.
+ * Should be called when permissions are revoked.
+ */
+function unregisterDynamicListeners(origins: string[]): void {
+  logger.info(`[webRequest] unregisterDynamicListeners called with:`, origins);
+  logger.info(
+    `[webRequest] Current dynamicListeners Map keys:`,
+    Array.from(dynamicListeners.keys()),
+  );
+
+  for (const origin of origins) {
+    logger.info(`[webRequest] Looking for listener with key: "${origin}"`);
+    const handlers = dynamicListeners.get(origin);
+    if (!handlers) {
+      logger.warn(
+        `[webRequest] No listener found for: "${origin}" - available keys: ${Array.from(dynamicListeners.keys()).join(', ')}`,
+      );
+      continue;
+    }
+
+    logger.info(`[webRequest] Found handlers for: ${origin}, removing...`);
+
+    try {
+      browser.webRequest.onBeforeRequest.removeListener(
+        handlers.onBeforeRequest,
+      );
+      logger.info(
+        `[webRequest] Removed onBeforeRequest listener for: ${origin}`,
+      );
+
+      browser.webRequest.onBeforeSendHeaders.removeListener(
+        handlers.onBeforeSendHeaders,
+      );
+      logger.info(
+        `[webRequest] Removed onBeforeSendHeaders listener for: ${origin}`,
+      );
+
+      dynamicListeners.delete(origin);
+      logger.info(
+        `[webRequest] Successfully unregistered all listeners for: ${origin}`,
+      );
+    } catch (error) {
+      logger.error(
+        `[webRequest] Failed to unregister listener for ${origin}:`,
+        error,
+      );
+    }
+  }
+
+  logger.info(
+    `[webRequest] After unregister, remaining keys:`,
+    Array.from(dynamicListeners.keys()),
+  );
+}
+
+/**
+ * Unregister all dynamic webRequest listeners.
+ */
+function unregisterAllDynamicListeners(): void {
+  const origins = Array.from(dynamicListeners.keys());
+  unregisterDynamicListeners(origins);
+}
 
 // Create context menu for Developer Console - only for extension icon
 browser.contextMenus.create({
@@ -43,88 +225,88 @@ browser.runtime.onInstalled.addListener((details) => {
   logger.info('Extension installed/updated:', details.reason);
 });
 
-// Set up webRequest listener to intercept all requests
-browser.webRequest.onBeforeRequest.addListener(
-  (details) => {
-    // Check if this tab belongs to a managed window
-    const managedWindow = windowManager.getWindowByTabId(details.tabId);
+// NOTE: Static webRequest listeners removed - using dynamic listeners instead
+// Dynamic listeners are registered when plugin permissions are granted
+// and unregistered when permissions are revoked
 
-    if (managedWindow && details.tabId !== undefined) {
-      const request: InterceptedRequest = {
-        id: `${details.requestId}`,
-        method: details.method,
-        url: details.url,
-        timestamp: Date.now(),
-        tabId: details.tabId,
-        requestBody: details.requestBody,
-      };
-
-      // if (details.requestBody) {
-      //   console.log(details.requestBody);
-      // }
-
-      // Add request to window's request history
-      windowManager.addRequest(managedWindow.id, request);
-    }
-  },
-  { urls: ['<all_urls>'] },
-  ['requestBody', 'extraHeaders'],
-);
-
-browser.webRequest.onBeforeSendHeaders.addListener(
-  (details) => {
-    // Check if this tab belongs to a managed window
-    const managedWindow = windowManager.getWindowByTabId(details.tabId);
-
-    if (managedWindow && details.tabId !== undefined) {
-      const header: InterceptedRequestHeader = {
-        id: `${details.requestId}`,
-        method: details.method,
-        url: details.url,
-        timestamp: details.timeStamp,
-        type: details.type,
-        requestHeaders: details.requestHeaders || [],
-        tabId: details.tabId,
-      };
-
-      // Add request to window's request history
-      windowManager.addHeader(managedWindow.id, header);
-    }
-  },
-  { urls: ['<all_urls>'] },
-  ['requestHeaders', 'extraHeaders'],
-);
-
-// Listen for window removal
+// Listen for window removal - clean up permissions and listeners
 browser.windows.onRemoved.addListener(async (windowId) => {
   const managedWindow = windowManager.getWindow(windowId);
   if (managedWindow) {
     logger.debug(
       `Managed window closed: ${managedWindow.uuid} (ID: ${windowId})`,
     );
+
+    // Get granted origins before closing the window
+    const grantedOrigins = managedWindow.grantedOrigins || [];
+
+    logger.info(
+      `[Permission Cleanup] Window ${windowId} grantedOrigins:`,
+      grantedOrigins,
+    );
+    logger.info(
+      `[Permission Cleanup] Current dynamicListeners keys:`,
+      Array.from(dynamicListeners.keys()),
+    );
+
+    // Clean up permissions and listeners for this window
+    if (grantedOrigins.length > 0) {
+      logger.info(
+        `[Permission Cleanup] Window ${windowId} closed, cleaning up ${grantedOrigins.length} origins:`,
+        grantedOrigins,
+      );
+
+      // Step 1: Unregister dynamic webRequest listeners FIRST
+      logger.info(
+        '[Permission Cleanup] Step 1: Unregistering dynamic listeners...',
+      );
+      unregisterDynamicListeners(grantedOrigins);
+      logger.info(
+        '[Permission Cleanup] Step 1 complete. Remaining dynamicListeners:',
+        Array.from(dynamicListeners.keys()),
+      );
+
+      // Step 2: Revoke host permissions AFTER listeners are removed
+      logger.info('[Permission Cleanup] Step 2: Revoking host permissions...');
+      try {
+        const removed =
+          await permissionManager.removePermissions(grantedOrigins);
+        logger.info(
+          `[Permission Cleanup] Step 2 complete. Permissions removed: ${removed}`,
+        );
+      } catch (error) {
+        logger.error(
+          `[Permission Cleanup] Step 2 FAILED for window ${windowId}:`,
+          error,
+        );
+      }
+    } else {
+      logger.info(
+        `[Permission Cleanup] Window ${windowId} has no granted origins to clean up`,
+      );
+    }
+
     await windowManager.closeWindow(windowId);
   }
 });
 
-// Listen for tab updates to show overlay when tab is ready (Task 3.4)
+// Listen for tab updates to show overlay when tab is ready
 browser.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   // Only act when tab becomes complete
   if (changeInfo.status !== 'complete') {
     return;
   }
 
-  // Check if this tab belongs to a managed window
+  // Check if this tab belongs to a managed window for overlay handling
   const managedWindow = windowManager.getWindowByTabId(tabId);
-  if (!managedWindow) {
-    return;
-  }
-
-  // If overlay should be shown but isn't visible yet, show it now
-  if (managedWindow.showOverlayWhenReady && !managedWindow.overlayVisible) {
-    logger.debug(
-      `Tab ${tabId} complete, showing overlay for window ${managedWindow.id}`,
-    );
-    await windowManager.showOverlay(managedWindow.id);
+  if (managedWindow) {
+    // If overlay should be shown but isn't visible yet, show it now
+    if (managedWindow.showOverlayWhenReady && !managedWindow.overlayVisible) {
+      logger.debug(
+        `Tab ${tabId} complete, showing overlay for window ${managedWindow.id}`,
+      );
+      await windowManager.showOverlay(managedWindow.id);
+    }
   }
 });
 
@@ -162,6 +344,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
     confirmationManager.handleConfirmationResponse(
       request.requestId,
       request.allowed,
+      request.grantedOrigins || [],
     );
     return true;
   }
@@ -182,12 +365,12 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
           // Continue with null config - user will see "Unknown Plugin" warning
         }
 
-        // Step 2: Request user confirmation
+        // Step 2: Request user confirmation (popup also handles permission request)
         const confirmRequestId = `confirm_${Date.now()}_${Math.random()}`;
-        let userAllowed: boolean;
+        let confirmResult: { allowed: boolean; grantedOrigins: string[] };
 
         try {
-          userAllowed = await confirmationManager.requestConfirmation(
+          confirmResult = await confirmationManager.requestConfirmation(
             pluginConfig,
             confirmRequestId,
           );
@@ -204,8 +387,8 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
         }
 
         // Step 3: If user denied, return rejection error
-        if (!userAllowed) {
-          logger.info('User rejected plugin execution');
+        if (!confirmResult.allowed) {
+          logger.info('User rejected plugin execution or denied permissions');
           sendResponse({
             success: false,
             error: 'User rejected plugin execution',
@@ -213,13 +396,36 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
           return;
         }
 
-        // Step 4: User allowed - proceed with execution
-        logger.info('User allowed plugin execution, proceeding...');
+        // Step 4: User allowed and permissions granted - proceed with execution
+        logger.info(
+          'User allowed plugin execution, granted origins:',
+          confirmResult.grantedOrigins,
+        );
 
-        // Ensure offscreen document exists
+        // Step 4.1: Register dynamic webRequest listeners for granted origins
+        // This must happen AFTER permissions are granted
+        if (confirmResult.grantedOrigins.length > 0) {
+          logger.info(
+            '[EXEC_CODE] Registering dynamic webRequest listeners for:',
+            confirmResult.grantedOrigins,
+          );
+          registerDynamicListeners(confirmResult.grantedOrigins);
+
+          // Store granted origins for association with the window that will be opened
+          // The OPEN_WINDOW handler will associate these with the new window
+          pendingGrantedOrigins = confirmResult.grantedOrigins;
+          logger.info(
+            '[EXEC_CODE] Stored pendingGrantedOrigins:',
+            pendingGrantedOrigins,
+          );
+        }
+
+        // Step 4.2: Execute plugin
+        // Note: Cleanup happens when the window is closed (windows.onRemoved listener)
+        // NOT in a finally block here, because EXEC_CODE_OFFSCREEN returns immediately
+        // when the plugin starts, not when it finishes
         await createOffscreenDocument();
 
-        // Forward to offscreen document
         const response = await chrome.runtime.sendMessage({
           type: 'EXEC_CODE_OFFSCREEN',
           code: request.code,
@@ -229,6 +435,18 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
         sendResponse(response);
       } catch (error) {
         logger.error('Error executing code:', error);
+
+        // Clean up listeners and pending origins if execution failed before window opened
+        if (pendingGrantedOrigins.length > 0) {
+          logger.info(
+            '[EXEC_CODE] Error occurred - cleaning up pending origins:',
+            pendingGrantedOrigins,
+          );
+          unregisterDynamicListeners(pendingGrantedOrigins);
+          await permissionManager.removePermissions(pendingGrantedOrigins);
+          pendingGrantedOrigins = [];
+        }
+
         sendResponse({
           success: false,
           error:
@@ -238,6 +456,55 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
     })();
 
     return true; // Keep message channel open for async response
+  }
+
+  // Handle permission requests from offscreen/content scripts
+  if (request.type === 'REQUEST_HOST_PERMISSIONS') {
+    logger.debug('REQUEST_HOST_PERMISSIONS received:', request.origins);
+
+    (async () => {
+      try {
+        const granted = await permissionManager.requestPermissions(
+          request.origins,
+        );
+        sendResponse({ success: true, granted });
+      } catch (error) {
+        logger.error('Failed to request permissions:', error);
+        sendResponse({
+          success: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : 'Permission request failed',
+        });
+      }
+    })();
+
+    return true;
+  }
+
+  if (request.type === 'REMOVE_HOST_PERMISSIONS') {
+    logger.debug('REMOVE_HOST_PERMISSIONS received:', request.origins);
+
+    (async () => {
+      try {
+        const removed = await permissionManager.removePermissions(
+          request.origins,
+        );
+        sendResponse({ success: true, removed });
+      } catch (error) {
+        logger.error('Failed to remove permissions:', error);
+        sendResponse({
+          success: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : 'Permission removal failed',
+        });
+      }
+    })();
+
+    return true;
   }
 
   // Handle CLOSE_WINDOW requests
@@ -333,6 +600,30 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
           });
 
           logger.debug(`Window registered: ${managedWindow.uuid}`);
+
+          // Associate pending granted origins with this window
+          // These will be cleaned up when the window is closed
+          logger.info(
+            `[OPEN_WINDOW] pendingGrantedOrigins at association time:`,
+            pendingGrantedOrigins,
+          );
+          if (pendingGrantedOrigins.length > 0) {
+            logger.info(
+              `[OPEN_WINDOW] Associating ${pendingGrantedOrigins.length} origins with window ${windowId}:`,
+              pendingGrantedOrigins,
+            );
+            windowManager.setGrantedOrigins(windowId, pendingGrantedOrigins);
+            logger.info(
+              `[OPEN_WINDOW] Successfully associated origins. Window ${windowId} now has grantedOrigins:`,
+              windowManager.getGrantedOrigins(windowId),
+            );
+            // Clear pending origins now that they're associated
+            pendingGrantedOrigins = [];
+          } else {
+            logger.warn(
+              `[OPEN_WINDOW] No pending origins to associate with window ${windowId}`,
+            );
+          }
 
           // Send success response
           sendResponse({

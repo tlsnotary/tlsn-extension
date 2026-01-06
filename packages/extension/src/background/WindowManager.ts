@@ -116,6 +116,7 @@ export class WindowManager implements IWindowManager {
       overlayVisible: false,
       pluginUIVisible: false,
       showOverlayWhenReady: config.showOverlay !== false, // Default: true
+      grantedOrigins: [],
     };
 
     this.windows.set(config.id, managedWindow);
@@ -361,6 +362,38 @@ export class WindowManager implements IWindowManager {
   getWindowHeaders(windowId: number): InterceptedRequestHeader[] {
     const window = this.windows.get(windowId);
     return window?.headers || [];
+  }
+
+  /**
+   * Set granted origins for a window (for cleanup on close)
+   *
+   * @param windowId - Chrome window ID
+   * @param origins - Array of origin patterns that were granted
+   */
+  setGrantedOrigins(windowId: number, origins: string[]): void {
+    const window = this.windows.get(windowId);
+    if (!window) {
+      logger.error(
+        `[WindowManager] Cannot set granted origins for non-existent window: ${windowId}`,
+      );
+      return;
+    }
+    window.grantedOrigins = origins;
+    logger.debug(
+      `[WindowManager] Set granted origins for window ${windowId}:`,
+      origins,
+    );
+  }
+
+  /**
+   * Get granted origins for a window
+   *
+   * @param windowId - Chrome window ID
+   * @returns Array of granted origin patterns
+   */
+  getGrantedOrigins(windowId: number): string[] {
+    const window = this.windows.get(windowId);
+    return window?.grantedOrigins || [];
   }
 
   async showPluginUI(

@@ -260,6 +260,29 @@ Key methods:
 - `handleConfirmationResponse(requestId, allowed)`: Processes user's allow/deny decision
 - `hasPendingConfirmation()`: Check if a confirmation is in progress
 
+#### **PermissionManager** (`src/background/PermissionManager.ts`)
+Manages runtime host permission requests and revocation:
+- **Runtime Permissions**: Requests host permissions from browser at plugin execution time
+- **Permission Extraction**: Extracts origin patterns from plugin's `config.requests`
+- **Concurrent Execution Tracking**: Tracks which permissions are in use by active plugins
+- **Automatic Revocation**: Removes permissions when no longer needed
+- **Singleton Pattern**: Exported as `permissionManager` instance
+
+Key methods:
+- `extractOrigins(requests)`: Extract origin patterns from RequestPermission array
+- `extractPermissionPatterns(requests)`: Extract patterns with host and pathname for display
+- `formatForDisplay(requests)`: Format as `host + pathname` strings for UI
+- `requestPermissions(origins)`: Request permissions from browser, tracks usage
+- `removePermissions(origins)`: Revoke permissions if no longer in use
+- `hasPermissions(origins)`: Check if permissions are already granted
+
+**Plugin Execution Flow with Permissions:**
+1. User clicks "Allow" in ConfirmPopup
+2. PermissionManager extracts origins from `config.requests`
+3. Browser shows native permission prompt
+4. If granted, plugin executes in offscreen document
+5. After execution (success or error), permissions are revoked
+
 ### Permission Validation System
 
 The extension implements a permission control system (PR #211) that validates plugin operations:
@@ -345,6 +368,8 @@ Content Script: Renders plugin UI from DOM JSON
 - `EXEC_CODE_OFFSCREEN` → Execute plugin code in offscreen context
 - `RENDER_PLUGIN_UI` → Render plugin UI from DOM JSON in content script
 - `OFFSCREEN_LOG` → Log forwarding from offscreen to page context
+- `REQUEST_HOST_PERMISSIONS` → Request browser host permissions for origins
+- `REMOVE_HOST_PERMISSIONS` → Revoke browser host permissions for origins
 
 ### TLSN Overlay Feature
 
@@ -396,11 +421,18 @@ Defined in `src/manifest.json`:
 - `tabs` - Tab management (create, query, update)
 - `windows` - Window management (create, track, remove)
 - `contextMenus` - Create context menu items (Developer Console access)
-- `host_permissions: ["<all_urls>"]` - Access all URLs for request interception
+- `optional_host_permissions: ["https://*/*", "http://*/*"]` - Runtime-requested host permissions
 - `content_scripts` - Inject into all HTTP/HTTPS pages
 - `web_accessible_resources` - Make content.bundle.js, CSS, icons, and WASM files accessible to pages
 - `content_security_policy` - Allow WASM execution (`wasm-unsafe-eval`)
 - `options_page` - Extension settings page (`options.html`)
+
+**Runtime Host Permissions:**
+The extension uses `optional_host_permissions` instead of blanket `host_permissions` for improved privacy:
+- No host permissions granted by default
+- Permissions are requested at runtime based on plugin's `config.requests`
+- Permissions are revoked immediately after plugin execution completes
+- Uses browser's native permission prompt for user consent
 
 ### TypeScript Configuration
 

@@ -2,9 +2,14 @@ import browser from 'webextension-polyfill';
 import { logger } from '@tlsn/common';
 import { PluginConfig } from '@tlsn/plugin-sdk/src/types';
 
+interface ConfirmationResult {
+  allowed: boolean;
+  grantedOrigins: string[];
+}
+
 interface PendingConfirmation {
   requestId: string;
-  resolve: (allowed: boolean) => void;
+  resolve: (result: ConfirmationResult) => void;
   reject: (error: Error) => void;
   windowId?: number;
   timeoutId?: ReturnType<typeof setTimeout>;
@@ -34,15 +39,16 @@ export class ConfirmationManager {
   /**
    * Request confirmation from the user for plugin execution.
    * Opens a popup window displaying plugin details and waits for user response.
+   * The popup also handles requesting host permissions from the browser.
    *
    * @param config - Plugin configuration (can be null for unknown plugins)
    * @param requestId - Unique ID to correlate the confirmation request
-   * @returns Promise that resolves to true (allowed) or false (denied)
+   * @returns Promise that resolves to ConfirmationResult with allowed status and granted origins
    */
   async requestConfirmation(
     config: PluginConfig | null,
     requestId: string,
-  ): Promise<boolean> {
+  ): Promise<ConfirmationResult> {
     // Check if there's already a pending confirmation
     if (this.pendingConfirmations.size > 0) {
       logger.warn(
@@ -54,7 +60,7 @@ export class ConfirmationManager {
     // Build URL with plugin info as query params
     const popupUrl = this.buildPopupUrl(config, requestId);
 
-    return new Promise<boolean>(async (resolve, reject) => {
+    return new Promise<ConfirmationResult>(async (resolve, reject) => {
       try {
         // Create the confirmation popup window
         const window = await browser.windows.create({
@@ -77,7 +83,7 @@ export class ConfirmationManager {
           if (pending) {
             logger.debug('[ConfirmationManager] Confirmation timed out');
             this.cleanup(requestId);
-            resolve(false); // Treat timeout as denial
+            resolve({ allowed: false, grantedOrigins: [] }); // Treat timeout as denial
           }
         }, this.CONFIRMATION_TIMEOUT_MS);
 
@@ -109,8 +115,13 @@ export class ConfirmationManager {
    *
    * @param requestId - The request ID to match
    * @param allowed - Whether the user allowed execution
+   * @param grantedOrigins - Origins that were granted by the browser (from popup's permission request)
    */
-  handleConfirmationResponse(requestId: string, allowed: boolean): void {
+  handleConfirmationResponse(
+    requestId: string,
+    allowed: boolean,
+    grantedOrigins: string[] = [],
+  ): void {
     const pending = this.pendingConfirmations.get(requestId);
     if (!pending) {
       logger.warn(
@@ -120,11 +131,11 @@ export class ConfirmationManager {
     }
 
     logger.debug(
-      `[ConfirmationManager] Received response for ${requestId}: ${allowed ? 'allowed' : 'denied'}`,
+      `[ConfirmationManager] Received response for ${requestId}: ${allowed ? 'allowed' : 'denied'}, origins: ${grantedOrigins.length}`,
     );
 
-    // Resolve the promise
-    pending.resolve(allowed);
+    // Resolve the promise with the result
+    pending.resolve({ allowed, grantedOrigins });
 
     // Close popup window if still open
     if (pending.windowId) {
@@ -154,7 +165,7 @@ export class ConfirmationManager {
         logger.debug(
           `[ConfirmationManager] Treating window close as denial for request: ${requestId}`,
         );
-        pending.resolve(false); // Treat close as denial
+        pending.resolve({ allowed: false, grantedOrigins: [] }); // Treat close as denial
         this.cleanup(requestId);
         break;
       }

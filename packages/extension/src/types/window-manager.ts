@@ -117,6 +117,9 @@ export interface ManagedWindow {
 
   /** Whether to show overlay when tab becomes ready (complete status) */
   showOverlayWhenReady: boolean;
+
+  /** Origins granted for this window's plugin session (for cleanup on close) */
+  grantedOrigins: string[];
 }
 
 /**

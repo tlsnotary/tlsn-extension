@@ -24,6 +24,48 @@ interface PluginInfo {
   urls?: string[];
 }
 
+/**
+ * Extract origin patterns for browser.permissions API and webRequest interception.
+ *
+ * Includes:
+ * - requests[].host: API hosts for webRequest interception (e.g., api.x.com)
+ * - urls[]: Page URLs for webRequest interception (e.g., x.com/*)
+ *
+ * Does NOT include:
+ * - verifierUrl: Extension connects to verifier directly, doesn't need host permission
+ *
+ * NOTE: Page URL permissions may become "required" if they match content_scripts.matches,
+ * but API host permissions (like api.x.com) should remain revocable.
+ *
+ * @param requests - Request permissions from plugin config (for API endpoints)
+ * @param urls - Page URL patterns from plugin config
+ */
+function extractOrigins(
+  requests: RequestPermission[],
+  urls?: string[],
+): string[] {
+  const origins = new Set<string>();
+
+  // Add target API hosts from requests
+  for (const req of requests) {
+    origins.add(`https://${req.host}/*`);
+  }
+
+  // Add page URLs for webRequest interception
+  if (urls) {
+    for (const urlPattern of urls) {
+      if (
+        urlPattern.startsWith('https://') ||
+        urlPattern.startsWith('http://')
+      ) {
+        origins.add(urlPattern);
+      }
+    }
+  }
+
+  return Array.from(origins);
+}
+
 const ConfirmPopup: React.FC = () => {
   const [pluginInfo, setPluginInfo] = useState<PluginInfo | null>(null);
   const [requestId, setRequestId] = useState<string>('');
@@ -109,16 +151,64 @@ const ConfirmPopup: React.FC = () => {
     if (!requestId) return;
 
     try {
+      let grantedOrigins: string[] = [];
+
+      // Request host permissions if plugin has requests or urls defined
+      // This MUST be done in the popup context (user gesture) for the browser to show the prompt
+      const hasRequests =
+        pluginInfo?.requests && pluginInfo.requests.length > 0;
+      const hasUrls = pluginInfo?.urls && pluginInfo.urls.length > 0;
+
+      if (hasRequests || hasUrls) {
+        const origins = extractOrigins(
+          pluginInfo?.requests || [],
+          pluginInfo?.urls,
+        );
+        logger.info('Requesting permissions for origins:', origins);
+
+        try {
+          const granted = await browser.permissions.request({ origins });
+
+          if (!granted) {
+            logger.warn('User denied host permissions');
+            // Send denial response
+            await browser.runtime.sendMessage({
+              type: 'PLUGIN_CONFIRM_RESPONSE',
+              requestId,
+              allowed: false,
+              reason: 'Host permissions denied',
+            });
+            window.close();
+            return;
+          }
+
+          grantedOrigins = origins;
+          logger.info('Host permissions granted:', grantedOrigins);
+        } catch (permError) {
+          logger.error('Failed to request permissions:', permError);
+          await browser.runtime.sendMessage({
+            type: 'PLUGIN_CONFIRM_RESPONSE',
+            requestId,
+            allowed: false,
+            reason: 'Permission request failed',
+          });
+          window.close();
+          return;
+        }
+      }
+
+      // Send approval with granted origins
       await browser.runtime.sendMessage({
         type: 'PLUGIN_CONFIRM_RESPONSE',
         requestId,
         allowed: true,
+        grantedOrigins,
       });
       window.close();
     } catch (err) {
       logger.error('Failed to send allow response:', err);
     }
-  }, [requestId]);
+  }, [requestId, pluginInfo]);
 
   const handleDeny = useCallback(async () => {
     if (!requestId) return;
