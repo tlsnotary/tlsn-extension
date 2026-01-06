@@ -1,5 +1,11 @@
 /// <reference types="@tlsn/plugin-sdk/src/globals" />
 
+// Environment variables injected at build time
+// @ts-ignore - These will be replaced at build time by Vite's define option
+const VERIFIER_URL = VITE_VERIFIER_URL;
+// @ts-ignore
+const PROXY_URL_BASE = VITE_PROXY_URL;
+
 // =============================================================================
 // PLUGIN CONFIGURATION
 // =============================================================================
@@ -10,13 +16,19 @@
 const config = {
     name: 'X Profile Prover',
     description: 'This plugin will prove your X.com profile.',
+    requests: [
+        {
+            method: 'GET',
+            host: 'api.x.com',
+            pathname: '/1.1/account/settings.json',
+            verifierUrl: VERIFIER_URL,
+        },
+    ],
+    urls: [
+        'https://x.com/*',
+    ],
 };
 
-// Environment variables injected at build time
-// @ts-ignore - These will be replaced at build time by Vite's define option
-const VERIFIER_URL = VITE_VERIFIER_URL;
-// @ts-ignore
-const PROXY_URL_BASE = VITE_PROXY_URL;
 
 // =============================================================================
 // PROOF GENERATION CALLBACK

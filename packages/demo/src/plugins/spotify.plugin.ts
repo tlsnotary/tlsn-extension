@@ -1,10 +1,5 @@
 /// <reference types="@tlsn/plugin-sdk/src/globals" />
 
-const config = {
-    name: 'Spotify Top Artist',
-    description: 'This plugin will prove your top artist on Spotify.',
-};
-
 // @ts-ignore - These will be replaced at build time by Vite's define option
 const VERIFIER_URL = VITE_VERIFIER_URL;
 // @ts-ignore
@@ -13,6 +8,23 @@ const PROXY_URL_BASE = VITE_PROXY_URL;
 const api = 'api.spotify.com';
 const ui = 'https://developer.spotify.com/';
 const top_artist_path = '/v1/me/top/artists?time_range=medium_term&limit=1';
+
+const config = {
+    name: 'Spotify Top Artist',
+    description: 'This plugin will prove your top artist on Spotify.',
+    requests: [
+        {
+            method: 'GET',
+            host: 'api.spotify.com',
+            pathname: '/v1/me/top/artists',
+            verifierUrl: VERIFIER_URL,
+        },
+    ],
+    urls: [
+        'https://developer.spotify.com/*',
+    ],
+};
+
 
 async function onClick() {
     const isRequestPending = useState('isRequestPending', false);

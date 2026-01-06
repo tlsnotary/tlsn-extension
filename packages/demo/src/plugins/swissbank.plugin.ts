@@ -1,15 +1,26 @@
 /// <reference types="@tlsn/plugin-sdk/src/globals" />
 
-const config = {
-    name: 'Swiss Bank Prover',
-    description: 'This plugin will prove your Swiss Bank account balance.',
-};
-
 // Environment variables injected at build time
 // @ts-ignore - These will be replaced at build time by Vite's define option
 const VERIFIER_URL = VITE_VERIFIER_URL;
 // @ts-ignore
 const PROXY_URL_BASE = VITE_PROXY_URL;
+
+const config = {
+    name: 'Swiss Bank Prover',
+    description: 'This plugin will prove your Swiss Bank account balance.',
+    requests: [
+        {
+            method: 'GET',
+            host: 'swissbank.tlsnotary.org',
+            pathname: '/balances',
+            verifierUrl: VERIFIER_URL,
+        },
+    ],
+    urls: [
+        'https://swissbank.tlsnotary.org/*',
+    ],
+};
 
 const host = 'swissbank.tlsnotary.org';
 const ui_path = '/account';
