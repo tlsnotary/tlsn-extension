@@ -12,7 +12,7 @@ export const plugins: Record<string, Plugin> = {
     },
     swissbank: {
         name: 'Swiss Bank',
-        description: 'Verify your Swiss bank account balance securely and privately',
+        description: 'Verify your Swiss bank account balance securely and privately. (Login: admin / admin)',
         logo: '🏦',
         file: '/plugins/swissbank.js',
         parseResult: (json) => {

@@ -234,7 +234,7 @@ export function App() {
             />
 
             <div className="content-card">
-                <h2 className="section-title">Available Plugins</h2>
+                <h2 className="section-title">Demo Plugins</h2>
 
                 {!allChecksPass && (
                     <div className="alert-box">

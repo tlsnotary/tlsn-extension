@@ -54,8 +54,8 @@ export function StatusBar({
                             Recheck
                         </button>
                     )}
-                    <button 
-                        className={`btn-details ${showDetails ? 'expanded' : ''}`} 
+                    <button
+                        className={`btn-details ${showDetails ? 'expanded' : ''}`}
                         onClick={() => setShowDetails(!showDetails)}
                     >
                         <span className="btn-details-icon">{showDetails ? '▼' : '▶'}</span>
