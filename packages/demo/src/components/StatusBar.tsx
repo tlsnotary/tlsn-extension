@@ -1,9 +1,11 @@
+import { useState } from 'react';
+
 interface StatusBarProps {
     browserOk: boolean;
     extensionOk: boolean;
     verifierOk: boolean;
     onRecheckVerifier: () => void;
-    onShowDetails: () => void;
+    detailsContent?: React.ReactNode;
 }
 
 export function StatusBar({
@@ -11,8 +13,9 @@ export function StatusBar({
     extensionOk,
     verifierOk,
     onRecheckVerifier,
-    onShowDetails,
+    detailsContent,
 }: StatusBarProps) {
+    const [showDetails, setShowDetails] = useState(false);
     const allOk = browserOk && extensionOk && verifierOk;
     const someIssues = !allOk;
 
@@ -51,8 +54,12 @@ export function StatusBar({
                             Recheck
                         </button>
                     )}
-                    <button className="btn-details" onClick={onShowDetails}>
-                        Details
+                    <button 
+                        className={`btn-details ${showDetails ? 'expanded' : ''}`} 
+                        onClick={() => setShowDetails(!showDetails)}
+                    >
+                        <span className="btn-details-icon">{showDetails ? '▼' : '▶'}</span>
+                        <span>Details</span>
                     </button>
                 </div>
             </div>
@@ -73,6 +80,12 @@ export function StatusBar({
                             Verifier server not running. Start it with: <code>cd packages/verifier; cargo run --release</code>
                         </div>
                     )}
+                </div>
+            )}
+
+            {showDetails && detailsContent && (
+                <div className="status-details-content">
+                    {detailsContent}
                 </div>
             )}
         </div>

@@ -639,10 +639,28 @@ body {
 .btn-details {
     background: var(--gray-200);
     color: var(--gray-700);
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
 }
 
 .btn-details:hover {
     background: var(--gray-300);
+}
+
+.btn-details.expanded {
+    background: var(--gray-300);
+}
+
+.btn-details-icon {
+    font-size: 0.625rem;
+    transition: transform 0.2s ease;
+}
+
+.status-details-content {
+    margin-top: var(--spacing-md);
+    padding-top: var(--spacing-md);
+    border-top: 1px solid var(--gray-200);
 }
 
 .status-help {

@@ -48,7 +48,6 @@ export function App() {
     const [allChecksPass, setAllChecksPass] = useState(false);
     const [runningPlugins, setRunningPlugins] = useState<Set<string>>(new Set());
     const [pluginResults, setPluginResults] = useState<Record<string, PluginResultData>>({});
-    const [showDetailsModal, setShowDetailsModal] = useState(false);
     const [consoleExpanded, setConsoleExpanded] = useState(false);
 
     const addConsoleEntry = useCallback((message: string, type: ConsoleEntry['type'] = 'info') => {
@@ -218,11 +217,7 @@ export function App() {
                 extensionOk={extensionCheck.status === 'success'}
                 verifierOk={verifierCheck.status === 'success'}
                 onRecheckVerifier={handleRecheckVerifier}
-                onShowDetails={() => setShowDetailsModal(!showDetailsModal)}
-            />
-
-            {showDetailsModal && (
-                <div className="content-card" style={{ marginTop: 'var(--spacing-lg)' }}>
+                detailsContent={
                     <div className="checks-section">
                         <div className="checks-title">System Status Details</div>
                         <SystemChecks
@@ -235,8 +230,8 @@ export function App() {
                             showBrowserWarning={showBrowserWarning}
                         />
                     </div>
-                </div>
-            )}
+                }
+            />
 
             <div className="content-card">
                 <h2 className="section-title">Available Plugins</h2>
