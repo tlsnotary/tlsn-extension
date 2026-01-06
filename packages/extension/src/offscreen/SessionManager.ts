@@ -1,14 +1,19 @@
 import Host, { Parser } from '@tlsn/plugin-sdk/src';
 import { ProveManager } from './ProveManager';
 import { Method } from 'tlsn-js';
-import { DomJson, Handler } from '@tlsn/plugin-sdk/src/types';
+import { DomJson, Handler, PluginConfig } from '@tlsn/plugin-sdk/src/types';
 import { processHandlers } from './rangeExtractor';
 import { logger } from '@tlsn/common';
+import {
+  validateProvePermission,
+  validateOpenWindowPermission,
+} from './permissionValidator';
 
 export class SessionManager {
   private host: Host;
   private proveManager: ProveManager;
   private initPromise: Promise<void>;
+  private currentConfig: PluginConfig | null = null;
 
   constructor() {
     this.host = new Host({
@@ -35,6 +40,13 @@ export class SessionManager {
         } catch (error) {
           throw new Error('Invalid URL');
         }
+
+        // Validate permissions before proceeding
+        validateProvePermission(
+          requestOptions,
+          proverOptions,
+          this.currentConfig,
+        );
 
         // Build sessionData with defaults + user-provided data
         const sessionData: Record<string, string> = {
@@ -131,6 +143,9 @@ export class SessionManager {
         url: string,
         options?: { width?: number; height?: number; showOverlay?: boolean },
       ) => {
+        // Validate permissions before proceeding
+        validateOpenWindowPermission(url, this.currentConfig);
+
         const chromeRuntime = (
           global as unknown as { chrome?: { runtime?: any } }
         ).chrome?.runtime;
@@ -164,6 +179,14 @@ export class SessionManager {
     if (!chromeRuntime?.onMessage) {
       throw new Error('Chrome runtime not available');
     }
+
+    // Extract and store plugin config before execution for permission validation
+    this.currentConfig = await this.extractConfig(code);
+    logger.debug(
+      '[SessionManager] Extracted plugin config:',
+      this.currentConfig,
+    );
+
     return this.host.executePlugin(code, {
       eventEmitter: {
         addListener: (listener: (message: any) => void) => {
