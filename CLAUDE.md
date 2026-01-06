@@ -78,7 +78,7 @@ cd packages/extension && npm run dev
 ## Extension Architecture Overview
 
 ### Extension Entry Points
-The extension has 5 main entry points defined in `webpack.config.js`:
+The extension has 7 main entry points defined in `webpack.config.js`:
 
 #### 1. **Background Service Worker** (`src/entries/Background/index.ts`)
 Core responsibilities:
@@ -170,6 +170,25 @@ Isolated React component for background processing:
 - **Lifecycle**: Created dynamically by background script, reused if exists
 - Entry point: `offscreen.html`
 
+#### 7. **Options Page** (`src/entries/Options/index.tsx`)
+Extension settings page for user configuration:
+- **Log Level Control**: Configure logging verbosity (DEBUG, INFO, WARN, ERROR)
+- **IndexedDB Storage**: Settings persisted via `logLevelStorage.ts` utility
+- **Live Updates**: Changes take effect immediately without restart
+- **Styling**: Custom SCSS with radio button group design
+- Access: Right-click extension icon → Options, or `chrome://extensions` → Details → Extension options
+- Entry point: `options.html`
+
+#### 8. **ConfirmPopup** (`src/entries/ConfirmPopup/index.tsx`)
+Permission confirmation dialog for plugin execution:
+- **Plugin Info Display**: Shows plugin name, description, version, author
+- **Permission Review**: Lists allowed network requests and URLs
+- **User Controls**: Allow/Deny buttons with keyboard shortcuts (Enter/Esc)
+- **Security**: Validates plugin config before execution
+- **Timeout**: 60-second auto-deny if no response
+- Opened by: `ConfirmationManager` when executing untrusted plugins
+- Entry point: `confirmPopup.html`
+
 ### Key Classes
 
 #### **WindowManager** (`src/background/WindowManager.ts`)
@@ -228,6 +247,41 @@ const proof = await prove(
 );
 ```
 
+#### **ConfirmationManager** (`src/background/ConfirmationManager.ts`)
+Manages plugin execution confirmation dialogs:
+- **Permission Flow**: Opens confirmation popup before plugin execution
+- **User Approval**: Displays plugin info and permissions for user review
+- **Timeout Handling**: 60-second timeout auto-denies if no response
+- **Window Tracking**: Tracks confirmation popup windows by request ID
+- **Singleton Pattern**: Exported as `confirmationManager` instance
+
+Key methods:
+- `requestConfirmation(config, requestId)`: Opens confirmation popup, returns Promise<boolean>
+- `handleConfirmationResponse(requestId, allowed)`: Processes user's allow/deny decision
+- `hasPendingConfirmation()`: Check if a confirmation is in progress
+
+### Permission Validation System
+
+The extension implements a permission control system (PR #211) that validates plugin operations:
+
+#### **Permission Validator** (`src/offscreen/permissionValidator.ts`)
+Validates plugin API calls against declared permissions:
+- `validateProvePermission()`: Checks if prove() call matches declared `requests` permissions
+- `validateOpenWindowPermission()`: Checks if openWindow() call matches declared `urls` permissions
+- `deriveProxyUrl()`: Derives default proxy URL from verifier URL
+- `matchesPathnamePattern()`: URLPattern-based pathname matching with wildcards
+
+**Validation Flow:**
+1. Plugin declares permissions in `config.requests` and `config.urls`
+2. Before `prove()` or `openWindow()` executes, validator checks permissions
+3. If no matching permission found, throws descriptive error
+4. Error includes list of declared permissions for debugging
+
+**URLPattern Syntax:**
+- Exact paths: `/1.1/users/show.json`
+- Single-segment wildcard: `/api/*/data` (matches `/api/v1/data`)
+- Multi-segment wildcard: `/api/**` (matches `/api/v1/users/123`)
+
 ### State Management
 Redux store located in `src/reducers/index.tsx`:
 - **App State Interface**: `{ message: string, count: number }`
@@ -282,6 +336,15 @@ Content Script: Renders plugin UI from DOM JSON
 - Content script validates origin (`event.origin === window.location.origin`)
 - URL validation using `validateUrl()` utility before window creation
 - Request interception limited to managed windows only
+- Plugin permission validation before prove() and openWindow() calls
+
+**Additional Message Types:**
+- `PLUGIN_CONFIRM_RESPONSE` → User response (allow/deny) from confirmation popup
+- `PLUGIN_UI_CLICK` → Button click event from plugin UI in content script
+- `EXTRACT_CONFIG` → Request to extract plugin config from code
+- `EXEC_CODE_OFFSCREEN` → Execute plugin code in offscreen context
+- `RENDER_PLUGIN_UI` → Render plugin UI from DOM JSON in content script
+- `OFFSCREEN_LOG` → Log forwarding from offscreen to page context
 
 ### TLSN Overlay Feature
 
@@ -298,7 +361,7 @@ The overlay is a full-screen modal showing intercepted requests:
 ### Build Configuration
 
 **Webpack 5 Setup** (`webpack.config.js`):
-- **Entry Points**: popup, background, contentScript, content, offscreen
+- **Entry Points**: popup, background, contentScript, content, offscreen, devConsole, options, confirmPopup
 - **Output**: `build/` directory with `[name].bundle.js` pattern
 - **Loaders**:
   - `ts-loader` - TypeScript compilation (transpileOnly in dev)
@@ -310,7 +373,7 @@ The overlay is a full-screen modal showing intercepted requests:
   - `ReactRefreshWebpackPlugin` - Hot module replacement (dev only)
   - `CleanWebpackPlugin` - Cleans build directory
   - `CopyWebpackPlugin` - Copies manifest, icons, CSS files
-  - `HtmlWebpackPlugin` - Generates popup.html and offscreen.html
+  - `HtmlWebpackPlugin` - Generates popup.html, offscreen.html, devConsole.html, options.html, confirmPopup.html
   - `TerserPlugin` - Code minification (production only)
 - **Dev Server** (`utils/webserver.js`):
   - Port: 3000 (configurable via `PORT` env var)
@@ -332,10 +395,12 @@ Defined in `src/manifest.json`:
 - `activeTab` - Access active tab information
 - `tabs` - Tab management (create, query, update)
 - `windows` - Window management (create, track, remove)
+- `contextMenus` - Create context menu items (Developer Console access)
 - `host_permissions: ["<all_urls>"]` - Access all URLs for request interception
 - `content_scripts` - Inject into all HTTP/HTTPS pages
-- `web_accessible_resources` - Make content.bundle.js, CSS, and icons accessible to pages
+- `web_accessible_resources` - Make content.bundle.js, CSS, icons, and WASM files accessible to pages
 - `content_security_policy` - Allow WASM execution (`wasm-unsafe-eval`)
+- `options_page` - Extension settings page (`options.html`)
 
 ### TypeScript Configuration
 
@@ -407,6 +472,47 @@ Defined in `src/manifest.json`:
 
 ## Plugin SDK Package (`packages/plugin-sdk`)
 
+### Plugin Configuration
+Plugins must export a `config` object with the following structure:
+
+```typescript
+interface PluginConfig {
+  name: string;           // Display name
+  description: string;    // What the plugin does
+  version?: string;       // Optional version string
+  author?: string;        // Optional author name
+  requests?: RequestPermission[];  // Allowed HTTP requests for prove()
+  urls?: string[];        // Allowed URLs for openWindow()
+}
+
+interface RequestPermission {
+  method: string;         // HTTP method (GET, POST, etc.)
+  host: string;           // Target hostname
+  pathname: string;       // URL path pattern (supports wildcards)
+  verifierUrl: string;    // Verifier server URL
+  proxyUrl?: string;      // Optional proxy URL (derived from verifierUrl if omitted)
+}
+```
+
+**Example config with permissions:**
+```javascript
+const config = {
+  name: 'Twitter Plugin',
+  description: 'Generate TLS proofs for Twitter profile data',
+  version: '1.0.0',
+  author: 'TLSN Team',
+  requests: [
+    {
+      method: 'GET',
+      host: 'api.x.com',
+      pathname: '/1.1/users/show.json',
+      verifierUrl: 'https://verifier.tlsnotary.org'
+    }
+  ],
+  urls: ['https://x.com/*']
+};
+```
+
 ### Host Class API
 The SDK provides a `Host` class for sandboxed plugin execution with capability injection:
 
@@ -422,6 +528,9 @@ const host = new Host({
 
 // Execute plugin code
 await host.executePlugin(pluginCode, { eventEmitter });
+
+// Extract plugin config without executing
+const config = await host.getPluginConfig(pluginCode);
 ```
 
 **Capabilities injected into plugin environment:**
@@ -471,6 +580,7 @@ const ranges = parser.ranges.body('screen_name', { type: 'json', hideKey: true }
 - Handle chunked transfer encoding
 - Extract header ranges with case-insensitive names
 - Extract JSON field ranges (top-level only)
+- Array field access returns range for entire array (PR #212)
 - Regex-based body pattern matching
 - Track byte offsets for TLSNotary selective disclosure
 
@@ -485,6 +595,20 @@ const ranges = parser.ranges.body('screen_name', { type: 'json', hideKey: true }
 - Host controls available capabilities through `env` object
 - Reactive rendering: `main()` function called whenever hook state changes
 - Force re-render: `main(true)` can be called to force UI re-render even if state hasn't changed (used on content script initialization)
+
+### Config Extraction
+The SDK provides utilities to extract plugin config without full execution:
+
+```typescript
+import { extractConfig } from '@tlsn/plugin-sdk';
+
+// Fast extraction using regex (name/description only)
+const basicConfig = await extractConfig(pluginCode);
+
+// Full extraction using QuickJS sandbox (includes permissions)
+const host = new Host({ /* ... */ });
+const fullConfig = await host.getPluginConfig(pluginCode);
+```
 
 ### Build Configuration
 - **Vite**: Builds isomorphic package for Node.js and browser
@@ -586,12 +710,18 @@ logger.setLevel(LogLevel.WARN);
 [HH:MM:SS] [LEVEL] message
 ```
 
+**Log Level Storage** (extension only):
+The extension persists log level in IndexedDB via `src/utils/logLevelStorage.ts`:
+- `getStoredLogLevel()`: Retrieve saved log level (defaults to WARN)
+- `setStoredLogLevel(level)`: Save log level to IndexedDB
+- Uses `idb-keyval` for simple key-value storage
+
 ## Demo Package (`packages/demo`)
 
 Docker-based demo environment for testing plugins:
 
 **Files:**
-- `twitter.js`, `swissbank.js` - Example plugin files
+- `twitter.js`, `swissbank.js`, `spotify.js` - Example plugin files (PR #210 added Spotify)
 - `docker-compose.yml` - Docker services configuration
 - `nginx.conf` - Reverse proxy configuration
 - `start.sh` - Setup script with URL templating
@@ -659,12 +789,8 @@ Parser tests (`packages/plugin-sdk/src/parser.test.ts`) use redacted sensitive d
 
 ### Known Issues
 
-⚠️ **Legacy Code Warning**: `src/entries/utils.ts` contains imports from non-existent files:
-- `Background/rpc.ts` (removed in refactor)
-- `SidePanel/types.ts` (removed in refactor)
-- Functions: `pushToRedux()`, `openSidePanel()`, `waitForEvent()`
-- **Status**: Dead code, not used by current entry points
-- **Action**: Remove this file or refactor if functionality needed
+- **Nested JSON field access**: Parser does not yet support paths like `"user.profile.name"`
+- **Duplicate CLAUDE.md**: `packages/extension/CLAUDE.md` contains outdated documentation; use root CLAUDE.md instead
 
 ## Websockify Integration
 
