@@ -4,7 +4,7 @@ interface StatusBarProps {
     browserOk: boolean;
     extensionOk: boolean;
     verifierOk: boolean;
-    onRecheckVerifier: () => void;
+    onRecheck: () => void;
     detailsContent?: React.ReactNode;
 }
 
@@ -12,7 +12,7 @@ export function StatusBar({
     browserOk,
     extensionOk,
     verifierOk,
-    onRecheckVerifier,
+    onRecheck,
     detailsContent,
 }: StatusBarProps) {
     const [showDetails, setShowDetails] = useState(false);
@@ -50,7 +50,7 @@ export function StatusBar({
 
                 <div className="status-actions">
                     {!verifierOk && (
-                        <button className="btn-recheck" onClick={onRecheckVerifier}>
+                        <button className="btn-recheck" onClick={onRecheck}>
                             Recheck
                         </button>
                     )}
@@ -64,30 +64,35 @@ export function StatusBar({
                 </div>
             </div>
 
-            {someIssues && (
-                <div className="status-help">
-                    {!browserOk && <div>Please use a Chrome-based browser (Chrome, Edge, Brave)</div>}
-                    {!extensionOk && (
-                        <div>
-                            TLSNotary extension not detected.{' '}
-                            <a href="chrome://extensions/" target="_blank" rel="noopener noreferrer">
-                                Install extension
-                            </a>
-                        </div>
-                    )}
-                    {!verifierOk && (
-                        <div>
-                            Verifier server not running. Start it with: <code>cd packages/verifier; cargo run --release</code>
-                        </div>
-                    )}
-                </div>
-            )}
+            {
+                someIssues && (
+                    <div className="status-help">
+                        {!browserOk && <div>Please use a Chrome-based browser (Chrome, Edge, Brave)</div>}
+                        {!extensionOk && (
+                            <div>
+                                TLSNotary extension not detected.{' '}
+                                <a href="chrome://extensions/" target="_blank" rel="noopener noreferrer">
+                                    Install extension
+                                </a>
+                                {' '}then <strong>refresh this page</strong>.
+                            </div>
+                        )}
+                        {!verifierOk && (
+                            <div>
+                                Verifier server not running. Start it with: <code>cd packages/verifier; cargo run --release</code>
+                            </div>
+                        )}
+                    </div>
+                )
+            }
 
-            {showDetails && detailsContent && (
-                <div className="status-details-content">
-                    {detailsContent}
-                </div>
-            )}
-        </div>
+            {
+                showDetails && detailsContent && (
+                    <div className="status-details-content">
+                        {detailsContent}
+                    </div>
+                )
+            }
+        </div >
     );
 }

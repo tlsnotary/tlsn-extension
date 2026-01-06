@@ -4,6 +4,9 @@ import { ConsoleOutput } from './components/Console';
 import { PluginButtons } from './components/PluginButtons';
 import { StatusBar } from './components/StatusBar';
 import { CollapsibleSection } from './components/CollapsibleSection';
+import { HowItWorks } from './components/HowItWorks';
+import { WhyPlugins } from './components/WhyPlugins';
+import { BuildYourOwn } from './components/BuildYourOwn';
 import { plugins } from './plugins';
 import { checkBrowserCompatibility, checkExtension, checkVerifier, formatTimestamp } from './utils';
 import { ConsoleEntry, CheckStatus, PluginResult as PluginResultType } from './types';
@@ -116,18 +119,27 @@ export function App() {
         setAllChecksPass(extensionOk && verifierOk);
     }, []);
 
-    const handleRecheckVerifier = useCallback(async () => {
+    const handleRecheck = useCallback(async () => {
+        // Recheck extension
+        setExtensionCheck({ status: 'checking', message: 'Checking...' });
+        const extensionOk = await checkExtension();
+        if (extensionOk) {
+            setExtensionCheck({ status: 'success', message: '✅ Extension installed' });
+        } else {
+            setExtensionCheck({ status: 'error', message: '❌ Extension not found' });
+        }
+
+        // Recheck verifier
         setVerifierCheck({ status: 'checking', message: 'Checking...', showInstructions: false });
         const verifierOk = await checkVerifier();
         if (verifierOk) {
             setVerifierCheck({ status: 'success', message: '✅ Verifier running', showInstructions: false });
-            const extensionOk = extensionCheck.status === 'success';
-            setAllChecksPass(extensionOk && verifierOk);
         } else {
             setVerifierCheck({ status: 'error', message: '❌ Verifier not running', showInstructions: true });
-            setAllChecksPass(false);
         }
-    }, [extensionCheck.status]);
+
+        setAllChecksPass(extensionOk && verifierOk);
+    }, []);
 
     const handleRunPlugin = useCallback(
         async (pluginKey: string) => {
@@ -208,15 +220,17 @@ export function App() {
             <div className="hero-section">
                 <h1 className="hero-title">TLSNotary Plugin Demo</h1>
                 <p className="hero-subtitle">
-                    Prove your data with cryptographic verification
+                    zkTLS in action — secure, private data verification from any website
                 </p>
             </div>
+
+            <HowItWorks />
 
             <StatusBar
                 browserOk={browserCheck.status === 'success'}
                 extensionOk={extensionCheck.status === 'success'}
                 verifierOk={verifierCheck.status === 'success'}
-                onRecheckVerifier={handleRecheckVerifier}
+                onRecheck={handleRecheck}
                 detailsContent={
                     <div className="checks-section">
                         <div className="checks-title">System Status Details</div>
@@ -226,7 +240,7 @@ export function App() {
                                 extension: extensionCheck,
                                 verifier: verifierCheck,
                             }}
-                            onRecheckVerifier={handleRecheckVerifier}
+                            onRecheck={handleRecheck}
                             showBrowserWarning={showBrowserWarning}
                         />
                     </div>
@@ -234,7 +248,10 @@ export function App() {
             />
 
             <div className="content-card">
-                <h2 className="section-title">Demo Plugins</h2>
+                <h2 className="section-title">Try It: Demo Plugins</h2>
+                <p className="section-subtitle">
+                    Run a plugin to see TLSNotary in action. Click "View Source" to see how each plugin works.
+                </p>
 
                 {!allChecksPass && (
                     <div className="alert-box">
@@ -250,32 +267,11 @@ export function App() {
                     allChecksPass={allChecksPass}
                     onRunPlugin={handleRunPlugin}
                 />
-
-                <CollapsibleSection title="How to Use" defaultExpanded={false}>
-                    <ol className="steps-list">
-                        <li>Select a plugin from the cards above</li>
-                        <li>Click the <strong>Run Plugin</strong> button</li>
-                        <li>A new browser window will open with the target website</li>
-                        <li>Log in to the website if needed</li>
-                        <li>A TLSNotary overlay will appear in the bottom right corner</li>
-                        <li>Click the <strong>Prove</strong> button to start verification</li>
-                        <li>Results will appear below when complete</li>
-                    </ol>
-                </CollapsibleSection>
-
-                <CollapsibleSection title="What is TLSNotary?" defaultExpanded={false}>
-                    <div className="info-content">
-                        <p>
-                            TLSNotary is a protocol that allows you to create cryptographic proofs of data from any
-                            website. These proofs can be verified by anyone without revealing sensitive information.
-                        </p>
-                        <p>
-                            Each plugin demonstrates how to prove specific data from popular services like Twitter,
-                            Spotify, and online banking platforms.
-                        </p>
-                    </div>
-                </CollapsibleSection>
             </div>
+
+            <WhyPlugins />
+
+            <BuildYourOwn />
 
             <CollapsibleSection title="Console Output" expanded={consoleExpanded}>
                 <ConsoleOutput

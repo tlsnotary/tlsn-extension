@@ -36,11 +36,11 @@ interface SystemChecksProps {
         extension: { status: CheckStatus; message: string };
         verifier: { status: CheckStatus; message: string; showInstructions: boolean };
     };
-    onRecheckVerifier: () => void;
+    onRecheck: () => void;
     showBrowserWarning: boolean;
 }
 
-export function SystemChecks({ checks, onRecheckVerifier, showBrowserWarning }: SystemChecksProps) {
+export function SystemChecks({ checks, onRecheck, showBrowserWarning }: SystemChecksProps) {
     return (
         <>
             {showBrowserWarning && (
@@ -77,7 +77,7 @@ export function SystemChecks({ checks, onRecheckVerifier, showBrowserWarning }: 
                     status={checks.verifier.status}
                     message={checks.verifier.message}
                     showInstructions={checks.verifier.showInstructions}
-                    onRecheck={onRecheckVerifier}
+                    onRecheck={onRecheck}
                 />
             </div>
         </>

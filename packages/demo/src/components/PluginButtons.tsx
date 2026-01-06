@@ -55,22 +55,33 @@ export function PluginButtons({
                             </div>
                         </div>
 
-                        <button
-                            className="plugin-run-btn"
-                            disabled={!allChecksPass || isRunning}
-                            onClick={() => onRunPlugin(key)}
-                            title={!allChecksPass ? 'Please complete all system checks first' : ''}
-                        >
-                            {isRunning ? (
-                                <>
-                                    <span className="spinner"></span> Running...
-                                </>
-                            ) : hasResult ? (
-                                '↻ Run Again'
-                            ) : (
-                                '▶ Run Plugin'
-                            )}
-                        </button>
+                        <div className="plugin-actions">
+                            <button
+                                className="plugin-run-btn"
+                                disabled={!allChecksPass || isRunning}
+                                onClick={() => onRunPlugin(key)}
+                                title={!allChecksPass ? 'Please complete all system checks first' : ''}
+                            >
+                                {isRunning ? (
+                                    <>
+                                        <span className="spinner"></span> Running...
+                                    </>
+                                ) : hasResult ? (
+                                    '↻ Run Again'
+                                ) : (
+                                    '▶ Run Plugin'
+                                )}
+                            </button>
+
+                            <a
+                                href={plugin.file}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="plugin-source-btn"
+                            >
+                                <span>📄 View Source</span>
+                            </a>
+                        </div>
 
                         {hasResult && (
                             <div className="plugin-result">
