@@ -18,7 +18,7 @@ import {
   cursor,
   transition,
   opacity,
-} from '../styles';
+} from '@tlsn/plugin-sdk';
 
 export interface ProveButtonProps {
   onClick: string;

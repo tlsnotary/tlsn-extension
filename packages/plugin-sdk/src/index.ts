@@ -907,5 +907,89 @@ export type {
 // Re-export LogLevel for consumers
 export { LogLevel } from '@tlsn/common';
 
+// Export styling utilities
+export {
+  inlineStyle,
+  // Color helpers
+  color,
+  bgColor,
+  bg,
+  borderColor,
+  // Spacing helpers - Padding
+  padding,
+  paddingX,
+  paddingY,
+  paddingTop,
+  paddingBottom,
+  paddingLeft,
+  paddingRight,
+  p,
+  px,
+  py,
+  pt,
+  pb,
+  pl,
+  pr,
+  // Spacing helpers - Margin
+  margin,
+  marginX,
+  marginY,
+  marginTop,
+  marginBottom,
+  marginLeft,
+  marginRight,
+  m,
+  mx,
+  my,
+  mt,
+  mb,
+  ml,
+  mr,
+  // Typography helpers
+  fontSize,
+  fontWeight,
+  textAlign,
+  fontFamily,
+  // Layout helpers
+  display,
+  position,
+  width,
+  height,
+  minWidth,
+  minHeight,
+  maxWidth,
+  maxHeight,
+  // Flexbox helpers
+  flex,
+  flexDirection,
+  alignItems,
+  justifyContent,
+  flexWrap,
+  // Positioning helpers
+  top,
+  bottom,
+  left,
+  right,
+  // Border helpers
+  border,
+  borderRadius,
+  borderWidth,
+  // Visual helpers
+  boxShadow,
+  opacity,
+  overflow,
+  zIndex,
+  // Interaction helpers
+  cursor,
+  pointerEvents,
+  // Transition helpers
+  transition,
+  // Background helpers
+  background,
+  // Legacy exports
+  colors,
+  defaultFontFamily,
+} from './styles';
+
 // Default export
 export default Host;

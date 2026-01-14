@@ -21,7 +21,7 @@ import {
   padding,
   width,
   height,
-} from '../styles';
+} from '@tlsn/plugin-sdk';
 
 export interface OverlayHeaderProps {
   title: string;

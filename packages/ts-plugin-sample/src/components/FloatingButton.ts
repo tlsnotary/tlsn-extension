@@ -23,7 +23,7 @@ import {
   fontSize,
   color,
   transition,
-} from '../styles';
+} from '@tlsn/plugin-sdk';
 
 export interface FloatingButtonProps {
   onClick: string;

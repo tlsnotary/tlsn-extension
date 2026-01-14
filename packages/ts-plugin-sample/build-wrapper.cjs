@@ -7,7 +7,7 @@ const { execSync } = require('child_process');
 
 // Run esbuild
 console.log('Building with esbuild...');
-execSync('esbuild src/index.ts --bundle --format=esm --outfile=build/index.js --sourcemap', {
+execSync('esbuild src/index.ts --bundle --format=esm --outfile=build/index.js --sourcemap --external:@sebastianwessel/quickjs --external:@jitl/quickjs-ng-wasmfile-release-sync --external:uuid --external:fast-deep-equal', {
   stdio: 'inherit'
 });
 
