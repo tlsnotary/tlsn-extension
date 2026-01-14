@@ -594,33 +594,28 @@ Docker-based demo environment for testing plugins:
 - `twitter.js`, `swissbank.js` - Example plugin files
 - `docker-compose.yml` - Docker services configuration
 - `nginx.conf` - Reverse proxy configuration
-- `start.sh` - Setup script with URL templating
 
 **Docker Services:**
 1. `verifier` - TLSNotary verifier server (port 7047)
 2. `demo-static` - nginx serving static plugin files
 3. `nginx` - Reverse proxy (port 80)
 
-**Environment Variables:**
-- `VERIFIER_HOST` - Verifier server host (default: `localhost:7047`)
-- `SSL` - Use https/wss protocols (default: `false`)
+**Environment Variables (via `.env` files or Docker build args):**
+- `VITE_VERIFIER_HOST` - Verifier server host (default: `localhost:7047`)
+- `VITE_VERIFIER_PROTOCOL` - Protocol: http or https (default: `http`)
+- `VITE_PROXY_PROTOCOL` - WebSocket protocol: ws or wss (default: `ws`)
 
 **Usage:**
 ```bash
-# Local development
-./start.sh
+# Local development with npm
+npm run demo
 
-# Production with SSL
-VERIFIER_HOST=verifier.tlsnotary.org SSL=true ./start.sh
+# Docker (detached mode)
+npm run docker:up
 
-# Docker detached mode
-./start.sh -d
+# Docker with custom verifier
+VITE_VERIFIER_HOST=verifier.example.com VITE_VERIFIER_PROTOCOL=https docker compose up --build -d
 ```
-
-The `start.sh` script:
-1. Processes plugin files, replacing `verifierUrl` and `proxyUrl` placeholders
-2. Copies processed files to `generated/` directory
-3. Starts Docker Compose services
 
 ## Important Implementation Notes
 

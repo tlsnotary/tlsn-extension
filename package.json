@@ -25,8 +25,8 @@
     "build:wasm": "sh packages/tlsn-wasm/build.sh v0.1.0-alpha.13 --no-logging",
     "demo": "npm run dev --workspace=@tlsnotary/demo",
     "tutorial": "serve -l 8080 packages/tutorial",
-    "docker:up": "cd packages/demo && ./start.sh -d",
-    "docker:down": "cd packages/demo && docker-compose down"
+    "docker:up": "cd packages/demo && docker compose up --build -d",
+    "docker:down": "cd packages/demo && docker compose down"
   },
   "devDependencies": {
     "typescript": "^5.5.4",

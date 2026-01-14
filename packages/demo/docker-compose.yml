@@ -15,8 +15,9 @@ services:
     build:
       context: .
       args:
-        VERIFIER_HOST: ${VERIFIER_HOST:-localhost:7047}
-        SSL: ${SSL:-false}
+        VITE_VERIFIER_HOST: ${VITE_VERIFIER_HOST:-localhost:7047}
+        VITE_VERIFIER_PROTOCOL: ${VITE_VERIFIER_PROTOCOL:-http}
+        VITE_PROXY_PROTOCOL: ${VITE_PROXY_PROTOCOL:-ws}
     restart: unless-stopped
 
   nginx:

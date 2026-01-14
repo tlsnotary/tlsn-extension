@@ -58,8 +58,7 @@ tlsn-extension/
 │   │
 │   ├── demo/                # Demo server with Docker setup
 │   │   ├── *.js                  # Example plugin files
-│   │   ├── docker-compose.yml    # Docker services configuration
-│   │   └── start.sh              # Setup script with configurable URLs
+│   │   └── docker-compose.yml    # Docker services configuration
 │   │
 │   ├── tutorial/            # Tutorial examples
 │   │   └── *.js                  # Tutorial plugin files
@@ -116,10 +115,9 @@ Rust-based HTTP/WebSocket server for TLSNotary verification:
 #### 5. **demo** - Demo Server
 Docker-based demo environment with:
 - Pre-configured example plugins (Twitter, SwissBank)
+- React + Vite frontend with environment-based configuration
 - Docker Compose setup with verifier and nginx
-- Configurable verifier URLs via environment variables
-- Plugin file generator (`generate.sh`) with SSL support
-- Docker startup script (`start.sh`)
+- Configurable verifier URLs via environment variables or `.env` files
 
 #### 6. **tlsn-wasm-pkg** - TLSN WebAssembly Package
 Pre-built WebAssembly binaries for TLSNotary functionality in the browser.
@@ -495,24 +493,20 @@ npm run demo
 
 ### Environment Variables
 
-Configure the demo for different environments:
+The demo uses `.env` files for configuration:
+- `.env` - Local development defaults (`localhost:7047`, `http`)
+- `.env.production` - Production settings (`verifier.tlsnotary.org`, `https`)
+
+For Docker deployments, you can override via build args:
 ```bash
 # Local development (default)
 cd packages/demo
-./generate.sh && ./start.sh
+npm run docker:up
 
-# Production with SSL
+# Production with custom verifier
 cd packages/demo
-VERIFIER_HOST=verifier.tlsnotary.org SSL=true ./generate.sh
-./start.sh
-
-# Docker detached mode
-./generate.sh && ./start.sh -d
+VITE_VERIFIER_HOST=verifier.example.com VITE_VERIFIER_PROTOCOL=https docker compose up --build
 ```
-
-The demo uses two scripts:
-- **`generate.sh`** - Generates plugin files with configured verifier URLs (use environment variables here)
-- **`start.sh`** - Starts Docker Compose services (assumes `generated/` directory exists)
 
 ### Tutorial
 
