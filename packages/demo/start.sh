@@ -3,23 +3,19 @@
 # Demo Server Startup Script
 #
 # This script starts the verifier server and demo file server via Docker.
-# Note: Run generate.sh first to create plugin files in the generated/ directory.
 #
 # Usage:
-#   ./generate.sh && ./start.sh                      # Generate and start
-#   ./start.sh                                       # Start only (assumes generated/ exists)
+#   ./start.sh                                       # Start services
 #   ./start.sh -d                                    # Start in detached mode
+#
+# Environment Variables:
+#   VITE_VERIFIER_HOST      - Verifier host (default: localhost:7047)
+#   VITE_VERIFIER_PROTOCOL  - Protocol: http or https (default: http)
+#   VITE_PROXY_PROTOCOL     - WebSocket protocol: ws or wss (default: ws)
 
 set -e
 
 cd "$(dirname "$0")"
-
-# Check if generated directory exists
-if [ ! -d "generated" ]; then
-    echo "ERROR: generated/ directory not found!"
-    echo "Please run ./generate.sh first to create plugin files."
-    exit 1
-fi
 
 echo "========================================"
 echo "TLSNotary Demo Server"

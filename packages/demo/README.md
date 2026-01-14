@@ -75,30 +75,26 @@ Run the demo with `npm run demo` from the repository root, or run it with docker
 
 #### Manual Docker Setup
 
-If you want to run the scripts manually:
+If you want to run Docker manually:
 
 ```bash
 cd packages/demo
-npm run build  # Build the React app first
-./generate.sh && ./start.sh
+docker compose up --build
 ```
-
-The demo uses two scripts:
-- **`generate.sh`** - Generates plugin files with configured verifier URLs
-- **`start.sh`** - Starts Docker Compose services
 
 #### Environment Variables
 
-Configure for different environments:
+The demo uses `.env` files for configuration:
+- `.env` - Local development defaults (`localhost:7047`, `http`)
+- `.env.production` - Production settings (`verifier.tlsnotary.org`, `https`)
+
+For Docker deployments, override via build args:
 ```bash
 # Local development (default)
-npm run build
-./generate.sh && ./start.sh
+docker compose up --build
 
-# Production with SSL
-npm run build
-VERIFIER_HOST=verifier.tlsnotary.org SSL=true ./generate.sh
-./start.sh
+# Production with custom verifier
+VITE_VERIFIER_HOST=verifier.example.com VITE_VERIFIER_PROTOCOL=https docker compose up --build
 ```
 
 You can now open the demo by opening http://localhost:8080 in your browser with the TLSNotary extension
