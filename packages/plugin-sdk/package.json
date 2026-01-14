@@ -13,6 +13,14 @@
     "./styles": {
       "import": "./dist/styles.js",
       "types": "./dist/styles.d.ts"
+    },
+    "./src": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./src/types": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
     }
   },
   "scripts": {
