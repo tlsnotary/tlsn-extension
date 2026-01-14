@@ -13,7 +13,7 @@ import {
   bgColor,
   borderRadius,
   border,
-} from '@tlsn/plugin-sdk';
+} from '@tlsn/plugin-sdk/styles';
 
 export function LoginPrompt(): DomJson {
   return div(

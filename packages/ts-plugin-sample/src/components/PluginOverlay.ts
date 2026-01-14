@@ -20,7 +20,7 @@ import {
   overflow,
   padding,
   defaultFontFamily,
-} from '@tlsn/plugin-sdk';
+} from '@tlsn/plugin-sdk/styles';
 import { OverlayHeader } from './OverlayHeader';
 import { StatusIndicator } from './StatusIndicator';
 import { ProveButton } from './ProveButton';
