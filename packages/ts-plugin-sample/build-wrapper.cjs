@@ -14,14 +14,6 @@ execSync('esbuild src/index.ts --bundle --format=esm --outfile=build/index.js --
 // Read the generated code
 let code = fs.readFileSync('build/index.js', 'utf8');
 
-// Transform to inline export default
-// From: var index_default = { ... }; export { index_default as default };
-// To:   export default { ... };
-code = code.replace(
-  /var index_default = (\{[\s\S]*?\});[\s\n]*export \{\s*index_default as default\s*\};/,
-  'export default $1;'
-);
-
 // Write back
 fs.writeFileSync('build/index.js', code);
 
