@@ -85,16 +85,16 @@ docker compose up --build
 #### Environment Variables
 
 The demo uses `.env` files for configuration:
-- `.env` - Local development defaults (`localhost:7047`, `http`)
-- `.env.production` - Production settings (`verifier.tlsnotary.org`, `https`)
+- `.env` - Local development defaults (`localhost:7047`)
+- `.env.production` - Production settings (`verifier.tlsnotary.org`, SSL enabled)
 
-For Docker deployments, override via build args:
+For Docker deployments, override via environment variables:
 ```bash
 # Local development (default)
 docker compose up --build
 
 # Production with custom verifier
-VITE_VERIFIER_HOST=verifier.example.com VITE_VERIFIER_PROTOCOL=https docker compose up --build
+VITE_VERIFIER_HOST=verifier.example.com VITE_SSL=true docker compose up --build
 ```
 
 You can now open the demo by opening http://localhost:8080 in your browser with the TLSNotary extension

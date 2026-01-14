@@ -87,5 +87,4 @@ jobs:
                   labels: ${{ steps.meta-verifier-webapp.outputs.labels }}
                   build-args: |
                       VITE_VERIFIER_HOST=demo-staging.tlsnotary.org
-                      VITE_VERIFIER_PROTOCOL=https
-                      VITE_PROXY_PROTOCOL=wss
+                      VITE_SSL=true

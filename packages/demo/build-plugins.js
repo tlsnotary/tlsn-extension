@@ -7,6 +7,13 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const plugins = ['twitter', 'swissbank', 'spotify'];
 
+// Build URLs from environment variables (matching config.ts pattern)
+const VERIFIER_HOST = process.env.VITE_VERIFIER_HOST || 'localhost:7047';
+const SSL = process.env.VITE_SSL === 'true';
+
+const VERIFIER_URL = `${SSL ? 'https' : 'http'}://${VERIFIER_HOST}`;
+const PROXY_URL = `${SSL ? 'wss' : 'ws'}://${VERIFIER_HOST}/proxy?token=`;
+
 // Build each plugin separately as plain ES module
 for (const plugin of plugins) {
     await build({
@@ -28,12 +35,8 @@ for (const plugin of plugins) {
             },
         },
         define: {
-            VITE_VERIFIER_URL: JSON.stringify(
-                process.env.VITE_VERIFIER_URL || 'http://localhost:7047'
-            ),
-            VITE_PROXY_URL: JSON.stringify(
-                process.env.VITE_PROXY_URL || 'ws://localhost:7047/proxy?token='
-            ),
+            VITE_VERIFIER_URL: JSON.stringify(VERIFIER_URL),
+            VITE_PROXY_URL: JSON.stringify(PROXY_URL),
         },
     });
     console.log(`✓ Built ${plugin}.js`);
