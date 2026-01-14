@@ -869,7 +869,40 @@ export async function extractConfig(code: string): Promise<PluginConfig | null> 
 }
 
 // Export types
-export type { PluginConfig, RequestPermission };
+export type {
+  PluginConfig,
+  RequestPermission,
+  Handler,
+  StartLineHandler,
+  HeadersHandler,
+  BodyHandler,
+  AllHandler,
+  HandlerType,
+  HandlerPart,
+  HandlerAction,
+  InterceptedRequest,
+  InterceptedRequestHeader,
+  DomJson,
+  DomOptions,
+  OpenWindowResponse,
+  WindowMessage,
+  ExecutionContext,
+} from './types';
+
+// Export Plugin API types
+export type {
+  PluginAPI,
+  DivFunction,
+  ButtonFunction,
+  OpenWindowFunction,
+  UseEffectFunction,
+  UseHeadersFunction,
+  UseRequestsFunction,
+  UseStateFunction,
+  SetStateFunction,
+  ProveFunction,
+  DoneFunction,
+} from './globals';
 
 // Re-export LogLevel for consumers
 export { LogLevel } from '@tlsn/common';
