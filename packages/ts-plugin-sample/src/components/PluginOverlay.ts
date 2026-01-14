@@ -6,13 +6,20 @@
 
 import type { DomJson } from '@tlsn/plugin-sdk';
 import {
-  colors,
-  spacing,
+  inlineStyle,
+  position,
+  bottom,
+  right,
+  width,
   borderRadius,
-  shadows,
-  typography,
+  bgColor,
+  boxShadow,
   zIndex,
-  inlineStyles,
+  fontSize,
+  fontFamily,
+  overflow,
+  padding,
+  defaultFontFamily,
 } from '../styles';
 import { OverlayHeader } from './OverlayHeader';
 import { StatusIndicator } from './StatusIndicator';
@@ -27,27 +34,6 @@ export interface PluginOverlayProps {
   onProve: string;
 }
 
-const styles = {
-  container: inlineStyles({
-    position: 'fixed',
-    bottom: '0',
-    right: spacing.xs,
-    width: '280px',
-    borderRadius: `${borderRadius.md} ${borderRadius.md} 0 0`,
-    backgroundColor: colors.background.white,
-    boxShadow: shadows.md,
-    zIndex: zIndex.overlay,
-    fontSize: typography.fontSize.sm,
-    fontFamily: typography.fontFamily,
-    overflow: 'hidden',
-  }),
-
-  content: inlineStyles({
-    padding: spacing.lg,
-    backgroundColor: colors.background.light,
-  }),
-};
-
 export function PluginOverlay({
   title,
   isConnected,
@@ -57,7 +43,20 @@ export function PluginOverlay({
 }: PluginOverlayProps): DomJson {
   return div(
     {
-      style: styles.container,
+      style: inlineStyle(
+        position('fixed'),
+        bottom('0'),
+        right('xs'),
+        width('280px'),
+        borderRadius('md'),
+        { borderRadius: '8px 8px 0 0' }, // Custom override for specific corner rounding
+        bgColor('white'),
+        boxShadow('md'),
+        zIndex('999999'),
+        fontSize('sm'),
+        fontFamily(defaultFontFamily),
+        overflow('hidden')
+      ),
     },
     [
       // Header
@@ -66,7 +65,10 @@ export function PluginOverlay({
       // Content area
       div(
         {
-          style: styles.content,
+          style: inlineStyle(
+            padding('lg'),
+            bgColor('gray-100')
+          ),
         },
         [
           // Status indicator
