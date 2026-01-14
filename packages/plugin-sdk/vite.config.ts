@@ -15,26 +15,16 @@ export default defineConfig({
   build: {
     target: 'es2020',
     lib: {
-      entry: path.resolve(__dirname, 'src/index.ts'),
-      name: 'TLSNPluginSDK',
-      formats: ['es', 'cjs', 'umd'],
-      fileName: (format) => {
-        if (format === 'es') return 'index.js';
-        if (format === 'cjs') return 'index.cjs';
-        if (format === 'umd') return 'index.umd.js';
-        return `index.${format}.js`;
+      entry: {
+        index: path.resolve(__dirname, 'src/index.ts'),
+        styles: path.resolve(__dirname, 'src/styles.ts'),
       },
+      formats: ['es'],
     },
     rollupOptions: {
       // Externalize QuickJS and Node.js dependencies
-      external: ['@sebastianwessel/quickjs', '@jitl/quickjs-ng-wasmfile-release-sync', /^node:.*/],
+      external: ['@sebastianwessel/quickjs', '@jitl/quickjs-ng-wasmfile-release-sync', /^node:.*/, '@tlsn/common'],
       output: {
-        // Provide global variables to use in the UMD build
-        // for externalized deps
-        globals: {
-          '@sebastianwessel/quickjs': 'QuickJS',
-          '@jitl/quickjs-ng-wasmfile-release-sync': 'QuickJSVariant',
-        },
         exports: 'named',
       },
     },
