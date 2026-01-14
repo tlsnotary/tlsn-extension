@@ -32,7 +32,7 @@ export function OverlayHeader({ title, onMinimize }: OverlayHeaderProps): DomJso
   return div(
     {
       style: inlineStyle(
-        background('primary-gradient'),
+        background('linear-gradient(135deg, #667eea 0%, #764ba2 100%)'),
         paddingY('sm'),
         paddingX('md'),
         display('flex'),
