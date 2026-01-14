@@ -117,7 +117,7 @@ Docker-based demo environment with:
 - Pre-configured example plugins (Twitter, SwissBank)
 - React + Vite frontend with environment-based configuration
 - Docker Compose setup with verifier and nginx
-- Configurable verifier URLs via environment variables or `.env` files
+- Configurable verifier URLs via `.env` files or Docker build args
 
 #### 6. **tlsn-wasm-pkg** - TLSN WebAssembly Package
 Pre-built WebAssembly binaries for TLSNotary functionality in the browser.
@@ -494,18 +494,16 @@ npm run demo
 ### Environment Variables
 
 The demo uses `.env` files for configuration:
-- `.env` - Local development defaults (`localhost:7047`, `http`)
-- `.env.production` - Production settings (`verifier.tlsnotary.org`, `https`)
+- `.env` - Local development defaults (`localhost:7047`)
+- `.env.production` - Production settings (`verifier.tlsnotary.org`, SSL enabled)
 
-For Docker deployments, you can override via build args:
+For Docker deployments, override via environment variables:
 ```bash
 # Local development (default)
-cd packages/demo
 npm run docker:up
 
 # Production with custom verifier
-cd packages/demo
-VITE_VERIFIER_HOST=verifier.example.com VITE_VERIFIER_PROTOCOL=https docker compose up --build
+VITE_VERIFIER_HOST=verifier.example.com VITE_SSL=true docker compose up --build
 ```
 
 ### Tutorial

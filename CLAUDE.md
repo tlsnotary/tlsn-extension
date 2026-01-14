@@ -602,8 +602,7 @@ Docker-based demo environment for testing plugins:
 
 **Environment Variables (via `.env` files or Docker build args):**
 - `VITE_VERIFIER_HOST` - Verifier server host (default: `localhost:7047`)
-- `VITE_VERIFIER_PROTOCOL` - Protocol: http or https (default: `http`)
-- `VITE_PROXY_PROTOCOL` - WebSocket protocol: ws or wss (default: `ws`)
+- `VITE_SSL` - Use https/wss protocols (default: `false`)
 
 **Usage:**
 ```bash
@@ -614,7 +613,7 @@ npm run demo
 npm run docker:up
 
 # Docker with custom verifier
-VITE_VERIFIER_HOST=verifier.example.com VITE_VERIFIER_PROTOCOL=https docker compose up --build -d
+VITE_VERIFIER_HOST=verifier.example.com VITE_SSL=true docker compose up --build
 ```
 
 ## Important Implementation Notes
