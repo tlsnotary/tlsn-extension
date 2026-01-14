@@ -28,4 +28,13 @@ export const plugins: Record<string, Plugin> = {
             return json.results[json.results.length - 1].value;
         },
     },
+    duolingo: {
+        name: 'Duolingo',
+        description: 'Prove your Duolingo language learning progress and achievements',
+        logo: '🦉',
+        file: '/plugins/duolingo.js',
+        parseResult: (json) => {
+            return json.results[json.results.length - 1].value;
+        },
+    },
 };

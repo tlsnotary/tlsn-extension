@@ -1,24 +1,41 @@
+/// <reference types="@tlsn/plugin-sdk/src/globals" />
+
+// @ts-ignore - These will be replaced at build time by Vite's define option
+const VERIFIER_URL = VITE_VERIFIER_URL;
+// @ts-ignore
+const PROXY_URL_BASE = VITE_PROXY_URL;
+
+const api = 'www.duolingo.com';
+const ui = 'https://www.duolingo.com/';
+
 const config = {
-    name: 'Swiss Bank Prover',
-    description: 'This plugin will prove your Swiss Bank account balance.',
+    name: 'Duolingo Plugin',
+    description: 'This plugin will prove your email and current streak on Duolingo.',
     requests: [
         {
             method: 'GET',
-            host: 'swissbank.tlsnotary.org',
-            pathname: '/balances',
-            verifierUrl: 'http://localhost:7047',
+            host: 'www.duolingo.com',
+            pathname: '/2023-05-23/users/*',
+            verifierUrl: VERIFIER_URL,
         },
     ],
     urls: [
-        'https://swissbank.tlsnotary.org/*',
+        'https://www.duolingo.com/*',
     ],
 };
 
-const host = 'swissbank.tlsnotary.org';
-const ui_path = '/account';
-const path = '/balances';
-const url = `https://${host}${path}`;
+function getRelevantHeaderValues() {
+    const [header] = useHeaders(headers => {
+        return headers.filter(header => header.url.includes(`https://${api}/2023-05-23/users`));
+    });
 
+    const authorization = header?.requestHeaders.find(header => header.name === 'Authorization')?.value;
+
+    const traceId = header?.requestHeaders.find(header => header.name === 'X-Amzn-Trace-Id')?.value;
+    const user_id = traceId?.split('=')[1];
+
+    return { authorization, user_id };
+}
 
 async function onClick() {
     const isRequestPending = useState('isRequestPending', false);
@@ -26,52 +43,33 @@ async function onClick() {
     if (isRequestPending) return;
 
     setState('isRequestPending', true);
-    const [header] = useHeaders(headers => {
-        console.log('Intercepted headers:', headers);
-        return headers.filter(header => header.url.includes(`https://${host}`));
-    });
+
+    const { authorization, user_id } = getRelevantHeaderValues();
 
     const headers = {
-        'cookie': header.requestHeaders.find(header => header.name === 'Cookie')?.value,
-        Host: host,
+        authorization: authorization,
+        Host: api,
         'Accept-Encoding': 'identity',
         Connection: 'close',
     };
 
     const resp = await prove(
         {
-            url: url,
+            url: `https://${api}/2023-05-23/users/${user_id}?fields=longestStreak,username`,
             method: 'GET',
             headers: headers,
         },
         {
-            // Verifier URL: The notary server that verifies the TLS connection
-            verifierUrl: 'http://localhost:7047',
-            proxyUrl: 'ws://localhost:7047/proxy?token=swissbank.tlsnotary.org',
-            // proxyUrl: 'ws://localhost:55688',
-            maxRecvData: 460, // Maximum bytes to receive from server (response size limit)
-            maxSentData: 180,// Maximum bytes to send to server (request size limit)
-
-            // -----------------------------------------------------------------------
-            // HANDLERS
-            // -----------------------------------------------------------------------
-            // These handlers specify which parts of the TLS transcript to reveal
-            // in the proof. Unrevealed data is redacted for privacy.
+            verifierUrl: VERIFIER_URL,
+            proxyUrl: PROXY_URL_BASE + api,
+            maxRecvData: 2400,
+            maxSentData: 1200,
             handlers: [
                 { type: 'SENT', part: 'START_LINE', action: 'REVEAL', },
-                { type: 'RECV', part: 'START_LINE', action: 'REVEAL', },
-                { type: 'RECV', part: 'BODY', action: 'REVEAL', params: { type: 'json', path: 'account_id' }, },
-                { type: 'RECV', part: 'BODY', action: 'REVEAL', params: { type: 'json', path: 'accounts.CHF' }, },
-                // { type: 'RECV', part: 'ALL', action: 'REVEAL', params: { type: 'regex', regex: '"CHF"\s*:\s*"[^"]+"' }, },
-                // { type: 'RECV', part: 'ALL', action: 'REVEAL', params: { type: 'regex', regex: '"CHF"\s*:' }, },
-                // { type: 'RECV', part: 'ALL', action: 'REVEAL', params: { type: 'regex', regex: '"275_000_000"' }, },
+                { type: 'RECV', part: 'BODY', action: 'REVEAL', params: { type: 'json', path: 'longestStreak', }, },
             ]
-
         }
     );
-
-    // Step 4: Complete plugin execution and return the proof result
-    // done() signals that the plugin has finished and passes the result back
     done(JSON.stringify(resp));
 }
 
@@ -82,23 +80,18 @@ function expandUI() {
 function minimizeUI() {
     setState('isMinimized', true);
 }
+
 function main() {
-    const [header] = useHeaders(
-        headers => headers
-            .filter(header => header.url.includes(`https://${host}${ui_path}`))
-    );
+    const { authorization, user_id } = getRelevantHeaderValues();
+    const header_has_necessary_values = authorization && user_id;
 
-
-    const hasNecessaryHeader = header?.requestHeaders.some(h => h.name === 'Cookie');
     const isMinimized = useState('isMinimized', false);
     const isRequestPending = useState('isRequestPending', false);
 
-    // Run once on plugin load
     useEffect(() => {
-        openWindow(`https://${host}${ui_path}`);
+        openWindow(ui);
     }, []);
 
-    // If minimized, show floating action button
     if (isMinimized) {
         return div({
             style: {
@@ -108,7 +101,7 @@ function main() {
                 width: '60px',
                 height: '60px',
                 borderRadius: '50%',
-                backgroundColor: '#4CAF50',
+                backgroundColor: '#58CC02',
                 boxShadow: '0 4px 8px rgba(0,0,0,0.3)',
                 zIndex: '999999',
                 display: 'flex',
@@ -120,11 +113,9 @@ function main() {
                 color: 'white',
             },
             onclick: 'expandUI',
-        }, ['🔐']);
+        }, ['🦉']);
     }
 
-    // Render the plugin UI overlay
-    // This creates a fixed-position widget in the bottom-right corner
     return div({
         style: {
             position: 'fixed',
@@ -140,10 +131,9 @@ function main() {
             overflow: 'hidden',
         },
     }, [
-        // Header with minimize button
         div({
             style: {
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                background: 'linear-gradient(135deg, #58CC02 0%, #4CAF00 100%)',
                 padding: '12px 16px',
                 display: 'flex',
                 justifyContent: 'space-between',
@@ -156,7 +146,7 @@ function main() {
                     fontWeight: '600',
                     fontSize: '16px',
                 }
-            }, ['Swiss Bank Prover']),
+            }, ['Duolingo Streak']),
             button({
                 style: {
                     background: 'transparent',
@@ -175,51 +165,45 @@ function main() {
             }, ['−'])
         ]),
 
-        // Content area
         div({
             style: {
                 padding: '20px',
                 backgroundColor: '#f8f9fa',
             }
         }, [
-            // Status indicator showing whether cookie is detected
             div({
                 style: {
                     marginBottom: '16px',
                     padding: '12px',
                     borderRadius: '6px',
-                    backgroundColor: header ? '#d4edda' : '#f8d7da',
-                    color: header ? '#155724' : '#721c24',
-                    border: `1px solid ${header ? '#c3e6cb' : '#f5c6cb'}`,
+                    backgroundColor: header_has_necessary_values ? '#d4edda' : '#f8d7da',
+                    color: header_has_necessary_values ? '#155724' : '#721c24',
+                    border: `1px solid ${header_has_necessary_values ? '#c3e6cb' : '#f5c6cb'}`,
                     fontWeight: '500',
                 },
             }, [
-                hasNecessaryHeader ? '✓ Cookie detected' : '⚠ No Cookie detected'
+                header_has_necessary_values ? '✓ Api token detected' : '⚠ No API token detected'
             ]),
 
-            // Conditional UI based on whether we have intercepted the headers
-            hasNecessaryHeader ? (
-                // Show prove button when not pending
+            header_has_necessary_values ? (
                 button({
                     style: {
                         width: '100%',
                         padding: '12px 24px',
                         borderRadius: '6px',
                         border: 'none',
-                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        background: 'linear-gradient(135deg, #58CC02 0%, #4CAF00 100%)',
                         color: 'white',
                         fontWeight: '600',
                         fontSize: '15px',
-                        cursor: 'pointer',
+                        cursor: isRequestPending ? 'not-allowed' : 'pointer',
                         transition: 'all 0.2s ease',
                         boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
                         opacity: isRequestPending ? 0.5 : 1,
-                        cursor: isRequestPending ? 'not-allowed' : 'pointer',
                     },
                     onclick: 'onClick',
                 }, [isRequestPending ? 'Generating Proof...' : 'Generate Proof'])
             ) : (
-                // Show login message
                 div({
                     style: {
                         textAlign: 'center',
@@ -229,7 +213,7 @@ function main() {
                         borderRadius: '6px',
                         border: '1px solid #ffeaa7',
                     }
-                }, ['Please login to continue'])
+                }, ['Please login to Duolingo to continue'])
             )
         ])
     ]);
