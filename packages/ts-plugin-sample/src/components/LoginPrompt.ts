@@ -5,23 +5,27 @@
  */
 
 import type { DomJson } from '@tlsn/plugin-sdk';
-import { colors, spacing, borderRadius, inlineStyles } from '../styles';
-
-const styles = {
-  prompt: inlineStyles({
-    textAlign: 'center',
-    color: colors.warning.text,
-    padding: spacing.sm,
-    backgroundColor: colors.warning.bg,
-    borderRadius: borderRadius.sm,
-    border: `1px solid ${colors.warning.border}`,
-  }),
-};
+import {
+  inlineStyle,
+  textAlign,
+  color,
+  padding,
+  bgColor,
+  borderRadius,
+  border,
+} from '../styles';
 
 export function LoginPrompt(): DomJson {
   return div(
     {
-      style: styles.prompt,
+      style: inlineStyle(
+        textAlign('center'),
+        color('gray-600'),
+        padding('sm'),
+        bgColor('yellow-100'),
+        borderRadius('sm'),
+        border('1px solid #ffeaa7')
+      ),
     },
     ['Please login to x.com to continue']
   );
