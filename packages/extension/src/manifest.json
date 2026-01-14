@@ -30,7 +30,6 @@
   "permissions": [
     "offscreen",
     "webRequest",
-    "storage",
     "activeTab",
     "tabs",
     "windows",
