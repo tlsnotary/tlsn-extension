@@ -1,44 +1,49 @@
 /**
  * ProveButton Component
  *
- * Button to trigger proof generation
+ * Button for initiating proof generation
  */
 
 import type { DomJson } from '@tlsn/plugin-sdk';
-import { colors, spacing, borderRadius, shadows, typography, inlineStyles } from '../styles';
+import {
+  inlineStyle,
+  width,
+  padding,
+  background,
+  color,
+  border,
+  borderRadius,
+  fontSize,
+  fontWeight,
+  cursor,
+  transition,
+  opacity,
+} from '../styles';
 
 export interface ProveButtonProps {
   onClick: string;
   isPending: boolean;
 }
 
-function getButtonStyles(isPending: boolean) {
-  return inlineStyles({
-    width: '100%',
-    padding: `${spacing.sm} ${spacing.xl}`,
-    borderRadius: borderRadius.sm,
-    border: 'none',
-    background: colors.primary.gradient,
-    color: colors.text.white,
-    fontWeight: typography.fontWeight.semibold,
-    fontSize: typography.fontSize.md,
-    cursor: isPending ? 'not-allowed' : 'pointer',
-    transition: 'all 0.2s ease',
-    boxShadow: shadows.sm,
-    opacity: isPending ? '0.5' : '1',
-  });
-}
-
-function getButtonText(isPending: boolean): string {
-  return isPending ? 'Generating Proof...' : 'Generate Proof';
-}
-
 export function ProveButton({ onClick, isPending }: ProveButtonProps): DomJson {
   return button(
     {
-      style: getButtonStyles(isPending),
+      style: inlineStyle(
+        width('100%'),
+        padding('sm'),
+        background('linear-gradient(135deg, #667eea 0%, #764ba2 100%)'),
+        color('white'),
+        border('none'),
+        borderRadius('sm'),
+        fontSize('md'),
+        fontWeight('semibold'),
+        cursor('pointer'),
+        transition(),
+        isPending && opacity('0.6'),
+        isPending && cursor('not-allowed')
+      ),
       onclick: onClick,
     },
-    [getButtonText(isPending)]
+    [isPending ? 'Generating Proof...' : 'Prove']
   );
 }
