@@ -8,44 +8,91 @@
 
 /**
  * Color palette with Tailwind-like naming
+ * Non-opinionated color scales from 100-900
  */
 const colorTokens = {
-  // Grayscale
-  'gray-100': '#f7fafc',
-  'gray-200': '#edf2f7',
-  'gray-300': '#e2e8f0',
-  'gray-400': '#cbd5e0',
-  'gray-500': '#a0aec0',
-  'gray-600': '#718096',
-  'gray-700': '#4a5568',
-  'gray-800': '#2d3748',
-  'gray-900': '#1a202c',
-
-  // Primary (Purple/Blue gradient)
-  'primary-500': '#667eea',
-  'primary-600': '#764ba2',
-  'primary-gradient': 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-
-  // Success (Green)
-  'green-100': '#d4edda',
-  'green-500': '#48bb78',
-  'green-700': '#155724',
-  'green-800': '#22543d',
-
-  // Error (Red)
-  'red-100': '#f8d7da',
-  'red-500': '#f56565',
-  'red-700': '#721c24',
-
-  // Warning (Yellow)
-  'yellow-100': '#fff3cd',
-  'yellow-200': '#ffeaa7',
-  'yellow-500': '#ecc94b',
-
   // Neutral
-  'white': 'white',
-  'black': 'black',
+  'white': '#ffffff',
+  'black': '#000000',
   'transparent': 'transparent',
+
+  // Gray scale
+  'gray-50': '#f9fafb',
+  'gray-100': '#f3f4f6',
+  'gray-200': '#e5e7eb',
+  'gray-300': '#d1d5db',
+  'gray-400': '#9ca3af',
+  'gray-500': '#6b7280',
+  'gray-600': '#4b5563',
+  'gray-700': '#374151',
+  'gray-800': '#1f2937',
+  'gray-900': '#111827',
+
+  // Blue
+  'blue-100': '#dbeafe',
+  'blue-200': '#bfdbfe',
+  'blue-300': '#93c5fd',
+  'blue-400': '#60a5fa',
+  'blue-500': '#3b82f6',
+  'blue-600': '#2563eb',
+  'blue-700': '#1d4ed8',
+  'blue-800': '#1e40af',
+  'blue-900': '#1e3a8a',
+
+  // Purple
+  'purple-100': '#f3e8ff',
+  'purple-200': '#e9d5ff',
+  'purple-300': '#d8b4fe',
+  'purple-400': '#c084fc',
+  'purple-500': '#a855f7',
+  'purple-600': '#9333ea',
+  'purple-700': '#7e22ce',
+  'purple-800': '#6b21a8',
+  'purple-900': '#581c87',
+
+  // Red
+  'red-100': '#fee2e2',
+  'red-200': '#fecaca',
+  'red-300': '#fca5a5',
+  'red-400': '#f87171',
+  'red-500': '#ef4444',
+  'red-600': '#dc2626',
+  'red-700': '#b91c1c',
+  'red-800': '#991b1b',
+  'red-900': '#7f1d1d',
+
+  // Yellow
+  'yellow-100': '#fef3c7',
+  'yellow-200': '#fde68a',
+  'yellow-300': '#fcd34d',
+  'yellow-400': '#fbbf24',
+  'yellow-500': '#f59e0b',
+  'yellow-600': '#d97706',
+  'yellow-700': '#b45309',
+  'yellow-800': '#92400e',
+  'yellow-900': '#78350f',
+
+  // Orange
+  'orange-100': '#ffedd5',
+  'orange-200': '#fed7aa',
+  'orange-300': '#fdba74',
+  'orange-400': '#fb923c',
+  'orange-500': '#f97316',
+  'orange-600': '#ea580c',
+  'orange-700': '#c2410c',
+  'orange-800': '#9a3412',
+  'orange-900': '#7c2d12',
+
+  // Green
+  'green-100': '#d1fae5',
+  'green-200': '#a7f3d0',
+  'green-300': '#6ee7b7',
+  'green-400': '#34d399',
+  'green-500': '#10b981',
+  'green-600': '#059669',
+  'green-700': '#047857',
+  'green-800': '#065f46',
+  'green-900': '#064e3b',
 } as const;
 
 /**
@@ -305,34 +352,8 @@ export function inlineStyle(...styles: StyleHelper[]): StyleObject {
 }
 
 // =============================================================================
-// EXPORTS FOR BACKWARD COMPATIBILITY
+// EXPORTS
 // =============================================================================
-
-/**
- * Legacy color constants (for reference)
- */
-export const colors = {
-  primary: {
-    gradient: colorTokens['primary-gradient'],
-    start: colorTokens['primary-500'],
-    end: colorTokens['primary-600'],
-  },
-  success: {
-    bg: colorTokens['green-100'],
-    text: colorTokens['green-700'],
-    border: colorTokens['green-100'],
-  },
-  error: {
-    bg: colorTokens['red-100'],
-    text: colorTokens['red-700'],
-    border: colorTokens['red-100'],
-  },
-  warning: {
-    bg: colorTokens['yellow-100'],
-    border: colorTokens['yellow-200'],
-    text: colorTokens['gray-600'],
-  },
-} as const;
 
 /**
  * Common font family

@@ -986,8 +986,7 @@ export {
   transition,
   // Background helpers
   background,
-  // Legacy exports
-  colors,
+  // Common exports
   defaultFontFamily,
 } from './styles';
 
