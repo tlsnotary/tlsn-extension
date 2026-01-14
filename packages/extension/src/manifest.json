@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "version": "0.1.0.13",
+  "version": "0.1.0.14",
   "name": "TLSNotary",
   "description": "A Chrome extension for TLSNotary",
   "options_page": "options.html",
@@ -15,18 +15,38 @@
   },
   "content_scripts": [
     {
-      "matches": ["http://*/*", "https://*/*", "<all_urls>"],
-      "js": ["contentScript.bundle.js"],
-      "css": ["content.styles.css"]
+      "matches": [
+        "http://*/*",
+        "https://*/*",
+        "<all_urls>"
+      ],
+      "js": [
+        "contentScript.bundle.js"
+      ],
+      "css": [
+        "content.styles.css"
+      ]
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["content.styles.css", "icon-128.png", "icon-34.png", "content.bundle.js", "*.wasm"],
-      "matches": ["http://*/*", "https://*/*", "<all_urls>"]
+      "resources": [
+        "content.styles.css",
+        "icon-128.png",
+        "icon-34.png",
+        "content.bundle.js",
+        "*.wasm"
+      ],
+      "matches": [
+        "http://*/*",
+        "https://*/*",
+        "<all_urls>"
+      ]
     }
   ],
-  "host_permissions": ["<all_urls>"],
+  "host_permissions": [
+    "<all_urls>"
+  ],
   "permissions": [
     "offscreen",
     "webRequest",

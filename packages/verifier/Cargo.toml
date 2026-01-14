@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 # TLSNotary dependency
-tlsn = { git = "https://github.com/tlsnotary/tlsn.git", tag = "v0.1.0-alpha.13" }
+tlsn = { git = "https://github.com/tlsnotary/tlsn.git", tag = "v0.1.0-alpha.14", features = ["mozilla-certs"] }
 
 # HTTP server framework
 axum = { version = "0.7", features = ["ws"] }
@@ -46,7 +46,7 @@ eyre = "0.6"
 tokio-util = { version = "0.7", features = ["compat"] }
 uuid = { version = "1.0", features = ["v4", "serde"] }
 regex = "1.12.2"
-rangeset = "0.2.0"
+rangeset = "0.4.0"
 
 [dev-dependencies]
 tokio-tungstenite = { version = "0.24", features = ["native-tls"] }

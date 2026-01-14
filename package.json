@@ -1,6 +1,6 @@
 {
   "name": "tlsn-monorepo",
-  "version": "0.1.0-alpha.13",
+  "version": "0.1.0-alpha.14",
   "private": true,
   "description": "TLSN Extension monorepo with plugin SDK",
   "license": "MIT",
@@ -22,7 +22,7 @@
     "test": "npm run test --workspaces --if-present",
     "serve:test": "npm run serve:test --workspace=extension",
     "clean": "rm -rf packages/*/node_modules packages/*/dist packages/*/build node_modules",
-    "build:wasm": "sh packages/tlsn-wasm/build.sh v0.1.0-alpha.13 --no-logging",
+    "build:wasm": "sh packages/tlsn-wasm/build.sh v0.1.0-alpha.14 --no-logging",
     "demo": "npm run dev --workspace=@tlsnotary/demo",
     "tutorial": "serve -l 8080 packages/tutorial",
     "docker:up": "cd packages/demo && docker compose up --build -d",
