@@ -1,3 +1,5 @@
+import { config } from './config';
+
 export function checkBrowserCompatibility(): boolean {
     const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
     const isEdge = /Edg/.test(navigator.userAgent);
@@ -15,7 +17,7 @@ export async function checkExtension(): Promise<boolean> {
 
 export async function checkVerifier(): Promise<boolean> {
     try {
-        const response = await fetch('http://localhost:7047/health');
+        const response = await fetch(`${config.verifierUrl}/health`);
         if (response.ok && (await response.text()) === 'ok') {
             return true;
         }

@@ -2,8 +2,9 @@
 FROM node:20-alpine AS builder
 
 # Accept build arguments with defaults
-ARG VITE_VERIFIER_URL=http://localhost:7047
-ARG VITE_PROXY_URL=ws://localhost:7047/proxy?token=
+ARG VITE_VERIFIER_HOST=localhost:7047
+ARG VITE_VERIFIER_PROTOCOL=http
+ARG VITE_PROXY_PROTOCOL=ws
 
 WORKDIR /app
 
@@ -15,8 +16,9 @@ RUN npm install
 COPY . .
 
 # Build with environment variables
-ENV VITE_VERIFIER_URL=${VITE_VERIFIER_URL}
-ENV VITE_PROXY_URL=${VITE_PROXY_URL}
+ENV VITE_VERIFIER_HOST=${VITE_VERIFIER_HOST}
+ENV VITE_VERIFIER_PROTOCOL=${VITE_VERIFIER_PROTOCOL}
+ENV VITE_PROXY_PROTOCOL=${VITE_PROXY_PROTOCOL}
 RUN npm run build
 
 # Runtime stage
