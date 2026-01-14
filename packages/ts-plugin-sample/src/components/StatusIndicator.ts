@@ -17,7 +17,7 @@ import {
   marginRight,
   fontSize,
   color,
-} from '../styles';
+} from '@tlsn/plugin-sdk';
 
 export interface StatusIndicatorProps {
   isConnected: boolean;
