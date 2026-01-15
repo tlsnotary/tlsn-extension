@@ -1,19 +1,8 @@
 /* tslint:disable */
 /* eslint-disable */
-/**
- * Initializes the module.
- */
-export function initialize(logging_config: LoggingConfig | null | undefined, thread_count: number): Promise<void>;
-/**
- * Starts the thread spawner on a dedicated worker thread.
- */
-export function startSpawner(): Promise<any>;
-export function web_spawn_start_worker(worker: number): void;
-export function web_spawn_recover_spawner(spawner: number): Spawner;
-export interface CrateLogFilter {
-    level: LoggingLevel;
-    name: string;
-}
+export type LoggingLevel = "Trace" | "Debug" | "Info" | "Warn" | "Error";
+
+export type SpanEvent = "New" | "Close" | "Active";
 
 export interface LoggingConfig {
     level: LoggingLevel | undefined;
@@ -21,15 +10,43 @@ export interface LoggingConfig {
     span_events: SpanEvent[] | undefined;
 }
 
-export type SpanEvent = "New" | "Close" | "Active";
+export interface CrateLogFilter {
+    level: LoggingLevel;
+    name: string;
+}
 
-export type LoggingLevel = "Trace" | "Debug" | "Info" | "Warn" | "Error";
+export type Body = JsonValue;
 
-export type NetworkSetting = "Bandwidth" | "Latency";
+export type Method = "GET" | "POST" | "PUT" | "DELETE";
 
-export interface Commit {
-    sent: { start: number; end: number }[];
-    recv: { start: number; end: number }[];
+export interface HttpRequest {
+    uri: string;
+    method: Method;
+    headers: Map<string, number[]>;
+    body: Body | undefined;
+}
+
+export interface HttpResponse {
+    status: number;
+    headers: [string, number[]][];
+}
+
+export type TlsVersion = "V1_2" | "V1_3";
+
+export interface TranscriptLength {
+    sent: number;
+    recv: number;
+}
+
+export interface ConnectionInfo {
+    time: number;
+    version: TlsVersion;
+    transcript_length: TranscriptLength;
+}
+
+export interface Transcript {
+    sent: number[];
+    recv: number[];
 }
 
 export interface PartialTranscript {
@@ -39,40 +56,10 @@ export interface PartialTranscript {
     recv_authed: { start: number; end: number }[];
 }
 
-export interface HttpResponse {
-    status: number;
-    headers: [string, number[]][];
+export interface Commit {
+    sent: { start: number; end: number }[];
+    recv: { start: number; end: number }[];
 }
-
-export type Body = JsonValue;
-
-export interface VerifierOutput {
-    server_name: string | undefined;
-    connection_info: ConnectionInfo;
-    transcript: PartialTranscript | undefined;
-}
-
-export interface ConnectionInfo {
-    time: number;
-    version: TlsVersion;
-    transcript_length: TranscriptLength;
-}
-
-export interface TranscriptLength {
-    sent: number;
-    recv: number;
-}
-
-export type TlsVersion = "V1_2" | "V1_3";
-
-export interface HttpRequest {
-    uri: string;
-    method: Method;
-    headers: Map<string, number[]>;
-    body: Body | undefined;
-}
-
-export type Method = "GET" | "POST" | "PUT" | "DELETE";
 
 export interface Reveal {
     sent: { start: number; end: number }[];
@@ -80,10 +67,13 @@ export interface Reveal {
     server_identity: boolean;
 }
 
-export interface Transcript {
-    sent: number[];
-    recv: number[];
+export interface VerifierOutput {
+    server_name: string | undefined;
+    connection_info: ConnectionInfo;
+    transcript: PartialTranscript | undefined;
 }
+
+export type NetworkSetting = "Bandwidth" | "Latency";
 
 export interface ProverConfig {
     server_name: string;
@@ -104,18 +94,14 @@ export interface VerifierConfig {
     max_recv_records_online: number | undefined;
 }
 
+
 export class Prover {
   free(): void;
   [Symbol.dispose](): void;
   /**
-   * Returns the transcript.
-   */
-  transcript(): Transcript;
-  /**
    * Send the HTTP request to the server.
    */
   send_request(ws_proxy_url: string, request: HttpRequest): Promise<HttpResponse>;
-  constructor(config: ProverConfig);
   /**
    * Set up the prover.
    *
@@ -127,10 +113,13 @@ export class Prover {
    * Reveals data to the verifier and finalizes the protocol.
    */
   reveal(reveal: Reveal): Promise<void>;
+  /**
+   * Returns the transcript.
+   */
+  transcript(): Transcript;
+  constructor(config: ProverConfig);
 }
-/**
- * Global spawner which spawns closures into web workers.
- */
+
 export class Spawner {
   private constructor();
   free(): void;
@@ -141,10 +130,10 @@ export class Spawner {
   run(url: string): Promise<void>;
   intoRaw(): number;
 }
+
 export class Verifier {
   free(): void;
   [Symbol.dispose](): void;
-  constructor(config: VerifierConfig);
   /**
    * Verifies the connection and finalizes the protocol.
    */
@@ -153,12 +142,28 @@ export class Verifier {
    * Connect to the prover.
    */
   connect(prover_url: string): Promise<void>;
+  constructor(config: VerifierConfig);
 }
+
 export class WorkerData {
   private constructor();
   free(): void;
   [Symbol.dispose](): void;
 }
+
+/**
+ * Initializes the module.
+ */
+export function initialize(logging_config: LoggingConfig | null | undefined, thread_count: number): Promise<void>;
+
+/**
+ * Starts the thread spawner on a dedicated worker thread.
+ */
+export function startSpawner(): Promise<any>;
+
+export function web_spawn_recover_spawner(spawner: number): Spawner;
+
+export function web_spawn_start_worker(worker: number): void;
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
@@ -182,12 +187,12 @@ export interface InitOutput {
   readonly web_spawn_recover_spawner: (a: number) => number;
   readonly web_spawn_start_worker: (a: number) => void;
   readonly ring_core_0_17_14__bn_mul_mont: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
-  readonly wasm_bindgen__convert__closures_____invoke__h1221e6fae8f79e66: (a: number, b: number, c: any) => void;
-  readonly wasm_bindgen__closure__destroy__h77926bfd4964395c: (a: number, b: number) => void;
-  readonly wasm_bindgen__convert__closures_____invoke__ha226a7154e96c3a6: (a: number, b: number) => void;
-  readonly wasm_bindgen__closure__destroy__h667d3f209ba8d8c8: (a: number, b: number) => void;
-  readonly wasm_bindgen__convert__closures_____invoke__h0a1439cca01ee997: (a: number, b: number, c: any) => void;
-  readonly wasm_bindgen__convert__closures_____invoke__he1146594190fdf85: (a: number, b: number, c: any, d: any) => void;
+  readonly wasm_bindgen_d93ce3c58293cca3___convert__closures_____invoke______: (a: number, b: number) => void;
+  readonly wasm_bindgen_d93ce3c58293cca3___closure__destroy___dyn_core_a1e22386a1c4876a___ops__function__FnMut__web_sys_8bc8039b94004458___features__gen_CloseEvent__CloseEvent____Output_______: (a: number, b: number) => void;
+  readonly wasm_bindgen_d93ce3c58293cca3___convert__closures_____invoke___web_sys_8bc8039b94004458___features__gen_CloseEvent__CloseEvent_____: (a: number, b: number, c: any) => void;
+  readonly wasm_bindgen_d93ce3c58293cca3___convert__closures_____invoke___wasm_bindgen_d93ce3c58293cca3___JsValue_____: (a: number, b: number, c: any) => void;
+  readonly wasm_bindgen_d93ce3c58293cca3___closure__destroy___dyn_core_a1e22386a1c4876a___ops__function__FnMut__wasm_bindgen_d93ce3c58293cca3___JsValue____Output_______: (a: number, b: number) => void;
+  readonly wasm_bindgen_d93ce3c58293cca3___convert__closures_____invoke___wasm_bindgen_d93ce3c58293cca3___JsValue__wasm_bindgen_d93ce3c58293cca3___JsValue_____: (a: number, b: number, c: any, d: any) => void;
   readonly memory: WebAssembly.Memory;
   readonly __wbindgen_malloc: (a: number, b: number) => number;
   readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
@@ -201,6 +206,7 @@ export interface InitOutput {
 }
 
 export type SyncInitInput = BufferSource | WebAssembly.Module;
+
 /**
 * Instantiates the given `module`, which can either be bytes or
 * a precompiled `WebAssembly.Module`.

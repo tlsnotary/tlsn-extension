@@ -12,7 +12,7 @@ use axum::{
     Router,
 };
 use axum_websocket::{WebSocket, WebSocketUpgrade};
-use rangeset::RangeSet;
+use rangeset::prelude::RangeSet;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::net::SocketAddr;
@@ -892,13 +892,13 @@ async fn run_verifier_task(
                 "[{}] Sent data length: {} bytes (authed: {} bytes)",
                 session_id,
                 sent_bytes.len(),
-                transcript.sent_authed().iter().sum::<usize>(),
+                transcript.sent_authed().len(),
             );
             info!(
                 "[{}] Received data length: {} bytes (authed: {} bytes)",
                 session_id,
                 recv_bytes.len(),
-                transcript.received_authed().iter().sum::<usize>()
+                transcript.received_authed().len()
             );
 
             // Wait for RevealConfig to be available (with polling and timeout)

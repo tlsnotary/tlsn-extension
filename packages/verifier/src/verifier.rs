@@ -1,9 +1,11 @@
 use eyre::eyre;
 use tlsn::{
-    config::ProtocolConfigValidator,
+    config::{tls_commit::TlsCommitProtocolConfig, verifier::VerifierConfig},
     connection::{DnsName, ServerName},
     transcript::PartialTranscript,
-    verifier::{Verifier, VerifierConfig, VerifierOutput, VerifyConfig},
+    verifier::VerifierOutput,
+    webpki::RootCertStore,
+    Session,
 };
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_util::compat::TokioAsyncReadCompatExt;
@@ -23,30 +25,102 @@ pub async fn verifier<T: AsyncWrite + AsyncRead + Send + Unpin + 'static>(
         max_sent_data, max_recv_data
     );
 
-    let config_validator = ProtocolConfigValidator::builder()
-        .max_sent_data(max_sent_data)
-        .max_recv_data(max_recv_data)
-        .build()
-        .unwrap();
+    // Create a session with the prover
+    let session = Session::new(socket.compat());
+    let (driver, mut handle) = session.split();
 
+    // Spawn the session driver to run in the background
+    let driver_task = tokio::spawn(driver);
+
+    // Create verifier config with Mozilla root certificates for TLS verification
     let verifier_config = VerifierConfig::builder()
-        .protocol_config_validator(config_validator)
+        .root_store(RootCertStore::mozilla())
         .build()
-        .unwrap();
+        .map_err(|e| eyre!("Failed to build verifier config: {}", e))?;
 
-    info!("verifier_config: {:?}", verifier_config);
-    let verifier = Verifier::new(verifier_config);
+    let verifier = handle
+        .new_verifier(verifier_config)
+        .map_err(|e| eyre!("Failed to create verifier: {}", e))?;
 
-    info!("Starting verification");
+    info!("Starting TLS commitment protocol");
 
-    let VerifierOutput {
-        server_name,
-        transcript,
-        ..
-    } = verifier
-        .verify(socket.compat(), &VerifyConfig::default())
+    // Run the commitment protocol
+    let verifier = verifier
+        .commit()
+        .await
+        .map_err(|e| eyre!("Commitment failed: {}", e))?;
+
+    // Check the proposed configuration
+    let request = verifier.request();
+    let TlsCommitProtocolConfig::Mpc(mpc_config) = request.protocol() else {
+        return Err(eyre!("Only MPC protocol is supported"));
+    };
+
+    // Validate the proposed configuration
+    if mpc_config.max_sent_data() > max_sent_data {
+        return Err(eyre!(
+            "Prover requested max_sent_data {} exceeds limit {}",
+            mpc_config.max_sent_data(),
+            max_sent_data
+        ));
+    }
+    if mpc_config.max_recv_data() > max_recv_data {
+        return Err(eyre!(
+            "Prover requested max_recv_data {} exceeds limit {}",
+            mpc_config.max_recv_data(),
+            max_recv_data
+        ));
+    }
+
+    info!(
+        "Accepting TLS commitment with max_sent={}, max_recv={}",
+        mpc_config.max_sent_data(),
+        mpc_config.max_recv_data()
+    );
+
+    // Accept and run the commitment protocol
+    let verifier = verifier
+        .accept()
+        .await
+        .map_err(|e| eyre!("Accept failed: {}", e))?
+        .run()
+        .await
+        .map_err(|e| eyre!("Run failed: {}", e))?;
+
+    info!("TLS connection complete, starting verification");
+
+    // Verify the proof
+    let verifier = verifier
+        .verify()
         .await
         .map_err(|e| eyre!("Verification failed: {}", e))?;
+
+    let (
+        VerifierOutput {
+            server_name,
+            transcript,
+            ..
+        },
+        verifier,
+    ) = verifier
+        .accept()
+        .await
+        .map_err(|e| eyre!("Accept verification failed: {}", e))?;
+
+    // Close the verifier
+    verifier
+        .close()
+        .await
+        .map_err(|e| eyre!("Failed to close verifier: {}", e))?;
+
+    // Close the session handle
+    handle.close();
+
+    // Wait for the driver to complete
+    driver_task
+        .await
+        .map_err(|e| eyre!("Driver task failed: {}", e))?
+        .map_err(|e| eyre!("Session driver error: {}", e))?;
 
     info!("verify() returned successfully - prover sent all data");
 
