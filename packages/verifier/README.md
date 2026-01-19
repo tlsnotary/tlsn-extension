@@ -13,7 +13,7 @@ A Rust-based HTTP server with WebSocket support for TLSNotary verification opera
 
 ## Dependencies
 
-- **tlsn**: v0.1.0-alpha.13 from GitHub - TLSNotary verification library
+- **tlsn**: v0.1.0-alpha.14 from GitHub - TLSNotary verification library
 - **axum**: Modern web framework with WebSocket support
 - **tokio**: Async runtime with full features
 - **tokio-util**: Async utilities for stream compatibility
