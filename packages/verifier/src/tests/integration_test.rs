@@ -28,7 +28,9 @@ use tracing::info;
 use ws_stream_tungstenite::WsStream;
 
 use tlsn::{
-    config::{prove::ProveConfig, prover::ProverConfig, tls::TlsClientConfig, tls_commit::TlsCommitConfig},
+    config::{
+        prove::ProveConfig, prover::ProverConfig, tls::TlsClientConfig, tls_commit::TlsCommitConfig,
+    },
     prover::Prover,
     Session,
 };
@@ -176,14 +178,9 @@ webhooks:
 
     let app = Router::new()
         .route("/health", axum::routing::get(|| async { "ok" }))
-        .route(
-            "/session",
-            axum::routing::get(crate::session_ws_handler),
-        )
-        .route(
-            "/verifier",
-            axum::routing::get(crate::verifier_ws_handler),
-        )
+        .route("/info", axum::routing::get(crate::info_handler))
+        .route("/session", axum::routing::get(crate::session_ws_handler))
+        .route("/verifier", axum::routing::get(crate::verifier_ws_handler))
         .route("/proxy", axum::routing::get(crate::proxy_ws_handler))
         .layer(CorsLayer::permissive())
         .with_state(app_state);
@@ -414,9 +411,10 @@ where
     let prover_task = tokio::spawn(prover_fut);
 
     // 7. HTTP handshake
-    let (mut request_sender, connection) = hyper::client::conn::http1::handshake(mpc_tls_connection)
-        .await
-        .map_err(|e| format!("HTTP handshake failed: {}", e))?;
+    let (mut request_sender, connection) =
+        hyper::client::conn::http1::handshake(mpc_tls_connection)
+            .await
+            .map_err(|e| format!("HTTP handshake failed: {}", e))?;
 
     tokio::spawn(connection);
 
@@ -463,7 +461,9 @@ where
     prove_config
         .reveal_recv(&(0..recv.len()))
         .map_err(|e| format!("reveal_recv failed: {}", e))?;
-    let prove_config = prove_config.build().map_err(|e| format!("build proof failed: {}", e))?;
+    let prove_config = prove_config
+        .build()
+        .map_err(|e| format!("build proof failed: {}", e))?;
 
     // 11. Send proof to verifier
     info!("[Prover] Sending proof to verifier");
@@ -534,7 +534,9 @@ async fn run_prover(
     // 6. Create TLS client config with server name and root certs
     use tlsn::{connection::ServerName, webpki::RootCertStore};
     let tls_client_config = TlsClientConfig::builder()
-        .server_name(ServerName::Dns("raw.githubusercontent.com".try_into().unwrap()))
+        .server_name(ServerName::Dns(
+            "raw.githubusercontent.com".try_into().unwrap(),
+        ))
         .root_store(RootCertStore::mozilla())
         .build()
         .map_err(|e| format!("Failed to build TLS client config: {}", e))?;
@@ -567,8 +569,61 @@ async fn run_prover(
 }
 
 // ============================================================================
-// Integration Test
+// Integration Tests
 // ============================================================================
+
+/// Test the /health endpoint
+#[tokio::test]
+async fn health() {
+    let _ = tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::INFO)
+        .try_init();
+
+    let verifier_handle = start_verifier_server(WEBHOOK_PORT + 1, VERIFIER_PORT + 1).await;
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    let client = reqwest::Client::new();
+    let resp = client
+        .get(format!("http://127.0.0.1:{}/health", VERIFIER_PORT + 1))
+        .send()
+        .await
+        .expect("Failed to send request");
+
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(resp.text().await.unwrap(), "ok");
+
+    verifier_handle.abort();
+}
+
+/// Test the /info endpoint returns expected JSON structure
+#[tokio::test]
+async fn info() {
+    let _ = tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::INFO)
+        .try_init();
+
+    let verifier_handle = start_verifier_server(WEBHOOK_PORT + 2, VERIFIER_PORT + 2).await;
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    let client = reqwest::Client::new();
+    let resp = client
+        .get(format!("http://127.0.0.1:{}/info", VERIFIER_PORT + 2))
+        .send()
+        .await
+        .expect("Failed to send request");
+
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let info: Value = resp.json().await.expect("Failed to parse JSON");
+
+    // Verify required fields exist
+    info.get("version").expect("Missing version field");
+    info.get("git_hash").expect("Missing git_hash field");
+    info.get("tlsn_version")
+        .expect("Missing tlsn_version field");
+
+    verifier_handle.abort();
+}
 
 #[tokio::test]
 async fn test_webhook_integration_with_github() {
@@ -610,7 +665,10 @@ async fn test_webhook_integration_with_github() {
         "ws://127.0.0.1:{}/verifier?sessionId={}",
         VERIFIER_PORT, session_id
     );
-    let proxy_url = format!("ws://127.0.0.1:{}/proxy?token=raw.githubusercontent.com", VERIFIER_PORT);
+    let proxy_url = format!(
+        "ws://127.0.0.1:{}/proxy?token=raw.githubusercontent.com",
+        VERIFIER_PORT
+    );
 
     let prover_handle = tokio::spawn(async move {
         run_prover(verifier_ws_url, proxy_url, MAX_SENT_DATA, MAX_RECV_DATA).await
