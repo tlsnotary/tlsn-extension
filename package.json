@@ -24,7 +24,7 @@
     "clean": "rm -rf packages/*/node_modules packages/*/dist packages/*/build node_modules",
     "build:wasm": "sh packages/tlsn-wasm/build.sh v0.1.0-alpha.14 --no-logging",
     "demo": "npm run dev --workspace=@tlsnotary/demo",
-    "tutorial": "serve -l 8080 packages/tutorial",
+    "tutorial": "npm run dev --workspace=@tlsn/tutorial",
     "docker:up": "cd packages/demo && docker compose up --build -d",
     "docker:down": "cd packages/demo && docker compose down"
   },
