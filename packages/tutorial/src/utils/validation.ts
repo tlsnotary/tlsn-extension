@@ -190,32 +190,43 @@ export const step6Validators: ValidationRule[] = [
         return { valid: false, message: 'Plugin execution failed' };
       }
 
-      const outputStr = JSON.stringify(pluginOutput);
-      const match = outputStr.match(/Verified Swiss Frank \(CHF\) balance:\s*"?(\d+(_\d+)*)"?/);
+      // Concatenate all revealed values to show the redacted transcript
+      const revealedValues = pluginOutput.results
+        ?.map((r) => r.value || '')
+        .filter((v) => v.length > 0)
+        .join('');
 
-      if (!match) {
-        return { valid: false, message: 'No CHF balance found in verification' };
+      if (!revealedValues) {
+        return { valid: false, message: 'No revealed data found in proof' };
       }
 
-      const balance = match[1].replace(/_/g, '');
-      const balanceInt = parseInt(balance, 10);
-      const originalAmount = 50000000;
+      // Check if the redacted transcript contains inflated CHF amounts
+      const hasInflatedAmount =
+        /"CHF"\s*:\s*"275_000_000"/.test(revealedValues) ||
+        /"CHF"\s*:\s*"125_000_000"/.test(revealedValues);
 
-      if (balanceInt > originalAmount) {
-        return { valid: true, message: `Successfully fooled the verifier with ${match[1]} CHF` };
-      }
-
-      if (balanceInt === originalAmount) {
+      if (hasInflatedAmount) {
         return {
-          valid: false,
-          message: 'Balance is correct. Try to make the verifier believe you have MORE CHF.',
+          valid: true,
+          message: `✅ Successfully fooled the verifier! Redacted transcript: ${revealedValues.substring(0, 200)}${revealedValues.length > 200 ? '...' : ''}`,
         };
       }
 
-      return { valid: false, message: 'Balance is lower than expected' };
+      // Check if it contains the original amount
+      if (/"CHF"\s*:\s*"50_000_000"/.test(revealedValues)) {
+        return {
+          valid: false,
+          message: `❌ Redacted transcript shows correct amount. Try revealing multiple CHF values! Transcript: ${revealedValues.substring(0, 200)}${revealedValues.length > 200 ? '...' : ''}`,
+        };
+      }
+
+      return {
+        valid: false,
+        message: `❌ No CHF balance found. Redacted transcript: ${revealedValues.substring(0, 200)}${revealedValues.length > 200 ? '...' : ''}`,
+      };
     },
     errorMessage: 'Make the verifier believe you have more than 50_000_000 CHF',
-    hint: 'The verifier only sees what you reveal. Try revealing additional numbers that the naive check will add together.',
+    hint: 'The verifier only sees what you reveal. Try revealing the CHF balance multiple times with different amounts.',
   },
 ];
 

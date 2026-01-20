@@ -10,7 +10,11 @@ import { step4Validators } from '../utils/validation';
 export const SwissBankBasic: React.FC = () => {
   const { complete, updateCode, userCode, isCompleted } = useStepProgress(4);
   const { execute, isExecuting, result, reset: resetExecution } = usePluginExecution();
-  const { validate, validationResults, reset: resetValidation } = useCodeValidation(step4Validators);
+  const {
+    validate,
+    validationResults,
+    reset: resetValidation,
+  } = useCodeValidation(step4Validators);
   const [code, setCode] = useState(userCode);
   const [isResetting, setIsResetting] = useState(false);
 
@@ -66,20 +70,41 @@ export const SwissBankBasic: React.FC = () => {
   return (
     <div className="max-w-6xl mx-auto">
       <div className="bg-white rounded-lg shadow-lg p-8 animate-slide-in-up mb-6">
-        <h1 className="text-3xl font-bold mb-6 gradient-text">Step 4: Swiss Bank - Add Missing Handler</h1>
+        <h1 className="text-3xl font-bold mb-6 gradient-text">
+          Step 4: Swiss Bank - Add Missing Handler
+        </h1>
 
         <p className="text-lg text-gray-700 mb-4">
-          Now let's write our own plugin! Your task is to add a handler to reveal the Swiss Franc (CHF) balance.
+          Now let's write our own plugin! Your task is to add a handler to reveal the Swiss Franc
+          (CHF) balance.
         </p>
 
         <div className="mb-6">
           <h3 className="text-xl font-bold text-gray-800 mb-3">Setup:</h3>
           <ol className="list-decimal list-inside space-y-2 text-gray-700">
-            <li>Visit <a href="https://swissbank.tlsnotary.org/login" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">https://swissbank.tlsnotary.org/login</a></li>
-            <li>Login with:
+            <li>
+              Visit{' '}
+              <a
+                href="https://swissbank.tlsnotary.org/login"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:underline"
+              >
+                https://swissbank.tlsnotary.org/login
+              </a>
+            </li>
+            <li>
+              Login with:
               <ul className="list-disc list-inside ml-6">
-                <li>Username: <code className="bg-gray-200 px-2 py-1 rounded">tkstanczak</code></li>
-                <li>Password: <code className="bg-gray-200 px-2 py-1 rounded">TLSNotary is my favorite project</code></li>
+                <li>
+                  Username: <code className="bg-gray-200 px-2 py-1 rounded">tkstanczak</code>
+                </li>
+                <li>
+                  Password:{' '}
+                  <code className="bg-gray-200 px-2 py-1 rounded">
+                    TLSNotary is my favorite project
+                  </code>
+                </li>
               </ul>
             </li>
             <li>Verify you can see the balances page</li>
@@ -88,9 +113,11 @@ export const SwissBankBasic: React.FC = () => {
 
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
           <h3 className="font-bold text-blue-900 mb-2">Your Task:</h3>
-          <p className="text-gray-700 mb-2">Find the TODO comment in the code and add this handler:</p>
+          <p className="text-gray-700 mb-2">
+            Find the TODO comment in the code and add this handler:
+          </p>
           <pre className="bg-white p-3 rounded border border-blue-300 overflow-x-auto text-sm">
-{`{ type: 'RECV', part: 'ALL', action: 'REVEAL',
+            {`{ type: 'RECV', part: 'ALL', action: 'REVEAL',
   params: { type: 'regex', regex: '"CHF"\\\\s*:\\\\s*"[^"]+"' } }`}
           </pre>
         </div>

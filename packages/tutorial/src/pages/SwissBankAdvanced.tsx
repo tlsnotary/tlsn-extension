@@ -11,7 +11,14 @@ import {
 } from '../utils/validation';
 
 export const SwissBankAdvanced: React.FC = () => {
-  const { complete, updateCode, userCode, isCompleted, completedChallenges, markChallengeComplete } = useStepProgress(5);
+  const {
+    complete,
+    updateCode,
+    userCode,
+    isCompleted,
+    completedChallenges,
+    markChallengeComplete,
+  } = useStepProgress(5);
   const { execute, isExecuting, result, reset: resetExecution } = usePluginExecution();
   const [code, setCode] = useState(userCode);
   const [isResetting, setIsResetting] = useState(false);
@@ -42,14 +49,14 @@ export const SwissBankAdvanced: React.FC = () => {
     const pluginResult = await execute(code);
 
     // Validate all 3 challenges
-    const challenge1Valid = step5Challenge1Validators.every((validator) =>
-      validator.check({ code, pluginOutput: pluginResult }).valid
+    const challenge1Valid = step5Challenge1Validators.every(
+      (validator) => validator.check({ code, pluginOutput: pluginResult }).valid
     );
-    const challenge2Valid = step5Challenge2Validators.every((validator) =>
-      validator.check({ code, pluginOutput: pluginResult }).valid
+    const challenge2Valid = step5Challenge2Validators.every(
+      (validator) => validator.check({ code, pluginOutput: pluginResult }).valid
     );
-    const challenge3Valid = step5Challenge3Validators.every((validator) =>
-      validator.check({ code, pluginOutput: pluginResult }).valid
+    const challenge3Valid = step5Challenge3Validators.every(
+      (validator) => validator.check({ code, pluginOutput: pluginResult }).valid
     );
 
     setChallengeResults({
@@ -109,11 +116,13 @@ export const SwissBankAdvanced: React.FC = () => {
           <h3 className="font-bold text-blue-900 mb-3">Challenges:</h3>
           <div className="space-y-4">
             {/* Challenge 1 */}
-            <div className={`p-4 rounded-lg border-2 ${
-              challengeResults[1] || completedChallenges.includes(1)
-                ? 'bg-green-50 border-green-500'
-                : 'bg-white border-gray-300'
-            }`}>
+            <div
+              className={`p-4 rounded-lg border-2 ${
+                challengeResults[1] || completedChallenges.includes(1)
+                  ? 'bg-green-50 border-green-500'
+                  : 'bg-white border-gray-300'
+              }`}
+            >
               <div className="flex items-center justify-between mb-2">
                 <h4 className="font-bold text-gray-900">
                   Challenge 1: Reveal USD Balance (Nested JSON)
@@ -123,22 +132,26 @@ export const SwissBankAdvanced: React.FC = () => {
                 )}
               </div>
               <p className="text-sm text-gray-700 mb-2">
-                Add a handler to reveal the USD balance from the nested <code>accounts.USD</code> field.
+                Add a handler to reveal the USD balance from the nested <code>accounts.USD</code>{' '}
+                field.
               </p>
               <div className="text-xs text-gray-600 bg-gray-100 p-2 rounded">
                 <code>
                   &#123; type: &apos;RECV&apos;, part: &apos;BODY&apos;, action: &apos;REVEAL&apos;,
-                  params: &#123; type: &apos;json&apos;, path: &apos;accounts.USD&apos; &#125; &#125;
+                  params: &#123; type: &apos;json&apos;, path: &apos;accounts.USD&apos; &#125;
+                  &#125;
                 </code>
               </div>
             </div>
 
             {/* Challenge 2 */}
-            <div className={`p-4 rounded-lg border-2 ${
-              challengeResults[2] || completedChallenges.includes(2)
-                ? 'bg-green-50 border-green-500'
-                : 'bg-white border-gray-300'
-            }`}>
+            <div
+              className={`p-4 rounded-lg border-2 ${
+                challengeResults[2] || completedChallenges.includes(2)
+                  ? 'bg-green-50 border-green-500'
+                  : 'bg-white border-gray-300'
+              }`}
+            >
               <div className="flex items-center justify-between mb-2">
                 <h4 className="font-bold text-gray-900">
                   Challenge 2: Reveal Cookie Header (SENT)
@@ -152,22 +165,22 @@ export const SwissBankAdvanced: React.FC = () => {
               </p>
               <div className="text-xs text-gray-600 bg-gray-100 p-2 rounded">
                 <code>
-                  &#123; type: &apos;SENT&apos;, part: &apos;HEADERS&apos;, action: &apos;REVEAL&apos;,
-                  params: &#123; key: &apos;cookie&apos; &#125; &#125;
+                  &#123; type: &apos;SENT&apos;, part: &apos;HEADERS&apos;, action:
+                  &apos;REVEAL&apos;, params: &#123; key: &apos;cookie&apos; &#125; &#125;
                 </code>
               </div>
             </div>
 
             {/* Challenge 3 */}
-            <div className={`p-4 rounded-lg border-2 ${
-              challengeResults[3] || completedChallenges.includes(3)
-                ? 'bg-green-50 border-green-500'
-                : 'bg-white border-gray-300'
-            }`}>
+            <div
+              className={`p-4 rounded-lg border-2 ${
+                challengeResults[3] || completedChallenges.includes(3)
+                  ? 'bg-green-50 border-green-500'
+                  : 'bg-white border-gray-300'
+              }`}
+            >
               <div className="flex items-center justify-between mb-2">
-                <h4 className="font-bold text-gray-900">
-                  Challenge 3: Reveal Date Header (RECV)
-                </h4>
+                <h4 className="font-bold text-gray-900">Challenge 3: Reveal Date Header (RECV)</h4>
                 {(challengeResults[3] || completedChallenges.includes(3)) && (
                   <span className="text-2xl">✅</span>
                 )}
@@ -177,8 +190,8 @@ export const SwissBankAdvanced: React.FC = () => {
               </p>
               <div className="text-xs text-gray-600 bg-gray-100 p-2 rounded">
                 <code>
-                  &#123; type: &apos;RECV&apos;, part: &apos;HEADERS&apos;, action: &apos;REVEAL&apos;,
-                  params: &#123; key: &apos;date&apos; &#125; &#125;
+                  &#123; type: &apos;RECV&apos;, part: &apos;HEADERS&apos;, action:
+                  &apos;REVEAL&apos;, params: &#123; key: &apos;date&apos; &#125; &#125;
                 </code>
               </div>
             </div>
@@ -197,8 +210,8 @@ export const SwissBankAdvanced: React.FC = () => {
               </p>
               <div className="bg-white p-2 rounded space-y-1">
                 <p className="text-xs font-mono">
-                  &#123; type: &apos;RECV&apos;, part: &apos;BODY&apos;, action:
-                  &apos;REVEAL&apos; &#125; // See all response body
+                  &#123; type: &apos;RECV&apos;, part: &apos;BODY&apos;, action: &apos;REVEAL&apos;
+                  &#125; // See all response body
                 </p>
                 <p className="text-xs font-mono">
                   &#123; type: &apos;SENT&apos;, part: &apos;HEADERS&apos;, action:
@@ -218,7 +231,9 @@ export const SwissBankAdvanced: React.FC = () => {
                 Use dot notation to access nested fields in JSON objects:
               </p>
               <div className="bg-gray-50 p-2 rounded">
-                <p className="text-xs font-mono">params: &#123; type: &apos;json&apos;, path: &apos;parent.child&apos; &#125;</p>
+                <p className="text-xs font-mono">
+                  params: &#123; type: &apos;json&apos;, path: &apos;parent.child&apos; &#125;
+                </p>
               </div>
             </div>
 
@@ -229,7 +244,9 @@ export const SwissBankAdvanced: React.FC = () => {
                 Use <code>params.key</code> to precisely target a header (case-insensitive):
               </p>
               <div className="bg-gray-50 p-2 rounded">
-                <p className="text-xs font-mono">params: &#123; key: &apos;header-name&apos; &#125;</p>
+                <p className="text-xs font-mono">
+                  params: &#123; key: &apos;header-name&apos; &#125;
+                </p>
               </div>
             </div>
           </div>
@@ -246,10 +263,7 @@ export const SwissBankAdvanced: React.FC = () => {
           <Button onClick={handleTestCode} disabled={isExecuting} variant="primary">
             {isExecuting ? 'Testing...' : 'Test All Challenges'}
           </Button>
-          <Button
-            onClick={handleReset}
-            disabled={isResetting || isExecuting}
-            variant="secondary">
+          <Button onClick={handleReset} disabled={isResetting || isExecuting} variant="secondary">
             {isResetting ? 'Resetting...' : 'Reset Code'}
           </Button>
         </div>
