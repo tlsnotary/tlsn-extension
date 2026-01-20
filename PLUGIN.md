@@ -28,61 +28,82 @@ The TLSN Extension features a **secure plugin system** that allows developers to
 - ✅ **React-like Hooks** - Familiar patterns with `useEffect`, `useRequests`, `useHeaders`
 - ✅ **Type-Safe** - Full TypeScript support with declaration files
 
+### Verifier Integration
+
+Plugins generate TLS proofs by communicating with a **verifier server** (see [VERIFIER.md](./VERIFIER.md) for implementation details). The verifier:
+
+- **Participates in MPC-TLS** - Acts as the verifier party in the TLS handshake
+- **Includes Built-in Proxy** - Forwards requests to target servers via WebSocket
+- **Validates Proofs** - Cryptographically verifies the authenticity of TLS data
+- **Supports Webhooks** - Optionally sends proof data to configured endpoints
+
+**Architecture**: Extension → Verifier (with proxy) → Target Server
+
+In production, you only need to specify the verifier URL - the verifier handles both verification and proxying:
+
+```javascript
+prove(requestOptions, {
+  verifierUrl: 'https://demo.tlsnotary.org',
+  proxyUrl: 'wss://demo.tlsnotary.org/proxy?token=api.x.com',
+  // ...
+});
+```
+
 ### Architecture Diagram
 
 ```
-┌─────────────────────────────────────────────────────────────┐
+┌──────────────────────────────────────────────────────────────┐
 │                     Browser Extension                        │
 │                                                              │
-│  ┌────────────────┐         ┌──────────────────┐           │
-│  │   Background   │◄────────┤ Content Script   │           │
-│  │ Service Worker │         │  (Per Tab)       │           │
-│  └────────┬───────┘         └──────────────────┘           │
+│  ┌────────────────┐         ┌──────────────────┐             │
+│  │   Background   │◄────────┤ Content Script   │             │
+│  │ Service Worker │         │  (Per Tab)       │             │
+│  └────────┬───────┘         └──────────────────┘             │
 │           │                                                  │
 │           │ Manages                                          │
 │           ▼                                                  │
-│  ┌────────────────────┐                                     │
-│  │  WindowManager     │  - Track up to 10 windows          │
-│  │                    │  - Intercept HTTP requests          │
-│  │                    │  - Store request/header history     │
-│  └────────────────────┘                                     │
+│  ┌────────────────────┐                                      │
+│  │  WindowManager     │  - Track up to 10 windows            │
+│  │                    │  - Intercept HTTP requests           │
+│  │                    │  - Store request/header history      │
+│  └────────┬───────────┘                                      │
 │           │                                                  │
 │           │ Forwards to                                      │
 │           ▼                                                  │
-│  ┌────────────────────────────────────────────────┐        │
-│  │         Offscreen Document                      │        │
-│  │                                                  │        │
-│  │  ┌──────────────────┐      ┌─────────────────┐│        │
-│  │  │ SessionManager   │◄────►│  ProveManager   ││        │
-│  │  │                  │      │  (WASM Worker)  ││        │
-│  │  │  - Plugin State  │      │                 ││        │
-│  │  │  - UI Rendering  │      │  - TLS Prover   ││        │
-│  │  │  - Capabilities  │      │  - Transcripts  ││        │
-│  │  └────────┬─────────┘      └─────────────────┘│        │
-│  │           │                                      │        │
-│  │           │ Creates & Manages                    │        │
-│  │           ▼                                      │        │
-│  │  ┌─────────────────────────────────┐           │        │
-│  │  │    Host (QuickJS Sandbox)       │           │        │
-│  │  │                                  │           │        │
-│  │  │  ┌────────────────────────────┐ │           │        │
-│  │  │  │   Plugin Code (Isolated)   │ │           │        │
-│  │  │  │                            │ │           │        │
-│  │  │  │  - main() → UI rendering  │ │           │        │
-│  │  │  │  - callbacks → User actions│ │           │        │
-│  │  │  │                            │ │           │        │
-│  │  │  │  Access via env object:   │ │           │        │
-│  │  │  │  - env.openWindow()       │ │           │        │
-│  │  │  │  - env.useRequests()      │ │           │        │
-│  │  │  │  - env.useState/setState()│ │           │        │
-│  │  │  │  - env.prove()            │ │           │        │
-│  │  │  │  - env.div(), env.button()│ │           │        │
-│  │  │  └────────────────────────────┘ │           │        │
-│  │  │                                  │           │        │
-│  │  │  Security: No network, no FS    │           │        │
-│  │  └─────────────────────────────────┘           │        │
-│  └──────────────────────────────────────────────────┘        │
-└─────────────────────────────────────────────────────────────┘
+│  ┌────────────────────────────────────────────────┐          │
+│  │         Offscreen Document                     │          │
+│  │                                                │          │
+│  │  ┌──────────────────┐      ┌─────────────────┐ │          │
+│  │  │ SessionManager   │◄────►│  ProveManager   │ │          │
+│  │  │                  │      │  (WASM Worker)  │ │          │
+│  │  │  - Plugin State  │      │                 │ │          │
+│  │  │  - UI Rendering  │      │  - TLS Prover   │ │          │
+│  │  │  - Capabilities  │      │  - Transcripts  │ │          │
+│  │  └────────┬─────────┘      └─────────────────┘ │          │
+│  │           │                                    │          │
+│  │           │ Creates & Manages                  │          │
+│  │           ▼                                    │          │
+│  │  ┌──────────────────────────────────┐          │          │
+│  │  │    Host (QuickJS Sandbox)        │          │          │
+│  │  │                                  │          │          │
+│  │  │  ┌────────────────────────────┐  │          │          │
+│  │  │  │   Plugin Code (Isolated)   │  │          │          │
+│  │  │  │                            │  │          │          │
+│  │  │  │  - main() → UI rendering   │  │          │          │
+│  │  │  │  - callbacks → User actions│  │          │          │
+│  │  │  │                            │  │          │          │
+│  │  │  │  Access via env object:    │  │          │          │
+│  │  │  │  - env.openWindow()        │  │          │          │
+│  │  │  │  - env.useRequests()       │  │          │          │
+│  │  │  │  - env.setState/useState() │  │          │          │
+│  │  │  │  - env.prove()             │  │          │          │
+│  │  │  │  - env.div(), env.button() │  │          │          │
+│  │  │  └────────────────────────────┘  │          │          │
+│  │  │                                  │          │          │
+│  │  │  Security: No network, no FS     │          │          │
+│  │  └──────────────────────────────────┘          │          │
+│  └────────────────────────────────────────────────┘          │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -535,12 +556,23 @@ if (authHeader) {
 - `body` - Optional string, request body for POST/PUT requests
 
 **`proverOptions`** - Object specifying proof configuration:
-- `verifierUrl` - String, verifier/notary WebSocket URL (e.g., 'http://localhost:7047')
-- `proxyUrl` - String, WebSocket proxy URL (e.g., 'wss://notary.pse.dev/proxy?token=api.x.com')
+- `verifierUrl` - String, verifier WebSocket URL
+  - Local development: `'http://localhost:7047'`
+  - Production: `'https://demo.tlsnotary.org'`
+- `proxyUrl` - String, WebSocket proxy URL (uses verifier's built-in proxy)
+  - Format: `ws[s]://<verifier-host>/proxy?token=<target-server>`
+  - Local example: `'ws://localhost:7047/proxy?token=api.x.com'`
+  - Production example: `'wss://demo.tlsnotary.org/proxy?token=api.x.com'`
+  - The `token` parameter specifies the target server domain
+  - **Note**: The verifier includes a built-in proxy server (see VERIFIER.md for details)
 - `maxRecvData` - Optional number, max received bytes (default: 16384)
 - `maxSentData` - Optional number, max sent bytes (default: 4096)
-- `handlers` - Array of Handler objects specifying what to handle
-- `sessionData` - Optional object, custom key-value data to include in the session (passed to verifier)
+- `handlers` - Array of Handler objects specifying what to reveal/commit
+- `sessionData` - Optional object, custom key-value metadata for this session
+  - Passed to verifier during registration
+  - Included in webhook notifications (if webhooks configured on verifier)
+  - Useful for tracking sessions, user IDs, or application-specific identifiers
+  - Example: `{ userId: '123', requestId: 'req_abc', purpose: 'account_verification' }`
 
 **Handler Structure:**
 
@@ -558,7 +590,8 @@ type Handler = {
 
     // For BODY with JSON:
     type?: 'json';
-    path?: string;                 // JSON field path (e.g., 'screen_name')
+    path?: string;                 // JSON field path - supports nested paths with dot notation
+                                   // Examples: 'screen_name', 'accounts.USD', 'user.profile.name'
 
     // For ALL with regex (matches across entire transcript):
     type?: 'regex';
@@ -679,7 +712,7 @@ const proof = await prove(
   // Prover options - how to generate the proof
   {
     verifierUrl: 'http://localhost:7047',
-    proxyUrl: 'wss://notary.pse.dev/proxy?token=api.x.com',
+    proxyUrl: 'ws://localhost:7047/proxy?token=api.x.com',
     maxRecvData: 16384,  // 16 KB max receive
     maxSentData: 4096,   // 4 KB max send
 
@@ -783,6 +816,29 @@ console.log('Proof generated:', proof);
   part: 'HEADERS',
   action: 'PEDERSEN',
   params: { key: 'Cookie' },
+}
+
+// Example 7: Reveal nested JSON field (dot notation)
+{
+  type: 'RECV',
+  part: 'BODY',
+  action: 'REVEAL',
+  params: {
+    type: 'json',
+    path: 'accounts.USD',  // Nested field using dot notation
+  },
+}
+
+// Example 8: Reveal JSON value only (hide the key)
+{
+  type: 'RECV',
+  part: 'BODY',
+  action: 'REVEAL',
+  params: {
+    type: 'json',
+    path: 'balance',
+    hideKey: true,  // Result: "50000" instead of {"balance":"50000"}
+  },
 }
 ```
 
@@ -1032,7 +1088,7 @@ async function onClick() {
       verifierUrl: 'http://localhost:7047',
 
       // WebSocket proxy that forwards our request to the real X.com server
-      proxyUrl: 'wss://notary.pse.dev/proxy?token=api.x.com',
+      proxyUrl: 'ws://localhost:7047/proxy?token=api.x.com',
 
       // Maximum bytes to receive (16 KB)
       maxRecvData: 16384,
