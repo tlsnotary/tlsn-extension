@@ -1,6 +1,6 @@
 import Host, { Parser } from '@tlsn/plugin-sdk/src';
 import { ProveManager } from './ProveManager';
-import { Method } from 'tlsn-js';
+import type { Method } from '../../../tlsn-wasm-pkg/tlsn_wasm';
 import { DomJson, Handler, PluginConfig } from '@tlsn/plugin-sdk/src/types';
 import { processHandlers } from './rangeExtractor';
 import { logger } from '@tlsn/common';
