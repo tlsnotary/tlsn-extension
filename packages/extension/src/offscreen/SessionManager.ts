@@ -9,7 +9,6 @@ import {
   validateOpenWindowPermission,
 } from './permissionValidator';
 
-
 export class SessionManager {
   private host: Host;
   private proveManager: ProveManager;
