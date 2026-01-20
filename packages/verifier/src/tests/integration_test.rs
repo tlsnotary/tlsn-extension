@@ -28,9 +28,9 @@ use tracing::info;
 use ws_stream_tungstenite::WsStream;
 
 use tlsn::{
-    config::ProtocolConfig,
-    connection::ServerName,
-    prover::{ProveConfig, Prover, ProverConfig},
+    config::{prove::ProveConfig, prover::ProverConfig, tls::TlsClientConfig, tls_commit::TlsCommitConfig},
+    prover::Prover,
+    Session,
 };
 
 // ============================================================================
@@ -156,11 +156,11 @@ async fn webhook_handler(
 // ============================================================================
 
 async fn start_verifier_server(webhook_port: u16, verifier_port: u16) -> JoinHandle<()> {
-    // Create config with webhook for swapi.dev
+    // Create config with webhook for raw.githubusercontent.com
     let config_yaml = format!(
         r#"
 webhooks:
-  "swapi.dev":
+  "raw.githubusercontent.com":
     url: "http://127.0.0.1:{}"
     headers: {{}}
 "#,
@@ -385,15 +385,23 @@ async fn connect_wss(
 
 /// Helper function that performs MPC-TLS and HTTP request with a given proxy stream
 async fn run_prover_with_stream<S>(
-    prover: tlsn::prover::Prover<tlsn::prover::state::Setup>,
+    prover: Prover,
+    tls_commit_config: TlsCommitConfig,
+    tls_client_config: TlsClientConfig,
     proxy_stream: S,
 ) -> Result<(Vec<u8>, Vec<u8>), Box<dyn std::error::Error + Send + Sync>>
 where
     S: AsyncRead + AsyncWrite + Send + Unpin + 'static,
 {
-    // 5. Pass proxy connection into the prover for TLS
+    // 5. Start the TLS commitment protocol
+    let prover = prover
+        .commit(tls_commit_config)
+        .await
+        .map_err(|e| format!("Commitment failed: {}", e))?;
+
+    // 6. Pass proxy connection into the prover for TLS
     let (mpc_tls_connection, prover_fut) = prover
-        .connect(proxy_stream)
+        .connect(tls_client_config, proxy_stream)
         .await
         .map_err(|e| format!("TLS connect failed: {}", e))?;
 
@@ -405,18 +413,18 @@ where
     // Spawn the prover task
     let prover_task = tokio::spawn(prover_fut);
 
-    // 6. HTTP handshake
+    // 7. HTTP handshake
     let (mut request_sender, connection) = hyper::client::conn::http1::handshake(mpc_tls_connection)
         .await
         .map_err(|e| format!("HTTP handshake failed: {}", e))?;
 
     tokio::spawn(connection);
 
-    // 7. Send HTTP GET request
-    info!("[Prover] Sending GET /api/films/1/");
+    // 8. Send HTTP GET request
+    info!("[Prover] Sending GET /tlsnotary/tlsn/refs/heads/main/crates/server-fixture/server/src/data/1kb.json");
     let request = Request::builder()
-        .uri("/api/films/1/")
-        .header("Host", "swapi.dev")
+        .uri("/tlsnotary/tlsn/refs/heads/main/crates/server-fixture/server/src/data/1kb.json")
+        .header("Host", "raw.githubusercontent.com")
         .header("Accept", "application/json")
         .header("Connection", "close")
         .method("GET")
@@ -431,7 +439,7 @@ where
     info!("[Prover] Response status: {}", response.status());
     assert_eq!(response.status(), StatusCode::OK);
 
-    // 8. Wait for prover task to complete
+    // 9. Wait for prover task to complete
     let mut prover = prover_task
         .await
         .map_err(|e| format!("Prover task panicked: {}", e))?
@@ -446,24 +454,24 @@ where
         recv.len()
     );
 
-    // 9. Build reveal configuration (reveal everything)
-    let mut builder = ProveConfig::builder(prover.transcript());
-    builder.server_identity();
-    builder
+    // 10. Build proof configuration (reveal everything including server identity)
+    let mut prove_config = ProveConfig::builder(prover.transcript());
+    prove_config.server_identity();
+    prove_config
         .reveal_sent(&(0..sent.len()))
         .map_err(|e| format!("reveal_sent failed: {}", e))?;
-    builder
+    prove_config
         .reveal_recv(&(0..recv.len()))
         .map_err(|e| format!("reveal_recv failed: {}", e))?;
+    let prove_config = prove_config.build().map_err(|e| format!("build proof failed: {}", e))?;
 
-    let config = builder.build().unwrap();
-
-    // 10. Send proof to verifier
+    // 11. Send proof to verifier
     info!("[Prover] Sending proof to verifier");
     prover
-        .prove(&config)
+        .prove(&prove_config)
         .await
         .map_err(|e| format!("prove failed: {}", e))?;
+
     prover
         .close()
         .await
@@ -491,42 +499,71 @@ async fn run_prover(
     // WsStream implements tokio::io::AsyncRead/AsyncWrite when inner implements futures_io traits
     let verifier_stream = WsStream::new(verifier_ws);
 
-    // 2. Create prover config
-    let prover_config = ProverConfig::builder()
-        .server_name(ServerName::Dns("swapi.dev".try_into().unwrap()))
-        .protocol_config(
-            ProtocolConfig::builder()
-                .max_sent_data(max_sent_data)
-                .max_recv_data(max_recv_data)
-                .build()
-                .unwrap(),
-        )
+    // 2. Create session with verifier stream
+    let session = Session::new(verifier_stream);
+    let (driver, mut handle) = session.split();
+
+    // Spawn the session driver in the background
+    let driver_task = tokio::spawn(driver);
+
+    // 3. Create TLS commit config for MPC protocol
+    use tlsn::config::tls_commit::{mpc::MpcTlsConfig, TlsCommitProtocolConfig};
+    let mpc_config = MpcTlsConfig::builder()
+        .max_sent_data(max_sent_data)
+        .max_recv_data(max_recv_data)
         .build()
-        .unwrap();
+        .map_err(|e| format!("Failed to build MPC TLS config: {}", e))?;
+
+    let tls_commit_config = TlsCommitConfig::builder()
+        .protocol(TlsCommitProtocolConfig::Mpc(mpc_config))
+        .build()
+        .map_err(|e| format!("Failed to build TLS commit config: {}", e))?;
+
+    // 4. Create prover config
+    let prover_config = ProverConfig::builder()
+        .build()
+        .map_err(|e| format!("Failed to build prover config: {}", e))?;
 
     info!("[Prover] Setting up MPC-TLS with verifier");
 
-    // 3. Create prover and perform setup with verifier
-    // tlsn expects futures_io traits, so we don't need compat() - WsStream already provides them
-    let prover = Prover::new(prover_config)
-        .setup(verifier_stream)
-        .await
-        .map_err(|e| format!("Prover setup failed: {}", e))?;
+    // 5. Create prover via handle
+    let prover = handle
+        .new_prover(prover_config)
+        .map_err(|e| format!("Failed to create prover: {}", e))?;
+
+    // 6. Create TLS client config with server name and root certs
+    use tlsn::{connection::ServerName, webpki::RootCertStore};
+    let tls_client_config = TlsClientConfig::builder()
+        .server_name(ServerName::Dns("raw.githubusercontent.com".try_into().unwrap()))
+        .root_store(RootCertStore::mozilla())
+        .build()
+        .map_err(|e| format!("Failed to build TLS client config: {}", e))?;
 
     info!("[Prover] Connecting to proxy at {}", proxy_url);
 
-    // 4. Connect to proxy WebSocket (ws:// or wss://)
-    if proxy_url.starts_with("wss://") {
+    // 7. Connect to proxy WebSocket (ws:// or wss://) and run prover
+    let result = if proxy_url.starts_with("wss://") {
         let proxy_ws = connect_wss(&proxy_url).await?;
         info!("[Prover] Connected to proxy (wss)");
         let proxy_stream = WsStream::new(proxy_ws);
-        run_prover_with_stream(prover, proxy_stream).await
+        run_prover_with_stream(prover, tls_commit_config, tls_client_config, proxy_stream).await
     } else {
         let proxy_ws = connect_ws(&proxy_url).await?;
         info!("[Prover] Connected to proxy (ws)");
         let proxy_stream = WsStream::new(proxy_ws);
-        run_prover_with_stream(prover, proxy_stream).await
-    }
+        run_prover_with_stream(prover, tls_commit_config, tls_client_config, proxy_stream).await
+    };
+
+    // 8. Close the session handle
+    handle.close();
+
+    // 9. Wait for the driver to complete
+    driver_task
+        .await
+        .map_err(|e| format!("Driver task failed: {}", e))?
+        .map_err(|e| format!("Session driver error: {}", e))?;
+
+    result
 }
 
 // ============================================================================
@@ -534,7 +571,7 @@ async fn run_prover(
 // ============================================================================
 
 #[tokio::test]
-async fn test_webhook_integration_with_swapi() {
+async fn test_webhook_integration_with_github() {
     // Initialize tracing for debugging
     let _ = tracing_subscriber::fmt()
         .with_max_level(tracing::Level::INFO)
@@ -573,7 +610,7 @@ async fn test_webhook_integration_with_swapi() {
         "ws://127.0.0.1:{}/verifier?sessionId={}",
         VERIFIER_PORT, session_id
     );
-    let proxy_url = format!("ws://127.0.0.1:{}/proxy?token=swapi.dev", VERIFIER_PORT);
+    let proxy_url = format!("ws://127.0.0.1:{}/proxy?token=raw.githubusercontent.com", VERIFIER_PORT);
 
     let prover_handle = tokio::spawn(async move {
         run_prover(verifier_ws_url, proxy_url, MAX_SENT_DATA, MAX_RECV_DATA).await
@@ -628,11 +665,11 @@ async fn test_webhook_integration_with_swapi() {
     // 8. Verify results contain expected data
     assert!(!results.is_empty(), "Should have handler results");
 
-    // Check that response contains Star Wars data
+    // Check that response contains expected JSON data
     let recv_str = String::from_utf8_lossy(&recv_transcript);
     assert!(
-        recv_str.contains("A New Hope") || recv_str.contains("Star Wars"),
-        "Response should contain Star Wars film data: {}",
+        recv_str.contains("software engineer") || recv_str.contains("Anytown"),
+        "Response should contain expected JSON data: {}",
         &recv_str[..recv_str.len().min(500)]
     );
 
@@ -651,8 +688,8 @@ async fn test_webhook_integration_with_swapi() {
 
     // Verify webhook payload structure
     assert_eq!(
-        payload["server_name"], "swapi.dev",
-        "server_name should be swapi.dev"
+        payload["server_name"], "raw.githubusercontent.com",
+        "server_name should be raw.githubusercontent.com"
     );
     assert!(payload["results"].is_array(), "results should be an array");
     assert!(
@@ -691,8 +728,8 @@ async fn test_webhook_integration_with_swapi() {
     // Verify transcript contains expected content
     let webhook_recv = payload["transcript"]["recv"].as_str().unwrap();
     assert!(
-        webhook_recv.contains("A New Hope") || webhook_recv.contains("title"),
-        "Webhook transcript should contain Star Wars film data"
+        webhook_recv.contains("software engineer") || webhook_recv.contains("Anytown"),
+        "Webhook transcript should contain expected JSON data"
     );
 
     info!("All assertions passed!");
