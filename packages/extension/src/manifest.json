@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "version": "0.1.0.14",
+  "version": "0.1.0.1400",
   "name": "TLSNotary",
   "description": "A Chrome extension for TLSNotary",
   "options_page": "options.html",

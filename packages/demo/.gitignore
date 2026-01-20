@@ -1,3 +1,4 @@
 *.wasm
 dist/
 public/plugins/
+generated/
