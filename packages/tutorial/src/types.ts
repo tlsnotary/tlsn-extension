@@ -18,6 +18,7 @@ export interface TutorialState {
   userCode: Record<number, string>; // step -> code mapping
   pluginResults: Record<number, PluginResult>; // step -> execution result
   attempts: Record<number, number>; // step -> attempt count
+  completedChallenges: Record<number, number[]>; // step -> array of completed challenge IDs
   preferences: {
     showHints: boolean;
     editorTheme: 'light' | 'dark';
@@ -30,6 +31,7 @@ export interface TutorialActions {
   updateUserCode: (step: number, code: string) => void;
   savePluginResult: (step: number, result: PluginResult) => void;
   incrementAttempts: (step: number) => void;
+  completeChallenge: (step: number, challengeId: number) => void;
   resetProgress: () => void;
   startOver: () => void;
 }
@@ -44,7 +46,7 @@ export interface PluginResult {
   success: boolean;
   output?: string;
   error?: string;
-  results?: Array<{ type: string; value: string }>;
+  results?: Array<{ type: string; part?: string; value: string }>;
   timestamp: number;
 }
 

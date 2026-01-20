@@ -11,6 +11,7 @@ export const getDefaultState = (): TutorialState => ({
   userCode: {},
   pluginResults: {},
   attempts: {},
+  completedChallenges: {},
   preferences: {
     showHints: true,
     editorTheme: 'dark',
@@ -25,9 +26,11 @@ export const loadState = (): TutorialState => {
     const parsed = JSON.parse(saved);
 
     // Convert completedSteps array back to Set
+    // Add backward compatibility for completedChallenges
     return {
       ...parsed,
       completedSteps: new Set(parsed.completedSteps || []),
+      completedChallenges: parsed.completedChallenges || {},
     };
   } catch (error) {
     console.error('Failed to load tutorial state:', error);

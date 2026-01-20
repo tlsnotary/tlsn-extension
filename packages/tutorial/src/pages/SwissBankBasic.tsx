@@ -9,9 +9,10 @@ import { step4Validators } from '../utils/validation';
 
 export const SwissBankBasic: React.FC = () => {
   const { complete, updateCode, userCode, isCompleted } = useStepProgress(4);
-  const { execute, isExecuting, result } = usePluginExecution();
-  const { validate, validationResults, isValid } = useCodeValidation(step4Validators);
+  const { execute, isExecuting, result, reset: resetExecution } = usePluginExecution();
+  const { validate, validationResults, reset: resetValidation } = useCodeValidation(step4Validators);
   const [code, setCode] = useState(userCode);
+  const [isResetting, setIsResetting] = useState(false);
 
   React.useEffect(() => {
     if (!userCode) {
@@ -31,12 +32,34 @@ export const SwissBankBasic: React.FC = () => {
   };
 
   const handleTestCode = async () => {
-    const codeValid = validate(code);
-    const pluginResult = await execute(code);
-    const resultValid = validate(code, pluginResult);
+    // First validate code structure
+    validate(code);
 
-    if (codeValid && resultValid && isValid) {
+    // Execute plugin
+    const pluginResult = await execute(code);
+
+    // Validate with plugin output
+    const allValid = validate(code, pluginResult);
+
+    // Complete step if all validations pass
+    if (allValid) {
       complete();
+    }
+  };
+
+  const handleReset = async () => {
+    setIsResetting(true);
+    try {
+      const response = await fetch('/plugins/swissbank-starter.js');
+      const text = await response.text();
+      setCode(text);
+      updateCode(text);
+      resetValidation();
+      resetExecution();
+    } catch (err) {
+      console.error('Failed to reload Swiss Bank starter:', err);
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -97,6 +120,9 @@ export const SwissBankBasic: React.FC = () => {
         <div className="flex gap-4 mb-4">
           <Button onClick={handleTestCode} disabled={isExecuting} variant="primary">
             {isExecuting ? 'Testing...' : 'Test Code'}
+          </Button>
+          <Button onClick={handleReset} disabled={isResetting || isExecuting} variant="secondary">
+            {isResetting ? 'Resetting...' : 'Reset Code'}
           </Button>
         </div>
 

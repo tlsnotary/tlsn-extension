@@ -62,6 +62,23 @@ export const TutorialProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }));
   }, []);
 
+  const completeChallenge = useCallback((step: number, challengeId: number) => {
+    setState((prev) => {
+      const stepChallenges = prev.completedChallenges[step] || [];
+      if (stepChallenges.includes(challengeId)) {
+        return prev; // Already completed
+      }
+
+      return {
+        ...prev,
+        completedChallenges: {
+          ...prev.completedChallenges,
+          [step]: [...stepChallenges, challengeId],
+        },
+      };
+    });
+  }, []);
+
   const resetProgress = useCallback(() => {
     clearState();
     setState(getDefaultState());
@@ -80,6 +97,7 @@ export const TutorialProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     updateUserCode,
     savePluginResult,
     incrementAttempts,
+    completeChallenge,
     resetProgress,
     startOver,
   };

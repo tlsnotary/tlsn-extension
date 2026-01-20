@@ -31,11 +31,20 @@ export const step4Validators: ValidationRule[] = [
         return { valid: false, message: 'Plugin execution failed' };
       }
 
-      const outputStr = JSON.stringify(pluginOutput);
-      const match = outputStr.match(/"CHF":\s*"(\d+(_\d+)*)"/);
+      // Find the CHF result in the results array
+      const chfResult = pluginOutput.results?.find(
+        (r) => r.type === 'RECV' && r.value && r.value.includes('CHF')
+      );
+
+      if (!chfResult) {
+        return { valid: false, message: 'CHF balance not found in result' };
+      }
+
+      // Extract the CHF value from the result
+      const match = chfResult.value.match(/"CHF"\s*:\s*"(\d+(_\d+)*)"/);
 
       if (!match) {
-        return { valid: false, message: 'CHF balance not found in result' };
+        return { valid: false, message: 'CHF balance pattern not matched in result' };
       }
 
       const balance = match[1].replace(/_/g, '');
@@ -57,13 +66,21 @@ export const step5Challenge1Validators: ValidationRule[] = [
   {
     type: 'code',
     check: ({ code }) => ({
-      valid: /regex:\s*['"].*USD.*['"]/.test(code),
-      message: /regex:\s*['"].*USD.*['"]/.test(code)
-        ? 'USD regex pattern found'
-        : 'Add regex pattern for USD balance',
+      valid:
+        /type:\s*['"]RECV['"]/.test(code) &&
+        /part:\s*['"]BODY['"]/.test(code) &&
+        /type:\s*['"]json['"]/.test(code) &&
+        /path:\s*['"]accounts\.USD['"]/.test(code),
+      message:
+        /type:\s*['"]RECV['"]/.test(code) &&
+        /part:\s*['"]BODY['"]/.test(code) &&
+        /type:\s*['"]json['"]/.test(code) &&
+        /path:\s*['"]accounts\.USD['"]/.test(code)
+          ? 'RECV BODY handler with nested JSON path found'
+          : 'Add RECV BODY handler with nested JSON path for USD',
     }),
-    errorMessage: 'Add a regex handler to reveal the USD balance',
-    hint: 'Use a similar pattern to CHF but match "USD" instead',
+    errorMessage: 'Add a handler to reveal the USD balance from accounts.USD',
+    hint: '{ type: "RECV", part: "BODY", action: "REVEAL", params: { type: "json", path: "accounts.USD" } }',
   },
   {
     type: 'result',
@@ -72,21 +89,25 @@ export const step5Challenge1Validators: ValidationRule[] = [
         return { valid: false, message: 'Plugin execution failed' };
       }
 
-      const outputStr = JSON.stringify(pluginOutput);
-      const hasUSD = /"USD":\s*"\d+(_\d+)*"/.test(outputStr);
-      const hasCHF = /"CHF":\s*"\d+(_\d+)*"/.test(outputStr);
+      // Find USD result in the results array
+      const usdResult = pluginOutput.results?.find(
+        (r) => r.type === 'RECV' && r.part === 'BODY' && r.value && r.value.includes('USD')
+      );
 
-      if (hasUSD && !hasCHF) {
-        return { valid: true, message: 'Successfully revealed only USD balance' };
+      if (!usdResult) {
+        return { valid: false, message: 'USD balance not found in proof' };
       }
 
-      if (hasUSD && hasCHF) {
-        return { valid: false, message: 'Both USD and CHF found. Only reveal USD for this challenge.' };
+      // Check that it contains a USD value
+      const hasUSDValue = /USD.*\d+/.test(usdResult.value) || /"USD"/.test(usdResult.value);
+
+      if (hasUSDValue) {
+        return { valid: true, message: 'Successfully revealed USD balance from nested path' };
       }
 
-      return { valid: false, message: 'USD balance not found in proof' };
+      return { valid: false, message: 'USD balance format not recognized' };
     },
-    errorMessage: 'The proof should contain only the USD balance',
+    errorMessage: 'The proof should contain the USD balance from accounts.USD',
   },
 ];
 
@@ -94,14 +115,14 @@ export const step5Challenge2Validators: ValidationRule[] = [
   {
     type: 'code',
     check: ({ code }) => ({
-      valid: /action:\s*['"]PEDERSEN['"]/.test(code) && /regex:\s*['"].*EUR.*['"]/.test(code),
+      valid: /type:\s*['"]SENT['"]/.test(code) && /part:\s*['"]HEADERS['"]/.test(code),
       message:
-        /action:\s*['"]PEDERSEN['"]/.test(code) && /regex:\s*['"].*EUR.*['"]/.test(code)
-          ? 'PEDERSEN handler found for EUR'
-          : 'Add PEDERSEN handler for EUR balance',
+        /type:\s*['"]SENT['"]/.test(code) && /part:\s*['"]HEADERS['"]/.test(code)
+          ? 'SENT HEADERS handler found'
+          : 'Add SENT handler for HEADERS',
     }),
-    errorMessage: 'Use PEDERSEN commitment instead of REVEAL for the EUR balance',
-    hint: 'Change action: "REVEAL" to action: "PEDERSEN"',
+    errorMessage: 'Add a handler to reveal the Cookie header from the request',
+    hint: '{ type: "SENT", part: "HEADERS", action: "REVEAL", params: { key: "cookie" } }',
   },
   {
     type: 'result',
@@ -110,17 +131,18 @@ export const step5Challenge2Validators: ValidationRule[] = [
         return { valid: false, message: 'Plugin execution failed' };
       }
 
-      // With PEDERSEN, we should not see the EUR value in plaintext
-      const outputStr = JSON.stringify(pluginOutput);
-      const hasEURPlaintext = /"EUR":\s*"\d+(_\d+)*"/.test(outputStr);
+      // Find SENT HEADERS result with Cookie
+      const sentHeaderResult = pluginOutput.results?.find(
+        (r) => r.type === 'SENT' && r.part === 'HEADERS' && r.value && /cookie/i.test(r.value)
+      );
 
-      if (!hasEURPlaintext) {
-        return { valid: true, message: 'EUR balance hidden with PEDERSEN commitment' };
+      if (!sentHeaderResult) {
+        return { valid: false, message: 'Cookie header not found in proof' };
       }
 
-      return { valid: false, message: 'EUR balance should be hidden (use PEDERSEN, not REVEAL)' };
+      return { valid: true, message: 'Cookie header successfully revealed' };
     },
-    errorMessage: 'EUR balance should be committed with PEDERSEN, not revealed in plaintext',
+    errorMessage: 'The proof should contain the Cookie header from the request',
   },
 ];
 
@@ -128,14 +150,14 @@ export const step5Challenge3Validators: ValidationRule[] = [
   {
     type: 'code',
     check: ({ code }) => ({
-      valid: /type:\s*['"]SENT['"]/.test(code) && /part:\s*['"]START_LINE['"]/.test(code),
+      valid: /type:\s*['"]RECV['"]/.test(code) && /part:\s*['"]HEADERS['"]/.test(code),
       message:
-        /type:\s*['"]SENT['"]/.test(code) && /part:\s*['"]START_LINE['"]/.test(code)
-          ? 'SENT START_LINE handler found'
-          : 'Add SENT handler for START_LINE',
+        /type:\s*['"]RECV['"]/.test(code) && /part:\s*['"]HEADERS['"]/.test(code)
+          ? 'RECV HEADERS handler found'
+          : 'Add RECV handler for HEADERS',
     }),
-    errorMessage: 'Add a handler to reveal the request start line (method and path)',
-    hint: '{ type: "SENT", part: "START_LINE", action: "REVEAL" }',
+    errorMessage: 'Add a handler to reveal the Date header from the response',
+    hint: '{ type: "RECV", part: "HEADERS", action: "REVEAL", params: { key: "date" } }',
   },
   {
     type: 'result',
@@ -144,17 +166,18 @@ export const step5Challenge3Validators: ValidationRule[] = [
         return { valid: false, message: 'Plugin execution failed' };
       }
 
-      const outputStr = JSON.stringify(pluginOutput);
-      const hasMethod = /GET|POST|PUT|DELETE/.test(outputStr);
-      const hasPath = /\/balances/.test(outputStr);
+      // Find RECV HEADERS result with Date
+      const recvHeaderResult = pluginOutput.results?.find(
+        (r) => r.type === 'RECV' && r.part === 'HEADERS' && r.value && /date/i.test(r.value)
+      );
 
-      if (hasMethod && hasPath) {
-        return { valid: true, message: 'Request method and path verified' };
+      if (!recvHeaderResult) {
+        return { valid: false, message: 'Date header not found in proof' };
       }
 
-      return { valid: false, message: 'Request start line not found in proof' };
+      return { valid: true, message: 'Date header successfully revealed' };
     },
-    errorMessage: 'The proof should contain the HTTP method and request path',
+    errorMessage: 'The proof should contain the Date header from the response',
   },
 ];
 

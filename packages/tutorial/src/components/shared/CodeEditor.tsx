@@ -37,7 +37,10 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         EditorView.theme({
           '&': { height },
           '.cm-scroller': { overflow: 'auto' },
-          '.cm-content': { fontFamily: 'Monaco, Menlo, "Ubuntu Mono", Consolas, monospace' },
+          '.cm-content': {
+            fontFamily: 'Monaco, Menlo, "Ubuntu Mono", Consolas, monospace',
+            fontSize: '13px',
+          },
         }),
       ],
     });

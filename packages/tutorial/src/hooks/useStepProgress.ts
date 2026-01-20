@@ -9,6 +9,7 @@ export const useStepProgress = (stepId: number) => {
   const attempts = state.attempts[stepId] || 0;
   const userCode = state.userCode[stepId] || '';
   const pluginResult = state.pluginResults[stepId];
+  const completedChallenges = state.completedChallenges[stepId] || [];
 
   const complete = () => {
     actions.completeStep(stepId);
@@ -26,6 +27,10 @@ export const useStepProgress = (stepId: number) => {
     actions.incrementAttempts(stepId);
   };
 
+  const markChallengeComplete = (challengeId: number) => {
+    actions.completeChallenge(stepId, challengeId);
+  };
+
   return {
     isCompleted,
     isCurrent,
@@ -33,9 +38,11 @@ export const useStepProgress = (stepId: number) => {
     attempts,
     userCode,
     pluginResult,
+    completedChallenges,
     complete,
     updateCode,
     saveResult,
     incrementAttempts,
+    markChallengeComplete,
   };
 };

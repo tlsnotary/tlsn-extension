@@ -16,15 +16,15 @@ const questions: QuizQuestion[] = [
     explanation: 'The verifier participates in MPC-TLS to verify data authenticity without accessing your sensitive information like passwords or cookies.',
   },
   {
-    question: 'What does PEDERSEN commitment do in TLSNotary handlers?',
+    question: 'What does the "REVEAL" action do in TLSNotary handlers?',
     options: [
-      'Hashes data for commitment without revealing the plaintext',
-      'Encrypts data with AES-256',
-      'Reveals data in plaintext to the verifier',
+      'Hides all data from the verifier',
+      'Shows the selected data in plaintext in the proof',
+      'Encrypts data with the verifier\'s public key',
       'Compresses the data before sending',
     ],
-    correctAnswer: 0,
-    explanation: 'PEDERSEN creates a cryptographic commitment to data without revealing it in plaintext, useful for privacy-preserving proofs.',
+    correctAnswer: 1,
+    explanation: 'REVEAL action includes the selected data as plaintext in the proof, allowing the verifier to see the actual values.',
   },
   {
     question: 'What does a handler with type: "RECV" mean?',
@@ -73,8 +73,7 @@ export const Concepts: React.FC = () => {
             <div className="p-4 bg-green-50 rounded-lg border border-green-200">
               <h4 className="font-bold text-green-900 mb-2">Handler Actions</h4>
               <ul className="list-disc list-inside text-gray-700 space-y-1">
-                <li><strong>REVEAL:</strong> Show data in plaintext in the proof</li>
-                <li><strong>PEDERSEN:</strong> Create a hash commitment without revealing plaintext</li>
+                <li><strong>REVEAL:</strong> Show data in plaintext in the proof (currently the only supported action)</li>
               </ul>
             </div>
           </div>
