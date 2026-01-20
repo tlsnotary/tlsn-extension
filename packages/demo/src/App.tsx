@@ -280,6 +280,20 @@ export function App() {
                     onOpenExtensionLogs={handleOpenExtensionLogs}
                 />
             </CollapsibleSection>
+
+            <footer className="app-footer">
+                <a
+                    href="https://github.com/tlsnotary/tlsn-extension/tree/main/packages/demo"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="footer-link"
+                >
+                    View source on GitHub
+                </a>
+                <span className="footer-version">v{__GIT_COMMIT_HASH__}</span>
+            </footer>
         </div>
     );
 }
+
+declare const __GIT_COMMIT_HASH__: string;
