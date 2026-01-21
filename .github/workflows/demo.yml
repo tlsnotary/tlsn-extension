@@ -105,3 +105,4 @@ jobs:
                   build-args: |
                       VITE_VERIFIER_HOST=demo-staging.tlsnotary.org
                       VITE_SSL=true
+                      GIT_HASH=${{ github.sha }}
