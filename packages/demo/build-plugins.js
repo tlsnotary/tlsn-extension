@@ -5,7 +5,7 @@ import fs from 'fs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const plugins = ['twitter', 'swissbank', 'spotify'];
+const plugins = ['twitter', 'swissbank', 'spotify', 'duolingo'];
 
 // Build URLs from environment variables (matching config.ts pattern)
 const VERIFIER_HOST = process.env.VITE_VERIFIER_HOST || 'localhost:7047';
