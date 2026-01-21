@@ -25,15 +25,14 @@ const config = {
 
 function getRelevantHeaderValues() {
     const [header] = useHeaders(headers => {
-        console.log('All captured headers:', headers);
+        // console.log('All captured headers:', headers);
         // Find the first header that contains an 'authorization' request header, regardless of URL
-        return headers.filter(h =>
-            h.requestHeaders.some(rh => rh.name === 'authorization')
-        );
+        return [headers.find(h =>
+            h.requestHeaders.some(rh => rh.name === 'Authorization')
+        )];
     });
 
-    const authorization = header?.requestHeaders.find(h => h.name === 'authorization')?.value;
-
+    const authorization = header?.requestHeaders.find(h => h.name === 'Authorization')?.value;
     return { authorization };
 }
 
