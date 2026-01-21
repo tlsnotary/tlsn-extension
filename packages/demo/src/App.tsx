@@ -290,7 +290,7 @@ export function App() {
                 >
                     View source on GitHub
                 </a>
-                <span className="footer-version">v{__GIT_COMMIT_HASH__}</span>
+                <span className="footer-version">{__GIT_COMMIT_HASH__}</span>
             </footer>
         </div>
     );
