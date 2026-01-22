@@ -33,12 +33,16 @@ async function onClick() {
 
     setState('isRequestPending', true);
 
-    const [header] = useHeaders(headers => {
-        return headers.filter(header => header.url.includes(`https://${api}`));
-    });
+    // Use cached authorization token from state
+    const authToken = useState('authToken', null);
+
+    if (!authToken) {
+        setState('isRequestPending', false);
+        return;
+    }
 
     const headers = {
-        authorization: header.requestHeaders.find(header => header.name === 'Authorization')?.value,
+        authorization: authToken,
         Host: api,
         'Accept-Encoding': 'identity',
         Connection: 'close',
@@ -79,10 +83,23 @@ function minimizeUI() {
 }
 
 function main() {
-    const [header] = useHeaders(headers => headers.filter(h => h.url.includes(`https://${api}`)));
-
     const isMinimized = useState('isMinimized', false);
     const isRequestPending = useState('isRequestPending', false);
+    const authToken = useState('authToken', null);
+
+
+    // Only search for auth token if not already cached
+    if (!authToken) {
+        const token = useHeaders(h => h.filter(x => x.url.startsWith(`https://${api}`)))
+            .flatMap(h => h.requestHeaders)
+            .find((h: { name: string; value?: string }) => h.name === 'Authorization')
+            ?.value;
+
+        if (token) {
+            setState('authToken', token);
+            console.log('Auth Token found:', token);
+        }
+    }
 
     useEffect(() => {
         openWindow(ui);
@@ -172,16 +189,16 @@ function main() {
                     marginBottom: '16px',
                     padding: '12px',
                     borderRadius: '6px',
-                    backgroundColor: header ? '#d4edda' : '#f8d7da',
-                    color: header ? '#155724' : '#721c24',
-                    border: `1px solid ${header ? '#c3e6cb' : '#f5c6cb'}`,
+                    backgroundColor: authToken ? '#d4edda' : '#f8d7da',
+                    color: authToken ? '#155724' : '#721c24',
+                    border: `1px solid ${authToken ? '#c3e6cb' : '#f5c6cb'}`,
                     fontWeight: '500',
                 },
             }, [
-                header ? '✓ Api token detected' : '⚠ No API token detected'
+                authToken ? '✓ Api token detected' : '⚠ No API token detected'
             ]),
 
-            header ? (
+            authToken ? (
                 button({
                     style: {
                         width: '100%',
@@ -194,7 +211,7 @@ function main() {
                         fontSize: '15px',
                         transition: 'all 0.2s ease',
                         boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                        opacity: isRequestPending ? 0.5 : 1,
+                        opacity: isRequestPending ? '0.5' : '1',
                         cursor: isRequestPending ? 'not-allowed' : 'pointer',
                     },
                     onclick: 'onClick',
