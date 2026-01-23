@@ -71,7 +71,7 @@ export function StatusBar({
                         {!extensionOk && (
                             <div>
                                 TLSNotary extension not detected.{' '}
-                                <a href="chrome://extensions/" target="_blank" rel="noopener noreferrer">
+                                <a href="https://chromewebstore.google.com/detail/tlsnotary/gnoglgpcamodhflknhmafmjdahcejcgg?authuser=2&hl=en" target="_blank" rel="noopener noreferrer">
                                     Install extension
                                 </a>
                                 {' '}then <strong>refresh this page</strong>.
