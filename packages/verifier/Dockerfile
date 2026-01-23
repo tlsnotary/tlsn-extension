@@ -34,6 +34,10 @@ FROM debian:bookworm-slim
 
 WORKDIR /app
 
+# Accept build argument for git hash and set as environment variable
+ARG GIT_HASH=local
+ENV GIT_HASH=${GIT_HASH}
+
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
     ca-certificates \
