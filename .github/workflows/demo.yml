@@ -69,6 +69,8 @@ jobs:
                   push: ${{ env.should_publish == 'true' }}
                   tags: ${{ steps.meta-prover-server.outputs.tags }}
                   labels: ${{ steps.meta-prover-server.outputs.labels }}
+                  build-args: |
+                      GIT_HASH=${{ github.sha }}
 
     build_and_publish_demo_frontend:
         name: build and publish demo frontend image
