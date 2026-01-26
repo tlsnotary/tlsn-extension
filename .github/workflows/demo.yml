@@ -105,6 +105,6 @@ jobs:
                   tags: ${{ steps.meta-verifier-webapp.outputs.tags }}
                   labels: ${{ steps.meta-verifier-webapp.outputs.labels }}
                   build-args: |
-                      VITE_VERIFIER_HOST=demo-staging.tlsnotary.org
+                      VITE_VERIFIER_HOST=demo.tlsnotary.org
                       VITE_SSL=true
                       GIT_HASH=${{ github.sha }}
