@@ -35,10 +35,12 @@ export const TwitterExample: React.FC = () => {
         </p>
 
         <div className="bg-yellow-100 border border-yellow-300 rounded-lg p-4 mb-6">
-          <p className="text-yellow-900">
+          <p className="text-yellow-900 mb-3">
             <strong>Note:</strong> This step is optional and only works if you have a Twitter/X account.
-            Feel free to skip this step if you have limited time.
           </p>
+          <Button onClick={complete} variant="secondary" className="text-sm">
+            Skip This Step
+          </Button>
         </div>
 
         <div className="mb-6">
