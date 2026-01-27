@@ -13,6 +13,7 @@ const getGitHash = () => {
 
 export default defineConfig({
   plugins: [react()],
+  base: process.env.VITE_BASE_PATH || '/',
   define: {
     __GIT_HASH__: JSON.stringify(getGitHash()),
   },
