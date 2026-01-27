@@ -180,7 +180,7 @@ async function onClick() {
         { type: 'SENT', part: 'START_LINE', action: 'REVEAL' },
         { type: 'RECV', part: 'START_LINE', action: 'REVEAL' },
         { type: 'RECV', part: 'BODY', action: 'REVEAL', params: { type: 'json', path: 'account_id' } },
-        // TODO: add handler to reveal CHF balance here
+        // TODO: add handler to reveal balance here
 
       ]
     }
