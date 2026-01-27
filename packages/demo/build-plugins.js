@@ -18,6 +18,7 @@ const PROXY_URL = `${SSL ? 'wss' : 'ws'}://${VERIFIER_HOST}/proxy?token=`;
 for (const plugin of plugins) {
     await build({
         configFile: false,
+        publicDir: false, // Don't copy public assets into plugin output
         build: {
             lib: {
                 entry: path.resolve(__dirname, `src/plugins/${plugin}.plugin.ts`),
