@@ -24,19 +24,6 @@ const config = {
     ],
 };
 
-function getRelevantHeaderValues() {
-    const [header] = useHeaders(headers => {
-        return headers.filter(header => header.url.includes(`https://${api}/2023-05-23/users`));
-    });
-
-    const authorization = header?.requestHeaders.find(header => header.name === 'Authorization')?.value;
-
-    const traceId = header?.requestHeaders.find(header => header.name === 'X-Amzn-Trace-Id')?.value;
-    const user_id = traceId?.split('=')[1];
-
-    return { authorization, user_id };
-}
-
 async function onClick() {
     const isRequestPending = useState('isRequestPending', false);
 
@@ -44,7 +31,14 @@ async function onClick() {
 
     setState('isRequestPending', true);
 
-    const { authorization, user_id } = getRelevantHeaderValues();
+    // Use cached values from state
+    const authorization = useState('authorization', null);
+    const user_id = useState('user_id', null);
+
+    if (!authorization || !user_id) {
+        setState('isRequestPending', false);
+        return;
+    }
 
     const headers = {
         authorization: authorization,
@@ -82,11 +76,32 @@ function minimizeUI() {
 }
 
 function main() {
-    const { authorization, user_id } = getRelevantHeaderValues();
-    const header_has_necessary_values = authorization && user_id;
-
     const isMinimized = useState('isMinimized', false);
     const isRequestPending = useState('isRequestPending', false);
+    const authorization = useState('authorization', null);
+    const user_id = useState('user_id', null);
+
+    // Only search for auth values if not already cached
+    if (!authorization || !user_id) {
+        const [header] = useHeaders(headers => {
+            return headers.filter(header => header.url.includes(`https://${api}/2023-05-23/users`));
+        });
+
+        const authValue = header?.requestHeaders.find(h => h.name === 'Authorization')?.value;
+        const traceId = header?.requestHeaders.find(h => h.name === 'X-Amzn-Trace-Id')?.value;
+        const userIdValue = traceId?.split('=')[1];
+
+        if (authValue && !authorization) {
+            setState('authorization', authValue);
+            console.log('Authorization found:', authValue);
+        }
+        if (userIdValue && !user_id) {
+            setState('user_id', userIdValue);
+            console.log('User ID found:', userIdValue);
+        }
+    }
+
+    const header_has_necessary_values = authorization && user_id;
 
     useEffect(() => {
         openWindow(ui);
