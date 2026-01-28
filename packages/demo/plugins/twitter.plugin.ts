@@ -45,16 +45,23 @@ async function onClick() {
 
     setState('isRequestPending', true);
 
-    const [header] = useHeaders((headers: any[]) => {
-        return headers.filter(header => header.url.includes('https://api.x.com/1.1/account/settings.json'));
-    });
+    // Use cached values from state
+    const cachedCookie = useState('cookie', null);
+    const cachedCsrfToken = useState('x-csrf-token', null);
+    const cachedTransactionId = useState('x-client-transaction-id', null);
+    const cachedAuthorization = useState('authorization', null);
+
+    if (!cachedCookie || !cachedCsrfToken || !cachedAuthorization) {
+        setState('isRequestPending', false);
+        return;
+    }
 
     const headers = {
-        'cookie': header.requestHeaders.find((header: any) => header.name === 'Cookie')?.value,
-        'x-csrf-token': header.requestHeaders.find((header: any) => header.name === 'x-csrf-token')?.value,
-        'x-client-transaction-id': header.requestHeaders.find((header: any) => header.name === 'x-client-transaction-id')?.value,
+        'cookie': cachedCookie,
+        'x-csrf-token': cachedCsrfToken,
+        ...(cachedTransactionId ? { 'x-client-transaction-id': cachedTransactionId } : {}),
         Host: 'api.x.com',
-        authorization: header.requestHeaders.find((header: any) => header.name === 'authorization')?.value,
+        authorization: cachedAuthorization,
         'Accept-Encoding': 'identity',
         Connection: 'close',
     };
@@ -63,7 +70,7 @@ async function onClick() {
         {
             url: 'https://api.x.com/1.1/account/settings.json',
             method: 'GET',
-            headers: headers,
+            headers: headers as unknown as Record<string, string>,
         },
         {
             verifierUrl: VERIFIER_URL,
@@ -107,11 +114,45 @@ function minimizeUI() {
 // MAIN UI FUNCTION
 // =============================================================================
 function main() {
-    const [header] = useHeaders((headers: any[]) =>
-        headers.filter(header => header.url.includes('https://api.x.com/1.1/account/settings.json'))
-    );
     const isMinimized = useState('isMinimized', false);
     const isRequestPending = useState('isRequestPending', false);
+    const cachedCookie = useState('cookie', null);
+    const cachedCsrfToken = useState('x-csrf-token', null);
+    const cachedTransactionId = useState('x-client-transaction-id', null);
+    const cachedAuthorization = useState('authorization', null);
+
+    // Only search for header values if not already cached
+    if (!cachedCookie || !cachedCsrfToken || !cachedAuthorization) {
+        const [header] = useHeaders((headers: any[]) =>
+            headers.filter(h => h.url.includes('https://api.x.com/1.1/account/settings.json'))
+        );
+
+        if (header) {
+            const cookie = header.requestHeaders.find((h: any) => h.name === 'Cookie')?.value;
+            const csrfToken = header.requestHeaders.find((h: any) => h.name === 'x-csrf-token')?.value;
+            const transactionId = header.requestHeaders.find((h: any) => h.name === 'x-client-transaction-id')?.value;
+            const authorization = header.requestHeaders.find((h: any) => h.name === 'authorization')?.value;
+
+            if (cookie && !cachedCookie) {
+                setState('cookie', cookie);
+                console.log('Cookie found');
+            }
+            if (csrfToken && !cachedCsrfToken) {
+                setState('x-csrf-token', csrfToken);
+                console.log('CSRF token found');
+            }
+            if (transactionId && !cachedTransactionId) {
+                setState('x-client-transaction-id', transactionId);
+                console.log('Transaction ID found');
+            }
+            if (authorization && !cachedAuthorization) {
+                setState('authorization', authorization);
+                console.log('Authorization found');
+            }
+        }
+    }
+
+    const header = cachedCookie && cachedCsrfToken && cachedAuthorization;
 
     useEffect(() => {
         openWindow('https://x.com');
@@ -240,7 +281,7 @@ function main() {
                                     fontSize: '15px',
                                     transition: 'all 0.2s ease',
                                     boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                                    opacity: isRequestPending ? 0.5 : 1,
+                                    opacity: isRequestPending ? '0.5' : '1',
                                     cursor: isRequestPending ? 'not-allowed' : 'pointer',
                                 },
                                 onclick: 'onClick',
