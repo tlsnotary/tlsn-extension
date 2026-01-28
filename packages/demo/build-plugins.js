@@ -21,7 +21,7 @@ for (const plugin of plugins) {
         publicDir: false, // Don't copy public assets into plugin output
         build: {
             lib: {
-                entry: path.resolve(__dirname, `src/plugins/${plugin}.plugin.ts`),
+                entry: path.resolve(__dirname, `plugins/${plugin}.plugin.ts`),
                 formats: ['es'],
                 fileName: () => `${plugin}.js`,
             },
