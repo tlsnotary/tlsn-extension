@@ -76,8 +76,8 @@ export const InteractiveQuiz: React.FC<InteractiveQuizProps> = ({ questions, onC
             return (
               <button
                 key={index}
-                onClick={() => !isAnswered && handleSelectAnswer(index)}
-                disabled={isAnswered}
+                onClick={() => (!isAnswered || !isCorrect) && handleSelectAnswer(index)}
+                disabled={isAnswered && isCorrect}
                 className={`w-full text-left px-4 py-3 rounded-lg border-2 transition-all ${
                   isSelected && showCorrectness
                     ? isCorrectOption
@@ -86,7 +86,7 @@ export const InteractiveQuiz: React.FC<InteractiveQuizProps> = ({ questions, onC
                     : isSelected
                     ? 'border-blue-500 bg-blue-50'
                     : 'border-gray-200 hover:border-gray-300 bg-white'
-                } ${isAnswered ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                } ${isAnswered && isCorrect ? 'cursor-not-allowed' : 'cursor-pointer'}`}
               >
                 <div className="flex items-center justify-between">
                   <span>{option}</span>
@@ -117,7 +117,7 @@ export const InteractiveQuiz: React.FC<InteractiveQuizProps> = ({ questions, onC
         </Button>
 
         {currentQuestion < questions.length - 1 ? (
-          <Button onClick={handleNext} disabled={!isAnswered}>
+          <Button onClick={handleNext} disabled={!isAnswered || !isCorrect}>
             Next
           </Button>
         ) : (
