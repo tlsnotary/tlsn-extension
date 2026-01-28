@@ -33,13 +33,17 @@ async function onClick() {
     if (isRequestPending) return;
 
     setState('isRequestPending', true);
-    const [header] = useHeaders((headers: any[]) => {
-        console.log('Intercepted headers:', headers);
-        return headers.filter(header => header.url.includes(`https://${host}`));
-    });
+
+    // Use cached cookie from state
+    const cachedCookie = useState('cookie', null);
+
+    if (!cachedCookie) {
+        setState('isRequestPending', false);
+        return;
+    }
 
     const headers = {
-        'cookie': header.requestHeaders.find((header: any) => header.name === 'Cookie')?.value,
+        'cookie': cachedCookie,
         Host: host,
         'Accept-Encoding': 'identity',
         Connection: 'close',
@@ -87,13 +91,24 @@ function minimizeUI() {
 }
 
 function main() {
-    const [header] = useHeaders((headers: any[]) =>
-        headers.filter(header => header.url.includes(`https://${host}${ui_path}`))
-    );
-
-    const hasNecessaryHeader = header?.requestHeaders.some((h: any) => h.name === 'Cookie');
     const isMinimized = useState('isMinimized', false);
     const isRequestPending = useState('isRequestPending', false);
+    const cachedCookie = useState('cookie', null);
+
+    // Only search for cookie if not already cached
+    if (!cachedCookie) {
+        const [header] = useHeaders((headers: any[]) =>
+            headers.filter(h => h.url.includes(`https://${host}`))
+        );
+
+        if (header) {
+            const cookie = header.requestHeaders.find((h: any) => h.name === 'Cookie')?.value;
+            if (cookie) {
+                setState('cookie', cookie);
+                console.log('Cookie found');
+            }
+        }
+    }
 
     useEffect(() => {
         openWindow(`https://${host}${ui_path}`);
@@ -200,15 +215,15 @@ function main() {
                                 marginBottom: '16px',
                                 padding: '12px',
                                 borderRadius: '6px',
-                                backgroundColor: header ? '#d4edda' : '#f8d7da',
-                                color: header ? '#155724' : '#721c24',
-                                border: `1px solid ${header ? '#c3e6cb' : '#f5c6cb'}`,
+                                backgroundColor: cachedCookie ? '#d4edda' : '#f8d7da',
+                                color: cachedCookie ? '#155724' : '#721c24',
+                                border: `1px solid ${cachedCookie ? '#c3e6cb' : '#f5c6cb'}`,
                                 fontWeight: '500',
                             },
                         },
-                        [hasNecessaryHeader ? '✓ Cookie detected' : '⚠ No Cookie detected']
+                        [cachedCookie ? '✓ Cookie detected' : '⚠ No Cookie detected']
                     ),
-                    hasNecessaryHeader
+                    cachedCookie
                         ? button(
                             {
                                 style: {
