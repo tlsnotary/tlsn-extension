@@ -1,4 +1,5 @@
 # Build stage for demo
+# Context: packages/
 FROM node:20-alpine AS demo-builder
 
 # Accept build arguments with defaults
@@ -9,7 +10,6 @@ ARG GIT_HASH=local
 WORKDIR /app
 
 # Copy demo package files and install dependencies
-# (context is now packages/ directory)
 COPY demo/package.json ./
 RUN npm install
 
