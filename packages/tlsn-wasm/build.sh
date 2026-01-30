@@ -5,7 +5,7 @@ set -e # Exit on error
 # Set the directory to the location of the script
 cd "$(dirname "$0")"
 
-VERSION=${1:-origin/dev} # use `dev` branch if no version is set
+VERSION=${1:-origin/main} # use `main` branch if no version is set
 NO_LOGGING=${2}
 
 TARGET_DIR="../../tlsn-wasm-pkg/"
