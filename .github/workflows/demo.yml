@@ -100,7 +100,8 @@ jobs:
             - name: Build and push Docker image
               uses: docker/build-push-action@v4
               with:
-                  context: packages/demo
+                  context: packages
+                  file: packages/demo/Dockerfile
                   push: ${{ env.should_publish == 'true' }}
                   tags: ${{ steps.meta-verifier-webapp.outputs.tags }}
                   labels: ${{ steps.meta-verifier-webapp.outputs.labels }}
