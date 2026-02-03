@@ -198,9 +198,12 @@ impl<T: AsyncWrite + Unpin> hyper::rt::Write for HyperIo<T> {
 
 /// High-level async prove function
 pub async fn prove_async(request: HttpRequest, options: ProverOptions) -> Result<ProofResult, TlsnError> {
+    // Capture handler count immediately - before any potential issues
+    let handlers_received = options.handlers.len() as u32;
+
     println!("[TLSN-RUST] Starting proof for {}", request.url);
     println!("[TLSN-RUST] ====================================");
-    println!("[TLSN-RUST] HANDLERS RECEIVED: {}", options.handlers.len());
+    println!("[TLSN-RUST] HANDLERS RECEIVED: {} (captured as {})", options.handlers.len(), handlers_received);
     for (i, h) in options.handlers.iter().enumerate() {
         println!("[TLSN-RUST]   Handler[{}]: type={:?}, part={:?}, action={:?}", i, h.handler_type, h.part, h.action);
     }
@@ -384,10 +387,31 @@ pub async fn prove_async(request: HttpRequest, options: ProverOptions) -> Result
     let recv_parts = parse_http_parts(&recv_bytes)
         .ok_or_else(|| TlsnError::ProofFailed("Failed to parse HTTP response".to_string()))?;
 
+    println!("[TLSN-RUST] ====== HTTP STRUCTURE ======");
+    println!("[TLSN-RUST] SENT ({} bytes total):", sent_bytes.len());
+    println!("[TLSN-RUST]   StartLine: 0..{}", sent_parts.start_line_end);
+    println!("[TLSN-RUST]   Headers:   {}..{}", sent_parts.headers_start, sent_parts.headers_end);
+    println!("[TLSN-RUST]   Body:      {}..{}", sent_parts.body_start, sent_bytes.len());
+    println!("[TLSN-RUST] RECV ({} bytes total):", recv_bytes.len());
+    println!("[TLSN-RUST]   StartLine: 0..{}", recv_parts.start_line_end);
+    println!("[TLSN-RUST]   Headers:   {}..{}", recv_parts.headers_start, recv_parts.headers_end);
+    println!("[TLSN-RUST]   Body:      {}..{}", recv_parts.body_start, recv_bytes.len());
+    println!("[TLSN-RUST] ============================");
+
+    // Track what we're revealing for summary
+    let mut sent_revealed: Vec<std::ops::Range<usize>> = Vec::new();
+    let mut recv_revealed: Vec<std::ops::Range<usize>> = Vec::new();
+
+    // DEBUG: Check handlers at reveal time
+    println!("[TLSN-RUST] >>> REVEAL DECISION: handlers.len() = {}, is_empty() = {}",
+             options.handlers.len(), options.handlers.is_empty());
+
     if options.handlers.is_empty() {
         // No handlers specified - reveal everything (backwards compatible)
         println!("[TLSN-RUST] No handlers specified, revealing ALL data in MPC");
         tracing::info!("No handlers specified, revealing all data in MPC");
+        sent_revealed.push(0..sent_bytes.len());
+        recv_revealed.push(0..recv_bytes.len());
         proof_builder.reveal_sent(&(0..sent_bytes.len()))
             .map_err(|e| TlsnError::ProofFailed(e.to_string()))?;
         proof_builder.reveal_recv(&(0..recv_bytes.len()))
@@ -414,6 +438,7 @@ pub async fn prove_async(request: HttpRequest, options: ProverOptions) -> Result
                     };
                     println!("[TLSN-RUST] MPC: Revealing SENT range {:?} for part {:?}", range, handler.part);
                     tracing::info!("MPC: Revealing SENT range {:?} for part {:?}", range, handler.part);
+                    sent_revealed.push(range.clone());
                     proof_builder.reveal_sent(&range)
                         .map_err(|e| TlsnError::ProofFailed(e.to_string()))?;
                 }
@@ -442,20 +467,59 @@ pub async fn prove_async(request: HttpRequest, options: ProverOptions) -> Result
                             if recv_parts.body_start >= recv_bytes.len() {
                                 continue; // No body
                             }
-                            // For body with JSON path, reveal the whole body for now
-                            // (selective JSON field reveal would require more complex range calculation)
-                            recv_parts.body_start..recv_bytes.len()
+                            // Check for JSON path in params
+                            if let Some(params) = &handler.params {
+                                if params.content_type.as_deref() == Some("json") {
+                                    if let Some(path) = &params.path {
+                                        let body_data = &recv_bytes[recv_parts.body_start..];
+                                        let body_str = std::str::from_utf8(body_data).unwrap_or("");
+
+                                        if let Some((start, end)) = find_json_path(body_str, path) {
+                                            println!("[TLSN-RUST] MPC: JSON path '{}' found at body offset [{}, {})", path, start, end);
+                                            recv_parts.body_start + start..recv_parts.body_start + end
+                                        } else {
+                                            println!("[TLSN-RUST] MPC: JSON path '{}' not found, skipping", path);
+                                            continue;
+                                        }
+                                    } else {
+                                        // JSON but no path - reveal full body
+                                        recv_parts.body_start..recv_bytes.len()
+                                    }
+                                } else {
+                                    // Non-JSON content type - reveal full body
+                                    recv_parts.body_start..recv_bytes.len()
+                                }
+                            } else {
+                                // No params - reveal full body
+                                recv_parts.body_start..recv_bytes.len()
+                            }
                         }
                         HandlerPart::All => 0..recv_bytes.len(),
                     };
                     println!("[TLSN-RUST] MPC: Revealing RECV range {:?} for part {:?}", range, handler.part);
                     tracing::info!("MPC: Revealing RECV range {:?} for part {:?}", range, handler.part);
+                    recv_revealed.push(range.clone());
                     proof_builder.reveal_recv(&range)
                         .map_err(|e| TlsnError::ProofFailed(e.to_string()))?;
                 }
             }
         }
     }
+
+    // Print summary
+    println!("[TLSN-RUST] ====== MPC REVEAL SUMMARY ======");
+    println!("[TLSN-RUST] SENT: {} ranges revealed", sent_revealed.len());
+    for (i, r) in sent_revealed.iter().enumerate() {
+        println!("[TLSN-RUST]   [{}] {}..{} ({} bytes)", i, r.start, r.end, r.end - r.start);
+    }
+    println!("[TLSN-RUST] RECV: {} ranges revealed", recv_revealed.len());
+    for (i, r) in recv_revealed.iter().enumerate() {
+        println!("[TLSN-RUST]   [{}] {}..{} ({} bytes)", i, r.start, r.end, r.end - r.start);
+    }
+    if sent_revealed.is_empty() {
+        println!("[TLSN-RUST] ⚠️  NO SENT DATA REVEALED - Request will be redacted!");
+    }
+    println!("[TLSN-RUST] ================================");
 
     // Reveal server identity
     proof_builder.server_identity();
@@ -527,6 +591,7 @@ pub async fn prove_async(request: HttpRequest, options: ProverOptions) -> Result
             sent: sent_bytes,
             recv: recv_bytes,
         },
+        handlers_received,
     })
 }
 

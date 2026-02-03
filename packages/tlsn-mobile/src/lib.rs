@@ -143,6 +143,8 @@ pub struct ProverOptions {
 pub struct ProofResult {
     pub response: HttpResponse,
     pub transcript: Transcript,
+    /// Debug: number of handlers received by Rust
+    pub handlers_received: u32,
 }
 
 /// High-level prove function

@@ -15,11 +15,30 @@ export interface ProveRequest {
   body?: string;
 }
 
+// Handler types matching Rust enums
+export type HandlerType = 'Sent' | 'Recv';
+export type HandlerPart = 'StartLine' | 'Headers' | 'Body' | 'All';
+export type HandlerAction = 'Reveal';
+
+export interface HandlerParams {
+  key?: string;        // For HEADERS: specific header key
+  contentType?: string; // For BODY: "json" for JSON parsing
+  path?: string;       // For BODY with JSON: JSON path like "items[0].name"
+}
+
+export interface Handler {
+  handlerType: HandlerType;
+  part: HandlerPart;
+  action: HandlerAction;
+  params?: HandlerParams;
+}
+
 export interface ProverOptions {
   verifierUrl: string;
   proxyUrl: string;
   maxSentData?: number;
   maxRecvData?: number;
+  handlers?: Handler[];
 }
 
 export interface ProveResult {
@@ -30,6 +49,8 @@ export interface ProveResult {
     sentLength: number;
     recvLength: number;
   };
+  /** Debug: number of handlers received by Rust */
+  handlersReceived?: number;
 }
 
 /**
