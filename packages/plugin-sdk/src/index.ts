@@ -550,10 +550,42 @@ ${code};
     const stateStore: { [key: string]: any } = {};
 
     let doneResolve: (args?: any[]) => void;
+    let doneReject: (error: Error) => void;
+    let isCompleted = false;
 
-    const donePromise = new Promise((resolve) => {
+    const donePromise = new Promise((resolve, reject) => {
       doneResolve = resolve;
+      doneReject = reject;
     });
+
+    // Helper to terminate plugin execution with an error
+    const terminateWithError = (error: Error, sandbox?: { dispose: () => void }) => {
+      if (isCompleted) return;
+      isCompleted = true;
+      logger.error('[executePlugin] Plugin terminated with error:', error);
+
+      // Clean up registry entry
+      const ctx = executionContextRegistry.get(uuid);
+      if (ctx?.windowId) {
+        try {
+          this.onCloseWindow(ctx.windowId);
+        } catch (closeError) {
+          logger.error('[executePlugin] Error closing window:', closeError);
+        }
+      }
+      executionContextRegistry.delete(uuid);
+
+      // Dispose sandbox if provided
+      if (sandbox) {
+        try {
+          sandbox.dispose();
+        } catch (disposeError) {
+          logger.error('[executePlugin] Error disposing sandbox:', disposeError);
+        }
+      }
+
+      doneReject(error);
+    };
 
     /**
      * The sandbox is a sandboxed environment that is used to execute the plugin code.
@@ -594,6 +626,9 @@ ${code};
       setState: makeSetState(uuid, stateStore, eventEmitter),
       prove: onProve,
       done: (args?: any[]) => {
+        if (isCompleted) return;
+        isCompleted = true;
+
         // Close the window if it exists
         const context = executionContextRegistry.get(uuid);
         if (context?.windowId) {
@@ -604,7 +639,9 @@ ${code};
       },
     });
 
-    const exportedCode = await sandbox.eval(`
+    let exportedCode;
+    try {
+      exportedCode = await sandbox.eval(`
 const div = env.div;
 const button = env.button;
 const openWindow = env.openWindow;
@@ -618,11 +655,17 @@ const closeWindow = env.closeWindow;
 const done = env.done;
 ${code};
 `);
+    } catch (evalError) {
+      const error = evalError instanceof Error ? evalError : new Error(String(evalError));
+      terminateWithError(new Error(`Plugin evaluation failed: ${error.message}`), sandbox);
+      return donePromise;
+    }
 
     const { main: mainFn, ...args } = exportedCode;
 
     if (typeof mainFn !== 'function') {
-      throw new Error('Main function not found');
+      terminateWithError(new Error('Main function not found in plugin'), sandbox);
+      return donePromise;
     }
 
     const callbacks: {
@@ -692,10 +735,8 @@ ${code};
 
         return result;
       } catch (error) {
-        logger.error('Main function error:', error);
-        // Clean up registry entry on error to prevent memory leak
-        executionContextRegistry.delete(uuid);
-        sandbox.dispose();
+        const err = error instanceof Error ? error : new Error(String(error));
+        terminateWithError(new Error(`Plugin main() error: ${err.message}`), sandbox);
         return null;
       }
     };
@@ -712,6 +753,7 @@ ${code};
       stateStore: {},
     });
 
+    // Execute initial main() - errors are handled within main() via terminateWithError
     main();
 
     return donePromise;
