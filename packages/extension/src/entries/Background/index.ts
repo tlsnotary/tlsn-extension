@@ -134,10 +134,10 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
 
   if (request.type === 'CONTENT_SCRIPT_READY') {
     if (!sender.tab?.windowId) {
-      return;
+      return false;
     }
     windowManager.reRenderPluginUI(sender.tab.windowId as number);
-    return true;
+    return false; // No response needed
   }
 
   // Example response
@@ -153,7 +153,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
       request.windowId,
     );
     windowManager.showPluginUI(request.windowId, request.json);
-    return true;
+    return false; // No response needed
   }
 
   // Handle plugin confirmation responses from popup
@@ -163,7 +163,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
       request.requestId,
       request.allowed,
     );
-    return true;
+    return false; // No response needed
   }
 
   // Handle code execution requests
@@ -376,10 +376,11 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
 
   if (request.type === 'TO_BG_RE_RENDER_PLUGIN_UI') {
     windowManager.reRenderPluginUI(request.windowId);
-    return;
+    return false; // No response needed
   }
 
-  return true; // Keep message channel open for async response
+  // Unknown message type - no response needed
+  return false;
 });
 
 // Mutex for offscreen document creation to prevent race conditions
