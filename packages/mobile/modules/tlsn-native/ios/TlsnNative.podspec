@@ -15,20 +15,15 @@ Pod::Spec.new do |s|
   # Swift source files (paths relative to podspec location)
   s.source_files = '**/*.swift'
 
-  # Static library
-  s.vendored_libraries = 'lib/libtlsn_mobile.a'
+  # XCFramework with universal iOS binary (includes headers)
+  s.vendored_frameworks = 'TlsnMobile.xcframework'
 
   # Link required system frameworks
   s.frameworks = 'Security', 'SystemConfiguration'
   s.libraries = 'c++'
 
-  # Header search paths for FFI types
-  s.preserve_paths = 'include/**/*'
-
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',
-    'SWIFT_COMPILATION_MODE' => 'wholemodule',
-    'SWIFT_INCLUDE_PATHS' => '$(PODS_TARGET_SRCROOT)/include',
-    'HEADER_SEARCH_PATHS' => '$(PODS_TARGET_SRCROOT)/include'
+    'SWIFT_COMPILATION_MODE' => 'wholemodule'
   }
 end
