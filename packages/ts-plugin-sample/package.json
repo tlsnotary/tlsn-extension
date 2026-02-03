@@ -7,7 +7,7 @@
   "scripts": {
     "build": "node build-wrapper.cjs",
     "clean": "rm -rf build",
-    "dev": "esbuild src/index.ts --bundle --format=esm --outfile=build/index.js --sourcemap --watch",
+    "dev": "esbuild src/index.ts --bundle --format=esm --outfile=build/index.js --sourcemap --watch --define:__VERIFIER_URL__='\"${VERIFIER_URL:-http://localhost:7047}\"' --define:__PROXY_URL__='\"${PROXY_URL:-ws://localhost:7047/proxy}\"'",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [

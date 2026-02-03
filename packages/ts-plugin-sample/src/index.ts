@@ -46,6 +46,10 @@ enum HandlerAction {
   PEDERSEN = 'PEDERSEN',
 }
 
+// Injected at build time via esbuild --define
+declare const __VERIFIER_URL__: string;
+declare const __PROXY_URL__: string;
+
 // =============================================================================
 // PROOF GENERATION CALLBACK
 // =============================================================================
@@ -87,17 +91,20 @@ async function onClick(): Promise<void> {
   };
 
   // Step 3: Generate TLS proof using the unified prove() API
+  const requestUrl = 'https://api.x.com/1.1/account/settings.json';
+  const requestHost = new URL(requestUrl).host;
+
   const resp = await prove(
     // Request options
     {
-      url: 'https://api.x.com/1.1/account/settings.json',
+      url: requestUrl,
       method: 'GET',
       headers: headers,
     },
     // Prover options
     {
-      verifierUrl: 'http://localhost:7047',
-      proxyUrl: 'ws://localhost:7047/proxy?token=api.x.com',
+      verifierUrl: __VERIFIER_URL__,
+      proxyUrl: `${__PROXY_URL__}?token=${requestHost}`,
       maxRecvData: 4000,
       maxSentData: 2000,
       handlers: [
