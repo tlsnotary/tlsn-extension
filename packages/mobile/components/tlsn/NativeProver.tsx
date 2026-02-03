@@ -42,6 +42,7 @@ interface ProveResult {
     sentLength: number;
     recvLength: number;
   };
+  handlersReceived?: number;
 }
 
 export interface NativeProveParams {
@@ -149,9 +150,14 @@ function NativeProverComponent(
       handlers: params.proverOptions.handlers || [],
     };
 
+    console.log('[NativeProver] Handlers being passed to native:', JSON.stringify(options.handlers, null, 2));
+    console.log('[NativeProver] Full options:', JSON.stringify(options, null, 2));
+
     try {
       const result = await module.prove(request, options);
       console.log('[NativeProver] Proof generation complete');
+      console.log('[NativeProver] Transcript:', JSON.stringify(result.transcript));
+      console.log('[NativeProver] Debug info:', JSON.stringify((result as any).debug));
       return result;
     } catch (e) {
       console.error('[NativeProver] Proof generation failed:', e);
