@@ -7,6 +7,9 @@
 // Type imports only (stripped at compile time)
 import type { PluginConfig, RequestPermission } from '@tlsn/plugin-sdk';
 
+// Injected at build time via esbuild --define
+declare const __VERIFIER_URL__: string;
+
 export const config: PluginConfig = {
   name: 'X Profile Prover',
   description: 'This plugin will prove your X.com profile.',
@@ -17,7 +20,7 @@ export const config: PluginConfig = {
       method: 'GET',
       host: 'api.x.com',
       pathname: '/1.1/account/settings.json',
-      verifierUrl: 'http://localhost:7047',
+      verifierUrl: __VERIFIER_URL__,
     } satisfies RequestPermission,
   ],
   urls: ['https://x.com/*'],
