@@ -87,7 +87,10 @@ export class ProveManager {
       const ws = new WebSocket(sessionWsUrl);
 
       ws.onopen = () => {
-        logger.debug('[ProveManager] Session WebSocket connected for prover:', proverId);
+        logger.debug(
+          '[ProveManager] Session WebSocket connected for prover:',
+          proverId,
+        );
 
         const registerMsg: ClientMessage = {
           type: 'register',
@@ -151,7 +154,11 @@ export class ProveManager {
             }
 
             case 'error': {
-              logger.error('[ProveManager] Server error for prover:', proverId, data.message);
+              logger.error(
+                '[ProveManager] Server error for prover:',
+                proverId,
+                data.message,
+              );
               reject(new Error(data.message));
               break;
             }
@@ -199,12 +206,19 @@ export class ProveManager {
       };
 
       ws.onerror = (error) => {
-        logger.error('[ProveManager] WebSocket error for prover:', proverId, error);
+        logger.error(
+          '[ProveManager] WebSocket error for prover:',
+          proverId,
+          error,
+        );
         reject(new Error('WebSocket connection failed'));
       };
 
       ws.onclose = () => {
-        logger.debug('[ProveManager] Session WebSocket closed for prover:', proverId);
+        logger.debug(
+          '[ProveManager] Session WebSocket closed for prover:',
+          proverId,
+        );
       };
     });
   }
@@ -384,7 +398,10 @@ export class ProveManager {
   closeSession(proverId: string) {
     const session = this.sessions.get(proverId);
     if (session && session.webSocket.readyState === WebSocket.OPEN) {
-      logger.debug('[ProveManager] Closing session WebSocket for prover:', proverId);
+      logger.debug(
+        '[ProveManager] Closing session WebSocket for prover:',
+        proverId,
+      );
       session.webSocket.close();
     }
   }
