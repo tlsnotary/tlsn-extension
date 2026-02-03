@@ -65,8 +65,10 @@ export class SessionManager {
           const prover = await this.proveManager.getProver(proverId);
 
           const headerMap: Map<string, number[]> = new Map();
-          Object.entries(requestOptions.headers).forEach(([key, value]) => {
-            headerMap.set(key, Buffer.from(value).toJSON().data);
+          Object.entries(requestOptions.headers || {}).forEach(([key, value]) => {
+            if (value !== undefined && value !== null) {
+              headerMap.set(key, Buffer.from(String(value)).toJSON().data);
+            }
           });
 
           await prover.send_request(proverOptions.proxyUrl, {

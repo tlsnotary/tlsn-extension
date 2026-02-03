@@ -338,7 +338,9 @@ export class ProveManager {
 
     const headerMap: Map<string, number[]> = new Map();
     Object.entries(options.headers || {}).forEach(([key, value]) => {
-      headerMap.set(key, Buffer.from(value).toJSON().data);
+      if (value !== undefined && value !== null) {
+        headerMap.set(key, Buffer.from(String(value)).toJSON().data);
+      }
     });
     await prover.send_request(proxyUrl, {
       uri: options.url,
