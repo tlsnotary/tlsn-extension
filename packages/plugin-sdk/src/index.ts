@@ -262,61 +262,65 @@ function makeOpenWindow(
         });
 
         const onMessage = async (message: any) => {
-          if (message.type === 'REQUEST_INTERCEPTED') {
-            const request = message.request;
-            const executionContext = executionContextRegistry.get(uuid);
-            if (!executionContext) {
-              throw new Error('Execution context not found');
-            }
-            updateExecutionContext(uuid, {
-              requests: [...(executionContext.requests || []), request],
-            });
-            executionContext.main();
-          }
-
-          if (message.type === 'HEADER_INTERCEPTED') {
-            const header = message.header;
-            const executionContext = executionContextRegistry.get(uuid);
-            if (!executionContext) {
-              throw new Error('Execution context not found');
-            }
-            updateExecutionContext(uuid, {
-              headers: [...(executionContext.headers || []), header],
-            });
-            executionContext.main();
-          }
-
-          if (message.type === 'PLUGIN_UI_CLICK') {
-            logger.debug('PLUGIN_UI_CLICK', message);
-            const executionContext = executionContextRegistry.get(uuid);
-            if (!executionContext) {
-              throw new Error('Execution context not found');
-            }
-            const cb = executionContext.callbacks[message.onclick];
-
-            logger.debug('Callback:', cb);
-            if (cb) {
-              updateExecutionContext(uuid, {
-                currentContext: message.onclick,
-              });
-              const result = await cb();
-              updateExecutionContext(uuid, {
-                currentContext: '',
-              });
-              logger.debug('Callback result:', result);
-            }
-          }
-
-          if (message.type === 'RE_RENDER_PLUGIN_UI') {
-            logger.debug('[makeOpenWindow] RE_RENDER_PLUGIN_UI', message.windowId);
-            const executionContext = executionContextRegistry.get(uuid);
-            if (!executionContext) {
-              throw new Error('Execution context not found');
-            }
-            executionContext.main(true);
-          }
-
+          // Handle window closed first - always remove listener
           if (message.type === 'WINDOW_CLOSED') {
+            eventEmitter.removeListener(onMessage);
+            return;
+          }
+
+          // For all other messages, check if context still exists
+          // Context may have been cleaned up due to error or done() call
+          const executionContext = executionContextRegistry.get(uuid);
+          if (!executionContext) {
+            logger.debug(`[makeOpenWindow] Ignoring message ${message.type}: execution context no longer exists`);
+            eventEmitter.removeListener(onMessage);
+            return;
+          }
+
+          try {
+            if (message.type === 'REQUEST_INTERCEPTED') {
+              const request = message.request;
+              updateExecutionContext(uuid, {
+                requests: [...(executionContext.requests || []), request],
+              });
+              executionContext.main();
+            }
+
+            if (message.type === 'HEADER_INTERCEPTED') {
+              const header = message.header;
+              updateExecutionContext(uuid, {
+                headers: [...(executionContext.headers || []), header],
+              });
+              executionContext.main();
+            }
+
+            if (message.type === 'PLUGIN_UI_CLICK') {
+              logger.debug('PLUGIN_UI_CLICK', message);
+              const cb = executionContext.callbacks[message.onclick];
+
+              logger.debug('Callback:', cb);
+              if (cb) {
+                updateExecutionContext(uuid, {
+                  currentContext: message.onclick,
+                });
+                const result = await cb();
+                // Re-check context exists after async callback
+                if (executionContextRegistry.has(uuid)) {
+                  updateExecutionContext(uuid, {
+                    currentContext: '',
+                  });
+                }
+                logger.debug('Callback result:', result);
+              }
+            }
+
+            if (message.type === 'RE_RENDER_PLUGIN_UI') {
+              logger.debug('[makeOpenWindow] RE_RENDER_PLUGIN_UI', message.windowId);
+              executionContext.main(true);
+            }
+          } catch (error) {
+            logger.error(`[makeOpenWindow] Error handling message ${message.type}:`, error);
+            // Clean up on error to prevent further issues
             eventEmitter.removeListener(onMessage);
           }
         };
@@ -689,6 +693,8 @@ ${code};
         return result;
       } catch (error) {
         logger.error('Main function error:', error);
+        // Clean up registry entry on error to prevent memory leak
+        executionContextRegistry.delete(uuid);
         sandbox.dispose();
         return null;
       }
