@@ -26,7 +26,9 @@
     "demo": "npm run dev --workspace=@tlsnotary/demo",
     "tutorial": "npm run dev --workspace=@tlsn/tutorial",
     "docker:up": "cd packages/demo && docker compose up --build -d",
-    "docker:down": "cd packages/demo && docker compose down"
+    "docker:down": "cd packages/demo && docker compose down",
+    "mobile": "npm run start --workspace=@tlsn/mobile",
+    "mobile:ios": "npm run ios --workspace=@tlsn/mobile"
   },
   "devDependencies": {
     "typescript": "^5.5.4",

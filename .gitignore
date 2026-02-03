@@ -5,7 +5,8 @@ bin/
 **/.DS_Store
 .idea
 build
-tlsn/
+# TLSN submodule in tlsn-wasm
+packages/tlsn-wasm/tlsn/
 zip
 .vscode
 .claude

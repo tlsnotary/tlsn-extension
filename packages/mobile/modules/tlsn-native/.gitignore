@@ -1,0 +1,7 @@
+# Built libraries (regenerate with build.sh)
+ios/TlsnMobile.xcframework/
+ios/lib/
+
+# Generated Swift bindings (regenerate with build.sh)
+ios/tlsn_mobile.swift
+ios/include/

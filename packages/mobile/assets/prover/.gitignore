@@ -1,0 +1,5 @@
+# Generated WASM and JS files - copy from packages/tlsn-wasm-pkg
+tlsn_wasm_bg.wasm
+tlsn_wasm.js
+spawn.js
+snippets/

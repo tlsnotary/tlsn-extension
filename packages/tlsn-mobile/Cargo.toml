@@ -1,0 +1,58 @@
+[package]
+name = "tlsn-mobile"
+version = "0.1.0"
+edition = "2021"
+description = "TLSNotary mobile bindings for iOS and Android"
+
+[lib]
+crate-type = ["staticlib", "cdylib"]
+name = "tlsn_mobile"
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "uniffi-bindgen.rs"
+
+[dependencies]
+# UniFFI for Swift/Kotlin bindings
+uniffi = { version = "0.28", features = ["cli"] }
+
+# Async runtime
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "macros", "io-util"] }
+tokio-util = { version = "0.7", features = ["compat"] }
+
+# Networking - use native-tls for iOS (uses Security.framework)
+tokio-tungstenite = { version = "0.21", features = ["native-tls"] }
+futures = "0.3"
+futures-util = "0.3"
+async_io_stream = "0.3"
+url = "2"
+
+# HTTP
+http = "1"
+http-body-util = "0.1"
+httparse = "1"
+hyper = { version = "1", features = ["client", "http1"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Error handling
+thiserror = "1"
+anyhow = "1"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Bytes crate
+bytes = "1"
+
+# TLSN dependencies (from local path)
+tlsn = { path = "../tlsn-wasm/tlsn/crates/tlsn", default-features = false, features = ["rayon", "mozilla-certs"] }
+tlsn-core = { path = "../tlsn-wasm/tlsn/crates/core" }
+tlsn-tls-client-async = { path = "../tlsn-wasm/tlsn/crates/tls/client-async" }
+
+[features]
+default = []

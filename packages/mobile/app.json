@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "TLSN Mobile",
+    "slug": "tlsn-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "tlsn-mobile",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1DB954"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "org.tlsnotary.mobile"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#1DB954"
+      },
+      "edgeToEdgeEnabled": true,
+      "package": "org.tlsnotary.mobile"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "assetBundlePatterns": [
+      "assets/**/*"
+    ]
+  }
+}
