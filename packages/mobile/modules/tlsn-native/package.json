@@ -1,0 +1,9 @@
+{
+  "name": "tlsn-native",
+  "version": "1.0.0",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "description": "TLSNotary native bindings for React Native/Expo",
+  "author": "TLSNotary",
+  "license": "MIT"
+}
