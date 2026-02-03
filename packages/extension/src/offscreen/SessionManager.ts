@@ -61,57 +61,62 @@ export class SessionManager {
           sessionData,
         );
 
-        const prover = await this.proveManager.getProver(proverId);
+        try {
+          const prover = await this.proveManager.getProver(proverId);
 
-        const headerMap: Map<string, number[]> = new Map();
-        Object.entries(requestOptions.headers).forEach(([key, value]) => {
-          headerMap.set(key, Buffer.from(value).toJSON().data);
-        });
+          const headerMap: Map<string, number[]> = new Map();
+          Object.entries(requestOptions.headers).forEach(([key, value]) => {
+            headerMap.set(key, Buffer.from(value).toJSON().data);
+          });
 
-        await prover.send_request(proverOptions.proxyUrl, {
-          uri: requestOptions.url,
-          method: requestOptions.method as Method,
-          headers: headerMap,
-          body: requestOptions.body,
-        });
+          await prover.send_request(proverOptions.proxyUrl, {
+            uri: requestOptions.url,
+            method: requestOptions.method as Method,
+            headers: headerMap,
+            body: requestOptions.body,
+          });
 
-        // Get transcripts for parsing
-        const { sent, recv } = await prover.transcript();
+          // Get transcripts for parsing
+          const { sent, recv } = await prover.transcript();
 
-        const parsedSent = new Parser(Buffer.from(sent));
-        const parsedRecv = new Parser(Buffer.from(recv));
+          const parsedSent = new Parser(Buffer.from(sent));
+          const parsedRecv = new Parser(Buffer.from(recv));
 
-        logger.debug('parsedSent', parsedSent.json());
-        logger.debug('parsedRecv', parsedRecv.json());
+          logger.debug('parsedSent', parsedSent.json());
+          logger.debug('parsedRecv', parsedRecv.json());
 
-        // Use refactored range extraction logic
-        const {
-          sentRanges,
-          recvRanges,
-          sentRangesWithHandlers,
-          recvRangesWithHandlers,
-        } = processHandlers(proverOptions.handlers, parsedSent, parsedRecv);
+          // Use refactored range extraction logic
+          const {
+            sentRanges,
+            recvRanges,
+            sentRangesWithHandlers,
+            recvRangesWithHandlers,
+          } = processHandlers(proverOptions.handlers, parsedSent, parsedRecv);
 
-        logger.debug('sentRanges', sentRanges);
-        logger.debug('recvRanges', recvRanges);
+          logger.debug('sentRanges', sentRanges);
+          logger.debug('recvRanges', recvRanges);
 
-        // Send reveal config (ranges + handlers) to verifier BEFORE calling reveal()
-        await this.proveManager.sendRevealConfig(proverId, {
-          sent: sentRangesWithHandlers,
-          recv: recvRangesWithHandlers,
-        });
+          // Send reveal config (ranges + handlers) to verifier BEFORE calling reveal()
+          await this.proveManager.sendRevealConfig(proverId, {
+            sent: sentRangesWithHandlers,
+            recv: recvRangesWithHandlers,
+          });
 
-        // Reveal the ranges
-        await prover.reveal({
-          sent: sentRanges,
-          recv: recvRanges,
-          server_identity: true,
-        });
+          // Reveal the ranges
+          await prover.reveal({
+            sent: sentRanges,
+            recv: recvRanges,
+            server_identity: true,
+          });
 
-        // Get structured response from verifier (now includes handler results)
-        const response = await this.proveManager.getResponse(proverId);
+          // Get structured response from verifier (now includes handler results)
+          const response = await this.proveManager.getResponse(proverId);
 
-        return response;
+          return response;
+        } finally {
+          // Always clean up prover resources to prevent memory leaks
+          this.proveManager.cleanupProver(proverId);
+        }
       },
       onRenderPluginUi: (windowId: number, result: DomJson) => {
         const chromeRuntime = (

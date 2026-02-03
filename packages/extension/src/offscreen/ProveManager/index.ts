@@ -35,9 +35,18 @@ type ServerMessage =
   | { type: 'session_completed'; results: any[] }
   | { type: 'error'; message: string };
 
+/** Session state tracked per prover */
+interface SessionState {
+  sessionId: string;
+  webSocket: WebSocket;
+  response: any | null;
+  responseReceived: boolean;
+}
+
 export class ProveManager {
   private provers: Map<string, TProver> = new Map();
-  private proverToSessionId: Map<string, string> = new Map();
+  /** Maps proverId to its session state - each prover has isolated session */
+  private sessions: Map<string, SessionState> = new Map();
 
   async init() {
     await init({
@@ -52,18 +61,19 @@ export class ProveManager {
     logger.debug('ProveManager initialized');
   }
 
-  private sessionWebSocket: WebSocket | null = null;
-  private currentSessionId: string | null = null;
-  private sessionResponses: Map<string, any> = new Map();
-
-  async getVerifierSessionUrl(
+  /**
+   * Create a session WebSocket and register with the verifier.
+   * Each prover gets its own isolated session.
+   */
+  private async createSession(
+    proverId: string,
     verifierUrl: string,
-    maxRecvData = 16384,
-    maxSentData = 4096,
-    sessionData: Record<string, string> = {},
+    maxRecvData: number,
+    maxSentData: number,
+    sessionData: Record<string, string>,
   ): Promise<string> {
     return new Promise((resolve, reject) => {
-      logger.debug('[ProveManager] Getting verifier session URL:', verifierUrl);
+      logger.debug('[ProveManager] Creating session for prover:', proverId);
       const _url = new URL(verifierUrl);
       const protocol = _url.protocol === 'https:' ? 'wss' : 'ws';
       const pathname = _url.pathname;
@@ -75,12 +85,10 @@ export class ProveManager {
       );
 
       const ws = new WebSocket(sessionWsUrl);
-      this.sessionWebSocket = ws;
 
       ws.onopen = () => {
-        logger.debug('[ProveManager] Session WebSocket connected');
+        logger.debug('[ProveManager] Session WebSocket connected for prover:', proverId);
 
-        // Send "register" message immediately on connect
         const registerMsg: ClientMessage = {
           type: 'register',
           maxRecvData,
@@ -99,14 +107,20 @@ export class ProveManager {
             case 'session_registered': {
               const sessionId = data.sessionId;
               logger.debug(
-                '[ProveManager] Received session_registered:',
+                '[ProveManager] Session registered for prover:',
+                proverId,
+                'sessionId:',
                 sessionId,
               );
 
-              // Store the current session ID
-              this.currentSessionId = sessionId;
+              // Store session state for this prover
+              this.sessions.set(proverId, {
+                sessionId,
+                webSocket: ws,
+                response: null,
+                responseReceived: false,
+              });
 
-              // Construct verifier URL for prover
               const verifierWsUrl = `${protocol}://${_url.host}${pathname === '/' ? '' : pathname}/verifier?sessionId=${sessionId}`;
               logger.debug(
                 '[ProveManager] Prover will connect to:',
@@ -119,52 +133,54 @@ export class ProveManager {
 
             case 'session_completed': {
               logger.debug(
-                '[ProveManager] ✅ Received session_completed from verifier',
+                '[ProveManager] ✅ Session completed for prover:',
+                proverId,
               );
               logger.debug(
                 '[ProveManager] Handler results count:',
                 data.results.length,
               );
 
-              // Store the response with the session ID
-              if (this.currentSessionId) {
-                this.sessionResponses.set(this.currentSessionId, {
-                  results: data.results,
-                });
-                logger.debug(
-                  '[ProveManager] Stored response for session:',
-                  this.currentSessionId,
-                );
+              // Store response in the session state
+              const session = this.sessions.get(proverId);
+              if (session) {
+                session.response = { results: data.results };
+                session.responseReceived = true;
               }
-
-              // WebSocket will be closed by the server
               break;
             }
 
             case 'error': {
-              logger.error('[ProveManager] Server error:', data.message);
+              logger.error('[ProveManager] Server error for prover:', proverId, data.message);
               reject(new Error(data.message));
               break;
             }
 
             default: {
-              // Handle legacy format for backward compatibility during transition
+              // Handle legacy format for backward compatibility
               const legacyData = data as any;
               if (legacyData.sessionId) {
-                // Old format: { sessionId: "..." }
                 logger.warn(
-                  '[ProveManager] Received legacy sessionId format, falling back',
+                  '[ProveManager] Received legacy sessionId format for prover:',
+                  proverId,
                 );
-                this.currentSessionId = legacyData.sessionId;
+                this.sessions.set(proverId, {
+                  sessionId: legacyData.sessionId,
+                  webSocket: ws,
+                  response: null,
+                  responseReceived: false,
+                });
                 const verifierWsUrl = `${protocol}://${_url.host}${pathname === '/' ? '' : pathname}/verifier?sessionId=${legacyData.sessionId}`;
                 resolve(verifierWsUrl);
               } else if (legacyData.results !== undefined) {
-                // Old format: { results: [...] }
                 logger.warn(
-                  '[ProveManager] Received legacy results format, falling back',
+                  '[ProveManager] Received legacy results format for prover:',
+                  proverId,
                 );
-                if (this.currentSessionId) {
-                  this.sessionResponses.set(this.currentSessionId, legacyData);
+                const session = this.sessions.get(proverId);
+                if (session) {
+                  session.response = legacyData;
+                  session.responseReceived = true;
                 }
               } else {
                 logger.warn(
@@ -183,14 +199,12 @@ export class ProveManager {
       };
 
       ws.onerror = (error) => {
-        logger.error('[ProveManager] WebSocket error:', error);
+        logger.error('[ProveManager] WebSocket error for prover:', proverId, error);
         reject(new Error('WebSocket connection failed'));
       };
 
       ws.onclose = () => {
-        logger.debug('[ProveManager] Session WebSocket closed');
-        this.sessionWebSocket = null;
-        this.currentSessionId = null;
+        logger.debug('[ProveManager] Session WebSocket closed for prover:', proverId);
       };
     });
   }
@@ -204,25 +218,17 @@ export class ProveManager {
   ) {
     const proverId = uuidv4();
 
-    const sessionUrl = await this.getVerifierSessionUrl(
+    // Create isolated session for this prover
+    const sessionUrl = await this.createSession(
+      proverId,
       verifierUrl,
       maxRecvData,
       maxSentData,
       sessionData,
     );
 
-    // Store the mapping from proverId to sessionId
-    if (this.currentSessionId) {
-      this.proverToSessionId.set(proverId, this.currentSessionId);
-      logger.debug(
-        '[ProveManager] Mapped proverId',
-        proverId,
-        'to sessionId',
-        this.currentSessionId,
-      );
-    }
-
     logger.debug('[ProveManager] Creating prover with config:', {
+      proverId,
       server_name: serverDns,
       max_recv_data: maxRecvData,
       max_sent_data: maxSentData,
@@ -254,6 +260,8 @@ export class ProveManager {
       return proverId;
     } catch (error) {
       logger.error('[ProveManager] Failed to create prover:', error);
+      // Clean up session state on failure
+      this.cleanupProver(proverId);
       throw error;
     }
   }
@@ -276,16 +284,15 @@ export class ProveManager {
       recv: Array<{ start: number; end: number; handler: any }>;
     },
   ) {
-    if (!this.sessionWebSocket) {
-      throw new Error('Session WebSocket not available');
+    const session = this.sessions.get(proverId);
+    if (!session) {
+      throw new Error('Session not found for prover: ' + proverId);
     }
 
-    const sessionId = this.proverToSessionId.get(proverId);
-    if (!sessionId) {
-      throw new Error('Session ID not found for prover');
+    if (session.webSocket.readyState !== WebSocket.OPEN) {
+      throw new Error('Session WebSocket not open for prover: ' + proverId);
     }
 
-    // Send as typed message
     const message: ClientMessage = {
       type: 'reveal_config',
       sent: revealConfig.sent,
@@ -293,12 +300,13 @@ export class ProveManager {
     };
 
     logger.debug('[ProveManager] Sending reveal_config message:', {
-      sessionId,
+      proverId,
+      sessionId: session.sessionId,
       sentRanges: revealConfig.sent.length,
       recvRanges: revealConfig.recv.length,
     });
 
-    this.sessionWebSocket.send(JSON.stringify(message));
+    session.webSocket.send(JSON.stringify(message));
     logger.debug('[ProveManager] ✅ reveal_config sent to verifier');
   }
 
@@ -346,35 +354,64 @@ export class ProveManager {
   /**
    * Get the verification response for a given prover ID.
    * Returns null if no response is available yet, otherwise returns the structured handler results.
+   * After successful retrieval, the response is kept for potential re-reads but can be cleaned up
+   * via cleanupProver().
    */
   async getResponse(proverId: string, retry = 60): Promise<any | null> {
-    const sessionId = this.proverToSessionId.get(proverId);
-    if (!sessionId) {
-      logger.warn('[ProveManager] No session ID found for proverId:', proverId);
+    const session = this.sessions.get(proverId);
+    if (!session) {
+      logger.warn('[ProveManager] No session found for proverId:', proverId);
       return null;
     }
 
-    const response = this.sessionResponses.get(sessionId);
-
-    if (!response) {
-      if (retry > 0) {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        return this.getResponse(proverId, retry - 1);
-      }
-      return null;
+    if (session.responseReceived && session.response) {
+      logger.debug('[ProveManager] Returning response for prover:', proverId);
+      return session.response;
     }
 
-    return response;
+    if (retry > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      return this.getResponse(proverId, retry - 1);
+    }
+
+    logger.warn('[ProveManager] Response timeout for prover:', proverId);
+    return null;
   }
 
   /**
-   * Close the session WebSocket if it's still open.
+   * Close the session WebSocket for a specific prover.
    */
-  closeSession() {
-    if (this.sessionWebSocket) {
-      logger.debug('[ProveManager] Closing session WebSocket');
-      this.sessionWebSocket.close();
-      this.sessionWebSocket = null;
+  closeSession(proverId: string) {
+    const session = this.sessions.get(proverId);
+    if (session && session.webSocket.readyState === WebSocket.OPEN) {
+      logger.debug('[ProveManager] Closing session WebSocket for prover:', proverId);
+      session.webSocket.close();
     }
+  }
+
+  /**
+   * Clean up all resources for a prover (session state, prover instance).
+   * Call this after proof generation is complete to prevent memory leaks.
+   */
+  cleanupProver(proverId: string) {
+    logger.debug('[ProveManager] Cleaning up prover:', proverId);
+
+    // Close WebSocket if open
+    this.closeSession(proverId);
+
+    // Remove session state
+    this.sessions.delete(proverId);
+
+    // Remove prover instance
+    this.provers.delete(proverId);
+
+    logger.debug('[ProveManager] Prover cleanup complete:', proverId);
+  }
+
+  /**
+   * Get count of active sessions (for debugging/monitoring).
+   */
+  getActiveSessionCount(): number {
+    return this.sessions.size;
   }
 }
