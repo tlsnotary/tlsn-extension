@@ -82,7 +82,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
       },
       window.location.origin,
     );
-    return false; // No response needed
+    return; // No response needed
   }
 
   if (request.type === 'GET_PAGE_INFO') {
@@ -102,7 +102,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
   }
 
   // Unknown message type - no response needed
-  return false;
+  return;
 });
 
 // Send a message to background script when ready
