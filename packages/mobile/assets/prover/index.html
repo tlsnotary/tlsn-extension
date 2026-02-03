@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TLSN Prover</title>
+  <script>
+    // Early diagnostic - runs before module script
+    console.log('[TLSN] Page loaded, checking WebView...');
+    if (window.ReactNativeWebView) {
+      console.log('[TLSN] ReactNativeWebView available');
+      window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'PAGE_LOADED' }));
+    } else {
+      console.log('[TLSN] ReactNativeWebView NOT available');
+    }
+  </script>
+  <script type="module">
+    console.log('[TLSN] Module script starting...');
+
+    import initWasm, * as wasm from './tlsn_wasm.js';
+
+    let initialized = false;
+    let initError = null;
+
+    async function initialize() {
+      if (initialized) return true;
+      if (initError) throw initError;
+
+      console.log('[TLSN] Initializing WASM...');
+
+      // Check for SharedArrayBuffer support
+      const hasSharedArrayBuffer = typeof SharedArrayBuffer !== 'undefined';
+      const crossOriginIsolated = self.crossOriginIsolated;
+      console.log('[TLSN] SharedArrayBuffer available:', hasSharedArrayBuffer);
+      console.log('[TLSN] crossOriginIsolated:', crossOriginIsolated);
+
+      if (!hasSharedArrayBuffer) {
+        console.warn('[TLSN] SharedArrayBuffer not available - WASM may not work correctly');
+      }
+
+      try {
+        await initWasm();
+        console.log('[TLSN] WASM module loaded');
+
+        // Try with 0 threads for WebView compatibility (with timeout)
+        console.log('[TLSN] Calling wasm.initialize(undefined, 0)...');
+        try {
+          const initPromise = wasm.initialize(undefined, 0);
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('wasm.initialize timed out after 10s')), 10000)
+          );
+          await Promise.race([initPromise, timeoutPromise]);
+          console.log('[TLSN] wasm.initialize completed');
+        } catch (threadError) {
+          console.warn('[TLSN] Threading init warning:', threadError.message);
+          // Continue anyway - single-threaded mode might still work
+        }
+
+        initialized = true;
+        console.log('[TLSN] WASM initialized successfully');
+        return true;
+      } catch (err) {
+        initError = err;
+        console.error('[TLSN] WASM init error:', err.message);
+        throw err;
+      }
+    }
+
+    // Register with verifier and get session URL
+    async function getVerifierSessionUrl(verifierUrl, maxRecvData, maxSentData) {
+      return new Promise((resolve, reject) => {
+        const url = new URL(verifierUrl);
+        const protocol = url.protocol === 'https:' ? 'wss' : 'ws';
+        const sessionWsUrl = `${protocol}://${url.host}${url.pathname === '/' ? '' : url.pathname}/session`;
+
+        console.log('[TLSN] Connecting to session:', sessionWsUrl);
+
+        const ws = new WebSocket(sessionWsUrl);
+
+        ws.onopen = () => {
+          console.log('[TLSN] Session WebSocket connected');
+          const registerMsg = {
+            type: 'register',
+            maxRecvData,
+            maxSentData,
+            sessionData: {}
+          };
+          console.log('[TLSN] Sending register message');
+          ws.send(JSON.stringify(registerMsg));
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            console.log('[TLSN] Session message:', data.type);
+
+            if (data.type === 'session_registered') {
+              const sessionId = data.sessionId;
+              const verifierWsUrl = `${protocol}://${url.host}${url.pathname === '/' ? '' : url.pathname}/verifier?sessionId=${sessionId}`;
+              console.log('[TLSN] Got session:', sessionId);
+              resolve(verifierWsUrl);
+            } else if (data.type === 'error') {
+              reject(new Error(data.message || 'Session registration failed'));
+            }
+          } catch (e) {
+            reject(e);
+          }
+        };
+
+        ws.onerror = (err) => {
+          console.error('[TLSN] Session WebSocket error');
+          reject(new Error('WebSocket connection failed'));
+        };
+
+        ws.onclose = () => {
+          console.log('[TLSN] Session WebSocket closed');
+        };
+
+        // Timeout after 30 seconds
+        setTimeout(() => reject(new Error('Session registration timeout')), 30000);
+      });
+    }
+
+    function headersToMap(headers) {
+      const map = new Map();
+      const encoder = new TextEncoder();
+      for (const [key, value] of Object.entries(headers)) {
+        map.set(key, Array.from(encoder.encode(String(value))));
+      }
+      return map;
+    }
+
+    window.addEventListener('message', async (event) => {
+      console.log('[TLSN] Message event received:', typeof event.data);
+
+      let data;
+      try {
+        data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+      } catch (e) {
+        console.log('[TLSN] Non-JSON message, ignoring');
+        return;
+      }
+
+      const { id, action, params } = data;
+      console.log('[TLSN] Parsed message - id:', id, 'action:', action);
+
+      if (!id || action !== 'prove') {
+        console.log('[TLSN] Ignoring message - not a prove request');
+        return;
+      }
+
+      console.log('[TLSN] Received prove request:', id);
+      console.log('[TLSN] Params:', JSON.stringify(params, null, 2));
+
+      try {
+        await initialize();
+
+        const { url, method, headers, proverOptions } = params;
+        const hostname = new URL(url).hostname;
+
+        // Step 1: Get session URL from verifier
+        console.log('[TLSN] Getting verifier session...');
+        const sessionUrl = await getVerifierSessionUrl(
+          proverOptions.verifierUrl,
+          proverOptions.maxRecvData,
+          proverOptions.maxSentData
+        );
+        console.log('[TLSN] Session URL:', sessionUrl);
+
+        // Step 2: Create Prover
+        console.log('[TLSN] Creating prover for', hostname);
+        const prover = new wasm.Prover({
+          server_name: hostname,
+          max_sent_data: proverOptions.maxSentData,
+          max_recv_data: proverOptions.maxRecvData,
+          network: "Bandwidth"
+        });
+
+        // Step 3: Setup with verifier session URL (with timeout)
+        console.log('[TLSN] Setting up prover...');
+        console.log('[TLSN] Session URL for setup:', sessionUrl);
+
+        const setupPromise = prover.setup(sessionUrl);
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Prover setup timed out after 60s - likely SharedArrayBuffer issue')), 60000)
+        );
+
+        try {
+          await Promise.race([setupPromise, timeoutPromise]);
+          console.log('[TLSN] Prover setup complete');
+        } catch (setupError) {
+          console.error('[TLSN] Setup failed:', setupError.message);
+          if (!self.crossOriginIsolated) {
+            throw new Error('Setup failed - SharedArrayBuffer not available (crossOriginIsolated=' + self.crossOriginIsolated + '). WebView may not support required WASM features.');
+          }
+          throw setupError;
+        }
+
+        // Step 4: Send HTTP request through proxy
+        console.log('[TLSN] Sending request through proxy...');
+        const response = await prover.send_request(
+          proverOptions.proxyUrl,
+          {
+            uri: url,
+            method: method,
+            headers: headersToMap(headers),
+            body: undefined
+          }
+        );
+        console.log('[TLSN] Response status:', response.status);
+
+        // Step 5: Get transcript
+        const transcript = prover.transcript();
+        console.log('[TLSN] Transcript - sent:', transcript.sent.length, 'recv:', transcript.recv.length);
+
+        // Step 6: Reveal and finalize
+        console.log('[TLSN] Revealing...');
+        await prover.reveal({
+          sent: [{ start: 0, end: transcript.sent.length }],
+          recv: [{ start: 0, end: transcript.recv.length }],
+          server_identity: true
+        });
+        console.log('[TLSN] Proof complete!');
+
+        // Parse response body
+        const decoder = new TextDecoder();
+        const recvText = decoder.decode(new Uint8Array(transcript.recv));
+        const bodyMatch = recvText.match(/\r\n\r\n([\s\S]*)/);
+        const bodyText = bodyMatch ? bodyMatch[1] : '';
+
+        let responseBody;
+        try {
+          responseBody = JSON.parse(bodyText);
+        } catch {
+          responseBody = bodyText;
+        }
+
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          id,
+          success: true,
+          result: {
+            status: response.status,
+            body: responseBody,
+            transcript: {
+              sentLength: transcript.sent.length,
+              recvLength: transcript.recv.length
+            }
+          }
+        }));
+
+      } catch (error) {
+        console.error('[TLSN] Error:', error);
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          id,
+          success: false,
+          error: error.message || String(error)
+        }));
+      }
+    });
+
+    // Initialize on load
+    initialize()
+      .then(() => {
+        console.log('[TLSN] Ready');
+        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'READY' }));
+      })
+      .catch(err => {
+        const msg = err.message || String(err);
+        console.error('[TLSN] Init failed:', msg);
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'ERROR',
+          error: msg.includes('clone') ? 'WASM threading not supported in WebView' : msg
+        }));
+      });
+  </script>
+</head>
+<body>
+  <p id="status">TLSN Prover - Initializing...</p>
+  <script>
+    const el = document.getElementById('status');
+    const log = console.log;
+    console.log = (...a) => { log(...a); if(a[0]?.startsWith?.('[TLSN]')) el.textContent = a.join(' '); };
+  </script>
+</body>
+</html>

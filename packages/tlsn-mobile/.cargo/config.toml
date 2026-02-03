@@ -1,0 +1,21 @@
+# Use Xcode's clang directly instead of nix-wrapped compiler for iOS targets
+
+[target.aarch64-apple-ios]
+linker = "/usr/bin/clang"
+
+[target.aarch64-apple-ios-sim]
+linker = "/usr/bin/clang"
+
+[target.x86_64-apple-ios]
+linker = "/usr/bin/clang"
+
+[env]
+CC_aarch64-apple-ios = "/usr/bin/clang"
+CC_aarch64-apple-ios-sim = "/usr/bin/clang"
+CC_x86_64-apple-ios = "/usr/bin/clang"
+CXX_aarch64-apple-ios = "/usr/bin/clang++"
+CXX_aarch64-apple-ios-sim = "/usr/bin/clang++"
+CXX_x86_64-apple-ios = "/usr/bin/clang++"
+AR_aarch64-apple-ios = "/usr/bin/ar"
+AR_aarch64-apple-ios-sim = "/usr/bin/ar"
+AR_x86_64-apple-ios = "/usr/bin/ar"
