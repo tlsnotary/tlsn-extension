@@ -1,7 +1,10 @@
 import ExpoModulesCore
+import os.log
 
 // The tlsn_mobile.swift file is compiled together with this module,
 // making initialize(), prove(), HttpHeader, etc. available as top-level symbols.
+
+private let logger = OSLog(subsystem: "com.tlsn.mobile", category: "TlsnNative")
 
 public class TlsnNativeModule: Module {
     public func definition() -> ModuleDefinition {
@@ -131,7 +134,8 @@ public class TlsnNativeModule: Module {
                         }
                     }
 
-                    print("[TlsnNative] Final handlers count: \(handlers.count)")
+                    NSLog("[TlsnNative] Final handlers count: %d", handlers.count)
+                    os_log("[TlsnNative] Handlers to Rust: %d", log: logger, type: .info, handlers.count)
 
                     let options = ProverOptions(
                         verifierUrl: verifierUrl,
@@ -157,6 +161,10 @@ public class TlsnNativeModule: Module {
                         bodyJson = json
                     }
 
+                    // Log transcript info
+                    NSLog("[TlsnNative] Proof complete! Sent: %d bytes, Recv: %d bytes",
+                          result.transcript.sent.count, result.transcript.recv.count)
+
                     // Build result dictionary
                     let resultDict: [String: Any] = [
                         "status": Int(result.response.status),
@@ -165,6 +173,10 @@ public class TlsnNativeModule: Module {
                         "transcript": [
                             "sentLength": result.transcript.sent.count,
                             "recvLength": result.transcript.recv.count
+                        ],
+                        "debug": [
+                            "handlersPassedToRust": handlers.count,
+                            "handlersReceivedByRust": result.handlersReceived
                         ]
                     ]
 

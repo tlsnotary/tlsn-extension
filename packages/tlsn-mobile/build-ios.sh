@@ -37,6 +37,17 @@ xcodebuild -create-xcframework \
     -headers target/headers \
     -output target/TlsnMobile.xcframework
 
+echo "Copying to Expo module..."
+EXPO_MODULE_DIR="../mobile/modules/tlsn-native"
+
+# Copy Swift bindings
+cp target/swift/tlsn_mobile.swift "$EXPO_MODULE_DIR/ios/"
+
+# Copy XCFramework
+rm -rf "$EXPO_MODULE_DIR/ios/TlsnMobile.xcframework"
+cp -R target/TlsnMobile.xcframework "$EXPO_MODULE_DIR/ios/"
+
 echo "Done! Output:"
 echo "  - XCFramework: target/TlsnMobile.xcframework"
 echo "  - Swift bindings: target/swift/tlsn_mobile.swift"
+echo "  - Copied to: $EXPO_MODULE_DIR/ios/"

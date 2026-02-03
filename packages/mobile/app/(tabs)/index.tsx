@@ -36,14 +36,18 @@ export default function SpotifyProverScreen() {
     setProofResult(null);
 
     try {
-      // Handlers for selective disclosure
-      // No SENT handlers = fully redact the request
-      // Only reveal specific parts of the response
+      // Handlers for selective disclosure (matches demo plugin)
+      // Reveal request line (GET /v1/me/top/artists...) but hide headers (Authorization)
+      // Reveal response line, date header, and only the artist name from the body
       const handlers: Handler[] = [
+        // Request: only reveal the start line (GET /path HTTP/1.1)
+        { handlerType: 'Sent', part: 'StartLine', action: 'Reveal' },
+        // Response: reveal status line (HTTP/1.1 200 OK)
         { handlerType: 'Recv', part: 'StartLine', action: 'Reveal' },
+        // Response: reveal date header only
         { handlerType: 'Recv', part: 'Headers', action: 'Reveal', params: { key: 'date' } },
-        // Reveal full body for now to test redaction is working
-        { handlerType: 'Recv', part: 'Body', action: 'Reveal' },
+        // Response: reveal only the top artist name from JSON body
+        { handlerType: 'Recv', part: 'Body', action: 'Reveal', params: { contentType: 'json', path: 'items[0].name' } },
       ];
 
       const result = await proverRef.current.prove({
@@ -57,7 +61,7 @@ export default function SpotifyProverScreen() {
         },
         proverOptions: {
           verifierUrl: 'https://demo.tlsnotary.org',
-          proxyUrl: `wss://demo.tlsnotary.org/proxy?token=${SPOTIFY_API}`,
+          proxyUrl: `wss://notary.pse.dev/proxy?token=${SPOTIFY_API}`,
           maxRecvData: 2400,
           maxSentData: 600,
           handlers,

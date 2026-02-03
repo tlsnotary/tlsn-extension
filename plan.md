@@ -15,9 +15,14 @@ iOS app that proves your Spotify top artist using TLSNotary.
 - [x] Basic proof generation working
 - [x] Handler-based selective disclosure API
 - [x] Build scripts for iOS (device + simulator)
+- [x] Selective disclosure at MPC level (verified working)
+- [x] JSON path support for body reveal (e.g., `items[0].name`)
+- [x] Podspec updated to use XCFramework (was using old static library)
+- [x] Build script auto-copies XCFramework and Swift bindings to Expo module
 
 ### 🔄 In Progress
-- [ ] Selective disclosure at MPC level - handlers reach Rust but verifier still shows full request
+- [ ] Clean up debug logging before production
+- [ ] Remove `handlers_received` debug field from ProofResult
 
 ### ❌ Not Started
 - [ ] WebView fallback prover (for non-iOS or debugging)
@@ -95,6 +100,7 @@ packages/
 │   │   └── tlsn-native/             # Expo native module
 │   │       ├── ios/
 │   │       │   ├── TlsnNativeModule.swift    # Swift bridge
+│   │       │   ├── TlsnNative.podspec        # CocoaPods spec (uses XCFramework)
 │   │       │   ├── TlsnMobile.xcframework/   # Built library (gitignored)
 │   │       │   └── tlsn_mobile.swift         # Generated bindings (gitignored)
 │   │       └── src/
@@ -106,7 +112,7 @@ packages/
 │   ├── src/
 │   │   ├── lib.rs                   # UniFFI exports
 │   │   └── prover.rs                # TLS proof generation logic
-│   ├── build-ios.sh                 # Cross-compile for iOS
+│   ├── build-ios.sh                 # Cross-compile for iOS + copy to Expo
 │   ├── Cargo.toml
 │   └── README.md
 │
@@ -145,13 +151,7 @@ This script:
 2. Builds Rust for `aarch64-apple-ios-sim` (simulator)
 3. Generates Swift bindings via UniFFI
 4. Creates `TlsnMobile.xcframework`
-
-### Copying to Expo Module
-
-```bash
-cp target/swift/tlsn_mobile.swift ../mobile/modules/tlsn-native/ios/
-cp -r target/TlsnMobile.xcframework ../mobile/modules/tlsn-native/ios/
-```
+5. **Auto-copies** XCFramework and Swift bindings to `packages/mobile/modules/tlsn-native/ios/`
 
 ### Running the App
 
@@ -163,63 +163,78 @@ npx expo run:ios
 
 ## Handler System (Selective Disclosure)
 
-Handlers control what data is revealed in the MPC proof:
+Handlers control what data is revealed in the MPC proof. This is now **fully working** at the MPC level.
+
+### Example: Spotify Top Artist
 
 ```typescript
 const handlers: Handler[] = [
-  // Reveal response status line (e.g., "HTTP/1.1 200 OK")
+  // Request: only reveal the start line (GET /path HTTP/1.1)
+  { handlerType: 'Sent', part: 'StartLine', action: 'Reveal' },
+
+  // Response: reveal status line (HTTP/1.1 200 OK)
   { handlerType: 'Recv', part: 'StartLine', action: 'Reveal' },
 
-  // Reveal response body
-  { handlerType: 'Recv', part: 'Body', action: 'Reveal' },
+  // Response: reveal date header only
+  { handlerType: 'Recv', part: 'Headers', action: 'Reveal', params: { key: 'date' } },
 
-  // Note: No SENT handlers = request is fully redacted
+  // Response: reveal only the top artist name from JSON body
+  { handlerType: 'Recv', part: 'Body', action: 'Reveal', params: { contentType: 'json', path: 'items[0].name' } },
 ];
 ```
 
-| Handler Type | Part        | Description                               |
-| ------------ | ----------- | ----------------------------------------- |
-| `Sent`       | `StartLine` | HTTP request line (method, path, version) |
-| `Sent`       | `Headers`   | Request headers (includes auth tokens!)   |
-| `Sent`       | `Body`      | Request body                              |
-| `Recv`       | `StartLine` | HTTP response status line                 |
-| `Recv`       | `Headers`   | Response headers                          |
-| `Recv`       | `Body`      | Response body                             |
-| `*`          | `All`       | Entire message                            |
+### Handler Reference
 
-## Current Issue: Selective Disclosure Not Working
+| Handler Type | Part        | Params                         | Description                               |
+| ------------ | ----------- | ------------------------------ | ----------------------------------------- |
+| `Sent`       | `StartLine` | -                              | HTTP request line (method, path, version) |
+| `Sent`       | `Headers`   | `{ key?: string }`             | Request headers (or specific header)      |
+| `Sent`       | `Body`      | -                              | Request body                              |
+| `Recv`       | `StartLine` | -                              | HTTP response status line                 |
+| `Recv`       | `Headers`   | `{ key?: string }`             | Response headers (or specific header)     |
+| `Recv`       | `Body`      | `{ contentType?, path? }`      | Response body (or JSON path)              |
+| `*`          | `All`       | -                              | Entire message                            |
 
-**Symptom**: Verifier receives full transcript including Authorization header, even when no SENT handlers are specified.
+### JSON Path Support
 
-**Root Cause Identified**: In `packages/tlsn-mobile/src/prover.rs`, the code was revealing ALL data regardless of handlers:
+For response bodies, you can specify a JSON path to reveal only specific fields:
 
-```rust
-// This was always running, ignoring handlers:
-proof_builder.reveal_sent(&(0..sent_bytes.len()))?;
-proof_builder.reveal_recv(&(0..recv_bytes.len()))?;
-```
-
-**Fix Applied**: Code now checks handlers before revealing:
-
-```rust
-if options.handlers.is_empty() {
-    // Reveal all only if no handlers specified
-    proof_builder.reveal_sent(&(0..sent_bytes.len()))?;
-    proof_builder.reveal_recv(&(0..recv_bytes.len()))?;
-} else {
-    // Build reveal ranges from handlers
-    for handler in &options.handlers {
-        match handler.handler_type {
-            HandlerType::Sent => { /* reveal sent ranges */ }
-            HandlerType::Recv => { /* reveal recv ranges */ }
-        }
-    }
+```typescript
+{
+  handlerType: 'Recv',
+  part: 'Body',
+  action: 'Reveal',
+  params: {
+    contentType: 'json',
+    path: 'items[0].name'  // Only reveals the artist name
+  }
 }
 ```
 
-**Current Status**: Fix is in code but needs verification. Native logs aren't visible to confirm handlers are reaching Rust correctly.
+Supported path syntax:
+- Simple keys: `"name"`, `"status"`
+- Array access: `"items[0]"`, `"data[2]"`
+- Nested: `"items[0].name"`, `"user.profile.name"`
 
-### Debugging Native Logs
+## Key Bug Fixes
+
+### Issue 1: Handlers Not Reaching Rust
+**Symptom**: `handlers.is_empty()` always returned true in Rust despite Swift passing handlers.
+
+**Root Cause**: The podspec (`TlsnNative.podspec`) was configured to use an old static library at `ios/lib/libtlsn_mobile.a` instead of the new XCFramework.
+
+**Fix**: Updated podspec to use `vendored_frameworks = 'TlsnMobile.xcframework'`.
+
+### Issue 2: Body Revealing Full JSON
+**Symptom**: When using JSON path handler, entire JSON body was revealed instead of just the specified path.
+
+**Root Cause**: MPC reveal code had a comment "reveal the whole body for now" and wasn't using `find_json_path()`.
+
+**Fix**: Updated MPC reveal in `prover.rs` to use `find_json_path()` when `contentType: 'json'` and `path` are specified.
+
+## Debugging
+
+### Viewing Native Logs
 
 Since Metro doesn't show Swift/Rust logs, use:
 
@@ -227,14 +242,9 @@ Since Metro doesn't show Swift/Rust logs, use:
 2. **Console.app**: Filter by "TLSNMobile" process
 3. **Terminal**: `xcrun simctl spawn booted log stream | grep -i tlsn`
 
-## Next Steps
+### Debug Field in ProofResult
 
-1. [ ] Verify handlers are reaching Rust (check native logs)
-2. [ ] Confirm MPC is using handler-based ranges
-3. [ ] Test that verifier only sees revealed data
-4. [ ] Add WebView fallback prover for debugging
-5. [ ] Polish UI and error handling
-6. [ ] Test on physical iOS device
+The `handlersReceived` field in ProofResult shows how many handlers Rust received (for debugging UniFFI serialization). This should be removed before production.
 
 ## Running the Verifier
 
@@ -244,3 +254,12 @@ cargo run
 ```
 
 Runs on `http://localhost:7047`. The mobile app connects to this for MPC verification.
+
+## Next Steps
+
+1. [ ] Remove debug `handlers_received` field from ProofResult
+2. [ ] Clean up excessive println! logging in prover.rs
+3. [ ] Add WebView fallback prover for debugging
+4. [ ] Polish UI and error handling
+5. [ ] Test on physical iOS device
+6. [ ] App Store preparation
