@@ -19,9 +19,11 @@ jobs:
           cache: "npm"
 
       - name: Install dependencies
-        # Use npm install instead of npm ci to handle platform-specific optional deps
-        # (rollup native bindings differ between macOS lockfile and Linux CI)
-        run: npm install
+        # Use npm ci, then reinstall rollup to get correct platform-specific bindings
+        # (npm bug: https://github.com/npm/cli/issues/4828)
+        run: |
+          npm ci
+          npm install rollup --force
 
       - name: Build extension and dependencies
         run: npm run build
