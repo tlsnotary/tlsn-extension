@@ -443,10 +443,11 @@ export class Host {
 
     let evalCode: SandboxEvalCode | null = null;
     let disposeCallback: (() => void) | null = null;
+    let sandboxError: Error | null = null;
 
     // Start sandbox and keep it alive
-    // Don't await this - we want it to keep running
-    runSandboxed(async (sandbox) => {
+    // Track the promise to handle errors properly
+    const sandboxPromise = runSandboxed(async (sandbox) => {
       evalCode = sandbox.evalCode;
 
       // Keep the sandbox alive until dispose is called
@@ -454,7 +455,14 @@ export class Host {
       return new Promise<void>((resolve) => {
         disposeCallback = resolve;
       });
-    }, options);
+    }, options).catch((err: Error) => {
+      // Capture sandbox errors for later handling
+      sandboxError = err;
+      // If evalCode was never set, we need to unblock the wait loop
+      if (!evalCode) {
+        evalCode = (() => ({ ok: false, error: err })) as unknown as SandboxEvalCode;
+      }
+    });
 
     // Wait for evalCode to be ready
     while (!evalCode) {
@@ -464,6 +472,11 @@ export class Host {
     // Return evalCode and dispose function
     return {
       eval: async (code: string) => {
+        // Check if sandbox had an error during setup
+        if (sandboxError) {
+          throw sandboxError;
+        }
+
         const result = await evalCode!(code);
 
         if (!result.ok) {
@@ -480,6 +493,11 @@ export class Host {
           disposeCallback();
           disposeCallback = null;
         }
+        // Ensure the sandbox promise is awaited to prevent unhandled rejections
+        // This is a fire-and-forget await since we've already captured any errors
+        sandboxPromise.catch(() => {
+          // Errors already captured, ignore
+        });
       },
     };
   }
