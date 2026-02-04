@@ -272,7 +272,9 @@ function makeOpenWindow(
           // Context may have been cleaned up due to error or done() call
           const executionContext = executionContextRegistry.get(uuid);
           if (!executionContext) {
-            logger.debug(`[makeOpenWindow] Ignoring message ${message.type}: execution context no longer exists`);
+            logger.debug(
+              `[makeOpenWindow] Ignoring message ${message.type}: execution context no longer exists`,
+            );
             eventEmitter.removeListener(onMessage);
             return;
           }
