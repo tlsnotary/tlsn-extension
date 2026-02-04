@@ -12,9 +12,9 @@
  */
 const colorTokens = {
   // Neutral
-  'white': '#ffffff',
-  'black': '#000000',
-  'transparent': 'transparent',
+  white: '#ffffff',
+  black: '#000000',
+  transparent: 'transparent',
 
   // Gray scale
   'gray-50': '#f9fafb',
@@ -111,23 +111,23 @@ const spacingTokens = {
   '12': '48px',
 
   // Named aliases
-  'xs': '8px',
-  'sm': '12px',
-  'md': '16px',
-  'lg': '20px',
-  'xl': '24px',
+  xs: '8px',
+  sm: '12px',
+  md: '16px',
+  lg: '20px',
+  xl: '24px',
 } as const;
 
 /**
  * Font sizes
  */
 const fontSizeTokens = {
-  'xs': '12px',
-  'sm': '14px',
-  'md': '15px',
-  'base': '16px',
-  'lg': '18px',
-  'xl': '20px',
+  xs: '12px',
+  sm: '14px',
+  md: '15px',
+  base: '16px',
+  lg: '18px',
+  xl: '20px',
   '2xl': '24px',
 } as const;
 
@@ -135,32 +135,32 @@ const fontSizeTokens = {
  * Font weights
  */
 const fontWeightTokens = {
-  'normal': '400',
-  'medium': '500',
-  'semibold': '600',
-  'bold': '700',
+  normal: '400',
+  medium: '500',
+  semibold: '600',
+  bold: '700',
 } as const;
 
 /**
  * Border radius
  */
 const borderRadiusTokens = {
-  'none': '0',
-  'sm': '6px',
-  'md': '8px',
-  'lg': '12px',
-  'full': '9999px',
-  'circle': '50%',
+  none: '0',
+  sm: '6px',
+  md: '8px',
+  lg: '12px',
+  full: '9999px',
+  circle: '50%',
 } as const;
 
 /**
  * Box shadows
  */
 const shadowTokens = {
-  'sm': '0 2px 4px rgba(0,0,0,0.1)',
-  'md': '0 -2px 10px rgba(0,0,0,0.1)',
-  'lg': '0 4px 8px rgba(0,0,0,0.3)',
-  'xl': '0 10px 25px rgba(0,0,0,0.2)',
+  sm: '0 2px 4px rgba(0,0,0,0.1)',
+  md: '0 -2px 10px rgba(0,0,0,0.1)',
+  lg: '0 4px 8px rgba(0,0,0,0.3)',
+  xl: '0 10px 25px rgba(0,0,0,0.2)',
 } as const;
 
 // =============================================================================
@@ -237,9 +237,13 @@ export const paddingY = (value: string): StyleObject => {
   return { paddingTop: val, paddingBottom: val };
 };
 export const paddingTop = (value: string): StyleObject => ({ paddingTop: resolveSpacing(value) });
-export const paddingBottom = (value: string): StyleObject => ({ paddingBottom: resolveSpacing(value) });
+export const paddingBottom = (value: string): StyleObject => ({
+  paddingBottom: resolveSpacing(value),
+});
 export const paddingLeft = (value: string): StyleObject => ({ paddingLeft: resolveSpacing(value) });
-export const paddingRight = (value: string): StyleObject => ({ paddingRight: resolveSpacing(value) });
+export const paddingRight = (value: string): StyleObject => ({
+  paddingRight: resolveSpacing(value),
+});
 
 // Aliases
 export const p = padding;
@@ -261,7 +265,9 @@ export const marginY = (value: string): StyleObject => {
   return { marginTop: val, marginBottom: val };
 };
 export const marginTop = (value: string): StyleObject => ({ marginTop: resolveSpacing(value) });
-export const marginBottom = (value: string): StyleObject => ({ marginBottom: resolveSpacing(value) });
+export const marginBottom = (value: string): StyleObject => ({
+  marginBottom: resolveSpacing(value),
+});
 export const marginLeft = (value: string): StyleObject => ({ marginLeft: resolveSpacing(value) });
 export const marginRight = (value: string): StyleObject => ({ marginRight: resolveSpacing(value) });
 
@@ -276,7 +282,9 @@ export const mr = marginRight;
 
 // Typography helpers
 export const fontSize = (value: string): StyleObject => ({ fontSize: resolveFontSize(value) });
-export const fontWeight = (value: string): StyleObject => ({ fontWeight: resolveFontWeight(value) });
+export const fontWeight = (value: string): StyleObject => ({
+  fontWeight: resolveFontWeight(value),
+});
 export const textAlign = (value: string): StyleObject => ({ textAlign: value });
 export const fontFamily = (value: string): StyleObject => ({ fontFamily: value });
 
@@ -291,7 +299,7 @@ export const maxWidth = (value: string): StyleObject => ({ maxWidth: value });
 export const maxHeight = (value: string): StyleObject => ({ maxHeight: value });
 
 // Flexbox helpers
-export const flex = (value: string = '1'): StyleObject => ({ flex: value });
+export const flex = (value = '1'): StyleObject => ({ flex: value });
 export const flexDirection = (value: string): StyleObject => ({ flexDirection: value });
 export const alignItems = (value: string): StyleObject => ({ alignItems: value });
 export const justifyContent = (value: string): StyleObject => ({ justifyContent: value });
@@ -305,7 +313,9 @@ export const right = (value: string): StyleObject => ({ right: resolveSpacing(va
 
 // Border helpers
 export const border = (value: string): StyleObject => ({ border: value });
-export const borderRadius = (value: string): StyleObject => ({ borderRadius: resolveBorderRadius(value) });
+export const borderRadius = (value: string): StyleObject => ({
+  borderRadius: resolveBorderRadius(value),
+});
 export const borderWidth = (value: string): StyleObject => ({ borderWidth: value });
 
 // Visual helpers
@@ -319,7 +329,7 @@ export const cursor = (value: string): StyleObject => ({ cursor: value });
 export const pointerEvents = (value: string): StyleObject => ({ pointerEvents: value });
 
 // Transition/Animation helpers
-export const transition = (value: string = 'all 0.2s ease'): StyleObject => ({ transition: value });
+export const transition = (value = 'all 0.2s ease'): StyleObject => ({ transition: value });
 
 // Background helpers
 export const background = (value: string): StyleObject => ({ background: value });
@@ -358,4 +368,5 @@ export function inlineStyle(...styles: StyleHelper[]): StyleObject {
 /**
  * Common font family
  */
-export const defaultFontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+export const defaultFontFamily =
+  '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';

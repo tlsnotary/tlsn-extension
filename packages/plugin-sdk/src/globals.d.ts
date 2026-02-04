@@ -38,7 +38,7 @@ export type OpenWindowFunction = (
     width?: number;
     height?: number;
     showOverlay?: boolean;
-  }
+  },
 ) => Promise<{
   windowId: number;
   uuid: string;
@@ -54,14 +54,14 @@ export type UseEffectFunction = (callback: () => void, deps: any[]) => void;
  * Subscribe to intercepted HTTP headers with filtering
  */
 export type UseHeadersFunction = (
-  filter: (headers: InterceptedRequestHeader[]) => InterceptedRequestHeader[]
+  filter: (headers: InterceptedRequestHeader[]) => InterceptedRequestHeader[],
 ) => InterceptedRequestHeader[];
 
 /**
  * Subscribe to intercepted HTTP requests with filtering
  */
 export type UseRequestsFunction = (
-  filter: (requests: InterceptedRequest[]) => InterceptedRequest[]
+  filter: (requests: InterceptedRequest[]) => InterceptedRequest[],
 ) => InterceptedRequest[];
 
 /**
@@ -90,7 +90,7 @@ export type ProveFunction = (
     maxRecvData?: number;
     maxSentData?: number;
     handlers: Handler[];
-  }
+  },
 ) => Promise<any>;
 
 /**
