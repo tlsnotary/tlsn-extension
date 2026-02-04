@@ -48,6 +48,34 @@ else
 fi
 
 cd crates/wasm
+
+# ---------------------------------------------------------------------------
+# Nix-shell compatibility (macOS)
+#
+# When invoked inside `nix-shell -p llvmPackages_XX.clang ...`, `clang` is often a
+# Nix cc-wrapper that injects hardening flags (e.g. `-fzero-call-used-regs`) that
+# are not supported for the `wasm32-unknown-unknown` target. This breaks C
+# compilation in dependencies like `ring`.
+#
+# Workaround:
+# - Prefer an unwrapped clang (from Nix) or the system clang (via xcrun)
+# - Disable Nix hardening flags for this build invocation
+# ---------------------------------------------------------------------------
+
+if [ -n "${IN_NIX_SHELL:-}" ]; then
+    # Disable hardening flags injected by Nix cc-wrapper for this build.
+    export NIX_HARDENING_ENABLE=""
+    export NIX_CFLAGS_COMPILE=""
+    export NIX_CFLAGS_LINK=""
+
+    # Prefer an unwrapped clang if available; otherwise fall back to Xcode clang.
+    if command -v clang-unwrapped >/dev/null 2>&1; then
+        export CC_wasm32_unknown_unknown="$(command -v clang-unwrapped)"
+    elif command -v xcrun >/dev/null 2>&1 && xcrun --find clang >/dev/null 2>&1; then
+        export CC_wasm32_unknown_unknown="$(xcrun --find clang)"
+    fi
+fi
+
 # Apply no-logging modification if requested
 if [ "$NO_LOGGING" = "--no-logging" ]; then
     echo "Applying no-logging configuration..."
