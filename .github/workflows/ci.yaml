@@ -19,7 +19,9 @@ jobs:
           cache: "npm"
 
       - name: Install dependencies
-        run: npm ci
+        # Use npm install instead of npm ci to handle platform-specific optional deps
+        # (rollup native bindings differ between macOS lockfile and Linux CI)
+        run: npm install
 
       - name: Build extension and dependencies
         run: npm run build
