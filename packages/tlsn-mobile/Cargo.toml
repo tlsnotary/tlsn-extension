@@ -49,10 +49,10 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # Bytes crate
 bytes = "1"
 
-# TLSN dependencies (from local path)
-tlsn = { path = "../tlsn-wasm/tlsn/crates/tlsn", default-features = false, features = ["rayon", "mozilla-certs"] }
-tlsn-core = { path = "../tlsn-wasm/tlsn/crates/core" }
-tlsn-tls-client-async = { path = "../tlsn-wasm/tlsn/crates/tls/client-async" }
+# TLSN dependencies (from GitHub)
+tlsn = { git = "https://github.com/tlsnotary/tlsn", tag = "v0.1.0-alpha.14", default-features = false, features = ["rayon", "mozilla-certs"] }
+tlsn-core = { git = "https://github.com/tlsnotary/tlsn", tag = "v0.1.0-alpha.14" }
+tlsn-tls-client-async = { git = "https://github.com/tlsnotary/tlsn", tag = "v0.1.0-alpha.14" }
 
 [features]
 default = []
