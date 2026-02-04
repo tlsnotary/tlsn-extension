@@ -9,42 +9,15 @@
 // IMPORTS
 // =============================================================================
 /**
- * Import types from the plugin SDK (type-only, stripped at compile time).
+ * Import types and enums from the plugin SDK.
  *
  * The plugin API functions (div, button, openWindow, etc.) are declared globally
  * via the SDK type declarations.
  */
 import type { Handler, DomJson } from '@tlsn/plugin-sdk';
+import { HandlerType, HandlerPart, HandlerAction } from '@tlsn/plugin-sdk';
 import { config } from './config';
 import { FloatingButton, PluginOverlay } from './components';
-
-// =============================================================================
-// HANDLER ENUMS (Inlined for standalone execution)
-// =============================================================================
-/**
- * These enum values are inlined instead of imported to create a standalone
- * JavaScript file with no external dependencies.
- */
-enum HandlerType {
-  SENT = 'SENT',
-  RECV = 'RECV',
-}
-
-enum HandlerPart {
-  START_LINE = 'START_LINE',
-  PROTOCOL = 'PROTOCOL',
-  METHOD = 'METHOD',
-  REQUEST_TARGET = 'REQUEST_TARGET',
-  STATUS_CODE = 'STATUS_CODE',
-  HEADERS = 'HEADERS',
-  BODY = 'BODY',
-  ALL = 'ALL',
-}
-
-enum HandlerAction {
-  REVEAL = 'REVEAL',
-  PEDERSEN = 'PEDERSEN',
-}
 
 // Injected at build time via esbuild --define
 declare const __VERIFIER_URL__: string;

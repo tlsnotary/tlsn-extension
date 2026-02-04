@@ -23,7 +23,12 @@ export default defineConfig({
     },
     rollupOptions: {
       // Externalize QuickJS and Node.js dependencies
-      external: ['@sebastianwessel/quickjs', '@jitl/quickjs-ng-wasmfile-release-sync', /^node:.*/, '@tlsn/common'],
+      external: [
+        '@sebastianwessel/quickjs',
+        '@jitl/quickjs-ng-wasmfile-release-sync',
+        /^node:.*/,
+        '@tlsn/common',
+      ],
       output: {
         exports: 'named',
       },

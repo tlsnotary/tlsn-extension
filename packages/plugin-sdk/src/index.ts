@@ -18,7 +18,6 @@ import {
   WindowMessage,
   Handler,
   PluginConfig,
-  RequestPermission,
 } from './types';
 import deepEqual from 'fast-deep-equal';
 
@@ -868,6 +867,9 @@ export async function extractConfig(code: string): Promise<PluginConfig | null> 
   }
 }
 
+// Export enums (runtime values)
+export { HandlerType, HandlerPart, HandlerAction } from './types';
+
 // Export types
 export type {
   PluginConfig,
@@ -877,9 +879,6 @@ export type {
   HeadersHandler,
   BodyHandler,
   AllHandler,
-  HandlerType,
-  HandlerPart,
-  HandlerAction,
   InterceptedRequest,
   InterceptedRequestHeader,
   DomJson,
