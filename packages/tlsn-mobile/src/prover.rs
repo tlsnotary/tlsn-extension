@@ -1,14 +1,13 @@
 //! TLSNotary Prover Implementation
 
 use crate::{
+    io_adapters::{HyperIo, WsStreamAdapter},
     Handler, HandlerPart, HandlerType, HttpHeader, HttpRequest, HttpResponse, ProofResult,
     ProverOptions, TlsnError, Transcript,
 };
 use bytes::Bytes;
-use futures::{Sink, SinkExt, Stream, StreamExt, TryFutureExt};
+use futures::{SinkExt, StreamExt, TryFutureExt};
 use http_body_util::{BodyExt, Full};
-use std::pin::Pin;
-use std::task::{Context, Poll};
 use tls_client_async::TlsConnection;
 use tlsn::{
     config::{
@@ -20,181 +19,9 @@ use tlsn::{
     webpki::RootCertStore,
     Session,
 };
-use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
-use tokio::net::TcpStream;
-use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
+use tokio_tungstenite::{connect_async, tungstenite::Message};
 use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
 use url::Url;
-
-/// Wrapper to adapt WebSocket stream to AsyncRead + AsyncWrite
-struct WsStreamAdapter {
-    inner: WebSocketStream<MaybeTlsStream<TcpStream>>,
-    read_buffer: Vec<u8>,
-    read_offset: usize,
-}
-
-impl WsStreamAdapter {
-    fn new(ws: WebSocketStream<MaybeTlsStream<TcpStream>>) -> Self {
-        Self {
-            inner: ws,
-            read_buffer: Vec::new(),
-            read_offset: 0,
-        }
-    }
-}
-
-impl AsyncRead for WsStreamAdapter {
-    fn poll_read(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &mut ReadBuf<'_>,
-    ) -> Poll<std::io::Result<()>> {
-        // If we have buffered data, return it
-        if self.read_offset < self.read_buffer.len() {
-            let remaining = &self.read_buffer[self.read_offset..];
-            let to_copy = std::cmp::min(remaining.len(), buf.remaining());
-            buf.put_slice(&remaining[..to_copy]);
-            self.read_offset += to_copy;
-            return Poll::Ready(Ok(()));
-        }
-
-        // Clear the buffer and read new data
-        self.read_buffer.clear();
-        self.read_offset = 0;
-
-        match Pin::new(&mut self.inner).poll_next(cx) {
-            Poll::Ready(Some(Ok(msg))) => {
-                match msg {
-                    Message::Binary(data) => {
-                        let to_copy = std::cmp::min(data.len(), buf.remaining());
-                        buf.put_slice(&data[..to_copy]);
-                        if data.len() > to_copy {
-                            self.read_buffer = data[to_copy..].to_vec();
-                        }
-                        Poll::Ready(Ok(()))
-                    }
-                    Message::Text(text) => {
-                        let data = text.into_bytes();
-                        let to_copy = std::cmp::min(data.len(), buf.remaining());
-                        buf.put_slice(&data[..to_copy]);
-                        if data.len() > to_copy {
-                            self.read_buffer = data[to_copy..].to_vec();
-                        }
-                        Poll::Ready(Ok(()))
-                    }
-                    Message::Ping(_) | Message::Pong(_) => {
-                        // Skip ping/pong and try again
-                        cx.waker().wake_by_ref();
-                        Poll::Pending
-                    }
-                    Message::Close(_) => {
-                        Poll::Ready(Ok(())) // EOF
-                    }
-                    _ => {
-                        cx.waker().wake_by_ref();
-                        Poll::Pending
-                    }
-                }
-            }
-            Poll::Ready(Some(Err(e))) => {
-                Poll::Ready(Err(std::io::Error::new(std::io::ErrorKind::Other, e)))
-            }
-            Poll::Ready(None) => Poll::Ready(Ok(())), // EOF
-            Poll::Pending => Poll::Pending,
-        }
-    }
-}
-
-impl AsyncWrite for WsStreamAdapter {
-    fn poll_write(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &[u8],
-    ) -> Poll<std::io::Result<usize>> {
-        match Pin::new(&mut self.inner).poll_ready(cx) {
-            Poll::Ready(Ok(())) => {
-                let msg = Message::Binary(buf.to_vec().into());
-                match Pin::new(&mut self.inner).start_send(msg) {
-                    Ok(()) => Poll::Ready(Ok(buf.len())),
-                    Err(e) => Poll::Ready(Err(std::io::Error::new(std::io::ErrorKind::Other, e))),
-                }
-            }
-            Poll::Ready(Err(e)) => {
-                Poll::Ready(Err(std::io::Error::new(std::io::ErrorKind::Other, e)))
-            }
-            Poll::Pending => Poll::Pending,
-        }
-    }
-
-    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
-        match Pin::new(&mut self.inner).poll_flush(cx) {
-            Poll::Ready(Ok(())) => Poll::Ready(Ok(())),
-            Poll::Ready(Err(e)) => {
-                Poll::Ready(Err(std::io::Error::new(std::io::ErrorKind::Other, e)))
-            }
-            Poll::Pending => Poll::Pending,
-        }
-    }
-
-    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
-        match Pin::new(&mut self.inner).poll_close(cx) {
-            Poll::Ready(Ok(())) => Poll::Ready(Ok(())),
-            Poll::Ready(Err(e)) => {
-                Poll::Ready(Err(std::io::Error::new(std::io::ErrorKind::Other, e)))
-            }
-            Poll::Pending => Poll::Pending,
-        }
-    }
-}
-
-/// Wrapper for hyper compatibility
-struct HyperIo<T>(T);
-
-impl<T> HyperIo<T> {
-    fn new(inner: T) -> Self {
-        Self(inner)
-    }
-}
-
-impl<T: AsyncRead + Unpin> hyper::rt::Read for HyperIo<T> {
-    fn poll_read(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        mut buf: hyper::rt::ReadBufCursor<'_>,
-    ) -> Poll<std::io::Result<()>> {
-        // Safety: we need to initialize the buffer for tokio's ReadBuf
-        let unfilled = unsafe { buf.as_mut() };
-        let mut read_buf = ReadBuf::uninit(unfilled);
-
-        match Pin::new(&mut self.0).poll_read(cx, &mut read_buf) {
-            Poll::Ready(Ok(())) => {
-                let filled = read_buf.filled().len();
-                unsafe { buf.advance(filled) };
-                Poll::Ready(Ok(()))
-            }
-            Poll::Ready(Err(e)) => Poll::Ready(Err(e)),
-            Poll::Pending => Poll::Pending,
-        }
-    }
-}
-
-impl<T: AsyncWrite + Unpin> hyper::rt::Write for HyperIo<T> {
-    fn poll_write(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &[u8],
-    ) -> Poll<std::io::Result<usize>> {
-        Pin::new(&mut self.0).poll_write(cx, buf)
-    }
-
-    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
-        Pin::new(&mut self.0).poll_flush(cx)
-    }
-
-    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
-        Pin::new(&mut self.0).poll_shutdown(cx)
-    }
-}
 
 /// High-level async prove function
 pub async fn prove_async(request: HttpRequest, options: ProverOptions) -> Result<ProofResult, TlsnError> {
@@ -381,21 +208,32 @@ pub async fn prove_async(request: HttpRequest, options: ProverOptions) -> Result
     // Configure proof reveal based on handlers
     let mut proof_builder = ProveConfig::builder(transcript);
 
-    // Parse HTTP message structures for range calculation
-    let sent_parts = parse_http_parts(&sent_bytes)
-        .ok_or_else(|| TlsnError::ProofFailed("Failed to parse HTTP request".to_string()))?;
-    let recv_parts = parse_http_parts(&recv_bytes)
-        .ok_or_else(|| TlsnError::ProofFailed("Failed to parse HTTP response".to_string()))?;
+    // Parse HTTP messages using spansy for range calculation
+    let parsed_request = parse_request(&sent_bytes[..])
+        .map_err(|e| TlsnError::ProofFailed(format!("Failed to parse HTTP request: {}", e)))?;
+    let parsed_response = parse_response(&recv_bytes[..])
+        .map_err(|e| TlsnError::ProofFailed(format!("Failed to parse HTTP response: {}", e)))?;
 
-    println!("[TLSN-RUST] ====== HTTP STRUCTURE ======");
+    // Calculate structure info for logging
+    let sent_start_line_end = parsed_request.request.offset() + parsed_request.request.len();
+    let sent_headers_start = parsed_request.headers.first().map(|h| h.offset()).unwrap_or(sent_start_line_end);
+    let sent_headers_end = parsed_request.headers.last().map(|h| h.offset() + h.len()).unwrap_or(sent_headers_start);
+    let sent_body_start = parsed_request.body.as_ref().map(|b| b.offset()).unwrap_or(sent_bytes.len());
+
+    let recv_start_line_end = parsed_response.status.offset() + parsed_response.status.len();
+    let recv_headers_start = parsed_response.headers.first().map(|h| h.offset()).unwrap_or(recv_start_line_end);
+    let recv_headers_end = parsed_response.headers.last().map(|h| h.offset() + h.len()).unwrap_or(recv_headers_start);
+    let recv_body_start = parsed_response.body.as_ref().map(|b| b.offset()).unwrap_or(recv_bytes.len());
+
+    println!("[TLSN-RUST] ====== HTTP STRUCTURE (spansy) ======");
     println!("[TLSN-RUST] SENT ({} bytes total):", sent_bytes.len());
-    println!("[TLSN-RUST]   StartLine: 0..{}", sent_parts.start_line_end);
-    println!("[TLSN-RUST]   Headers:   {}..{}", sent_parts.headers_start, sent_parts.headers_end);
-    println!("[TLSN-RUST]   Body:      {}..{}", sent_parts.body_start, sent_bytes.len());
+    println!("[TLSN-RUST]   StartLine: 0..{}", sent_start_line_end);
+    println!("[TLSN-RUST]   Headers:   {}..{}", sent_headers_start, sent_headers_end);
+    println!("[TLSN-RUST]   Body:      {}..{}", sent_body_start, sent_bytes.len());
     println!("[TLSN-RUST] RECV ({} bytes total):", recv_bytes.len());
-    println!("[TLSN-RUST]   StartLine: 0..{}", recv_parts.start_line_end);
-    println!("[TLSN-RUST]   Headers:   {}..{}", recv_parts.headers_start, recv_parts.headers_end);
-    println!("[TLSN-RUST]   Body:      {}..{}", recv_parts.body_start, recv_bytes.len());
+    println!("[TLSN-RUST]   StartLine: 0..{}", recv_start_line_end);
+    println!("[TLSN-RUST]   Headers:   {}..{}", recv_headers_start, recv_headers_end);
+    println!("[TLSN-RUST]   Body:      {}..{}", recv_body_start, recv_bytes.len());
     println!("[TLSN-RUST] ============================");
 
     // Track what we're revealing for summary
@@ -425,11 +263,25 @@ pub async fn prove_async(request: HttpRequest, options: ProverOptions) -> Result
             match handler.handler_type {
                 HandlerType::Sent => {
                     let range = match handler.part {
-                        HandlerPart::StartLine => 0..sent_parts.start_line_end,
-                        HandlerPart::Headers => sent_parts.headers_start..sent_parts.headers_end,
+                        HandlerPart::StartLine => {
+                            let start = parsed_request.request.offset();
+                            let end = start + parsed_request.request.len();
+                            start..end
+                        }
+                        HandlerPart::Headers => {
+                            if let (Some(first), Some(last)) = (parsed_request.headers.first(), parsed_request.headers.last()) {
+                                let start = first.offset();
+                                let end = last.offset() + last.len();
+                                start..end
+                            } else {
+                                continue; // No headers
+                            }
+                        }
                         HandlerPart::Body => {
-                            if sent_parts.body_start < sent_bytes.len() {
-                                sent_parts.body_start..sent_bytes.len()
+                            if let Some(body) = &parsed_request.body {
+                                let start = body.offset();
+                                let end = start + body.len();
+                                start..end
                             } else {
                                 continue; // No body
                             }
@@ -444,12 +296,18 @@ pub async fn prove_async(request: HttpRequest, options: ProverOptions) -> Result
                 }
                 HandlerType::Recv => {
                     let range = match handler.part {
-                        HandlerPart::StartLine => 0..recv_parts.start_line_end,
+                        HandlerPart::StartLine => {
+                            let start = parsed_response.status.offset();
+                            let end = start + parsed_response.status.len();
+                            start..end
+                        }
                         HandlerPart::Headers => {
                             // Check for specific header key
                             if let Some(params) = &handler.params {
                                 if let Some(key) = &params.key {
-                                    if let Some((start, end)) = find_header_range(&recv_bytes, key, &recv_parts) {
+                                    if let Some(header) = parsed_response.headers_with_name(key).next() {
+                                        let start = header.offset();
+                                        let end = start + header.len();
                                         start..end
                                     } else {
                                         println!("[TLSN-RUST] MPC: Header '{}' not found, skipping", key);
@@ -457,41 +315,67 @@ pub async fn prove_async(request: HttpRequest, options: ProverOptions) -> Result
                                         continue;
                                     }
                                 } else {
-                                    recv_parts.headers_start..recv_parts.headers_end
+                                    if let (Some(first), Some(last)) = (parsed_response.headers.first(), parsed_response.headers.last()) {
+                                        let start = first.offset();
+                                        let end = last.offset() + last.len();
+                                        start..end
+                                    } else {
+                                        continue; // No headers
+                                    }
                                 }
                             } else {
-                                recv_parts.headers_start..recv_parts.headers_end
+                                if let (Some(first), Some(last)) = (parsed_response.headers.first(), parsed_response.headers.last()) {
+                                    let start = first.offset();
+                                    let end = last.offset() + last.len();
+                                    start..end
+                                } else {
+                                    continue; // No headers
+                                }
                             }
                         }
                         HandlerPart::Body => {
-                            if recv_parts.body_start >= recv_bytes.len() {
-                                continue; // No body
-                            }
+                            let body = match &parsed_response.body {
+                                Some(b) => b,
+                                None => continue, // No body
+                            };
+
                             // Check for JSON path in params
                             if let Some(params) = &handler.params {
                                 if params.content_type.as_deref() == Some("json") {
                                     if let Some(path) = &params.path {
-                                        let body_data = &recv_bytes[recv_parts.body_start..];
-                                        let body_str = std::str::from_utf8(body_data).unwrap_or("");
-
-                                        if let Some((start, end)) = find_json_path(body_str, path) {
-                                            println!("[TLSN-RUST] MPC: JSON path '{}' found at body offset [{}, {})", path, start, end);
-                                            recv_parts.body_start + start..recv_parts.body_start + end
+                                        // Use spansy's JSON parsing if available
+                                        if let BodyContent::Json(json_doc) = &body.content {
+                                            if let Some(value) = json_doc.get(path) {
+                                                let view = value.view();
+                                                let start = view.offset();
+                                                let end = start + view.len();
+                                                println!("[TLSN-RUST] MPC: JSON path '{}' found at [{}, {})", path, start, end);
+                                                start..end
+                                            } else {
+                                                println!("[TLSN-RUST] MPC: JSON path '{}' not found, skipping", path);
+                                                continue;
+                                            }
                                         } else {
-                                            println!("[TLSN-RUST] MPC: JSON path '{}' not found, skipping", path);
+                                            println!("[TLSN-RUST] MPC: Body not detected as JSON by spansy, skipping");
                                             continue;
                                         }
                                     } else {
                                         // JSON but no path - reveal full body
-                                        recv_parts.body_start..recv_bytes.len()
+                                        let start = body.offset();
+                                        let end = start + body.len();
+                                        start..end
                                     }
                                 } else {
                                     // Non-JSON content type - reveal full body
-                                    recv_parts.body_start..recv_bytes.len()
+                                    let start = body.offset();
+                                    let end = start + body.len();
+                                    start..end
                                 }
                             } else {
                                 // No params - reveal full body
-                                recv_parts.body_start..recv_bytes.len()
+                                let start = body.offset();
+                                let end = start + body.len();
+                                start..end
                             }
                         }
                         HandlerPart::All => 0..recv_bytes.len(),
@@ -665,53 +549,9 @@ struct RangeWithHandler {
     handler: serde_json::Value,
 }
 
-/// HTTP message structure parsed from bytes
-struct HttpParts {
-    start_line_end: usize,      // End of first line (after \r\n)
-    headers_start: usize,       // Start of headers (after first \r\n)
-    headers_end: usize,         // End of headers (before \r\n\r\n)
-    body_start: usize,          // Start of body (after \r\n\r\n)
-}
+use spansy::{Span, http::{parse_request, parse_response, BodyContent}};
 
-/// Parse HTTP message to find part boundaries
-fn parse_http_parts(data: &[u8]) -> Option<HttpParts> {
-    // Find end of first line
-    let start_line_end = data.windows(2)
-        .position(|w| w == b"\r\n")
-        .map(|p| p + 2)?;
-
-    // Find end of headers (double CRLF)
-    let headers_end_marker = data.windows(4)
-        .position(|w| w == b"\r\n\r\n")?;
-
-    Some(HttpParts {
-        start_line_end,
-        headers_start: start_line_end,
-        headers_end: headers_end_marker + 2, // Include the final \r\n of headers
-        body_start: headers_end_marker + 4,  // After \r\n\r\n
-    })
-}
-
-/// Find a specific header by name (case-insensitive) and return its byte range
-fn find_header_range(data: &[u8], key: &str, parts: &HttpParts) -> Option<(usize, usize)> {
-    let headers_data = &data[parts.headers_start..parts.headers_end];
-    let headers_str = std::str::from_utf8(headers_data).ok()?;
-
-    let search_key = format!("{}:", key.to_lowercase());
-    let mut offset = 0;
-
-    for line in headers_str.split("\r\n") {
-        if line.to_lowercase().starts_with(&search_key) {
-            let start = parts.headers_start + offset;
-            let end = start + line.len();
-            return Some((start, end));
-        }
-        offset += line.len() + 2; // +2 for \r\n
-    }
-    None
-}
-
-/// Build reveal config from handlers
+/// Build reveal config from handlers using spansy for HTTP parsing
 fn build_reveal_config(
     sent_bytes: &[u8],
     recv_bytes: &[u8],
@@ -743,11 +583,11 @@ fn build_reveal_config(
         }));
     }
 
-    // Parse HTTP message structures
-    let sent_parts = parse_http_parts(sent_bytes)
-        .ok_or_else(|| TlsnError::ProofFailed("Failed to parse HTTP request".to_string()))?;
-    let recv_parts = parse_http_parts(recv_bytes)
-        .ok_or_else(|| TlsnError::ProofFailed("Failed to parse HTTP response".to_string()))?;
+    // Parse HTTP messages using spansy
+    let request = parse_request(sent_bytes)
+        .map_err(|e| TlsnError::ProofFailed(format!("Failed to parse HTTP request: {}", e)))?;
+    let response = parse_response(recv_bytes)
+        .map_err(|e| TlsnError::ProofFailed(format!("Failed to parse HTTP response: {}", e)))?;
 
     let mut sent_ranges: Vec<RangeWithHandler> = Vec::new();
     let mut recv_ranges: Vec<RangeWithHandler> = Vec::new();
@@ -763,11 +603,26 @@ fn build_reveal_config(
         match handler.handler_type {
             HandlerType::Sent => {
                 let range = match handler.part {
-                    HandlerPart::StartLine => (0, sent_parts.start_line_end),
-                    HandlerPart::Headers => (sent_parts.headers_start, sent_parts.headers_end),
+                    HandlerPart::StartLine => {
+                        let start = request.request.offset();
+                        let end = start + request.request.len();
+                        (start, end)
+                    }
+                    HandlerPart::Headers => {
+                        // Get range covering all headers
+                        if let (Some(first), Some(last)) = (request.headers.first(), request.headers.last()) {
+                            let start = first.offset();
+                            let end = last.offset() + last.len();
+                            (start, end)
+                        } else {
+                            continue; // No headers
+                        }
+                    }
                     HandlerPart::Body => {
-                        if sent_parts.body_start < sent_bytes.len() {
-                            (sent_parts.body_start, sent_bytes.len())
+                        if let Some(body) = &request.body {
+                            let start = body.offset();
+                            let end = start + body.len();
+                            (start, end)
                         } else {
                             continue; // No body
                         }
@@ -790,69 +645,105 @@ fn build_reveal_config(
             }
             HandlerType::Recv => {
                 let range = match handler.part {
-                    HandlerPart::StartLine => (0, recv_parts.start_line_end),
+                    HandlerPart::StartLine => {
+                        let start = response.status.offset();
+                        let end = start + response.status.len();
+                        (start, end)
+                    }
                     HandlerPart::Headers => {
                         // Check for specific header key in params
                         if let Some(params) = &handler.params {
                             if let Some(key) = &params.key {
-                                if let Some(r) = find_header_range(recv_bytes, key, &recv_parts) {
-                                    r
+                                if let Some(header) = response.headers_with_name(key).next() {
+                                    let start = header.offset();
+                                    let end = start + header.len();
+                                    (start, end)
                                 } else {
                                     tracing::warn!("Header '{}' not found in response", key);
                                     continue;
                                 }
                             } else {
-                                (recv_parts.headers_start, recv_parts.headers_end)
+                                // Get range covering all headers
+                                if let (Some(first), Some(last)) = (response.headers.first(), response.headers.last()) {
+                                    let start = first.offset();
+                                    let end = last.offset() + last.len();
+                                    (start, end)
+                                } else {
+                                    continue; // No headers
+                                }
                             }
                         } else {
-                            (recv_parts.headers_start, recv_parts.headers_end)
+                            // Get range covering all headers
+                            if let (Some(first), Some(last)) = (response.headers.first(), response.headers.last()) {
+                                let start = first.offset();
+                                let end = last.offset() + last.len();
+                                (start, end)
+                            } else {
+                                continue; // No headers
+                            }
                         }
                     }
                     HandlerPart::Body => {
-                        if recv_parts.body_start >= recv_bytes.len() {
-                            tracing::warn!("No body in response, skipping Body handler");
-                            continue; // No body
-                        }
+                        let body = match &response.body {
+                            Some(b) => b,
+                            None => {
+                                tracing::warn!("No body in response, skipping Body handler");
+                                continue;
+                            }
+                        };
 
                         // Check for JSON path in params
                         if let Some(params) = &handler.params {
                             if params.content_type.as_deref() == Some("json") {
                                 if let Some(path) = &params.path {
-                                    let body_data = &recv_bytes[recv_parts.body_start..];
-                                    let body_str = std::str::from_utf8(body_data).unwrap_or("");
-
                                     tracing::info!(
                                         "Looking for JSON path '{}' in body ({} bytes)",
                                         path,
-                                        body_str.len()
+                                        body.len()
                                     );
-                                    tracing::debug!("Body content: {}", &body_str[..body_str.len().min(200)]);
 
-                                    if let Some((start, end)) = find_json_path(body_str, path) {
-                                        tracing::info!(
-                                            "Found JSON path '{}' at body offset [{}, {})",
-                                            path, start, end
-                                        );
-                                        (recv_parts.body_start + start, recv_parts.body_start + end)
+                                    // Use spansy's JSON parsing if available
+                                    if let BodyContent::Json(json_doc) = &body.content {
+                                        if let Some(value) = json_doc.get(path) {
+                                            let view = value.view();
+                                            let start = view.offset();
+                                            let end = start + view.len();
+                                            tracing::info!(
+                                                "Found JSON path '{}' at [{}, {})",
+                                                path, start, end
+                                            );
+                                            (start, end)
+                                        } else {
+                                            tracing::warn!(
+                                                "JSON path '{}' not found in body, skipping handler",
+                                                path
+                                            );
+                                            continue;
+                                        }
                                     } else {
-                                        // JSON path not found - skip this handler instead of revealing everything
+                                        // Body is not JSON, try to parse it manually
                                         tracing::warn!(
-                                            "JSON path '{}' not found in body, skipping handler",
-                                            path
+                                            "Body is not detected as JSON by spansy, skipping JSON path handler"
                                         );
                                         continue;
                                     }
                                 } else {
                                     tracing::info!("No path specified for JSON body, revealing full body");
-                                    (recv_parts.body_start, recv_bytes.len())
+                                    let start = body.offset();
+                                    let end = start + body.len();
+                                    (start, end)
                                 }
                             } else {
                                 tracing::info!("Non-JSON body handler, revealing full body");
-                                (recv_parts.body_start, recv_bytes.len())
+                                let start = body.offset();
+                                let end = start + body.len();
+                                (start, end)
                             }
                         } else {
                             tracing::info!("No params for Body handler, revealing full body");
-                            (recv_parts.body_start, recv_bytes.len())
+                            let start = body.offset();
+                            let end = start + body.len();
+                            (start, end)
                         }
                     }
                     HandlerPart::All => (0, recv_bytes.len()),
@@ -894,129 +785,4 @@ fn build_reveal_config(
     tracing::info!("Final reveal_config: {}", serde_json::to_string_pretty(&config).unwrap_or_default());
 
     Ok(config)
-}
-
-/// Decode chunked transfer encoding and return the actual body content
-/// Returns (decoded_body, offset_to_first_chunk_data) for offset mapping
-fn decode_chunked_body(body: &str) -> Option<(String, usize)> {
-    let mut result = String::new();
-    let mut pos = 0;
-    let bytes = body.as_bytes();
-    let mut first_data_offset = None;
-
-    while pos < bytes.len() {
-        // Find end of chunk size line
-        let chunk_size_end = body[pos..].find("\r\n")?;
-        let chunk_size_str = &body[pos..pos + chunk_size_end];
-
-        // Parse chunk size (hex)
-        let chunk_size = usize::from_str_radix(chunk_size_str.trim(), 16).ok()?;
-
-        if chunk_size == 0 {
-            break; // End of chunks
-        }
-
-        let data_start = pos + chunk_size_end + 2; // After \r\n
-        let data_end = data_start + chunk_size;
-
-        if data_end > bytes.len() {
-            break;
-        }
-
-        if first_data_offset.is_none() {
-            first_data_offset = Some(data_start);
-        }
-
-        result.push_str(&body[data_start..data_end]);
-        pos = data_end + 2; // Skip \r\n after chunk data
-    }
-
-    first_data_offset.map(|offset| (result, offset))
-}
-
-/// Simple JSON path finder - returns (start, end) byte offsets within the string
-/// Supports paths like "items[0].name"
-fn find_json_path(json_str: &str, path: &str) -> Option<(usize, usize)> {
-    // Try to parse directly first
-    let (actual_json, base_offset) = if let Ok(_) = serde_json::from_str::<serde_json::Value>(json_str) {
-        (json_str.to_string(), 0)
-    } else {
-        // Try to decode as chunked transfer encoding
-        tracing::info!("Direct JSON parse failed, trying chunked decode");
-        match decode_chunked_body(json_str) {
-            Some((decoded, offset)) => {
-                tracing::info!("Decoded chunked body ({} bytes), first chunk at offset {}", decoded.len(), offset);
-                (decoded, offset)
-            }
-            None => {
-                tracing::warn!("Failed to decode chunked body");
-                return None;
-            }
-        }
-    };
-
-    // Parse the JSON
-    let value: serde_json::Value = serde_json::from_str(&actual_json).ok()?;
-
-    // Navigate the path
-    let parts: Vec<&str> = path.split('.').collect();
-    let mut current = &value;
-
-    for part in &parts {
-        // Check for array access like "items[0]"
-        if let Some(bracket_pos) = part.find('[') {
-            let key = &part[..bracket_pos];
-            let index_str = &part[bracket_pos + 1..part.len() - 1];
-            let index: usize = index_str.parse().ok()?;
-
-            current = current.get(key)?.get(index)?;
-        } else {
-            current = current.get(*part)?;
-        }
-    }
-
-    // Find the value in the actual JSON string (which may be decoded from chunks)
-    // This is a simple approach - find the string representation
-    let target = match current {
-        serde_json::Value::String(s) => format!("\"{}\"", s),
-        _ => current.to_string(),
-    };
-
-    // Search for the target in the actual JSON string
-    // For nested paths, we need to find the last occurrence after finding the parent key
-    let last_key = parts.last()?;
-    let key_to_find = if last_key.contains('[') {
-        last_key.split('[').next()?
-    } else {
-        last_key
-    };
-
-    // Find the key and then the value after it
-    let key_pattern = format!("\"{}\"", key_to_find);
-    let key_pos = actual_json.find(&key_pattern)?;
-    let after_key = &actual_json[key_pos + key_pattern.len()..];
-
-    // Skip whitespace and colon for object values
-    let value_start_in_after = after_key.find(&target)?;
-    let relative_start = key_pos + key_pattern.len() + value_start_in_after;
-    let relative_end = relative_start + target.len();
-
-    // For chunked responses, we need to find where this range falls in the original string
-    // For simplicity, if the body was chunked, we reveal the whole body since offsets don't map directly
-    if base_offset > 0 {
-        // For chunked responses, find the target in the original string
-        // The offsets don't map directly, so search for the value in the original
-        if let Some(pos) = json_str.find(&target) {
-            tracing::info!(
-                "Found target '{}' at position {} in original chunked body",
-                &target[..target.len().min(50)],
-                pos
-            );
-            return Some((pos, pos + target.len()));
-        }
-        tracing::warn!("Could not find target in original chunked body");
-        return None;
-    }
-
-    Some((relative_start, relative_end))
 }
