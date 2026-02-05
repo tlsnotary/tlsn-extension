@@ -49,6 +49,9 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # Bytes crate
 bytes = "1"
 
+# Spansy for HTTP/JSON parsing with span tracking
+spansy = { git = "https://github.com/tlsnotary/tlsn-utils", rev = "adfc5ba" }
+
 # TLSN dependencies (from GitHub)
 tlsn = { git = "https://github.com/tlsnotary/tlsn", tag = "v0.1.0-alpha.14", default-features = false, features = ["rayon", "mozilla-certs"] }
 tlsn-core = { git = "https://github.com/tlsnotary/tlsn", tag = "v0.1.0-alpha.14" }

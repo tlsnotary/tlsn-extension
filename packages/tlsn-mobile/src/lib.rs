@@ -2,6 +2,7 @@
 //!
 //! This crate provides native iOS/Android bindings for the TLSNotary prover.
 
+mod io_adapters;
 mod prover;
 
 // Use proc-macro based scaffolding (no UDL file needed)
@@ -52,7 +53,6 @@ impl From<String> for TlsnError {
     }
 }
 
-
 /// HTTP header key-value pair
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct HttpHeader {
@@ -83,7 +83,6 @@ pub struct Transcript {
     pub sent: Vec<u8>,
     pub recv: Vec<u8>,
 }
-
 
 /// Handler type (SENT or RECV)
 #[derive(Debug, Clone, uniffi::Enum)]
@@ -161,7 +160,5 @@ pub fn prove(request: HttpRequest, options: ProverOptions) -> Result<ProofResult
     let rt = tokio::runtime::Runtime::new()
         .map_err(|e| TlsnError::InitializationFailed(e.to_string()))?;
 
-    rt.block_on(async {
-        prover::prove_async(request, options).await
-    })
+    rt.block_on(async { prover::prove_async(request, options).await })
 }
