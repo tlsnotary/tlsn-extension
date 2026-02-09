@@ -262,61 +262,67 @@ function makeOpenWindow(
         });
 
         const onMessage = async (message: any) => {
-          if (message.type === 'REQUEST_INTERCEPTED') {
-            const request = message.request;
-            const executionContext = executionContextRegistry.get(uuid);
-            if (!executionContext) {
-              throw new Error('Execution context not found');
-            }
-            updateExecutionContext(uuid, {
-              requests: [...(executionContext.requests || []), request],
-            });
-            executionContext.main();
-          }
-
-          if (message.type === 'HEADER_INTERCEPTED') {
-            const header = message.header;
-            const executionContext = executionContextRegistry.get(uuid);
-            if (!executionContext) {
-              throw new Error('Execution context not found');
-            }
-            updateExecutionContext(uuid, {
-              headers: [...(executionContext.headers || []), header],
-            });
-            executionContext.main();
-          }
-
-          if (message.type === 'PLUGIN_UI_CLICK') {
-            logger.debug('PLUGIN_UI_CLICK', message);
-            const executionContext = executionContextRegistry.get(uuid);
-            if (!executionContext) {
-              throw new Error('Execution context not found');
-            }
-            const cb = executionContext.callbacks[message.onclick];
-
-            logger.debug('Callback:', cb);
-            if (cb) {
-              updateExecutionContext(uuid, {
-                currentContext: message.onclick,
-              });
-              const result = await cb();
-              updateExecutionContext(uuid, {
-                currentContext: '',
-              });
-              logger.debug('Callback result:', result);
-            }
-          }
-
-          if (message.type === 'RE_RENDER_PLUGIN_UI') {
-            logger.debug('[makeOpenWindow] RE_RENDER_PLUGIN_UI', message.windowId);
-            const executionContext = executionContextRegistry.get(uuid);
-            if (!executionContext) {
-              throw new Error('Execution context not found');
-            }
-            executionContext.main(true);
-          }
-
+          // Handle window closed first - always remove listener
           if (message.type === 'WINDOW_CLOSED') {
+            eventEmitter.removeListener(onMessage);
+            return;
+          }
+
+          // For all other messages, check if context still exists
+          // Context may have been cleaned up due to error or done() call
+          const executionContext = executionContextRegistry.get(uuid);
+          if (!executionContext) {
+            logger.debug(
+              `[makeOpenWindow] Ignoring message ${message.type}: execution context no longer exists`,
+            );
+            eventEmitter.removeListener(onMessage);
+            return;
+          }
+
+          try {
+            if (message.type === 'REQUEST_INTERCEPTED') {
+              const request = message.request;
+              updateExecutionContext(uuid, {
+                requests: [...(executionContext.requests || []), request],
+              });
+              executionContext.main();
+            }
+
+            if (message.type === 'HEADER_INTERCEPTED') {
+              const header = message.header;
+              updateExecutionContext(uuid, {
+                headers: [...(executionContext.headers || []), header],
+              });
+              executionContext.main();
+            }
+
+            if (message.type === 'PLUGIN_UI_CLICK') {
+              logger.debug('PLUGIN_UI_CLICK', message);
+              const cb = executionContext.callbacks[message.onclick];
+
+              logger.debug('Callback:', cb);
+              if (cb) {
+                updateExecutionContext(uuid, {
+                  currentContext: message.onclick,
+                });
+                const result = await cb();
+                // Re-check context exists after async callback
+                if (executionContextRegistry.has(uuid)) {
+                  updateExecutionContext(uuid, {
+                    currentContext: '',
+                  });
+                }
+                logger.debug('Callback result:', result);
+              }
+            }
+
+            if (message.type === 'RE_RENDER_PLUGIN_UI') {
+              logger.debug('[makeOpenWindow] RE_RENDER_PLUGIN_UI', message.windowId);
+              executionContext.main(true);
+            }
+          } catch (error) {
+            logger.error(`[makeOpenWindow] Error handling message ${message.type}:`, error);
+            // Clean up on error to prevent further issues
             eventEmitter.removeListener(onMessage);
           }
         };
@@ -437,10 +443,11 @@ export class Host {
 
     let evalCode: SandboxEvalCode | null = null;
     let disposeCallback: (() => void) | null = null;
+    let sandboxError: Error | null = null;
 
     // Start sandbox and keep it alive
-    // Don't await this - we want it to keep running
-    runSandboxed(async (sandbox) => {
+    // Track the promise to handle errors properly
+    const sandboxPromise = runSandboxed(async (sandbox) => {
       evalCode = sandbox.evalCode;
 
       // Keep the sandbox alive until dispose is called
@@ -448,7 +455,14 @@ export class Host {
       return new Promise<void>((resolve) => {
         disposeCallback = resolve;
       });
-    }, options);
+    }, options).catch((err: Error) => {
+      // Capture sandbox errors for later handling
+      sandboxError = err;
+      // If evalCode was never set, we need to unblock the wait loop
+      if (!evalCode) {
+        evalCode = (() => ({ ok: false, error: err })) as unknown as SandboxEvalCode;
+      }
+    });
 
     // Wait for evalCode to be ready
     while (!evalCode) {
@@ -458,6 +472,11 @@ export class Host {
     // Return evalCode and dispose function
     return {
       eval: async (code: string) => {
+        // Check if sandbox had an error during setup
+        if (sandboxError) {
+          throw sandboxError;
+        }
+
         const result = await evalCode!(code);
 
         if (!result.ok) {
@@ -474,6 +493,11 @@ export class Host {
           disposeCallback();
           disposeCallback = null;
         }
+        // Ensure the sandbox promise is awaited to prevent unhandled rejections
+        // This is a fire-and-forget await since we've already captured any errors
+        sandboxPromise.catch(() => {
+          // Errors already captured, ignore
+        });
       },
     };
   }
@@ -546,10 +570,42 @@ ${code};
     const stateStore: { [key: string]: any } = {};
 
     let doneResolve: (args?: any[]) => void;
+    let doneReject: (error: Error) => void;
+    let isCompleted = false;
 
-    const donePromise = new Promise((resolve) => {
+    const donePromise = new Promise((resolve, reject) => {
       doneResolve = resolve;
+      doneReject = reject;
     });
+
+    // Helper to terminate plugin execution with an error
+    const terminateWithError = (error: Error, sandbox?: { dispose: () => void }) => {
+      if (isCompleted) return;
+      isCompleted = true;
+      logger.error('[executePlugin] Plugin terminated with error:', error);
+
+      // Clean up registry entry
+      const ctx = executionContextRegistry.get(uuid);
+      if (ctx?.windowId) {
+        try {
+          this.onCloseWindow(ctx.windowId);
+        } catch (closeError) {
+          logger.error('[executePlugin] Error closing window:', closeError);
+        }
+      }
+      executionContextRegistry.delete(uuid);
+
+      // Dispose sandbox if provided
+      if (sandbox) {
+        try {
+          sandbox.dispose();
+        } catch (disposeError) {
+          logger.error('[executePlugin] Error disposing sandbox:', disposeError);
+        }
+      }
+
+      doneReject(error);
+    };
 
     /**
      * The sandbox is a sandboxed environment that is used to execute the plugin code.
@@ -590,6 +646,9 @@ ${code};
       setState: makeSetState(uuid, stateStore, eventEmitter),
       prove: onProve,
       done: (args?: any[]) => {
+        if (isCompleted) return;
+        isCompleted = true;
+
         // Close the window if it exists
         const context = executionContextRegistry.get(uuid);
         if (context?.windowId) {
@@ -600,7 +659,9 @@ ${code};
       },
     });
 
-    const exportedCode = await sandbox.eval(`
+    let exportedCode;
+    try {
+      exportedCode = await sandbox.eval(`
 const div = env.div;
 const button = env.button;
 const openWindow = env.openWindow;
@@ -614,11 +675,17 @@ const closeWindow = env.closeWindow;
 const done = env.done;
 ${code};
 `);
+    } catch (evalError) {
+      const error = evalError instanceof Error ? evalError : new Error(String(evalError));
+      terminateWithError(new Error(`Plugin evaluation failed: ${error.message}`), sandbox);
+      return donePromise;
+    }
 
     const { main: mainFn, ...args } = exportedCode;
 
     if (typeof mainFn !== 'function') {
-      throw new Error('Main function not found');
+      terminateWithError(new Error('Main function not found in plugin'), sandbox);
+      return donePromise;
     }
 
     const callbacks: {
@@ -688,8 +755,8 @@ ${code};
 
         return result;
       } catch (error) {
-        logger.error('Main function error:', error);
-        sandbox.dispose();
+        const err = error instanceof Error ? error : new Error(String(error));
+        terminateWithError(new Error(`Plugin main() error: ${err.message}`), sandbox);
         return null;
       }
     };
@@ -706,6 +773,7 @@ ${code};
       stateStore: {},
     });
 
+    // Execute initial main() - errors are handled within main() via terminateWithError
     main();
 
     return donePromise;

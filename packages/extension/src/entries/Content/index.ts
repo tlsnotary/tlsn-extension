@@ -82,7 +82,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
       },
       window.location.origin,
     );
-    return true;
+    return; // No response needed
   }
 
   if (request.type === 'GET_PAGE_INFO') {
@@ -92,33 +92,17 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
       url: window.location.href,
       domain: window.location.hostname,
     });
+    return true; // Response sent synchronously but return true for consistency
   }
 
   if (request.type === 'RENDER_PLUGIN_UI') {
     renderPluginUI(request.json, request.windowId);
     sendResponse({ success: true });
+    return true; // Response sent
   }
 
-  // if (request.type === 'SHOW_TLSN_OVERLAY') {
-  //   createTLSNOverlay();
-  //   sendResponse({ success: true });
-  // }
-
-  // if (request.type === 'UPDATE_TLSN_REQUESTS') {
-  //   logger.debug('updateTLSNOverlay', request.requests);
-  //   updateTLSNOverlay(request.requests || []);
-  //   sendResponse({ success: true });
-  // }
-
-  // if (request.type === 'HIDE_TLSN_OVERLAY') {
-  //   const overlay = document.getElementById('tlsn-overlay');
-  //   if (overlay) {
-  //     overlay.remove();
-  //   }
-  //   sendResponse({ success: true });
-  // }
-
-  return true; // Keep the message channel open
+  // Unknown message type - no response needed
+  return;
 });
 
 // Send a message to background script when ready

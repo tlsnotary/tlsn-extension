@@ -137,7 +137,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
       return;
     }
     windowManager.reRenderPluginUI(sender.tab.windowId as number);
-    return true;
+    return; // No response needed
   }
 
   // Example response
@@ -153,7 +153,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
       request.windowId,
     );
     windowManager.showPluginUI(request.windowId, request.json);
-    return true;
+    return; // No response needed
   }
 
   // Handle plugin confirmation responses from popup
@@ -163,7 +163,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
       request.requestId,
       request.allowed,
     );
-    return true;
+    return; // No response needed
   }
 
   // Handle code execution requests
@@ -376,38 +376,61 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
 
   if (request.type === 'TO_BG_RE_RENDER_PLUGIN_UI') {
     windowManager.reRenderPluginUI(request.windowId);
-    return;
+    return; // No response needed
   }
 
-  return true; // Keep message channel open for async response
+  // Unknown message type - no response needed
+  return;
 });
 
+// Mutex for offscreen document creation to prevent race conditions
+let offscreenDocumentCreationPromise: Promise<void> | null = null;
+
 // Create offscreen document if needed (Chrome 109+)
-async function createOffscreenDocument() {
-  // Check if we're in a Chrome environment that supports offscreen documents
-  if (!chrome?.offscreen) {
-    logger.debug('Offscreen API not available');
-    return;
+// Uses mutex to prevent race conditions when multiple callers try to create simultaneously
+async function createOffscreenDocument(): Promise<void> {
+  // If creation is already in progress, wait for it
+  if (offscreenDocumentCreationPromise) {
+    return offscreenDocumentCreationPromise;
   }
 
-  const offscreenUrl = browser.runtime.getURL('offscreen.html');
+  // Create the promise and store it for other callers to wait on
+  offscreenDocumentCreationPromise = (async () => {
+    try {
+      // Check if we're in a Chrome environment that supports offscreen documents
+      if (!chrome?.offscreen) {
+        logger.debug('Offscreen API not available');
+        return;
+      }
 
-  // Check if offscreen document already exists
-  const existingContexts = await chrome.runtime.getContexts({
-    contextTypes: ['OFFSCREEN_DOCUMENT'],
-    documentUrls: [offscreenUrl],
-  });
+      const offscreenUrl = browser.runtime.getURL('offscreen.html');
 
-  if (existingContexts.length > 0) {
-    return;
-  }
+      // Check if offscreen document already exists
+      const existingContexts = await chrome.runtime.getContexts({
+        contextTypes: ['OFFSCREEN_DOCUMENT'],
+        documentUrls: [offscreenUrl],
+      });
 
-  // Create offscreen document
-  await chrome.offscreen.createDocument({
-    url: 'offscreen.html',
-    reasons: ['DOM_SCRAPING'],
-    justification: 'Offscreen document for background processing',
-  });
+      if (existingContexts.length > 0) {
+        logger.debug('Offscreen document already exists');
+        return;
+      }
+
+      // Create offscreen document
+      logger.debug('Creating offscreen document...');
+      await chrome.offscreen.createDocument({
+        url: 'offscreen.html',
+        reasons: ['DOM_SCRAPING'],
+        justification: 'Offscreen document for background processing',
+      });
+      logger.debug('Offscreen document created successfully');
+    } finally {
+      // Clear the promise so future calls can create if needed
+      offscreenDocumentCreationPromise = null;
+    }
+  })();
+
+  return offscreenDocumentCreationPromise;
 }
 
 // Initialize offscreen document

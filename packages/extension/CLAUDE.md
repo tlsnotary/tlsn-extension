@@ -292,6 +292,34 @@ Purpose: Proxies HTTPS connections through WebSocket for browser-based TLS opera
 - Single quotes, trailing commas, 2-space indentation
 - Ignore: `.prettierignore` (not in repo, likely default ignores)
 
+## Git Conventions
+
+This project uses [Conventional Commits](https://www.conventionalcommits.org/). Commit messages should follow this format:
+
+```
+<type>(<scope>): <description>
+```
+
+**Types:**
+- `feat` - New feature
+- `fix` - Bug fix
+- `docs` - Documentation changes
+- `style` - Code style changes (formatting, whitespace)
+- `refactor` - Code refactoring (no functional changes)
+- `test` - Adding or updating tests
+- `chore` - Maintenance tasks, dependency updates
+
+**Scope:** Use `extension` for this package.
+
+**Examples:**
+```
+feat(extension): add request interception for managed windows
+fix(extension): format callback to satisfy prettier
+refactor(extension): simplify message handling
+```
+
+**Important:** Do not add co-author attributions to commits.
+
 ## Publishing
 
 After building:
