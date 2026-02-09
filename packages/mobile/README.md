@@ -15,14 +15,9 @@ React Native/Expo mobile app for iOS with native TLSNotary proof generation.
    cd packages/tlsn-mobile
    ./build-ios.sh
    ```
+   This builds the library and automatically copies the bindings to the Expo module.
 
-2. **Copy native bindings**:
-   ```bash
-   cp target/swift/tlsn_mobile.swift ../mobile/modules/tlsn-native/ios/
-   cp -r target/TlsnMobile.xcframework ../mobile/modules/tlsn-native/ios/
-   ```
-
-3. **Install dependencies**:
+2. **Install dependencies**:
    ```bash
    cd packages/mobile
    npm install
@@ -114,8 +109,6 @@ After changes to `packages/tlsn-mobile`:
 ```bash
 cd packages/tlsn-mobile
 ./build-ios.sh
-cp target/swift/tlsn_mobile.swift ../mobile/modules/tlsn-native/ios/
-cp -r target/TlsnMobile.xcframework ../mobile/modules/tlsn-native/ios/
 cd ../mobile
 npx expo prebuild --clean
 npx expo run:ios
