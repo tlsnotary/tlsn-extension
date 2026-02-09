@@ -77,13 +77,15 @@ pub async fn prove_async(request: HttpRequest, options: ProverOptions) -> Result
     tracing::info!("Connected to session endpoint, registering...");
 
     // Send register message
-    let register_msg = serde_json::json!({
-        "type": "register",
-        "maxRecvData": options.max_recv_data,
-        "maxSentData": options.max_sent_data,
-        "sessionData": {}
-    });
-    session_ws.send(Message::Text(register_msg.to_string().into()))
+    let register_msg = RegisterMessage {
+        msg_type: "register",
+        max_recv_data: options.max_recv_data,
+        max_sent_data: options.max_sent_data,
+        session_data: SessionData::default(),
+    };
+    let register_json = serde_json::to_string(&register_msg)
+        .map_err(|e| TlsnError::ConnectionFailed(format!("Failed to serialize register message: {}", e)))?;
+    session_ws.send(Message::Text(register_json.into()))
         .await
         .map_err(|e| TlsnError::ConnectionFailed(format!("Failed to send register message: {}", e)))?;
 
@@ -541,12 +543,48 @@ async fn send_http_request(conn: TlsConnection, request: &HttpRequest) -> Result
     })
 }
 
+// ============================================================================
+// Message Types for WebSocket Protocol
+// ============================================================================
+
+/// Register message sent to create a new session
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RegisterMessage {
+    #[serde(rename = "type")]
+    msg_type: &'static str,
+    max_recv_data: u32,
+    max_sent_data: u32,
+    session_data: SessionData,
+}
+
+/// Session data (currently empty, but structured for future use)
+#[derive(Debug, Clone, Default, serde::Serialize)]
+struct SessionData {}
+
+/// Handler info for reveal config ranges
+#[derive(Debug, Clone, serde::Serialize)]
+struct HandlerInfo {
+    #[serde(rename = "type")]
+    handler_type: &'static str,
+    part: &'static str,
+}
+
 /// Range with handler for reveal config
 #[derive(Debug, Clone, serde::Serialize)]
 struct RangeWithHandler {
     start: usize,
     end: usize,
-    handler: serde_json::Value,
+    handler: HandlerInfo,
+}
+
+/// Reveal config message sent to verifier
+#[derive(Debug, Clone, serde::Serialize)]
+struct RevealConfigMessage {
+    #[serde(rename = "type")]
+    msg_type: &'static str,
+    sent: Vec<RangeWithHandler>,
+    recv: Vec<RangeWithHandler>,
 }
 
 use spansy::{Span, http::{parse_request, parse_response, BodyContent}};
@@ -568,19 +606,27 @@ fn build_reveal_config(
     // If no handlers, reveal everything
     if handlers.is_empty() {
         tracing::info!("No handlers specified, revealing everything");
-        return Ok(serde_json::json!({
-            "type": "reveal_config",
-            "sent": [{
-                "start": 0,
-                "end": sent_bytes.len(),
-                "handler": { "type": "SENT", "part": "ALL" }
+        let config = RevealConfigMessage {
+            msg_type: "reveal_config",
+            sent: vec![RangeWithHandler {
+                start: 0,
+                end: sent_bytes.len(),
+                handler: HandlerInfo {
+                    handler_type: "SENT",
+                    part: "ALL",
+                },
             }],
-            "recv": [{
-                "start": 0,
-                "end": recv_bytes.len(),
-                "handler": { "type": "RECV", "part": "ALL" }
-            }]
-        }));
+            recv: vec![RangeWithHandler {
+                start: 0,
+                end: recv_bytes.len(),
+                handler: HandlerInfo {
+                    handler_type: "RECV",
+                    part: "ALL",
+                },
+            }],
+        };
+        return serde_json::to_value(&config)
+            .map_err(|e| TlsnError::ProofFailed(format!("Failed to serialize reveal config: {}", e)));
     }
 
     // Parse HTTP messages using spansy
@@ -637,10 +683,10 @@ fn build_reveal_config(
                 sent_ranges.push(RangeWithHandler {
                     start: range.0,
                     end: range.1,
-                    handler: serde_json::json!({
-                        "type": "SENT",
-                        "part": part_str
-                    }),
+                    handler: HandlerInfo {
+                        handler_type: "SENT",
+                        part: part_str,
+                    },
                 });
             }
             HandlerType::Recv => {
@@ -756,10 +802,10 @@ fn build_reveal_config(
                 recv_ranges.push(RangeWithHandler {
                     start: range.0,
                     end: range.1,
-                    handler: serde_json::json!({
-                        "type": "RECV",
-                        "part": part_str
-                    }),
+                    handler: HandlerInfo {
+                        handler_type: "RECV",
+                        part: part_str,
+                    },
                 });
             }
         }
@@ -776,13 +822,14 @@ fn build_reveal_config(
     // that direction will be fully redacted (not revealed).
     // The verifier will only see ranges that are explicitly added.
 
-    let config = serde_json::json!({
-        "type": "reveal_config",
-        "sent": sent_ranges,
-        "recv": recv_ranges
-    });
+    let config = RevealConfigMessage {
+        msg_type: "reveal_config",
+        sent: sent_ranges,
+        recv: recv_ranges,
+    };
 
     tracing::info!("Final reveal_config: {}", serde_json::to_string_pretty(&config).unwrap_or_default());
 
-    Ok(config)
+    serde_json::to_value(&config)
+        .map_err(|e| TlsnError::ProofFailed(format!("Failed to serialize reveal config: {}", e)))
 }
