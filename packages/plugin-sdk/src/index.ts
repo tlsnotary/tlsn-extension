@@ -216,6 +216,19 @@ function makeSetState(
   };
 }
 
+/**
+ * Tracks the lifecycle of a plugin execution to prevent race conditions
+ * between async callbacks and sandbox disposal.
+ */
+interface PluginLifecycle {
+  /** Whether the plugin has completed (done() or terminateWithError called) */
+  isCompleted: boolean;
+  /** Number of async callbacks currently in-flight */
+  pendingCallbacks: number;
+  /** Called when pendingCallbacks drops to 0, if set */
+  onDrain: (() => void) | null;
+}
+
 // Pure function for creating openWindow without `this` binding
 function makeOpenWindow(
   uuid: string,
@@ -232,6 +245,7 @@ function makeOpenWindow(
     },
   ) => Promise<OpenWindowResponse>,
   _onCloseWindow: (windowId: number) => void,
+  lifecycle: PluginLifecycle,
 ) {
   return async (
     url: string,
@@ -264,6 +278,14 @@ function makeOpenWindow(
         const onMessage = async (message: any) => {
           // Handle window closed first - always remove listener
           if (message.type === 'WINDOW_CLOSED') {
+            eventEmitter.removeListener(onMessage);
+            return;
+          }
+
+          // Skip processing if the plugin has completed (done() or error)
+          // This prevents new work from starting while disposal is pending
+          if (lifecycle.isCompleted) {
+            logger.debug(`[makeOpenWindow] Ignoring message ${message.type}: plugin has completed`);
             eventEmitter.removeListener(onMessage);
             return;
           }
@@ -302,17 +324,28 @@ function makeOpenWindow(
 
               logger.debug('Callback:', cb);
               if (cb) {
-                updateExecutionContext(uuid, {
-                  currentContext: message.onclick,
-                });
-                const result = await cb();
-                // Re-check context exists after async callback
-                if (executionContextRegistry.has(uuid)) {
+                // Track this async callback so sandbox disposal waits for it
+                lifecycle.pendingCallbacks++;
+                try {
                   updateExecutionContext(uuid, {
-                    currentContext: '',
+                    currentContext: message.onclick,
                   });
+                  const result = await cb();
+                  // Re-check context exists after async callback
+                  if (executionContextRegistry.has(uuid)) {
+                    updateExecutionContext(uuid, {
+                      currentContext: '',
+                    });
+                  }
+                  logger.debug('Callback result:', result);
+                } finally {
+                  lifecycle.pendingCallbacks--;
+                  // If disposal is waiting for callbacks to drain, signal it
+                  if (lifecycle.pendingCallbacks === 0 && lifecycle.onDrain) {
+                    lifecycle.onDrain();
+                    lifecycle.onDrain = null;
+                  }
                 }
-                logger.debug('Callback result:', result);
               }
             }
 
@@ -571,17 +604,34 @@ ${code};
 
     let doneResolve: (args?: any[]) => void;
     let doneReject: (error: Error) => void;
-    let isCompleted = false;
+
+    // Lifecycle tracker prevents sandbox disposal while async callbacks are in-flight.
+    // This fixes "Lifetime not alive" / "QuickJSContext had no callback with id" errors
+    // caused by the sandbox being disposed while an awaited callback (e.g. onClick → prove())
+    // is still executing inside the QuickJS runtime.
+    const lifecycle: PluginLifecycle = {
+      isCompleted: false,
+      pendingCallbacks: 0,
+      onDrain: null,
+    };
 
     const donePromise = new Promise((resolve, reject) => {
       doneResolve = resolve;
       doneReject = reject;
     });
 
+    // Wait for all in-flight async callbacks to settle
+    const waitForPendingCallbacks = (): Promise<void> => {
+      if (lifecycle.pendingCallbacks === 0) return Promise.resolve();
+      return new Promise<void>((resolve) => {
+        lifecycle.onDrain = resolve;
+      });
+    };
+
     // Helper to terminate plugin execution with an error
     const terminateWithError = (error: Error, sandbox?: { dispose: () => void }) => {
-      if (isCompleted) return;
-      isCompleted = true;
+      if (lifecycle.isCompleted) return;
+      lifecycle.isCompleted = true;
       logger.error('[executePlugin] Plugin terminated with error:', error);
 
       // Clean up registry entry
@@ -593,18 +643,32 @@ ${code};
           logger.error('[executePlugin] Error closing window:', closeError);
         }
       }
-      executionContextRegistry.delete(uuid);
 
-      // Dispose sandbox if provided
-      if (sandbox) {
-        try {
-          sandbox.dispose();
-        } catch (disposeError) {
-          logger.error('[executePlugin] Error disposing sandbox:', disposeError);
+      const finalize = () => {
+        executionContextRegistry.delete(uuid);
+
+        // Dispose sandbox if provided
+        if (sandbox) {
+          try {
+            sandbox.dispose();
+          } catch (disposeError) {
+            logger.error('[executePlugin] Error disposing sandbox:', disposeError);
+          }
         }
-      }
 
-      doneReject(error);
+        doneReject(error);
+      };
+
+      // Defer sandbox disposal until all in-flight callbacks have completed.
+      // Disposing while a callback is awaited inside QuickJS causes "Lifetime not alive".
+      if (lifecycle.pendingCallbacks > 0) {
+        logger.debug(
+          `[executePlugin] Deferring sandbox disposal: ${lifecycle.pendingCallbacks} callback(s) in-flight`,
+        );
+        waitForPendingCallbacks().then(finalize);
+      } else {
+        finalize();
+      }
     };
 
     /**
@@ -638,7 +702,7 @@ ${code};
         createDomJson('div', param1, param2),
       button: (param1?: DomOptions | DomJson[], param2?: DomJson[]) =>
         createDomJson('button', param1, param2),
-      openWindow: makeOpenWindow(uuid, eventEmitter, onOpenWindow, onCloseWindow),
+      openWindow: makeOpenWindow(uuid, eventEmitter, onOpenWindow, onCloseWindow, lifecycle),
       useEffect: makeUseEffect(uuid, context),
       useRequests: makeUseRequests(uuid, context),
       useHeaders: makeUseHeaders(uuid, context),
@@ -646,16 +710,30 @@ ${code};
       setState: makeSetState(uuid, stateStore, eventEmitter),
       prove: onProve,
       done: (args?: any[]) => {
-        if (isCompleted) return;
-        isCompleted = true;
+        if (lifecycle.isCompleted) return;
+        lifecycle.isCompleted = true;
 
         // Close the window if it exists
         const context = executionContextRegistry.get(uuid);
         if (context?.windowId) {
           onCloseWindow(context.windowId);
         }
-        executionContextRegistry.delete(uuid);
-        doneResolve(args);
+
+        const finalize = () => {
+          executionContextRegistry.delete(uuid);
+          doneResolve(args);
+        };
+
+        // If called from within an async callback (e.g. onClick → prove() → done()),
+        // defer cleanup until the callback returns to avoid disposing QuickJS mid-execution.
+        if (lifecycle.pendingCallbacks > 0) {
+          logger.debug(
+            `[executePlugin] done() called with ${lifecycle.pendingCallbacks} callback(s) in-flight, deferring cleanup`,
+          );
+          waitForPendingCallbacks().then(finalize);
+        } else {
+          finalize();
+        }
       },
     });
 
@@ -701,6 +779,9 @@ ${code};
     let json: DomJson | null = null;
 
     const main = (force = false) => {
+      // Don't run main() if the plugin has already completed
+      if (lifecycle.isCompleted) return null;
+
       try {
         updateExecutionContext(uuid, {
           currentContext: 'main',
