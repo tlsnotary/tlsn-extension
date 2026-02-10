@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { Host } from './index';
-import type { WindowMessage } from './types';
+import type { WindowMessage, InterceptedRequest, InterceptedRequestHeader } from './types';
 
 /**
  * Browser E2E tests for the QuickJS sandbox.
@@ -16,11 +16,9 @@ import type { WindowMessage } from './types';
  * (a @sebastianwessel/quickjs limitation). Tests verify behavior via host
  * capability spies instead of return values.
  *
- * KNOWN LIMITATION: executePlugin() cannot be tested here because the library
- * deeply serializes the env object when injecting capabilities. The complex
- * closures in useEffect/useState/openWindow cause "Maximum call stack size
- * exceeded" during serialization. The full plugin lifecycle works in the actual
- * extension (webpack-bundled offscreen page).
+ * executePlugin() works via preprocessPluginCode() which wraps exports in
+ * arrow functions (no .prototype → no handleToNative serialization cycle).
+ * openWindow() is idempotent — safe to call on every re-render.
  */
 describe('QuickJS Browser E2E', () => {
   const sandboxes: Array<{ dispose: () => void }> = [];
@@ -269,6 +267,652 @@ describe('QuickJS Browser E2E', () => {
 
       const result = await donePromise;
       expect(result).toEqual({ proof: 'mock' });
+    });
+
+    // --- Helpers for reactive hook tests ---
+
+    let reqCounter = 0;
+    function makeRequestMessage(
+      windowId: number,
+      overrides?: Partial<InterceptedRequest>,
+    ): WindowMessage {
+      return {
+        type: 'REQUEST_INTERCEPTED',
+        windowId,
+        request: {
+          id: `req-${++reqCounter}`,
+          method: 'GET',
+          url: 'https://example.com/api',
+          timestamp: Date.now(),
+          tabId: 1,
+          ...overrides,
+        },
+      };
+    }
+
+    let hdrCounter = 0;
+    function makeHeaderMessage(
+      windowId: number,
+      overrides?: Partial<InterceptedRequestHeader>,
+    ): WindowMessage {
+      return {
+        type: 'HEADER_INTERCEPTED',
+        windowId,
+        header: {
+          id: `hdr-${++hdrCounter}`,
+          method: 'GET',
+          url: 'https://example.com/api',
+          timestamp: Date.now(),
+          type: 'xmlhttprequest',
+          requestHeaders: [{ name: 'Content-Type', value: 'application/json' }],
+          tabId: 1,
+          ...overrides,
+        },
+      };
+    }
+
+    /**
+     * Bridge that converts TO_BG_RE_RENDER_PLUGIN_UI → RE_RENDER_PLUGIN_UI.
+     * In the real extension, the background script does this. In tests we
+     * simulate it with a setTimeout to avoid synchronous recursion.
+     */
+    function installReRenderBridge(emitter: ReturnType<typeof createEventEmitter>) {
+      emitter.addListener(((msg: any) => {
+        if (msg.type === 'TO_BG_RE_RENDER_PLUGIN_UI') {
+          setTimeout(() => {
+            emitter.emit({
+              type: 'RE_RENDER_PLUGIN_UI',
+              windowId: msg.windowId,
+            } as WindowMessage);
+          }, 10);
+        }
+      }) as (msg: WindowMessage) => void);
+    }
+
+    // --- useRequests ---
+
+    describe('useRequests', () => {
+      it('should receive intercepted requests', async () => {
+        const host = createHost();
+        const emitter = createEventEmitter();
+
+        const donePromise = host.executePlugin(
+          `
+          export async function main() {
+            const reqs = useRequests(r => r);
+            if (reqs.length >= 1) {
+              done(reqs.length);
+              return null;
+            }
+            await openWindow('https://example.com', { width: 400, height: 300 });
+            return div({}, ['waiting']);
+          }
+        `,
+          { eventEmitter: emitter },
+        );
+
+        await new Promise((r) => setTimeout(r, 200));
+        emitter.emit(makeRequestMessage(1));
+
+        const result = await donePromise;
+        expect(result).toBe(1);
+      });
+
+      it('should apply filter function correctly', async () => {
+        const host = createHost();
+        const emitter = createEventEmitter();
+
+        const donePromise = host.executePlugin(
+          `
+          export async function main() {
+            const postReqs = useRequests(r => r.filter(req => req.method === 'POST'));
+            if (postReqs.length >= 1) {
+              done({ count: postReqs.length, url: postReqs[0].url });
+              return null;
+            }
+            await openWindow('https://example.com', { width: 400, height: 300 });
+            return div({}, ['waiting for POST']);
+          }
+        `,
+          { eventEmitter: emitter },
+        );
+
+        await new Promise((r) => setTimeout(r, 200));
+
+        // GET request should not trigger done
+        emitter.emit(makeRequestMessage(1, { method: 'GET' }));
+        await new Promise((r) => setTimeout(r, 100));
+
+        // POST request should trigger done
+        emitter.emit(makeRequestMessage(1, { method: 'POST', url: 'https://example.com/submit' }));
+
+        const result = await donePromise;
+        expect(result).toEqual({ count: 1, url: 'https://example.com/submit' });
+      });
+
+      it('should accumulate across multiple intercepts', async () => {
+        const host = createHost();
+        const emitter = createEventEmitter();
+
+        const donePromise = host.executePlugin(
+          `
+          export async function main() {
+            const reqs = useRequests(r => r);
+            if (reqs.length >= 3) {
+              done(reqs.map(r => r.url));
+              return null;
+            }
+            await openWindow('https://example.com', { width: 400, height: 300 });
+            return div({}, ['waiting']);
+          }
+        `,
+          { eventEmitter: emitter },
+        );
+
+        await new Promise((r) => setTimeout(r, 200));
+        emitter.emit(makeRequestMessage(1, { url: 'https://example.com/1' }));
+        await new Promise((r) => setTimeout(r, 50));
+        emitter.emit(makeRequestMessage(1, { url: 'https://example.com/2' }));
+        await new Promise((r) => setTimeout(r, 50));
+        emitter.emit(makeRequestMessage(1, { url: 'https://example.com/3' }));
+
+        const result = await donePromise;
+        expect(result).toEqual([
+          'https://example.com/1',
+          'https://example.com/2',
+          'https://example.com/3',
+        ]);
+      });
+    });
+
+    // --- useHeaders ---
+
+    describe('useHeaders', () => {
+      it('should receive intercepted headers', async () => {
+        const host = createHost();
+        const emitter = createEventEmitter();
+
+        const donePromise = host.executePlugin(
+          `
+          export async function main() {
+            const hdrs = useHeaders(h => h);
+            if (hdrs.length >= 1) {
+              done(hdrs.length);
+              return null;
+            }
+            await openWindow('https://example.com', { width: 400, height: 300 });
+            return div({}, ['waiting']);
+          }
+        `,
+          { eventEmitter: emitter },
+        );
+
+        await new Promise((r) => setTimeout(r, 200));
+        emitter.emit(makeHeaderMessage(1));
+
+        const result = await donePromise;
+        expect(result).toBe(1);
+      });
+
+      it('should extract specific header values', async () => {
+        const host = createHost();
+        const emitter = createEventEmitter();
+
+        const donePromise = host.executePlugin(
+          `
+          export async function main() {
+            const authHeaders = useHeaders(h =>
+              h.filter(hdr => hdr.requestHeaders.some(rh => rh.name === 'Authorization'))
+            );
+            if (authHeaders.length >= 1) {
+              const authValue = authHeaders[0].requestHeaders
+                .find(rh => rh.name === 'Authorization').value;
+              done(authValue);
+              return null;
+            }
+            await openWindow('https://example.com', { width: 400, height: 300 });
+            return div({}, ['waiting']);
+          }
+        `,
+          { eventEmitter: emitter },
+        );
+
+        await new Promise((r) => setTimeout(r, 200));
+        emitter.emit(
+          makeHeaderMessage(1, {
+            requestHeaders: [
+              { name: 'Authorization', value: 'Bearer secret-token' },
+              { name: 'Content-Type', value: 'application/json' },
+            ],
+          }),
+        );
+
+        const result = await donePromise;
+        expect(result).toBe('Bearer secret-token');
+      });
+    });
+
+    // --- useEffect ---
+
+    describe('useEffect', () => {
+      it('should fire on first call', async () => {
+        const host = createHost();
+        const emitter = createEventEmitter();
+        installReRenderBridge(emitter);
+
+        const donePromise = host.executePlugin(
+          `
+          export async function main() {
+            useEffect(() => {
+              setState('effectRan', true);
+            }, []);
+            const ran = useState('effectRan', false);
+            if (ran) {
+              done('effect-ran');
+              return null;
+            }
+            await openWindow('https://example.com', { width: 400, height: 300 });
+            return div({}, ['waiting']);
+          }
+        `,
+          { eventEmitter: emitter },
+        );
+
+        const result = await donePromise;
+        expect(result).toBe('effect-ran');
+      });
+
+      it('should fire when deps change via useRequests', async () => {
+        const host = createHost();
+        const emitter = createEventEmitter();
+
+        const donePromise = host.executePlugin(
+          `
+          export async function main() {
+            const reqs = useRequests(r => r);
+            useEffect(() => {
+              if (reqs.length > 0) {
+                done('deps-changed:' + reqs.length);
+              }
+            }, [reqs.length]);
+            await openWindow('https://example.com', { width: 400, height: 300 });
+            return div({}, ['waiting']);
+          }
+        `,
+          { eventEmitter: emitter },
+        );
+
+        await new Promise((r) => setTimeout(r, 200));
+        emitter.emit(makeRequestMessage(1));
+
+        const result = await donePromise;
+        expect(result).toBe('deps-changed:1');
+      });
+    });
+
+    // --- useState / setState ---
+
+    describe('useState / setState', () => {
+      it('should return default value from useState', async () => {
+        const host = createHost();
+        const emitter = createEventEmitter();
+
+        const result = await host.executePlugin(
+          `
+          export function main() {
+            const name = useState('name', 'Alice');
+            done(name);
+            return null;
+          }
+        `,
+          { eventEmitter: emitter },
+        );
+
+        expect(result).toBe('Alice');
+      });
+
+      it('should persist useState value across re-renders', async () => {
+        const host = createHost();
+        const emitter = createEventEmitter();
+
+        const donePromise = host.executePlugin(
+          `
+          export async function main() {
+            const name = useState('name', 'Alice');
+            const reqs = useRequests(r => r);
+            if (reqs.length >= 1) {
+              done({ name, reqCount: reqs.length });
+              return null;
+            }
+            await openWindow('https://example.com', { width: 400, height: 300 });
+            return div({}, ['waiting']);
+          }
+        `,
+          { eventEmitter: emitter },
+        );
+
+        await new Promise((r) => setTimeout(r, 200));
+        emitter.emit(makeRequestMessage(1));
+
+        const result = await donePromise;
+        expect(result).toEqual({ name: 'Alice', reqCount: 1 });
+      });
+
+      it('should update state and trigger re-render via setState', async () => {
+        const host = createHost();
+        const emitter = createEventEmitter();
+        installReRenderBridge(emitter);
+
+        const donePromise = host.executePlugin(
+          `
+          export async function main() {
+            const count = useState('counter', 0);
+            if (count > 0) {
+              done(count);
+              return null;
+            }
+            await openWindow('https://example.com', { width: 400, height: 300 });
+            return button({ onclick: 'increment' }, ['click me']);
+          }
+          export function increment() {
+            const count = useState('counter', 0);
+            setState('counter', count + 1);
+          }
+        `,
+          { eventEmitter: emitter },
+        );
+
+        await new Promise((r) => setTimeout(r, 200));
+        emitter.emit({
+          type: 'PLUGIN_UI_CLICK',
+          onclick: 'increment',
+          windowId: 1,
+        } as WindowMessage);
+
+        const result = await donePromise;
+        expect(result).toBe(1);
+      });
+    });
+
+    // --- openWindow ---
+
+    describe('openWindow', () => {
+      it('should pass correct args to onOpenWindow', async () => {
+        const onOpenSpy = vi.fn().mockResolvedValue({
+          type: 'WINDOW_OPENED',
+          payload: { windowId: 42, uuid: 'test-uuid', tabId: 5 },
+        });
+        const host = new Host({
+          onProve: vi.fn().mockResolvedValue({ proof: 'mock' }),
+          onRenderPluginUi: vi.fn(),
+          onCloseWindow: vi.fn(),
+          onOpenWindow: onOpenSpy,
+        });
+        const emitter = createEventEmitter();
+
+        const result = await host.executePlugin(
+          `
+          export async function main() {
+            const win = await openWindow('https://test.example.com', {
+              width: 800, height: 600, showOverlay: true
+            });
+            done({ windowId: win.windowId, tabId: win.tabId });
+            return null;
+          }
+        `,
+          { eventEmitter: emitter },
+        );
+
+        expect(onOpenSpy).toHaveBeenCalledWith('https://test.example.com', {
+          width: 800,
+          height: 600,
+          showOverlay: true,
+        });
+        expect(result).toEqual({ windowId: 42, tabId: 5 });
+      });
+
+      it('should be idempotent on re-renders (SDK guards duplicate calls)', async () => {
+        const onOpenSpy = vi.fn().mockResolvedValue({
+          type: 'WINDOW_OPENED',
+          payload: { windowId: 1, uuid: 'test-uuid', tabId: 1 },
+        });
+        const host = new Host({
+          onProve: vi.fn().mockResolvedValue({ proof: 'mock' }),
+          onRenderPluginUi: vi.fn(),
+          onCloseWindow: vi.fn(),
+          onOpenWindow: onOpenSpy,
+        });
+        const emitter = createEventEmitter();
+
+        // Plugin calls openWindow every render — SDK should only open once
+        const donePromise = host.executePlugin(
+          `
+          export async function main() {
+            const reqs = useRequests(r => r);
+            await openWindow('https://example.com', { width: 400, height: 300 });
+            if (reqs.length >= 2) {
+              done(reqs.length);
+              return null;
+            }
+            return div({}, ['waiting']);
+          }
+        `,
+          { eventEmitter: emitter },
+        );
+
+        await new Promise((r) => setTimeout(r, 200));
+        emitter.emit(makeRequestMessage(1));
+        await new Promise((r) => setTimeout(r, 50));
+        emitter.emit(makeRequestMessage(1));
+
+        await donePromise;
+        // onOpenWindow should only be called once despite main() running 3 times
+        expect(onOpenSpy).toHaveBeenCalledTimes(1);
+      });
+
+      it('should reject on empty URL', async () => {
+        const host = createHost();
+        const emitter = createEventEmitter();
+
+        const result = await host.executePlugin(
+          `
+          export async function main() {
+            try {
+              await openWindow('', { width: 400, height: 300 });
+              done('should-not-reach');
+            } catch (e) {
+              done('error:' + e.message);
+            }
+            return null;
+          }
+        `,
+          { eventEmitter: emitter },
+        );
+
+        expect(result).toContain('error:');
+      });
+    });
+
+    // --- done() ---
+
+    describe('done()', () => {
+      it('should call onCloseWindow when window is open', async () => {
+        const onCloseSpy = vi.fn();
+        const host = new Host({
+          onProve: vi.fn().mockResolvedValue({ proof: 'mock' }),
+          onRenderPluginUi: vi.fn(),
+          onCloseWindow: onCloseSpy,
+          onOpenWindow: vi.fn().mockResolvedValue({
+            type: 'WINDOW_OPENED',
+            payload: { windowId: 7, uuid: 'test-uuid', tabId: 1 },
+          }),
+        });
+        const emitter = createEventEmitter();
+
+        await host.executePlugin(
+          `
+          export async function main() {
+            await openWindow('https://example.com', { width: 400, height: 300 });
+            done('closing');
+            return null;
+          }
+        `,
+          { eventEmitter: emitter },
+        );
+
+        expect(onCloseSpy).toHaveBeenCalledWith(7);
+      });
+
+      it('should be idempotent (first call wins)', async () => {
+        const host = createHost();
+        const emitter = createEventEmitter();
+
+        const result = await host.executePlugin(
+          `
+          export function main() {
+            done('first');
+            done('second');
+            return null;
+          }
+        `,
+          { eventEmitter: emitter },
+        );
+
+        expect(result).toBe('first');
+      });
+    });
+
+    // --- Error cases ---
+
+    describe('error cases', () => {
+      it('should reject when main export is missing', async () => {
+        const host = createHost();
+        const emitter = createEventEmitter();
+
+        await expect(
+          host.executePlugin(
+            `
+            export function notMain() {
+              return null;
+            }
+          `,
+            { eventEmitter: emitter },
+          ),
+        ).rejects.toThrow('Main function not found');
+      });
+
+      it('should reject on syntax error in plugin', async () => {
+        const host = createHost();
+        const emitter = createEventEmitter();
+
+        await expect(
+          host.executePlugin('export function main( { }', { eventEmitter: emitter }),
+        ).rejects.toThrow('Plugin evaluation failed');
+      });
+    });
+
+    // --- Full integration ---
+
+    describe('integration', () => {
+      it('should handle openWindow → intercept → useRequests → click → prove → done', async () => {
+        const host = createHost();
+        const emitter = createEventEmitter();
+
+        const donePromise = host.executePlugin(
+          `
+          export async function main() {
+            const reqs = useRequests(r => r.filter(req => req.url.includes('/api/data')));
+            if (reqs.length > 0) {
+              return button({ onclick: 'handleProve' }, ['Prove Now']);
+            }
+            await openWindow('https://example.com', { width: 400, height: 300 });
+            return div({}, ['Waiting for API request...']);
+          }
+          export async function handleProve() {
+            const result = await prove(
+              { url: 'https://example.com/api/data', method: 'GET', headers: {} },
+              { verifierUrl: 'http://localhost:7047', proxyUrl: 'ws://localhost:55688', handlers: [] }
+            );
+            done(result);
+          }
+        `,
+          { eventEmitter: emitter },
+        );
+
+        await new Promise((r) => setTimeout(r, 200));
+
+        // Intercept an API request
+        emitter.emit(makeRequestMessage(1, { url: 'https://example.com/api/data' }));
+        await new Promise((r) => setTimeout(r, 100));
+
+        // Click the prove button
+        emitter.emit({
+          type: 'PLUGIN_UI_CLICK',
+          onclick: 'handleProve',
+          windowId: 1,
+        } as WindowMessage);
+
+        const result = await donePromise;
+        expect(result).toEqual({ proof: 'mock' });
+      });
+
+      it('should handle useHeaders + useState + setState lifecycle', async () => {
+        const host = createHost();
+        const emitter = createEventEmitter();
+        installReRenderBridge(emitter);
+
+        const donePromise = host.executePlugin(
+          `
+          export async function main() {
+            const cachedAuth = useState('auth', null);
+            const hdrs = useHeaders(h =>
+              h.filter(hdr => hdr.requestHeaders.some(rh => rh.name === 'Authorization'))
+            );
+
+            // Cache auth header when intercepted
+            if (hdrs.length > 0 && !cachedAuth) {
+              const authValue = hdrs[0].requestHeaders
+                .find(rh => rh.name === 'Authorization').value;
+              setState('auth', authValue);
+            }
+
+            if (cachedAuth) {
+              return button({ onclick: 'handleProve' }, ['Prove with auth']);
+            }
+
+            await openWindow('https://example.com', { width: 400, height: 300 });
+            return div({}, ['Waiting for auth header...']);
+          }
+          export async function handleProve() {
+            const auth = useState('auth', null);
+            done(auth);
+          }
+        `,
+          { eventEmitter: emitter },
+        );
+
+        await new Promise((r) => setTimeout(r, 200));
+
+        // Intercept header with Authorization
+        emitter.emit(
+          makeHeaderMessage(1, {
+            requestHeaders: [{ name: 'Authorization', value: 'Bearer my-token' }],
+          }),
+        );
+
+        // Wait for: header intercept → main() → setState → bridge → RE_RENDER → main(true)
+        await new Promise((r) => setTimeout(r, 300));
+
+        // Click the prove button
+        emitter.emit({
+          type: 'PLUGIN_UI_CLICK',
+          onclick: 'handleProve',
+          windowId: 1,
+        } as WindowMessage);
+
+        const result = await donePromise;
+        expect(result).toBe('Bearer my-token');
+      });
     });
   });
 });
