@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TLSN Plugin SDK - Todo App</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f5f5f5; padding: 40px 20px; }
+    #app { max-width: 600px; margin: 0 auto; }
+    h1 { margin-bottom: 6px; color: #1a1a1a; font-size: 24px; }
+    .subtitle { color: #666; margin-bottom: 24px; font-size: 14px; }
+    #plugin-container {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      padding: 24px;
+      min-height: 200px;
+    }
+    #loading { color: #999; font-style: italic; }
+
+    /* Todo app styles (applied to plugin-rendered DOM) */
+    #header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+    #new-todo-input {
+      flex: 1; padding: 10px 14px; border: 1px solid #ddd; border-radius: 8px;
+      font-size: 15px; outline: none; transition: border-color 0.2s;
+    }
+    #new-todo-input:focus { border-color: #4CAF50; }
+    #add-btn {
+      padding: 10px 20px; background: #4CAF50; color: white; border: none;
+      border-radius: 8px; font-size: 15px; cursor: pointer; white-space: nowrap;
+    }
+    #add-btn:hover { background: #43a047; }
+    #count { font-size: 14px; color: #888; margin-bottom: 16px; }
+    .todo-item {
+      display: flex; align-items: center; gap: 12px; padding: 12px;
+      background: #fafafa; border-radius: 8px; margin-bottom: 8px;
+    }
+    .todo-item input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; accent-color: #4CAF50; }
+    .todo-text { flex: 1; font-size: 15px; }
+    .todo-done { text-decoration: line-through; color: #999; }
+    .todo-item button {
+      padding: 6px 14px; background: #ef5350; color: white; border: none;
+      border-radius: 6px; font-size: 13px; cursor: pointer;
+    }
+    .todo-item button:hover { background: #e53935; }
+    #footer { margin-top: 20px; padding-top: 16px; border-top: 1px solid #eee; }
+    #finish-btn {
+      padding: 10px 20px; background: #1976D2; color: white; border: none;
+      border-radius: 8px; font-size: 15px; cursor: pointer;
+    }
+    #finish-btn:hover { background: #1565C0; }
+    #empty-msg { color: #bbb; text-align: center; padding: 40px 0; font-size: 15px; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <h1>Todo App</h1>
+    <p class="subtitle">Powered by TLSN Plugin SDK &mdash; running in QuickJS sandbox</p>
+    <div id="plugin-container">
+      <div id="loading">Loading QuickJS sandbox...</div>
+    </div>
+  </div>
+  <script type="module" src="/src/todo/index.ts"></script>
+</body>
+</html>
