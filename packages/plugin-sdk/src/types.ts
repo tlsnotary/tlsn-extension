@@ -65,11 +65,16 @@ export type DomOptions = {
   id?: string;
   style?: { [key: string]: string };
   onclick?: string;
+  inputType?: string;
+  checked?: boolean;
+  value?: string;
+  placeholder?: string;
+  disabled?: boolean;
 };
 
 export type DomJson =
   | {
-      type: 'div' | 'button';
+      type: 'div' | 'button' | 'input';
       options: DomOptions;
       children: DomJson[];
     }
