@@ -217,16 +217,12 @@ describe('QuickJS Browser E2E', () => {
       };
     }
 
-    // These tests are skipped due to @sebastianwessel/quickjs serialization
-    // limitations. The complex capability closures (useEffect, useState,
-    // openWindow, etc.) cause "Maximum call stack size exceeded" when the
-    // library tries to deeply serialize the env object for the sandbox.
-    //
-    // The full plugin lifecycle works in the actual Chrome extension where
-    // webpack handles the bundling differently. When the serialization issue
-    // is resolved upstream, remove .skip to enable these tests.
+    // executePlugin now preprocesses plugin code to:
+    // 1. Strip named exports and re-export via `export default { ... }`
+    // 2. Wrap functions in arrow functions (no .prototype → no handleToNative cycle)
+    // This means plugins can use standard `export function` syntax.
 
-    it.skip('should run a plugin that calls done() from main', async () => {
+    it('should run a plugin that calls done() from main', async () => {
       const host = createHost();
       const emitter = createEventEmitter();
 
@@ -243,13 +239,15 @@ describe('QuickJS Browser E2E', () => {
       expect(result).toBe('finished');
     });
 
-    it.skip('should handle onClick -> async prove() -> done()', async () => {
+    it('should handle onClick -> async prove() -> done()', async () => {
       const host = createHost();
       const emitter = createEventEmitter();
 
+      // Plugin must call openWindow() to register the PLUGIN_UI_CLICK listener
       const donePromise = host.executePlugin(
         `
-        export function main() {
+        export async function main() {
+          await openWindow('https://example.com', { width: 400, height: 300 });
           return button({ onclick: 'handleClick' }, ['Prove']);
         }
         export async function handleClick() {

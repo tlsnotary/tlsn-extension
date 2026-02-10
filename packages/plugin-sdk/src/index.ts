@@ -360,6 +360,39 @@ export {
   type BodyRangeOptions,
 } from './parser';
 
+/**
+ * Preprocess plugin code to work around @sebastianwessel/quickjs serialization bugs.
+ *
+ * Two issues:
+ * 1. handleToNative() has no circular reference detection — exporting any function
+ *    with a .prototype property causes infinite recursion (prototype.constructor cycle).
+ * 2. The library only returns `res.default` from module evaluation, so named exports
+ *    are silently discarded.
+ *
+ * This function strips named exports, then re-exports them via `export default { ... }`
+ * with arrow function wrappers (arrow functions have no .prototype).
+ */
+function preprocessPluginCode(code: string): string {
+  const exportNames: string[] = [];
+  const exportRegex = /export\s+(?:async\s+)?(?:function|const|let|var|class)\s+(\w+)/g;
+  let match;
+  while ((match = exportRegex.exec(code)) !== null) {
+    exportNames.push(match[1]);
+  }
+
+  if (exportNames.length === 0) return code;
+
+  const strippedCode = code.replace(/^(\s*)export\s+/gm, '$1');
+  const entries = exportNames
+    .map(
+      (name) =>
+        `${name}: typeof ${name} === 'function' ? (...args) => ${name}(...args) : ${name}`,
+    )
+    .join(',\n  ');
+
+  return `${strippedCode}\nexport default { ${entries} };`;
+}
+
 export class Host {
   private capabilities: Map<string, (...args: any[]) => any> = new Map();
   private onProve: (
@@ -527,6 +560,7 @@ export class Host {
 
   async getPluginConfig(code: string): Promise<any> {
     const sandbox = await this.createEvalCode();
+    const processedCode = preprocessPluginCode(code);
     const exportedCode = await sandbox.eval(`
 const div = env.div;
 const button = env.button;
@@ -543,7 +577,7 @@ const reveal = env.reveal;
 const getResponse = env.getResponse;
 const closeWindow = env.closeWindow;
 const done = env.done;
-${code};
+${processedCode};
 `);
 
     const { config } = exportedCode;
@@ -665,6 +699,7 @@ ${code};
 
     let exportedCode;
     try {
+      const processedCode = preprocessPluginCode(code);
       exportedCode = await sandbox.eval(`
 const div = env.div;
 const button = env.button;
@@ -677,7 +712,7 @@ const setState = env.setState;
 const prove = env.prove;
 const closeWindow = env.closeWindow;
 const done = env.done;
-${code};
+${processedCode};
 `);
     } catch (evalError) {
       const error = evalError instanceof Error ? evalError : new Error(String(evalError));
@@ -728,8 +763,8 @@ ${code};
           context: {
             ...executionContextRegistry.get(uuid)?.context,
             main: {
-              effects: JSON.parse(JSON.stringify(context['main']?.effects)),
-              selectors: JSON.parse(JSON.stringify(context['main']?.selectors)),
+              effects: JSON.parse(JSON.stringify(context['main']?.effects ?? [])),
+              selectors: JSON.parse(JSON.stringify(context['main']?.selectors ?? [])),
             },
           },
           stateStore: JSON.parse(JSON.stringify(stateStore)),
