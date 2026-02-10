@@ -232,6 +232,8 @@ function makeOpenWindow(
   ) => Promise<OpenWindowResponse>,
   _onCloseWindow: (windowId: number) => void,
 ) {
+  let cachedResult: { windowId: number; uuid: string; tabId: number } | null = null;
+
   return async (
     url: string,
     options?: {
@@ -242,6 +244,11 @@ function makeOpenWindow(
   ): Promise<{ windowId: number; uuid: string; tabId: number }> => {
     if (!url || typeof url !== 'string') {
       throw new Error('URL must be a non-empty string');
+    }
+
+    // Return cached result if window already opened (idempotent on re-renders)
+    if (cachedResult) {
+      return cachedResult;
     }
 
     try {
@@ -333,11 +340,12 @@ function makeOpenWindow(
 
         eventEmitter.addListener(onMessage);
 
-        return {
+        cachedResult = {
           windowId: response.payload.windowId,
           uuid: response.payload.uuid,
           tabId: response.payload.tabId,
         };
+        return cachedResult;
       }
 
       throw new Error('Invalid response from background script');
