@@ -11,7 +11,7 @@ export default defineConfig({
       exclude: ['node_modules', 'dist', '**/*.config.ts', '**/*.config.js', '**/examples/**'],
     },
     include: ['src/**/*.{test,spec}.ts'],
-    exclude: ['node_modules', 'dist'],
+    exclude: ['node_modules', 'dist', 'src/**/*.browser.{test,spec}.ts'],
   },
   resolve: {
     alias: {

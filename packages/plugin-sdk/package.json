@@ -31,6 +31,7 @@
     "test:browser": "vitest --config vitest.browser.config.ts",
     "test:browser:ui": "vitest --config vitest.browser.config.ts --ui",
     "test:browser:headed": "vitest --config vitest.browser.config.ts --browser.headless=false",
+    "todo": "vite --config vite.todo.config.ts",
     "lint": "npm run lint:eslint && npm run lint:prettier && npm run lint:typescript",
     "lint:eslint": "eslint . --ext .ts,.tsx",
     "lint:prettier": "prettier --check .",

@@ -51,7 +51,7 @@ function updateExecutionContext(
 
 // Pure function for creating DOM JSON without `this` binding
 function createDomJson(
-  type: 'div' | 'button',
+  type: 'div' | 'button' | 'input',
   param1: DomOptions | DomJson[] = {},
   param2: DomJson[] = [],
 ): DomJson {
@@ -572,6 +572,7 @@ export class Host {
     const exportedCode = await sandbox.eval(`
 const div = env.div;
 const button = env.button;
+const input = env.input;
 const openWindow = env.openWindow;
 const useEffect = env.useEffect;
 const useRequests = env.useRequests;
@@ -684,6 +685,8 @@ ${processedCode};
         createDomJson('div', param1, param2),
       button: (param1?: DomOptions | DomJson[], param2?: DomJson[]) =>
         createDomJson('button', param1, param2),
+      input: (param1?: DomOptions | DomJson[], param2?: DomJson[]) =>
+        createDomJson('input', param1, param2),
       openWindow: makeOpenWindow(uuid, eventEmitter, onOpenWindow, onCloseWindow),
       useEffect: makeUseEffect(uuid, context),
       useRequests: makeUseRequests(uuid, context),
@@ -711,6 +714,7 @@ ${processedCode};
       exportedCode = await sandbox.eval(`
 const div = env.div;
 const button = env.button;
+const input = env.input;
 const openWindow = env.openWindow;
 const useEffect = env.useEffect;
 const useRequests = env.useRequests;
@@ -831,7 +835,7 @@ ${processedCode};
    * Delegates to the pure module-level function
    */
   createDomJson = (
-    type: 'div' | 'button',
+    type: 'div' | 'button' | 'input',
     param1: DomOptions | DomJson[] = {},
     param2: DomJson[] = [],
   ): DomJson => {

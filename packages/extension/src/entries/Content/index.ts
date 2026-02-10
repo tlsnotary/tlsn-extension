@@ -51,6 +51,17 @@ function createNode(json: DomJson, windowId: number): HTMLElement | Text {
     });
   }
 
+  if (json.options.inputType)
+    (node as HTMLInputElement).type = json.options.inputType;
+  if (json.options.checked !== undefined)
+    (node as HTMLInputElement).checked = json.options.checked;
+  if (json.options.value !== undefined)
+    (node as HTMLInputElement).value = json.options.value;
+  if (json.options.placeholder)
+    (node as HTMLInputElement).placeholder = json.options.placeholder;
+  if (json.options.disabled !== undefined)
+    (node as HTMLInputElement).disabled = json.options.disabled;
+
   if (json.options.onclick) {
     node.addEventListener('click', () => {
       browser.runtime.sendMessage({

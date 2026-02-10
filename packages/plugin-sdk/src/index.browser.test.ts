@@ -1,6 +1,11 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { Host } from './index';
-import type { WindowMessage, InterceptedRequest, InterceptedRequestHeader } from './types';
+import type {
+  WindowMessage,
+  InterceptedRequest,
+  InterceptedRequestHeader,
+  DomJson,
+} from './types';
 
 /**
  * Browser E2E tests for the QuickJS sandbox.
@@ -811,6 +816,81 @@ describe('QuickJS Browser E2E', () => {
       });
     });
 
+    // --- DOM rendering helpers ---
+
+    /**
+     * Renders a DomJson tree to real HTML elements, mirroring the extension's
+     * Content script createNode(). Click events emit PLUGIN_UI_CLICK via the
+     * test emitter instead of browser.runtime.sendMessage.
+     */
+    function renderToDOM(
+      json: DomJson,
+      windowId: number,
+      emitter: ReturnType<typeof createEventEmitter>,
+    ): HTMLElement | Text {
+      if (typeof json === 'string') {
+        return document.createTextNode(json);
+      }
+
+      const node = document.createElement(json.type);
+
+      if (json.options.className) node.className = json.options.className;
+      if (json.options.id) node.id = json.options.id;
+      if (json.options.style) {
+        Object.entries(json.options.style).forEach(([key, value]) => {
+          (node.style as any)[key] = value;
+        });
+      }
+
+      // Input-specific attributes
+      if (json.options.inputType) (node as HTMLInputElement).type = json.options.inputType;
+      if (json.options.checked !== undefined)
+        (node as HTMLInputElement).checked = json.options.checked;
+      if (json.options.value !== undefined) (node as HTMLInputElement).value = json.options.value;
+      if (json.options.placeholder)
+        (node as HTMLInputElement).placeholder = json.options.placeholder;
+      if (json.options.disabled !== undefined)
+        (node as HTMLInputElement).disabled = json.options.disabled;
+
+      if (json.options.onclick) {
+        const onclickName = json.options.onclick;
+        node.addEventListener('click', () => {
+          emitter.emit({
+            type: 'PLUGIN_UI_CLICK',
+            onclick: onclickName,
+            windowId,
+          } as WindowMessage);
+        });
+      }
+
+      json.children.forEach((child) => {
+        node.appendChild(renderToDOM(child, windowId, emitter));
+      });
+
+      return node;
+    }
+
+    /**
+     * Waits until onRenderPluginUi has been called at least `callCount` times.
+     * Returns the DomJson from the most recent call.
+     */
+    async function waitForRender(
+      spy: ReturnType<typeof vi.fn>,
+      callCount: number,
+      timeoutMs = 5000,
+    ): Promise<DomJson> {
+      const start = Date.now();
+      while (spy.mock.calls.length < callCount) {
+        if (Date.now() - start > timeoutMs) {
+          throw new Error(
+            `waitForRender: timed out waiting for render #${callCount} (got ${spy.mock.calls.length})`,
+          );
+        }
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      return spy.mock.calls[callCount - 1][1] as DomJson;
+    }
+
     // --- Full integration ---
 
     describe('integration', () => {
@@ -913,6 +993,162 @@ describe('QuickJS Browser E2E', () => {
         const result = await donePromise;
         expect(result).toBe('Bearer my-token');
       });
+    });
+
+    // --- Todo app integration (real DOM rendering) ---
+
+    describe('todo app integration', () => {
+      it(
+        'should render, add, toggle, remove todos, and finish',
+        async () => {
+          const onRenderSpy = vi.fn();
+          const host = new Host({
+            onProve: vi.fn().mockResolvedValue({ proof: 'mock' }),
+            onRenderPluginUi: onRenderSpy,
+            onCloseWindow: vi.fn(),
+            onOpenWindow: vi.fn().mockResolvedValue({
+              type: 'WINDOW_OPENED',
+              payload: { windowId: 1, uuid: 'test-uuid', tabId: 1 },
+            }),
+          });
+          const emitter = createEventEmitter();
+          installReRenderBridge(emitter);
+
+          // Container for rendered DOM
+          const container = document.createElement('div');
+          container.id = 'todo-test-container';
+          document.body.appendChild(container);
+
+          const todoPlugin = `
+            const ITEMS = ['Buy groceries', 'Walk the dog', 'Read a book'];
+
+            function toggleAt(i) {
+              const state = useState('appState', { todos: [], nextIndex: 0 });
+              const newTodos = state.todos.map((t, idx) =>
+                idx === i ? { text: t.text, done: !t.done } : t
+              );
+              setState('appState', { ...state, todos: newTodos });
+            }
+
+            function removeAt(i) {
+              const state = useState('appState', { todos: [], nextIndex: 0 });
+              const newTodos = state.todos.filter((_, idx) => idx !== i);
+              setState('appState', { ...state, todos: newTodos });
+            }
+
+            export function main() {
+              const state = useState('appState', { todos: [], nextIndex: 0 });
+              openWindow('https://example.com', { width: 600, height: 400 });
+
+              const todoItems = state.todos.map((todo, i) =>
+                div({ className: 'todo-item', id: 'todo-' + i }, [
+                  input({ inputType: 'checkbox', checked: todo.done, id: 'check-' + i, onclick: 'toggle_' + i }),
+                  div({ className: 'todo-text' }, [todo.text]),
+                  button({ id: 'remove-' + i, onclick: 'remove_' + i }, ['x']),
+                ])
+              );
+
+              return div({ id: 'todo-app' }, [
+                div({ id: 'header' }, [
+                  div({ id: 'count' }, ['Todos: ' + state.todos.length]),
+                  button({ id: 'add-btn', onclick: 'addTodo' }, ['Add']),
+                ]),
+                div({ id: 'todo-list' }, todoItems),
+                div({ id: 'footer' }, [
+                  button({ id: 'finish-btn', onclick: 'finishApp' }, ['Finish']),
+                ]),
+              ]);
+            }
+
+            export function addTodo() {
+              const state = useState('appState', { todos: [], nextIndex: 0 });
+              const idx = state.nextIndex;
+              if (idx >= ITEMS.length) return;
+              setState('appState', {
+                todos: [...state.todos, { text: ITEMS[idx], done: false }],
+                nextIndex: idx + 1,
+              });
+            }
+
+            export function toggle_0() { toggleAt(0); }
+            export function toggle_1() { toggleAt(1); }
+            export function toggle_2() { toggleAt(2); }
+            export function remove_0() { removeAt(0); }
+            export function remove_1() { removeAt(1); }
+            export function remove_2() { removeAt(2); }
+
+            export function finishApp() {
+              const state = useState('appState', { todos: [], nextIndex: 0 });
+              done({
+                todoCount: state.todos.length,
+                todos: state.todos.map(t => ({ text: t.text, done: t.done })),
+              });
+            }
+          `;
+
+          const donePromise = host.executePlugin(todoPlugin, { eventEmitter: emitter });
+
+          // Helper to mount latest render to DOM container
+          const mountRender = (renderIndex: number) => {
+            const json = onRenderSpy.mock.calls[renderIndex - 1][1] as DomJson;
+            container.innerHTML = '';
+            container.appendChild(renderToDOM(json, 1, emitter));
+          };
+
+          // Step 1: Wait for initial render — empty todo list
+          await waitForRender(onRenderSpy, 1);
+          mountRender(1);
+          expect(container.querySelector('#count')!.textContent).toBe('Todos: 0');
+          expect(container.querySelectorAll('.todo-item').length).toBe(0);
+
+          // Step 2: Click "Add" — should add "Buy groceries"
+          container.querySelector<HTMLElement>('#add-btn')!.click();
+          await waitForRender(onRenderSpy, 2);
+          mountRender(2);
+          expect(container.querySelector('#count')!.textContent).toBe('Todos: 1');
+          expect(container.querySelectorAll('.todo-item').length).toBe(1);
+          expect(container.querySelector('#todo-0 .todo-text')!.textContent).toBe('Buy groceries');
+          expect(container.querySelector<HTMLInputElement>('#check-0')!.checked).toBe(false);
+
+          // Step 3: Click "Add" again — should add "Walk the dog"
+          container.querySelector<HTMLElement>('#add-btn')!.click();
+          await waitForRender(onRenderSpy, 3);
+          mountRender(3);
+          expect(container.querySelector('#count')!.textContent).toBe('Todos: 2');
+          expect(container.querySelectorAll('.todo-item').length).toBe(2);
+          expect(container.querySelector('#todo-1 .todo-text')!.textContent).toBe('Walk the dog');
+
+          // Step 4: Toggle checkbox on first todo
+          container.querySelector<HTMLElement>('#check-0')!.click();
+          await waitForRender(onRenderSpy, 4);
+          mountRender(4);
+          expect(container.querySelector<HTMLInputElement>('#check-0')!.checked).toBe(true);
+          // Second todo still unchecked
+          expect(container.querySelector<HTMLInputElement>('#check-1')!.checked).toBe(false);
+
+          // Step 5: Remove second todo ("Walk the dog")
+          container.querySelector<HTMLElement>('#remove-1')!.click();
+          await waitForRender(onRenderSpy, 5);
+          mountRender(5);
+          expect(container.querySelector('#count')!.textContent).toBe('Todos: 1');
+          expect(container.querySelectorAll('.todo-item').length).toBe(1);
+          // Only "Buy groceries" (checked) remains
+          expect(container.querySelector('#todo-0 .todo-text')!.textContent).toBe('Buy groceries');
+          expect(container.querySelector<HTMLInputElement>('#check-0')!.checked).toBe(true);
+
+          // Step 6: Click "Finish" — plugin calls done()
+          container.querySelector<HTMLElement>('#finish-btn')!.click();
+          const result = await donePromise;
+          expect(result).toEqual({
+            todoCount: 1,
+            todos: [{ text: 'Buy groceries', done: true }],
+          });
+
+          // Cleanup
+          document.body.removeChild(container);
+        },
+        15000,
+      );
     });
   });
 });
