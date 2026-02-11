@@ -1,4 +1,5 @@
 import { CheckResult, SystemCheck } from '../types';
+import { config } from './config';
 
 export const checkBrowserCompatibility = (): boolean => {
   const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
@@ -17,7 +18,7 @@ export const checkExtension = async (): Promise<boolean> => {
 
 export const checkVerifier = async (): Promise<boolean> => {
   try {
-    const response = await fetch('http://localhost:7047/health');
+    const response = await fetch(`${config.verifierUrl}/health`);
     if (response.ok) {
       const text = await response.text();
       return text === 'ok';
@@ -62,7 +63,7 @@ export const getSystemCheckStatus = (checkResult: CheckResult): SystemCheck[] =>
       name: 'Verifier Server',
       status: checkResult.verifierReady ? 'success' : 'error',
       message: checkResult.verifierReady
-        ? 'Verifier server running on http://localhost:7047'
+        ? `Verifier server running on ${config.verifierUrl}`
         : 'Verifier server not responding. Please start the verifier server.',
     },
   ];
