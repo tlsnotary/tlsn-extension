@@ -30,7 +30,7 @@ export const SwissBankAdvanced: React.FC = () => {
 
   React.useEffect(() => {
     if (!userCode) {
-      fetch('/plugins/swissbank-starter.js')
+      fetch(`${import.meta.env.BASE_URL}plugins/swissbank-starter.js`)
         .then((res) => res.text())
         .then((text) => {
           setCode(text);
@@ -85,7 +85,7 @@ export const SwissBankAdvanced: React.FC = () => {
   const handleReset = async () => {
     setIsResetting(true);
     try {
-      const response = await fetch('/plugins/swissbank-starter.js');
+      const response = await fetch(`${import.meta.env.BASE_URL}plugins/swissbank-starter.js`);
       const text = await response.text();
       setCode(text);
       updateCode(text);
