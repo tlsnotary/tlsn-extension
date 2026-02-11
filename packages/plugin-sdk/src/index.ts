@@ -279,6 +279,11 @@ function makeOpenWindow(
             return;
           }
 
+          // Only process messages for this plugin's window
+          if (message.windowId !== executionContext.windowId) {
+            return;
+          }
+
           try {
             if (message.type === 'REQUEST_INTERCEPTED') {
               const request = message.request;
