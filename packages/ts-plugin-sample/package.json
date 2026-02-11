@@ -1,0 +1,33 @@
+{
+  "name": "@tlsn/ts-plugin-sample",
+  "version": "0.1.0-alpha.13",
+  "description": "TypeScript plugin sample for TLSN extension",
+  "type": "module",
+  "main": "build/index.js",
+  "scripts": {
+    "build": "node build-wrapper.cjs",
+    "clean": "rm -rf build",
+    "dev": "esbuild src/index.ts --bundle --format=esm --outfile=build/index.js --sourcemap --watch --define:__VERIFIER_URL__='\"${VERIFIER_URL:-http://localhost:7047}\"' --define:__PROXY_URL__='\"${PROXY_URL:-ws://localhost:7047/proxy}\"'",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "tlsn",
+    "plugin",
+    "typescript",
+    "example"
+  ],
+  "author": "TLSN Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tlsnotary/tlsn-extension.git",
+    "directory": "packages/ts-plugin-sample"
+  },
+  "dependencies": {
+    "@tlsn/plugin-sdk": "*"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.2",
+    "typescript": "^5.5.4"
+  }
+}

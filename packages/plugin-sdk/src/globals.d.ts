@@ -2,9 +2,7 @@
  * Global type declarations for TLSNotary plugin runtime environment
  *
  * These functions are injected at runtime by the plugin sandbox.
- * Import this file in your plugin to get TypeScript support:
- *
- *   /// <reference types="@tlsn/plugin-sdk/globals" />
+ * They are automatically available as globals in TypeScript plugins.
  */
 
 import type {
@@ -15,83 +13,123 @@ import type {
   DomJson,
 } from './types';
 
+/**
+ * Create a div DOM element
+ */
+export type DivFunction = {
+  (options?: DomOptions, children?: DomJson[]): DomJson;
+  (children: DomJson[]): DomJson;
+};
+
+/**
+ * Create a button DOM element
+ */
+export type ButtonFunction = {
+  (options?: DomOptions, children?: DomJson[]): DomJson;
+  (children: DomJson[]): DomJson;
+};
+
+/**
+ * Open a new browser window
+ */
+export type OpenWindowFunction = (
+  url: string,
+  options?: {
+    width?: number;
+    height?: number;
+    showOverlay?: boolean;
+  },
+) => Promise<{
+  windowId: number;
+  uuid: string;
+  tabId: number;
+}>;
+
+/**
+ * React-like effect hook that runs when dependencies change
+ */
+export type UseEffectFunction = (callback: () => void, deps: any[]) => void;
+
+/**
+ * Subscribe to intercepted HTTP headers with filtering
+ */
+export type UseHeadersFunction = (
+  filter: (headers: InterceptedRequestHeader[]) => InterceptedRequestHeader[],
+) => InterceptedRequestHeader[];
+
+/**
+ * Subscribe to intercepted HTTP requests with filtering
+ */
+export type UseRequestsFunction = (
+  filter: (requests: InterceptedRequest[]) => InterceptedRequest[],
+) => InterceptedRequest[];
+
+/**
+ * Get state value (does not trigger re-render)
+ */
+export type UseStateFunction = <T>(key: string, defaultValue: T) => T;
+
+/**
+ * Set state value (triggers UI re-render)
+ */
+export type SetStateFunction = <T>(key: string, value: T) => void;
+
+/**
+ * Generate TLS proof using the unified prove() API
+ */
+export type ProveFunction = (
+  requestOptions: {
+    url: string;
+    method: string;
+    headers: Record<string, string | undefined>;
+    body?: string;
+  },
+  proverOptions: {
+    verifierUrl: string;
+    proxyUrl: string;
+    maxRecvData?: number;
+    maxSentData?: number;
+    handlers: Handler[];
+  },
+) => Promise<any>;
+
+/**
+ * Complete plugin execution and return result
+ */
+export type DoneFunction = (result?: any) => void;
+
+/**
+ * Complete Plugin API surface available in the QuickJS sandbox
+ */
+export interface PluginAPI {
+  div: DivFunction;
+  button: ButtonFunction;
+  openWindow: OpenWindowFunction;
+  useEffect: UseEffectFunction;
+  useHeaders: UseHeadersFunction;
+  useRequests: UseRequestsFunction;
+  useState: UseStateFunction;
+  setState: SetStateFunction;
+  prove: ProveFunction;
+  done: DoneFunction;
+}
+
+/**
+ * Global declarations for plugin environment
+ *
+ * These are automatically available in TypeScript plugins without imports.
+ */
 declare global {
-  /**
-   * Create a div element
-   */
-  function div(options?: DomOptions, children?: (DomJson | string)[]): DomJson;
-  function div(children?: (DomJson | string)[]): DomJson;
-
-  /**
-   * Create a button element
-   */
-  function button(options?: DomOptions, children?: (DomJson | string)[]): DomJson;
-  function button(children?: (DomJson | string)[]): DomJson;
-
-  /**
-   * Get or initialize state value (React-like useState)
-   */
-  function useState<T>(key: string, initialValue: T): T;
-
-  /**
-   * Update state value
-   */
-  function setState<T>(key: string, value: T): void;
-
-  /**
-   * Run side effect when dependencies change (React-like useEffect)
-   */
-  function useEffect(effect: () => void, deps: any[]): void;
-
-  /**
-   * Subscribe to intercepted HTTP headers
-   */
-  function useHeaders(
-    filter: (headers: InterceptedRequestHeader[]) => InterceptedRequestHeader[],
-  ): [InterceptedRequestHeader | undefined];
-
-  /**
-   * Subscribe to intercepted HTTP requests
-   */
-  function useRequests(
-    filter: (requests: InterceptedRequest[]) => InterceptedRequest[],
-  ): [InterceptedRequest | undefined];
-
-  /**
-   * Open a new browser window for user interaction
-   */
-  function openWindow(
-    url: string,
-    options?: {
-      width?: number;
-      height?: number;
-      showOverlay?: boolean;
-    },
-  ): Promise<void>;
-
-  /**
-   * Generate a TLS proof for an HTTP request
-   */
-  function prove(
-    requestOptions: {
-      url: string;
-      method: string;
-      headers: Record<string, string>;
-      body?: string;
-    },
-    proverOptions: {
-      verifierUrl: string;
-      proxyUrl: string;
-      maxRecvData?: number;
-      maxSentData?: number;
-      handlers: Handler[];
-    },
-  ): Promise<any>;
-
-  /**
-   * Complete plugin execution and return result
-   */
-  function done(result?: any): void;
+  const div: DivFunction;
+  const button: ButtonFunction;
+  const openWindow: OpenWindowFunction;
+  const useEffect: UseEffectFunction;
+  const useHeaders: UseHeadersFunction;
+  const useRequests: UseRequestsFunction;
+  const useState: UseStateFunction;
+  const setState: SetStateFunction;
+  const prove: ProveFunction;
+  const done: DoneFunction;
 }
 
 export {};
