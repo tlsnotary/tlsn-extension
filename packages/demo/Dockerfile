@@ -38,6 +38,9 @@ RUN npm install
 # Copy tutorial source files
 COPY tutorial/ .
 
+# Copy canonical twitter plugin from demo package (build-plugins.js reads it from ../demo/)
+COPY demo/public/plugins/twitter.js /demo/public/plugins/twitter.js
+
 # Build tutorial with /tutorial/ base path and verifier config
 ENV VITE_BASE_PATH=/tutorial/
 ENV VITE_VERIFIER_HOST=${VITE_VERIFIER_HOST}
