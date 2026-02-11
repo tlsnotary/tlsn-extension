@@ -99,60 +99,7 @@ await host.executePlugin(pluginCode, { eventEmitter });
 
 ### Writing a Plugin
 
-```javascript
-// Plugin configuration
-const config = {
-  name: 'X Profile Prover',
-  description: 'Prove your X.com profile data',
-};
-
-// Main UI function (called reactively)
-function main() {
-  // Subscribe to X.com API headers
-  const [header] = useHeaders((headers) => headers.filter((h) => h.url.includes('api.x.com')));
-
-  // Open X.com when plugin loads
-  useEffect(() => {
-    openWindow('https://x.com');
-  }, []);
-
-  // Render UI based on state
-  return div({ style: { padding: '8px' } }, [
-    div({}, [header ? 'Profile detected!' : 'Please login']),
-    header ? button({ onclick: 'onProve' }, ['Generate Proof']) : null,
-  ]);
-}
-
-// Click handler
-async function onProve() {
-  const [header] = useHeaders(/* ... */);
-
-  const proof = await prove(
-    {
-      url: 'https://api.x.com/1.1/account/settings.json',
-      method: 'GET',
-      headers: extractedHeaders,
-    },
-    {
-      verifierUrl: 'http://localhost:7047',
-      proxyUrl: 'wss://notary.pse.dev/proxy?token=api.x.com',
-      reveal: [
-        {
-          type: 'RECV',
-          part: 'BODY',
-          action: 'REVEAL',
-          params: { type: 'json', path: 'screen_name' },
-        },
-      ],
-    },
-  );
-
-  done(proof);
-}
-
-// Export plugin interface
-export default { main, onProve, config };
-```
+See [`packages/demo/public/plugins/twitter.js`](../demo/public/plugins/twitter.js) for a complete working example, and [PLUGIN.md](../../PLUGIN.md) for full API documentation.
 
 ### Reveal Handlers
 

@@ -1,4 +1,5 @@
 *.wasm
 dist/
 public/plugins/
+!public/plugins/twitter.js
 generated/

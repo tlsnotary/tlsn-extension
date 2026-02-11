@@ -1,21 +1,14 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { execSync } from 'child_process';
 
-// Get git hash for footer display
-const getGitHash = () => {
-  try {
-    return execSync('git rev-parse --short HEAD').toString().trim();
-  } catch {
-    return 'unknown';
-  }
-};
+// Get git hash from GIT_HASH env var (set by CI/Docker) or fallback to 'local'
+const gitHash = process.env.GIT_HASH?.substring(0, 7) || 'local';
 
 export default defineConfig({
   plugins: [react()],
   base: process.env.VITE_BASE_PATH || '/',
   define: {
-    __GIT_HASH__: JSON.stringify(getGitHash()),
+    __GIT_HASH__: JSON.stringify(gitHash),
   },
   server: {
     port: 8080,
