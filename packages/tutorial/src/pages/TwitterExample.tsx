@@ -19,7 +19,7 @@ export const TwitterExample: React.FC = () => {
 
   // Load Twitter plugin code
   React.useEffect(() => {
-    fetch('/plugins/twitter.js')
+    fetch(`${import.meta.env.BASE_URL}plugins/twitter.js`)
       .then((res) => res.text())
       .then(setTwitterCode)
       .catch((err) => console.error('Failed to load Twitter plugin:', err));
