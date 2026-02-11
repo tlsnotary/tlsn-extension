@@ -25,6 +25,10 @@ RUN npm run build
 # Build stage for tutorial
 FROM node:20-alpine AS tutorial-builder
 
+ARG VITE_VERIFIER_HOST=localhost:7047
+ARG VITE_SSL=false
+ARG GIT_HASH=local
+
 WORKDIR /app
 
 # Copy tutorial package files and install dependencies
@@ -34,8 +38,11 @@ RUN npm install
 # Copy tutorial source files
 COPY tutorial/ .
 
-# Build tutorial with /tutorial/ base path
+# Build tutorial with /tutorial/ base path and verifier config
 ENV VITE_BASE_PATH=/tutorial/
+ENV VITE_VERIFIER_HOST=${VITE_VERIFIER_HOST}
+ENV VITE_SSL=${VITE_SSL}
+ENV GIT_HASH=${GIT_HASH}
 RUN npm run build
 
 # Runtime stage
