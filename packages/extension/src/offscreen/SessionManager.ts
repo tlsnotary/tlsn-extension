@@ -62,26 +62,20 @@ export class SessionManager {
         );
 
         try {
-          const prover = await this.proveManager.getProver(proverId);
-
-          const headerMap: Map<string, number[]> = new Map();
-          Object.entries(requestOptions.headers || {}).forEach(
-            ([key, value]) => {
-              if (value !== undefined && value !== null) {
-                headerMap.set(key, Buffer.from(String(value)).toJSON().data);
-              }
+          // Send request via ProveManager which handles IoChannel creation in the worker.
+          await this.proveManager.sendRequest(
+            proverId,
+            proverOptions.proxyUrl,
+            {
+              url: requestOptions.url,
+              method: requestOptions.method as Method,
+              headers: requestOptions.headers,
+              body: requestOptions.body,
             },
           );
 
-          await prover.send_request(proverOptions.proxyUrl, {
-            uri: requestOptions.url,
-            method: requestOptions.method as Method,
-            headers: headerMap,
-            body: requestOptions.body,
-          });
-
           // Get transcripts for parsing
-          const { sent, recv } = await prover.transcript();
+          const { sent, recv } = await this.proveManager.transcript(proverId);
 
           const parsedSent = new Parser(Buffer.from(sent));
           const parsedRecv = new Parser(Buffer.from(recv));
@@ -107,10 +101,9 @@ export class SessionManager {
           });
 
           // Reveal the ranges
-          await prover.reveal({
+          await this.proveManager.reveal(proverId, {
             sent: sentRanges,
             recv: recvRanges,
-            server_identity: true,
           });
 
           // Get structured response from verifier (now includes handler results)

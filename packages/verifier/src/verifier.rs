@@ -30,7 +30,14 @@ pub async fn verifier<T: AsyncWrite + AsyncRead + Send + Unpin + 'static>(
     let (driver, mut handle) = session.split();
 
     // Spawn the session driver to run in the background
-    let driver_task = tokio::spawn(driver);
+    let driver_task = tokio::spawn(async move {
+        let result = driver.await;
+        match &result {
+            Ok(_) => tracing::warn!("verifier session driver completed normally (mux closed)"),
+            Err(e) => tracing::error!("verifier session driver error: {e}"),
+        }
+        result
+    });
 
     // Create verifier config with Mozilla root certificates for TLS verification
     let verifier_config = VerifierConfig::builder()
@@ -87,13 +94,13 @@ pub async fn verifier<T: AsyncWrite + AsyncRead + Send + Unpin + 'static>(
         .await
         .map_err(|e| eyre!("Run failed: {}", e))?;
 
-    info!("TLS connection complete, starting verification");
+    info!("TLS connection complete, starting verification (waiting for prove request from prover)");
 
     // Verify the proof
     let verifier = verifier
         .verify()
         .await
-        .map_err(|e| eyre!("Verification failed: {}", e))?;
+        .map_err(|e| eyre!("Verification failed: {} - this likely means the prover's mux connection closed before sending the prove request", e))?;
 
     let (
         VerifierOutput {
