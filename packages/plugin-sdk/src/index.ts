@@ -299,10 +299,32 @@ function makeOpenWindow(
               executionContext.main();
             }
 
+            if (message.type === 'REQUESTS_BATCH') {
+              const requests = message.requests;
+              updateExecutionContext(uuid, {
+                requests: [
+                  ...(executionContext.requests || []),
+                  ...requests,
+                ],
+              });
+              executionContext.main();
+            }
+
             if (message.type === 'HEADER_INTERCEPTED') {
               const header = message.header;
               updateExecutionContext(uuid, {
                 headers: [...(executionContext.headers || []), header],
+              });
+              executionContext.main();
+            }
+
+            if (message.type === 'HEADERS_BATCH') {
+              const headers = message.headers;
+              updateExecutionContext(uuid, {
+                headers: [
+                  ...(executionContext.headers || []),
+                  ...headers,
+                ],
               });
               executionContext.main();
             }

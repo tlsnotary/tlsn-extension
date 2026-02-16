@@ -19,6 +19,8 @@ import {
   MAX_REQUESTS_PER_WINDOW,
   OVERLAY_RETRY_DELAY_MS,
   MAX_OVERLAY_RETRY_ATTEMPTS,
+  REQUEST_BATCH_INTERVAL_MS,
+  REQUEST_BATCH_MAX_SIZE,
 } from '../constants/limits';
 import { logger } from '@tlsn/common';
 
@@ -78,6 +80,24 @@ export class WindowManager implements IWindowManager {
    * Value: ManagedWindow object
    */
   private windows: Map<number, ManagedWindow> = new Map();
+
+  /** Pending request batches per window */
+  private requestBatches: Map<
+    number,
+    {
+      requests: InterceptedRequest[];
+      timer: ReturnType<typeof setTimeout> | null;
+    }
+  > = new Map();
+
+  /** Pending header batches per window */
+  private headerBatches: Map<
+    number,
+    {
+      headers: InterceptedRequestHeader[];
+      timer: ReturnType<typeof setTimeout> | null;
+    }
+  > = new Map();
   /**
    * Register a new window with the manager
    *
@@ -161,6 +181,7 @@ export class WindowManager implements IWindowManager {
 
     // Remove from tracking
     this.windows.delete(windowId);
+    this.clearBatchState(windowId);
 
     browser.windows.remove(windowId);
 
@@ -274,11 +295,7 @@ export class WindowManager implements IWindowManager {
 
     window.requests.push(convertedRequest);
 
-    browser.runtime.sendMessage({
-      type: 'REQUEST_INTERCEPTED',
-      request: convertedRequest,
-      windowId,
-    });
+    this.enqueueRequest(windowId, convertedRequest);
 
     // Update overlay if visible
     if (window.overlayVisible) {
@@ -325,11 +342,7 @@ export class WindowManager implements IWindowManager {
 
     window.headers.push(header);
 
-    browser.runtime.sendMessage({
-      type: 'HEADER_INTERCEPTED',
-      header,
-      windowId,
-    });
+    this.enqueueHeader(windowId, header);
 
     // Enforce request limit per window to prevent unbounded memory growth
     if (window.headers.length > MAX_REQUESTS_PER_WINDOW) {
@@ -563,6 +576,159 @@ export class WindowManager implements IWindowManager {
   }
 
   /**
+   * Enqueue a request for batched emission.
+   * First request for a window is sent immediately (leading edge).
+   * Subsequent requests are accumulated and sent after REQUEST_BATCH_INTERVAL_MS.
+   */
+  private enqueueRequest(
+    windowId: number,
+    request: InterceptedRequest,
+  ): void {
+    let batch = this.requestBatches.get(windowId);
+
+    if (!batch) {
+      // First request — send immediately (leading edge), init batch state
+      batch = { requests: [], timer: null };
+      this.requestBatches.set(windowId, batch);
+
+      browser.runtime.sendMessage({
+        type: 'REQUEST_INTERCEPTED',
+        request,
+        windowId,
+      });
+      return;
+    }
+
+    batch.requests.push(request);
+
+    if (batch.requests.length >= REQUEST_BATCH_MAX_SIZE) {
+      this.flushRequestBatch(windowId);
+      return;
+    }
+
+    if (batch.timer !== null) {
+      clearTimeout(batch.timer);
+    }
+    batch.timer = setTimeout(() => {
+      this.flushRequestBatch(windowId);
+    }, REQUEST_BATCH_INTERVAL_MS);
+  }
+
+  private flushRequestBatch(windowId: number): void {
+    const batch = this.requestBatches.get(windowId);
+    if (!batch || batch.requests.length === 0) {
+      if (batch && batch.timer !== null) {
+        clearTimeout(batch.timer);
+        batch.timer = null;
+      }
+      return;
+    }
+
+    const requests = batch.requests;
+    batch.requests = [];
+
+    if (batch.timer !== null) {
+      clearTimeout(batch.timer);
+      batch.timer = null;
+    }
+
+    if (requests.length === 1) {
+      browser.runtime.sendMessage({
+        type: 'REQUEST_INTERCEPTED',
+        request: requests[0],
+        windowId,
+      });
+    } else {
+      browser.runtime.sendMessage({
+        type: 'REQUESTS_BATCH',
+        requests,
+        windowId,
+      });
+    }
+  }
+
+  /**
+   * Enqueue a header for batched emission.
+   * Same leading-edge + trailing-edge pattern as requests.
+   */
+  private enqueueHeader(
+    windowId: number,
+    header: InterceptedRequestHeader,
+  ): void {
+    let batch = this.headerBatches.get(windowId);
+
+    if (!batch) {
+      batch = { headers: [], timer: null };
+      this.headerBatches.set(windowId, batch);
+
+      browser.runtime.sendMessage({
+        type: 'HEADER_INTERCEPTED',
+        header,
+        windowId,
+      });
+      return;
+    }
+
+    batch.headers.push(header);
+
+    if (batch.headers.length >= REQUEST_BATCH_MAX_SIZE) {
+      this.flushHeaderBatch(windowId);
+      return;
+    }
+
+    if (batch.timer !== null) {
+      clearTimeout(batch.timer);
+    }
+    batch.timer = setTimeout(() => {
+      this.flushHeaderBatch(windowId);
+    }, REQUEST_BATCH_INTERVAL_MS);
+  }
+
+  private flushHeaderBatch(windowId: number): void {
+    const batch = this.headerBatches.get(windowId);
+    if (!batch || batch.headers.length === 0) {
+      if (batch && batch.timer !== null) {
+        clearTimeout(batch.timer);
+        batch.timer = null;
+      }
+      return;
+    }
+
+    const headers = batch.headers;
+    batch.headers = [];
+
+    if (batch.timer !== null) {
+      clearTimeout(batch.timer);
+      batch.timer = null;
+    }
+
+    if (headers.length === 1) {
+      browser.runtime.sendMessage({
+        type: 'HEADER_INTERCEPTED',
+        header: headers[0],
+        windowId,
+      });
+    } else {
+      browser.runtime.sendMessage({
+        type: 'HEADERS_BATCH',
+        headers,
+        windowId,
+      });
+    }
+  }
+
+  /** Clear batch timers and state for a window */
+  private clearBatchState(windowId: number): void {
+    const reqBatch = this.requestBatches.get(windowId);
+    if (reqBatch?.timer) clearTimeout(reqBatch.timer);
+    this.requestBatches.delete(windowId);
+
+    const hdrBatch = this.headerBatches.get(windowId);
+    if (hdrBatch?.timer) clearTimeout(hdrBatch.timer);
+    this.headerBatches.delete(windowId);
+  }
+
+  /**
    * Cleanup windows that are no longer valid
    *
    * Iterates through all tracked windows and removes any that have been
@@ -591,6 +757,7 @@ export class WindowManager implements IWindowManager {
         // Window no longer exists, clean it up
         const window = this.windows.get(windowId);
         this.windows.delete(windowId);
+        this.clearBatchState(windowId);
         cleanedCount++;
 
         logger.debug(

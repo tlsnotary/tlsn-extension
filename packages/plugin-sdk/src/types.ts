@@ -104,8 +104,18 @@ export type WindowMessage =
       windowId: number;
     }
   | {
+      type: 'REQUESTS_BATCH';
+      requests: InterceptedRequest[];
+      windowId: number;
+    }
+  | {
       type: 'HEADER_INTERCEPTED';
       header: InterceptedRequestHeader;
+      windowId: number;
+    }
+  | {
+      type: 'HEADERS_BATCH';
+      headers: InterceptedRequestHeader[];
       windowId: number;
     }
   | {
