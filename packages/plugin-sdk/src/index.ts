@@ -302,10 +302,7 @@ function makeOpenWindow(
             if (message.type === 'REQUESTS_BATCH') {
               const requests = message.requests;
               updateExecutionContext(uuid, {
-                requests: [
-                  ...(executionContext.requests || []),
-                  ...requests,
-                ],
+                requests: [...(executionContext.requests || []), ...requests],
               });
               executionContext.main();
             }
@@ -321,10 +318,7 @@ function makeOpenWindow(
             if (message.type === 'HEADERS_BATCH') {
               const headers = message.headers;
               updateExecutionContext(uuid, {
-                headers: [
-                  ...(executionContext.headers || []),
-                  ...headers,
-                ],
+                headers: [...(executionContext.headers || []), ...headers],
               });
               executionContext.main();
             }
@@ -405,8 +399,7 @@ export {
 function preprocessPluginCode(code: string): string {
   // Handle named exports: export function main() / export const config = ...
   const exportNames: string[] = [];
-  const exportRegex =
-    /export\s+(?:async\s+)?(?:function|const|let|var|class)\s+(\w+)/g;
+  const exportRegex = /export\s+(?:async\s+)?(?:function|const|let|var|class)\s+(\w+)/g;
   let match;
 
   while ((match = exportRegex.exec(code)) !== null) {
@@ -427,19 +420,14 @@ function preprocessPluginCode(code: string): string {
 
   // Handle export default { ... } — wrap function references in arrow functions
   // to avoid QuickJS handleToNative stack overflow on .prototype
-  const defaultExportMatch = code.match(
-    /export\s+default\s+\{([^}]+)\}\s*;?\s*$/,
-  );
+  const defaultExportMatch = code.match(/export\s+default\s+\{([^}]+)\}\s*;?\s*$/);
 
   if (defaultExportMatch) {
     const names = defaultExportMatch[1]
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean);
-    const strippedCode = code.replace(
-      /export\s+default\s+\{[^}]+\}\s*;?\s*$/,
-      '',
-    );
+    const strippedCode = code.replace(/export\s+default\s+\{[^}]+\}\s*;?\s*$/, '');
     const entries = names
       .map(
         (name) =>
