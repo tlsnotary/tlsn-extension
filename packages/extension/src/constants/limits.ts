@@ -63,3 +63,21 @@ export const MAX_OVERLAY_RETRY_ATTEMPTS = Math.floor(
  * @default 300000 (5 minutes)
  */
 export const CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
+
+/**
+ * Interval for batching intercepted requests/headers (milliseconds)
+ *
+ * After the first request in a batch is sent immediately (leading edge),
+ * subsequent requests are accumulated and sent as a batch after this interval.
+ *
+ * @default 150
+ */
+export const REQUEST_BATCH_INTERVAL_MS = 150;
+
+/**
+ * Maximum number of items to accumulate in a single batch before force-flushing.
+ * Prevents unbounded memory growth during burst traffic.
+ *
+ * @default 50
+ */
+export const REQUEST_BATCH_MAX_SIZE = 50;
