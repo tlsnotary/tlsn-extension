@@ -121,7 +121,7 @@ const config = {
  *    - Generates and returns the cryptographic proof
  * 5. Return the proof result to the caller via done()
  */
-async function onClick() {
+const onClick = async () => {
   const isRequestPending = useState('isRequestPending', false);
 
   if (isRequestPending) return;
@@ -246,13 +246,13 @@ async function onClick() {
   done(JSON.stringify(resp));
 }
 
-function expandUI() {
+const expandUI = () => {
   setState('isMinimized', false);
-}
+};
 
-function minimizeUI() {
+const minimizeUI = () => {
   setState('isMinimized', true);
-}
+};
 
 // =============================================================================
 // MAIN UI FUNCTION
@@ -271,7 +271,7 @@ function minimizeUI() {
  * 3. If intercepted: Show "Profile detected" with a "Prove" button
  * 4. On first render: Open X.com in a new window to trigger login
  */
-function main() {
+const main = () => {
   // Subscribe to intercepted headers for the X.com API endpoint
   // This will reactively update whenever new headers matching the filter arrive
   const [header] = useHeaders(headers => headers.filter(header => header.url.includes('https://api.x.com/1.1/account/settings.json')));

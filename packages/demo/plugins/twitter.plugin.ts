@@ -38,7 +38,7 @@ const config = {
  * It extracts authentication headers from intercepted requests and generates
  * a TLSNotary proof using the unified prove() API.
  */
-async function onClick() {
+const onClick = async () => {
     const isRequestPending = useState('isRequestPending', false);
 
     if (isRequestPending) return;
@@ -102,18 +102,18 @@ async function onClick() {
     done(JSON.stringify(resp));
 }
 
-function expandUI() {
+const expandUI = () => {
     setState('isMinimized', false);
 }
 
-function minimizeUI() {
+const minimizeUI = () => {
     setState('isMinimized', true);
 }
 
 // =============================================================================
 // MAIN UI FUNCTION
 // =============================================================================
-function main() {
+const main = () => {
     const isMinimized = useState('isMinimized', false);
     const isRequestPending = useState('isRequestPending', false);
     const cachedCookie = useState('cookie', null);

@@ -51,7 +51,7 @@ function updateExecutionContext(
 
 // Pure function for creating DOM JSON without `this` binding
 function createDomJson(
-  type: 'div' | 'button',
+  type: 'div' | 'button' | 'input',
   param1: DomOptions | DomJson[] = {},
   param2: DomJson[] = [],
 ): DomJson {
@@ -232,6 +232,8 @@ function makeOpenWindow(
   ) => Promise<OpenWindowResponse>,
   _onCloseWindow: (windowId: number) => void,
 ) {
+  let cachedResult: { windowId: number; uuid: string; tabId: number } | null = null;
+
   return async (
     url: string,
     options?: {
@@ -242,6 +244,11 @@ function makeOpenWindow(
   ): Promise<{ windowId: number; uuid: string; tabId: number }> => {
     if (!url || typeof url !== 'string') {
       throw new Error('URL must be a non-empty string');
+    }
+
+    // Return cached result if window already opened (idempotent on re-renders)
+    if (cachedResult) {
+      return cachedResult;
     }
 
     try {
@@ -292,10 +299,26 @@ function makeOpenWindow(
               executionContext.main();
             }
 
+            if (message.type === 'REQUESTS_BATCH') {
+              const requests = message.requests;
+              updateExecutionContext(uuid, {
+                requests: [...(executionContext.requests || []), ...requests],
+              });
+              executionContext.main();
+            }
+
             if (message.type === 'HEADER_INTERCEPTED') {
               const header = message.header;
               updateExecutionContext(uuid, {
                 headers: [...(executionContext.headers || []), header],
+              });
+              executionContext.main();
+            }
+
+            if (message.type === 'HEADERS_BATCH') {
+              const headers = message.headers;
+              updateExecutionContext(uuid, {
+                headers: [...(executionContext.headers || []), ...headers],
               });
               executionContext.main();
             }
@@ -333,11 +356,12 @@ function makeOpenWindow(
 
         eventEmitter.addListener(onMessage);
 
-        return {
+        cachedResult = {
           windowId: response.payload.windowId,
           uuid: response.payload.uuid,
           tabId: response.payload.tabId,
         };
+        return cachedResult;
       }
 
       throw new Error('Invalid response from background script');
@@ -359,6 +383,63 @@ export {
   type HeaderRangeOptions,
   type BodyRangeOptions,
 } from './parser';
+
+/**
+ * Preprocess plugin code to work around @sebastianwessel/quickjs serialization bugs.
+ *
+ * Two issues:
+ * 1. handleToNative() has no circular reference detection — exporting any function
+ *    with a .prototype property causes infinite recursion (prototype.constructor cycle).
+ * 2. The library only returns `res.default` from module evaluation, so named exports
+ *    are silently discarded.
+ *
+ * This function strips named exports, then re-exports them via `export default { ... }`
+ * with arrow function wrappers (arrow functions have no .prototype).
+ */
+function preprocessPluginCode(code: string): string {
+  // Handle named exports: export function main() / export const config = ...
+  const exportNames: string[] = [];
+  const exportRegex = /export\s+(?:async\s+)?(?:function|const|let|var|class)\s+(\w+)/g;
+  let match;
+
+  while ((match = exportRegex.exec(code)) !== null) {
+    exportNames.push(match[1]);
+  }
+
+  if (exportNames.length > 0) {
+    const strippedCode = code.replace(/^(\s*)export\s+/gm, '$1');
+    const entries = exportNames
+      .map(
+        (name) =>
+          `${name}: typeof ${name} === 'function' ? (...args) => ${name}(...args) : ${name}`,
+      )
+      .join(',\n  ');
+
+    return `${strippedCode}\nexport default { ${entries} };`;
+  }
+
+  // Handle export default { ... } — wrap function references in arrow functions
+  // to avoid QuickJS handleToNative stack overflow on .prototype
+  const defaultExportMatch = code.match(/export\s+default\s+\{([^}]+)\}\s*;?\s*$/);
+
+  if (defaultExportMatch) {
+    const names = defaultExportMatch[1]
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const strippedCode = code.replace(/export\s+default\s+\{[^}]+\}\s*;?\s*$/, '');
+    const entries = names
+      .map(
+        (name) =>
+          `${name}: typeof ${name} === 'function' ? (...args) => ${name}(...args) : ${name}`,
+      )
+      .join(',\n  ');
+
+    return `${strippedCode}\nexport default { ${entries} };`;
+  }
+
+  return code;
+}
 
 export class Host {
   private capabilities: Map<string, (...args: any[]) => any> = new Map();
@@ -527,9 +608,11 @@ export class Host {
 
   async getPluginConfig(code: string): Promise<any> {
     const sandbox = await this.createEvalCode();
+    const processedCode = preprocessPluginCode(code);
     const exportedCode = await sandbox.eval(`
 const div = env.div;
 const button = env.button;
+const input = env.input;
 const openWindow = env.openWindow;
 const useEffect = env.useEffect;
 const useRequests = env.useRequests;
@@ -543,7 +626,7 @@ const reveal = env.reveal;
 const getResponse = env.getResponse;
 const closeWindow = env.closeWindow;
 const done = env.done;
-${code};
+${processedCode};
 `);
 
     const { config } = exportedCode;
@@ -642,6 +725,8 @@ ${code};
         createDomJson('div', param1, param2),
       button: (param1?: DomOptions | DomJson[], param2?: DomJson[]) =>
         createDomJson('button', param1, param2),
+      input: (param1?: DomOptions | DomJson[], param2?: DomJson[]) =>
+        createDomJson('input', param1, param2),
       openWindow: makeOpenWindow(uuid, eventEmitter, onOpenWindow, onCloseWindow),
       useEffect: makeUseEffect(uuid, context),
       useRequests: makeUseRequests(uuid, context),
@@ -665,9 +750,11 @@ ${code};
 
     let exportedCode;
     try {
+      const processedCode = preprocessPluginCode(code);
       exportedCode = await sandbox.eval(`
 const div = env.div;
 const button = env.button;
+const input = env.input;
 const openWindow = env.openWindow;
 const useEffect = env.useEffect;
 const useRequests = env.useRequests;
@@ -677,7 +764,7 @@ const setState = env.setState;
 const prove = env.prove;
 const closeWindow = env.closeWindow;
 const done = env.done;
-${code};
+${processedCode};
 `);
     } catch (evalError) {
       const error = evalError instanceof Error ? evalError : new Error(String(evalError));
@@ -728,8 +815,8 @@ ${code};
           context: {
             ...executionContextRegistry.get(uuid)?.context,
             main: {
-              effects: JSON.parse(JSON.stringify(context['main']?.effects)),
-              selectors: JSON.parse(JSON.stringify(context['main']?.selectors)),
+              effects: JSON.parse(JSON.stringify(context['main']?.effects ?? [])),
+              selectors: JSON.parse(JSON.stringify(context['main']?.selectors ?? [])),
             },
           },
           stateStore: JSON.parse(JSON.stringify(stateStore)),
@@ -788,7 +875,7 @@ ${code};
    * Delegates to the pure module-level function
    */
   createDomJson = (
-    type: 'div' | 'button',
+    type: 'div' | 'button' | 'input',
     param1: DomOptions | DomJson[] = {},
     param2: DomJson[] = [],
   ): DomJson => {

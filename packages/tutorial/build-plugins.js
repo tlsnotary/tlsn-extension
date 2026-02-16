@@ -44,7 +44,7 @@ const ui_path = '/account';
 const path = '/balances';
 const url = \`https://\${host}\${path}\`;
 
-async function onClick() {
+const onClick = async () => {
   const isRequestPending = useState('isRequestPending', false);
   if (isRequestPending) return;
 
@@ -80,10 +80,10 @@ async function onClick() {
   done(JSON.stringify(resp));
 }
 
-function expandUI() { setState('isMinimized', false); }
-function minimizeUI() { setState('isMinimized', true); }
+const expandUI = () => { setState('isMinimized', false); };
+const minimizeUI = () => { setState('isMinimized', true); };
 
-function main() {
+const main = () => {
   const [header] = useHeaders(headers => headers.filter(header => header.url.includes(\`https://\${host}\${ui_path}\`)));
   const hasNecessaryHeader = header?.requestHeaders.some(h => h.name === 'Cookie');
   const isMinimized = useState('isMinimized', false);

@@ -10,7 +10,12 @@ import { WindowManager } from '../../src/background/WindowManager';
 import type {
   WindowRegistration,
   InterceptedRequest,
+  InterceptedRequestHeader,
 } from '../../src/types/window-manager';
+import {
+  REQUEST_BATCH_INTERVAL_MS,
+  REQUEST_BATCH_MAX_SIZE,
+} from '../../src/constants/limits';
 import browser from 'webextension-polyfill';
 
 describe('WindowManager', () => {
@@ -554,6 +559,309 @@ describe('WindowManager', () => {
       await windowManager.showOverlay(123);
       expect(windowManager.isOverlayVisible(123)).toBe(true);
       expect(windowManager.isOverlayVisible(789)).toBe(false);
+    });
+  });
+
+  describe('Request/Header Batching', () => {
+    const makeRequest = (id: string): InterceptedRequest => ({
+      id,
+      method: 'GET',
+      url: `https://example.com/api/${id}`,
+      timestamp: Date.now(),
+      tabId: 456,
+    });
+
+    const makeHeader = (id: string): InterceptedRequestHeader => ({
+      id,
+      method: 'GET',
+      url: `https://example.com/api/${id}`,
+      timestamp: Date.now(),
+      type: 'xmlhttprequest',
+      requestHeaders: [{ name: 'Authorization', value: 'Bearer token' }],
+      tabId: 456,
+    });
+
+    beforeEach(async () => {
+      await windowManager.registerWindow({
+        id: 123,
+        tabId: 456,
+        url: 'https://example.com',
+        showOverlay: false,
+      });
+      vi.clearAllMocks();
+    });
+
+    it('should send first request immediately (leading edge)', () => {
+      const req = makeRequest('req-1');
+
+      windowManager.addRequest(123, req);
+
+      expect(vi.mocked(browser.runtime.sendMessage)).toHaveBeenCalledWith({
+        type: 'REQUEST_INTERCEPTED',
+        request: req,
+        windowId: 123,
+      });
+    });
+
+    it('should buffer second request and flush after timer', async () => {
+      const req1 = makeRequest('req-1');
+      const req2 = makeRequest('req-2');
+
+      windowManager.addRequest(123, req1);
+      windowManager.addRequest(123, req2);
+
+      // Only the leading-edge call should have fired so far
+      const sendMessage = vi.mocked(browser.runtime.sendMessage);
+      const callsAfterBoth = sendMessage.mock.calls.filter(
+        (call) =>
+          (call[0] as any).type === 'REQUEST_INTERCEPTED' ||
+          (call[0] as any).type === 'REQUESTS_BATCH',
+      );
+
+      expect(callsAfterBoth).toHaveLength(1);
+      expect((callsAfterBoth[0][0] as any).request.id).toBe('req-1');
+
+      // Advance timer to flush the batch
+      await vi.advanceTimersByTimeAsync(REQUEST_BATCH_INTERVAL_MS);
+
+      // Single buffered item uses REQUEST_INTERCEPTED (backward compat)
+      expect(sendMessage).toHaveBeenCalledWith({
+        type: 'REQUEST_INTERCEPTED',
+        request: req2,
+        windowId: 123,
+      });
+    });
+
+    it('should send multiple buffered requests as a batch', async () => {
+      const req1 = makeRequest('req-1');
+      const req2 = makeRequest('req-2');
+      const req3 = makeRequest('req-3');
+
+      windowManager.addRequest(123, req1);
+      windowManager.addRequest(123, req2);
+      windowManager.addRequest(123, req3);
+
+      await vi.advanceTimersByTimeAsync(REQUEST_BATCH_INTERVAL_MS);
+
+      expect(vi.mocked(browser.runtime.sendMessage)).toHaveBeenCalledWith({
+        type: 'REQUESTS_BATCH',
+        requests: [req2, req3],
+        windowId: 123,
+      });
+    });
+
+    it('should flush immediately when batch reaches max size', () => {
+      // Leading edge
+      windowManager.addRequest(123, makeRequest('leading'));
+
+      const sendMessage = vi.mocked(browser.runtime.sendMessage);
+
+      sendMessage.mockClear();
+
+      // Fill up to REQUEST_BATCH_MAX_SIZE
+      const batchedRequests: InterceptedRequest[] = [];
+
+      for (let i = 0; i < REQUEST_BATCH_MAX_SIZE; i++) {
+        const req = makeRequest(`batch-${i}`);
+
+        batchedRequests.push(req);
+        windowManager.addRequest(123, req);
+      }
+
+      // Should have flushed immediately without waiting for timer
+      expect(sendMessage).toHaveBeenCalledWith({
+        type: 'REQUESTS_BATCH',
+        requests: batchedRequests,
+        windowId: 123,
+      });
+    });
+
+    it('should send first header immediately (leading edge)', () => {
+      const hdr = makeHeader('hdr-1');
+
+      windowManager.addHeader(123, hdr);
+
+      expect(vi.mocked(browser.runtime.sendMessage)).toHaveBeenCalledWith({
+        type: 'HEADER_INTERCEPTED',
+        header: hdr,
+        windowId: 123,
+      });
+    });
+
+    it('should buffer second header and flush after timer', async () => {
+      const hdr1 = makeHeader('hdr-1');
+      const hdr2 = makeHeader('hdr-2');
+
+      windowManager.addHeader(123, hdr1);
+      windowManager.addHeader(123, hdr2);
+
+      const sendMessage = vi.mocked(browser.runtime.sendMessage);
+      const callsAfterBoth = sendMessage.mock.calls.filter(
+        (call) =>
+          (call[0] as any).type === 'HEADER_INTERCEPTED' ||
+          (call[0] as any).type === 'HEADERS_BATCH',
+      );
+
+      expect(callsAfterBoth).toHaveLength(1);
+      expect((callsAfterBoth[0][0] as any).header.id).toBe('hdr-1');
+
+      await vi.advanceTimersByTimeAsync(REQUEST_BATCH_INTERVAL_MS);
+
+      expect(sendMessage).toHaveBeenCalledWith({
+        type: 'HEADER_INTERCEPTED',
+        header: hdr2,
+        windowId: 123,
+      });
+    });
+
+    it('should send multiple buffered headers as a batch', async () => {
+      const hdr1 = makeHeader('hdr-1');
+      const hdr2 = makeHeader('hdr-2');
+      const hdr3 = makeHeader('hdr-3');
+
+      windowManager.addHeader(123, hdr1);
+      windowManager.addHeader(123, hdr2);
+      windowManager.addHeader(123, hdr3);
+
+      await vi.advanceTimersByTimeAsync(REQUEST_BATCH_INTERVAL_MS);
+
+      expect(vi.mocked(browser.runtime.sendMessage)).toHaveBeenCalledWith({
+        type: 'HEADERS_BATCH',
+        headers: [hdr2, hdr3],
+        windowId: 123,
+      });
+    });
+
+    it('should flush headers immediately when batch reaches max size', () => {
+      windowManager.addHeader(123, makeHeader('leading'));
+
+      const sendMessage = vi.mocked(browser.runtime.sendMessage);
+
+      sendMessage.mockClear();
+
+      const batchedHeaders: InterceptedRequestHeader[] = [];
+
+      for (let i = 0; i < REQUEST_BATCH_MAX_SIZE; i++) {
+        const hdr = makeHeader(`batch-${i}`);
+
+        batchedHeaders.push(hdr);
+        windowManager.addHeader(123, hdr);
+      }
+
+      expect(sendMessage).toHaveBeenCalledWith({
+        type: 'HEADERS_BATCH',
+        headers: batchedHeaders,
+        windowId: 123,
+      });
+    });
+
+    it('should clear batch state when window is closed', async () => {
+      windowManager.addRequest(123, makeRequest('req-1'));
+      windowManager.addRequest(123, makeRequest('req-2'));
+
+      const sendMessage = vi.mocked(browser.runtime.sendMessage);
+
+      sendMessage.mockClear();
+
+      await windowManager.closeWindow(123);
+
+      // Advance past the batch interval
+      await vi.advanceTimersByTimeAsync(REQUEST_BATCH_INTERVAL_MS * 2);
+
+      // No REQUEST_INTERCEPTED or REQUESTS_BATCH messages should fire
+      const batchCalls = sendMessage.mock.calls.filter(
+        (call) =>
+          (call[0] as any).type === 'REQUEST_INTERCEPTED' ||
+          (call[0] as any).type === 'REQUESTS_BATCH',
+      );
+
+      expect(batchCalls).toHaveLength(0);
+    });
+
+    it('should clear batch state when cleanupInvalidWindows removes a window', async () => {
+      windowManager.addRequest(123, makeRequest('req-1'));
+      windowManager.addRequest(123, makeRequest('req-2'));
+
+      const sendMessage = vi.mocked(browser.runtime.sendMessage);
+
+      sendMessage.mockClear();
+
+      // Mock window as no longer existing
+      vi.mocked(browser.windows.get).mockRejectedValue(
+        new Error('Window not found'),
+      );
+
+      await windowManager.cleanupInvalidWindows();
+
+      await vi.advanceTimersByTimeAsync(REQUEST_BATCH_INTERVAL_MS * 2);
+
+      const batchCalls = sendMessage.mock.calls.filter(
+        (call) =>
+          (call[0] as any).type === 'REQUEST_INTERCEPTED' ||
+          (call[0] as any).type === 'REQUESTS_BATCH',
+      );
+
+      expect(batchCalls).toHaveLength(0);
+    });
+
+    it('should batch requests independently per window', async () => {
+      await windowManager.registerWindow({
+        id: 789,
+        tabId: 1011,
+        url: 'https://example2.com',
+        showOverlay: false,
+      });
+
+      vi.clearAllMocks();
+
+      const reqA1 = makeRequest('a-1');
+      const reqA2 = makeRequest('a-2');
+      const reqB1: InterceptedRequest = {
+        ...makeRequest('b-1'),
+        tabId: 1011,
+      };
+      const reqB2: InterceptedRequest = {
+        ...makeRequest('b-2'),
+        tabId: 1011,
+      };
+
+      // First request on each window is leading edge
+      windowManager.addRequest(123, reqA1);
+      windowManager.addRequest(789, reqB1);
+
+      const sendMessage = vi.mocked(browser.runtime.sendMessage);
+
+      expect(sendMessage).toHaveBeenCalledWith({
+        type: 'REQUEST_INTERCEPTED',
+        request: reqA1,
+        windowId: 123,
+      });
+
+      expect(sendMessage).toHaveBeenCalledWith({
+        type: 'REQUEST_INTERCEPTED',
+        request: reqB1,
+        windowId: 789,
+      });
+
+      sendMessage.mockClear();
+
+      // Second request on each window is buffered
+      windowManager.addRequest(123, reqA2);
+      windowManager.addRequest(789, reqB2);
+
+      await vi.advanceTimersByTimeAsync(REQUEST_BATCH_INTERVAL_MS);
+
+      expect(sendMessage).toHaveBeenCalledWith({
+        type: 'REQUEST_INTERCEPTED',
+        request: reqA2,
+        windowId: 123,
+      });
+
+      expect(sendMessage).toHaveBeenCalledWith({
+        type: 'REQUEST_INTERCEPTED',
+        request: reqB2,
+        windowId: 789,
+      });
     });
   });
 });
