@@ -580,10 +580,7 @@ export class WindowManager implements IWindowManager {
    * First request for a window is sent immediately (leading edge).
    * Subsequent requests are accumulated and sent after REQUEST_BATCH_INTERVAL_MS.
    */
-  private enqueueRequest(
-    windowId: number,
-    request: InterceptedRequest,
-  ): void {
+  private enqueueRequest(windowId: number, request: InterceptedRequest): void {
     let batch = this.requestBatches.get(windowId);
 
     if (!batch) {
