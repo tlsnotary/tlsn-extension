@@ -18,7 +18,6 @@ import {
   WindowMessage,
   Handler,
   PluginConfig,
-  RequestPermission,
 } from './types';
 import deepEqual from 'fast-deep-equal';
 
@@ -868,8 +867,41 @@ export async function extractConfig(code: string): Promise<PluginConfig | null> 
   }
 }
 
+// Export enums (runtime values)
+export { HandlerType, HandlerPart, HandlerAction } from './types';
+
 // Export types
-export type { PluginConfig, RequestPermission };
+export type {
+  PluginConfig,
+  RequestPermission,
+  Handler,
+  StartLineHandler,
+  HeadersHandler,
+  BodyHandler,
+  AllHandler,
+  InterceptedRequest,
+  InterceptedRequestHeader,
+  DomJson,
+  DomOptions,
+  OpenWindowResponse,
+  WindowMessage,
+  ExecutionContext,
+} from './types';
+
+// Export Plugin API types
+export type {
+  PluginAPI,
+  DivFunction,
+  ButtonFunction,
+  OpenWindowFunction,
+  UseEffectFunction,
+  UseHeadersFunction,
+  UseRequestsFunction,
+  UseStateFunction,
+  SetStateFunction,
+  ProveFunction,
+  DoneFunction,
+} from './globals';
 
 // Re-export LogLevel for consumers
 export { LogLevel } from '@tlsn/common';
