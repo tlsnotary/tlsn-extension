@@ -27,7 +27,7 @@ const ui_path = '/account';
 const path = '/balances';
 const url = `https://${host}${path}`;
 
-async function onClick() {
+const onClick = async () => {
     const isRequestPending = useState('isRequestPending', false);
 
     if (isRequestPending) return;
@@ -82,15 +82,15 @@ async function onClick() {
     done(JSON.stringify(resp));
 }
 
-function expandUI() {
+const expandUI = () => {
     setState('isMinimized', false);
 }
 
-function minimizeUI() {
+const minimizeUI = () => {
     setState('isMinimized', true);
 }
 
-function main() {
+const main = () => {
     const isMinimized = useState('isMinimized', false);
     const isRequestPending = useState('isRequestPending', false);
     const cachedCookie = useState('cookie', null);
