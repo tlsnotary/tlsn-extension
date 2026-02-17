@@ -25,7 +25,7 @@ npm install
 npm run build
 ```
 
-This bundles `src/index.ts` and `src/config.ts` into a single `build/index.js` file with clean `export default` statement.
+This bundles the plugin into `build/<package-name>.js` (derived from the `name` field in `package.json`, with any `@scope/` prefix stripped).
 
 ### Development Mode
 
@@ -54,8 +54,8 @@ ts-plugin-sample/
 │   ├── index.ts         # TypeScript plugin implementation
 │   └── config.ts        # Plugin configuration
 ├── build/
-│   ├── index.js         # Bundled plugin with export default
-│   └── index.js.map     # Source map for debugging
+│   ├── <name>.js        # Bundled plugin (filename from package.json name)
+│   └── <name>.js.map    # Source map for debugging
 └── README.md
 ```
 
@@ -189,14 +189,14 @@ const handler: Handler = {
 ### Build Tool: esbuild + Custom Wrapper
 
 The plugin uses **esbuild** with a custom build wrapper:
-- **Single file output:** All code bundled into `build/index.js` (7.2KB, 257 lines)
+- **Single file output:** All code bundled into one file
 - **ES Module format:** Standard `export default` statement
 - **No external imports:** All dependencies bundled inline
 - **Zero runtime SDK dependency:** Handler types are string unions (no runtime imports needed)
 - **Source maps:** Generated for debugging (`build/index.js.map`)
 - **Fast builds:** ~10ms typical build time
 
-The build wrapper (`build-wrapper.cjs`) transforms the esbuild output to use a clean `export default` statement matching the JavaScript plugin format.
+The build wrapper (`build-wrapper.cjs`) derives the output filename from `package.json` `name` and runs esbuild.
 
 ### TypeScript Config (`tsconfig.json`)
 
@@ -207,10 +207,10 @@ TypeScript is used for type checking only (`npm run typecheck`):
 
 ## Loading in Extension
 
-After building, the compiled `build/index.js` can be loaded in the TLSN extension:
+After building, the compiled plugin can be loaded in the TLSN extension:
 
 1. Build the plugin: `npm run build`
-2. The output is `build/index.js` with clean ES module export:
+2. The output is `build/<name>.js` with clean ES module export:
    ```javascript
    export default {
      main,
@@ -222,7 +222,7 @@ After building, the compiled `build/index.js` can be loaded in the TLSN extensio
    ```
 3. Load and execute in the extension:
    ```javascript
-   const pluginCode = fs.readFileSync('build/index.js', 'utf8');
+   const pluginCode = fs.readFileSync('build/ts-plugin-sample.js', 'utf8');
    const plugin = await sandbox.eval(pluginCode);
    // plugin = { main, onClick, expandUI, minimizeUI, config }
    ```
