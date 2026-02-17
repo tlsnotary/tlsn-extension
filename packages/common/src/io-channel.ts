@@ -48,11 +48,28 @@ export async function fromWebSocket(url: string): Promise<IoChannel> {
     let error: Error | null = null;
 
     ws.onopen = () => {
-      resolve(new WebSocketIoChannel(ws, readQueue, () => readResolver, (r) => { readResolver = r; }, () => closed, (c) => { closed = c; }, () => error, (e) => { error = e; }));
+      resolve(
+        new WebSocketIoChannel(
+          ws,
+          readQueue,
+          () => readResolver,
+          (r) => {
+            readResolver = r;
+          },
+          () => closed,
+          (c) => {
+            closed = c;
+          },
+          () => error,
+          (e) => {
+            error = e;
+          },
+        ),
+      );
     };
 
     ws.onerror = (event) => {
-      const err = new Error('WebSocket connection failed');
+      const err = new Error(`WebSocket connection failed: ${event.type}`);
       if (!closed) {
         error = err;
         reject(err);
@@ -141,11 +158,17 @@ export function fromOpenWebSocket(ws: WebSocket): IoChannel {
     ws,
     readQueue,
     () => readResolver,
-    (r) => { readResolver = r; },
+    (r) => {
+      readResolver = r;
+    },
     () => closed,
-    (c) => { closed = c; },
+    (c) => {
+      closed = c;
+    },
     () => error,
-    (e) => { error = e; }
+    (e) => {
+      error = e;
+    },
   );
 }
 

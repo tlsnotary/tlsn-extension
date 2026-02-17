@@ -101,7 +101,10 @@ async function createProver(config: ProverConfig): Promise<string> {
 /**
  * Sets up the prover with the verifier via WebSocket URL.
  */
-async function setupProver(proverId: string, verifierUrl: string): Promise<void> {
+async function setupProver(
+  proverId: string,
+  verifierUrl: string,
+): Promise<void> {
   const prover = provers.get(proverId);
   if (!prover) throw new Error(`Prover not found: ${proverId}`);
 
