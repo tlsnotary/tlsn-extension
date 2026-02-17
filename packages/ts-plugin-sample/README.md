@@ -70,9 +70,6 @@ import type {
   PluginConfig,
   RequestPermission,
   Handler,
-  HandlerType,
-  HandlerPart,
-  HandlerAction,
   InterceptedRequestHeader,
   DomJson,
 } from '@tlsn/plugin-sdk';
@@ -120,14 +117,14 @@ declare function done(result?: any): void;
 ```typescript
 const handlers: Handler[] = [
   {
-    type: 'SENT' as HandlerType,
-    part: 'START_LINE' as HandlerPart,
-    action: 'REVEAL' as HandlerAction,
+    type: 'SENT',
+    part: 'START_LINE',
+    action: 'REVEAL',
   },
   {
-    type: 'RECV' as HandlerType,
-    part: 'BODY' as HandlerPart,
-    action: 'REVEAL' as HandlerAction,
+    type: 'RECV',
+    part: 'BODY',
+    action: 'REVEAL',
     params: {
       type: 'json',
       path: 'screen_name',
@@ -195,7 +192,7 @@ The plugin uses **esbuild** with a custom build wrapper:
 - **Single file output:** All code bundled into `build/index.js` (7.2KB, 257 lines)
 - **ES Module format:** Standard `export default` statement
 - **No external imports:** All dependencies bundled inline
-- **Inlined enums:** Handler enums included directly (no SDK imports)
+- **Zero runtime SDK dependency:** Handler types are string unions (no runtime imports needed)
 - **Source maps:** Generated for debugging (`build/index.js.map`)
 - **Fast builds:** ~10ms typical build time
 
@@ -234,7 +231,7 @@ After building, the compiled `build/index.js` can be loaded in the TLSN extensio
 **Output Characteristics:**
 - ✅ Single file with `export default` statement
 - ✅ No external imports (all dependencies bundled)
-- ✅ Inlined enums (no SDK runtime dependency)
+- ✅ Zero runtime SDK dependency (types are string unions)
 - ✅ ES Module format
 - ✅ Matches JavaScript plugin structure
 

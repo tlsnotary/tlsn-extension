@@ -15,7 +15,6 @@
  * via the SDK type declarations.
  */
 import type { Handler, DomJson } from '@tlsn/plugin-sdk';
-import { HandlerType, HandlerPart, HandlerAction } from '@tlsn/plugin-sdk/types';
 import { config } from './config';
 import { FloatingButton, PluginOverlay } from './components';
 
@@ -83,32 +82,32 @@ async function onClick(): Promise<void> {
       handlers: [
         // Reveal the request start line
         {
-          type: HandlerType.SENT,
-          part: HandlerPart.START_LINE,
-          action: HandlerAction.REVEAL,
+          type: 'SENT',
+          part: 'START_LINE',
+          action: 'REVEAL',
         } satisfies Handler,
         // Reveal the response start line
         {
-          type: HandlerType.RECV,
-          part: HandlerPart.START_LINE,
-          action: HandlerAction.REVEAL,
+          type: 'RECV',
+          part: 'START_LINE',
+          action: 'REVEAL',
         } satisfies Handler,
         // Reveal the 'date' header from the response
         {
-          type: HandlerType.RECV,
-          part: HandlerPart.HEADERS,
-          action: HandlerAction.REVEAL,
+          type: 'RECV',
+          part: 'HEADERS',
+          action: 'REVEAL',
           params: {
             key: 'date',
           },
         } satisfies Handler,
         // Reveal the 'screen_name' field from the JSON response body
         {
-          type: HandlerType.RECV,
-          part: HandlerPart.BODY,
-          action: HandlerAction.REVEAL,
+          type: 'RECV',
+          part: 'BODY',
+          action: 'REVEAL',
           params: {
-            type: 'json' as const,
+            type: 'json',
             path: 'screen_name',
           },
         } satisfies Handler,

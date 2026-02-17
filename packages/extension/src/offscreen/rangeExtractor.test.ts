@@ -4,12 +4,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { Parser } from '@tlsn/plugin-sdk/src';
-import {
-  HandlerPart,
-  HandlerType,
-  HandlerAction,
-  Handler,
-} from '@tlsn/plugin-sdk/src/types';
+import type { Handler } from '@tlsn/plugin-sdk/src/types';
 import { extractRanges, processHandlers } from './rangeExtractor';
 
 describe('rangeExtractor', () => {
@@ -31,9 +26,9 @@ describe('rangeExtractor', () => {
       it('should extract start line from request', () => {
         const parser = new Parser(sampleRequest);
         const handler: Handler = {
-          type: HandlerType.SENT,
-          part: HandlerPart.START_LINE,
-          action: HandlerAction.REVEAL,
+          type: 'SENT',
+          part: 'START_LINE',
+          action: 'REVEAL',
         };
 
         const ranges = extractRanges(handler, parser);
@@ -47,9 +42,9 @@ describe('rangeExtractor', () => {
       it('should extract start line from response', () => {
         const parser = new Parser(sampleResponse);
         const handler: Handler = {
-          type: HandlerType.RECV,
-          part: HandlerPart.START_LINE,
-          action: HandlerAction.REVEAL,
+          type: 'RECV',
+          part: 'START_LINE',
+          action: 'REVEAL',
         };
 
         const ranges = extractRanges(handler, parser);
@@ -65,9 +60,9 @@ describe('rangeExtractor', () => {
       it('should extract protocol from request', () => {
         const parser = new Parser(sampleRequest);
         const handler: Handler = {
-          type: HandlerType.SENT,
-          part: HandlerPart.PROTOCOL,
-          action: HandlerAction.REVEAL,
+          type: 'SENT',
+          part: 'PROTOCOL',
+          action: 'REVEAL',
         };
 
         const ranges = extractRanges(handler, parser);
@@ -83,9 +78,9 @@ describe('rangeExtractor', () => {
       it('should extract method from request', () => {
         const parser = new Parser(sampleRequest);
         const handler: Handler = {
-          type: HandlerType.SENT,
-          part: HandlerPart.METHOD,
-          action: HandlerAction.REVEAL,
+          type: 'SENT',
+          part: 'METHOD',
+          action: 'REVEAL',
         };
 
         const ranges = extractRanges(handler, parser);
@@ -101,9 +96,9 @@ describe('rangeExtractor', () => {
       it('should extract request target from request', () => {
         const parser = new Parser(sampleRequest);
         const handler: Handler = {
-          type: HandlerType.SENT,
-          part: HandlerPart.REQUEST_TARGET,
-          action: HandlerAction.REVEAL,
+          type: 'SENT',
+          part: 'REQUEST_TARGET',
+          action: 'REVEAL',
         };
 
         const ranges = extractRanges(handler, parser);
@@ -119,9 +114,9 @@ describe('rangeExtractor', () => {
       it('should extract status code from response', () => {
         const parser = new Parser(sampleResponse);
         const handler: Handler = {
-          type: HandlerType.RECV,
-          part: HandlerPart.STATUS_CODE,
-          action: HandlerAction.REVEAL,
+          type: 'RECV',
+          part: 'STATUS_CODE',
+          action: 'REVEAL',
         };
 
         const ranges = extractRanges(handler, parser);
@@ -137,9 +132,9 @@ describe('rangeExtractor', () => {
       it('should extract all headers when no key specified', () => {
         const parser = new Parser(sampleRequest);
         const handler: Handler = {
-          type: HandlerType.SENT,
-          part: HandlerPart.HEADERS,
-          action: HandlerAction.REVEAL,
+          type: 'SENT',
+          part: 'HEADERS',
+          action: 'REVEAL',
         };
 
         const ranges = extractRanges(handler, parser);
@@ -152,9 +147,9 @@ describe('rangeExtractor', () => {
       it('should extract specific header by key', () => {
         const parser = new Parser(sampleRequest);
         const handler: Handler = {
-          type: HandlerType.SENT,
-          part: HandlerPart.HEADERS,
-          action: HandlerAction.REVEAL,
+          type: 'SENT',
+          part: 'HEADERS',
+          action: 'REVEAL',
           params: { key: 'host' },
         };
 
@@ -169,9 +164,9 @@ describe('rangeExtractor', () => {
       it('should extract header value only with hideKey option', () => {
         const parser = new Parser(sampleRequest);
         const handler: Handler = {
-          type: HandlerType.SENT,
-          part: HandlerPart.HEADERS,
-          action: HandlerAction.REVEAL,
+          type: 'SENT',
+          part: 'HEADERS',
+          action: 'REVEAL',
           params: { key: 'host', hideKey: true },
         };
 
@@ -186,9 +181,9 @@ describe('rangeExtractor', () => {
       it('should extract header key only with hideValue option', () => {
         const parser = new Parser(sampleRequest);
         const handler: Handler = {
-          type: HandlerType.SENT,
-          part: HandlerPart.HEADERS,
-          action: HandlerAction.REVEAL,
+          type: 'SENT',
+          part: 'HEADERS',
+          action: 'REVEAL',
           params: { key: 'host', hideValue: true },
         };
 
@@ -203,9 +198,9 @@ describe('rangeExtractor', () => {
       it('should throw error when both hideKey and hideValue are true', () => {
         const parser = new Parser(sampleRequest);
         const handler: Handler = {
-          type: HandlerType.SENT,
-          part: HandlerPart.HEADERS,
-          action: HandlerAction.REVEAL,
+          type: 'SENT',
+          part: 'HEADERS',
+          action: 'REVEAL',
           params: { key: 'host', hideKey: true, hideValue: true },
         };
 
@@ -219,9 +214,9 @@ describe('rangeExtractor', () => {
       it('should extract entire body when no params specified', () => {
         const parser = new Parser(sampleRequest);
         const handler: Handler = {
-          type: HandlerType.SENT,
-          part: HandlerPart.BODY,
-          action: HandlerAction.REVEAL,
+          type: 'SENT',
+          part: 'BODY',
+          action: 'REVEAL',
         };
 
         const ranges = extractRanges(handler, parser);
@@ -235,9 +230,9 @@ describe('rangeExtractor', () => {
       it('should extract JSON field with path', () => {
         const parser = new Parser(sampleRequest);
         const handler: Handler = {
-          type: HandlerType.SENT,
-          part: HandlerPart.BODY,
-          action: HandlerAction.REVEAL,
+          type: 'SENT',
+          part: 'BODY',
+          action: 'REVEAL',
           params: { type: 'json', path: 'name' },
         };
 
@@ -255,9 +250,9 @@ describe('rangeExtractor', () => {
       it('should extract JSON field value only with hideKey', () => {
         const parser = new Parser(sampleRequest);
         const handler: Handler = {
-          type: HandlerType.SENT,
-          part: HandlerPart.BODY,
-          action: HandlerAction.REVEAL,
+          type: 'SENT',
+          part: 'BODY',
+          action: 'REVEAL',
           params: { type: 'json', path: 'name', hideKey: true },
         };
 
@@ -277,9 +272,9 @@ describe('rangeExtractor', () => {
       it('should extract entire transcript when no regex specified', () => {
         const parser = new Parser(sampleRequest);
         const handler: Handler = {
-          type: HandlerType.SENT,
-          part: HandlerPart.ALL,
-          action: HandlerAction.REVEAL,
+          type: 'SENT',
+          part: 'ALL',
+          action: 'REVEAL',
         };
 
         const ranges = extractRanges(handler, parser);
@@ -292,9 +287,9 @@ describe('rangeExtractor', () => {
       it('should extract matches when regex is specified', () => {
         const parser = new Parser(sampleRequest);
         const handler: Handler = {
-          type: HandlerType.SENT,
-          part: HandlerPart.ALL,
-          action: HandlerAction.REVEAL,
+          type: 'SENT',
+          part: 'ALL',
+          action: 'REVEAL',
           params: { type: 'regex', regex: '/Bearer [A-Z0-9]+/g' },
         };
 
@@ -314,9 +309,9 @@ describe('rangeExtractor', () => {
           '\r\n';
         const parser = new Parser(request);
         const handler: Handler = {
-          type: HandlerType.SENT,
-          part: HandlerPart.ALL,
-          action: HandlerAction.REVEAL,
+          type: 'SENT',
+          part: 'ALL',
+          action: 'REVEAL',
           params: { type: 'regex', regex: '/Bearer [A-Z0-9]+/g' },
         };
 
@@ -349,14 +344,14 @@ describe('rangeExtractor', () => {
 
       const handlers: Handler[] = [
         {
-          type: HandlerType.SENT,
-          part: HandlerPart.METHOD,
-          action: HandlerAction.REVEAL,
+          type: 'SENT',
+          part: 'METHOD',
+          action: 'REVEAL',
         },
         {
-          type: HandlerType.SENT,
-          part: HandlerPart.REQUEST_TARGET,
-          action: HandlerAction.REVEAL,
+          type: 'SENT',
+          part: 'REQUEST_TARGET',
+          action: 'REVEAL',
         },
       ];
 
@@ -378,14 +373,14 @@ describe('rangeExtractor', () => {
 
       const handlers: Handler[] = [
         {
-          type: HandlerType.RECV,
-          part: HandlerPart.PROTOCOL,
-          action: HandlerAction.REVEAL,
+          type: 'RECV',
+          part: 'PROTOCOL',
+          action: 'REVEAL',
         },
         {
-          type: HandlerType.RECV,
-          part: HandlerPart.STATUS_CODE,
-          action: HandlerAction.REVEAL,
+          type: 'RECV',
+          part: 'STATUS_CODE',
+          action: 'REVEAL',
         },
       ];
 
@@ -407,14 +402,14 @@ describe('rangeExtractor', () => {
 
       const handlers: Handler[] = [
         {
-          type: HandlerType.SENT,
-          part: HandlerPart.METHOD,
-          action: HandlerAction.REVEAL,
+          type: 'SENT',
+          part: 'METHOD',
+          action: 'REVEAL',
         },
         {
-          type: HandlerType.RECV,
-          part: HandlerPart.STATUS_CODE,
-          action: HandlerAction.REVEAL,
+          type: 'RECV',
+          part: 'STATUS_CODE',
+          action: 'REVEAL',
         },
       ];
 
@@ -444,9 +439,9 @@ describe('rangeExtractor', () => {
 
       const handlers: Handler[] = [
         {
-          type: HandlerType.SENT,
-          part: HandlerPart.ALL,
-          action: HandlerAction.REVEAL,
+          type: 'SENT',
+          part: 'ALL',
+          action: 'REVEAL',
         },
       ];
 
@@ -463,9 +458,9 @@ describe('rangeExtractor', () => {
 
       const handlers: Handler[] = [
         {
-          type: HandlerType.SENT,
-          part: HandlerPart.ALL,
-          action: HandlerAction.REVEAL,
+          type: 'SENT',
+          part: 'ALL',
+          action: 'REVEAL',
           params: { type: 'regex', regex: '/example\.com/g' },
         },
       ];
@@ -495,9 +490,9 @@ describe('rangeExtractor', () => {
 
       const handlers: Handler[] = [
         {
-          type: HandlerType.SENT,
-          part: HandlerPart.BODY,
-          action: HandlerAction.REVEAL,
+          type: 'SENT',
+          part: 'BODY',
+          action: 'REVEAL',
           params: {
             type: 'json',
             path: 'user.profile.email',
@@ -531,9 +526,9 @@ describe('rangeExtractor', () => {
 
       const handlers: Handler[] = [
         {
-          type: HandlerType.SENT,
-          part: HandlerPart.BODY,
-          action: HandlerAction.REVEAL,
+          type: 'SENT',
+          part: 'BODY',
+          action: 'REVEAL',
           params: {
             type: 'json',
             path: 'items[1].name',
