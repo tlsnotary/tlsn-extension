@@ -9,7 +9,6 @@ export default defineConfig({
       outDir: 'dist',
       include: ['src/**/*.ts'],
       exclude: ['**/*.test.ts', '**/*.spec.ts'],
-      rollupTypes: true,
     }),
   ],
   build: {
