@@ -15,27 +15,20 @@ export function deriveProxyUrl(
 }
 
 /**
- * Matches a URL pathname against a URLPattern pathname pattern.
- * Uses the URLPattern API for pattern matching.
+ * Matches a URL pathname against a glob-like pattern.
+ *   * matches a single path segment (no /)
+ *  ** matches across multiple segments
  */
 export function matchesPathnamePattern(
   pathname: string,
   pattern: string,
 ): boolean {
-  try {
-    // URLPattern is available in modern browsers
-    const urlPattern = new URLPattern({ pathname: pattern });
-    return urlPattern.test({ pathname });
-  } catch {
-    // Fallback: simple wildcard matching
-    // Convert * to regex .* and ** to multi-segment match
-    const regexPattern = pattern
-      .replace(/\*\*/g, '<<<MULTI>>>')
-      .replace(/\*/g, '[^/]*')
-      .replace(/<<<MULTI>>>/g, '.*');
-    const regex = new RegExp(`^${regexPattern}$`);
-    return regex.test(pathname);
-  }
+  const regexPattern = pattern
+    .replace(/\*\*/g, '<<<MULTI>>>')
+    .replace(/\*/g, '[^/]*')
+    .replace(/<<<MULTI>>>/g, '.*');
+  const regex = new RegExp(`^${regexPattern}$`);
+  return regex.test(pathname);
 }
 
 /**
