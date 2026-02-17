@@ -15,7 +15,7 @@
  * via the SDK type declarations.
  */
 import type { Handler, DomJson } from '@tlsn/plugin-sdk';
-import { HandlerType, HandlerPart, HandlerAction } from '@tlsn/plugin-sdk';
+import { HandlerType, HandlerPart, HandlerAction } from '@tlsn/plugin-sdk/types';
 import { config } from './config';
 import { FloatingButton, PluginOverlay } from './components';
 
