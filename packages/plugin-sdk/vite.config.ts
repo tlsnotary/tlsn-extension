@@ -14,13 +14,11 @@ export default defineConfig({
   build: {
     target: 'es2020',
     lib: {
-      // Each entry produces a separate bundle for tree-shaking.
-      // Plugins should import enums from '/types' and styling from '/styles'
-      // to avoid pulling in the full SDK (Host, QuickJS, logger).
+      // Separate entry for styles enables tree-shaking:
+      // plugins import styling from '/styles' without pulling in the full SDK.
       entry: {
         index: path.resolve(__dirname, 'src/index.ts'), // Full SDK: Host, Parser, QuickJS sandbox
         styles: path.resolve(__dirname, 'src/styles.ts'), // Tailwind-like styling helpers
-        types: path.resolve(__dirname, 'src/types.ts'), // Lightweight enums & interfaces only
       },
       formats: ['es'],
     },
