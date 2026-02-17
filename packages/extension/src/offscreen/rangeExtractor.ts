@@ -159,13 +159,10 @@ export function processHandlers(
   const recvRangesWithHandlers: Array<Range & { handler: Handler }> = [];
 
   for (const handler of handlers) {
-    const transcript =
-      handler.type === 'SENT' ? parsedSent : parsedRecv;
+    const transcript = handler.type === 'SENT' ? parsedSent : parsedRecv;
     const ranges = handler.type === 'SENT' ? sentRanges : recvRanges;
     const rangesWithHandlers =
-      handler.type === 'SENT'
-        ? sentRangesWithHandlers
-        : recvRangesWithHandlers;
+      handler.type === 'SENT' ? sentRangesWithHandlers : recvRangesWithHandlers;
 
     // Extract ranges for this handler
     const extractedRanges = extractRanges(handler, transcript);
