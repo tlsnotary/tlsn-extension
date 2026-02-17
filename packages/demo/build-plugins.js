@@ -1,46 +1,40 @@
-import { build } from 'vite';
+#!/usr/bin/env node
+/**
+ * Build all demo plugins with esbuild.
+ *
+ * Reads VITE_VERIFIER_HOST and VITE_SSL from environment (or .env defaults)
+ * and injects __VERIFIER_URL__ / __PROXY_URL__ at build time.
+ */
+import { execSync } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import fs from 'fs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const plugins = ['twitter', 'swissbank', 'spotify', 'duolingo'];
 
-// Build URLs from environment variables (matching config.ts pattern)
+// Build URLs from environment variables (matching .env / .env.production)
 const VERIFIER_HOST = process.env.VITE_VERIFIER_HOST || 'localhost:7047';
 const SSL = process.env.VITE_SSL === 'true';
 
 const VERIFIER_URL = `${SSL ? 'https' : 'http'}://${VERIFIER_HOST}`;
 const PROXY_URL = `${SSL ? 'wss' : 'ws'}://${VERIFIER_HOST}/proxy?token=`;
 
-// Build each plugin separately as plain ES module
+console.log('Building plugins with esbuild...');
+console.log(`  VERIFIER_URL: ${VERIFIER_URL}`);
+console.log(`  PROXY_URL: ${PROXY_URL}`);
+
 for (const plugin of plugins) {
-    await build({
-        configFile: false,
-        publicDir: false, // Don't copy public assets into plugin output
-        build: {
-            lib: {
-                entry: path.resolve(__dirname, `plugins/${plugin}.plugin.ts`),
-                formats: ['es'],
-                fileName: () => `${plugin}.js`,
-            },
-            outDir: 'public/plugins',
-            emptyOutDir: false,
-            sourcemap: false,
-            minify: false,
-            rollupOptions: {
-                output: {
-                    exports: 'default',
-                },
-            },
-        },
-        define: {
-            VITE_VERIFIER_URL: JSON.stringify(VERIFIER_URL),
-            VITE_PROXY_URL: JSON.stringify(PROXY_URL),
-        },
-    });
-    console.log(`✓ Built ${plugin}.js`);
+  const entry = path.resolve(__dirname, `plugins/${plugin}.plugin.ts`);
+  const outfile = path.resolve(__dirname, `public/plugins/${plugin}.js`);
+
+  execSync(
+    `esbuild ${entry} --bundle --format=esm --outfile=${outfile}` +
+      ` --define:__VERIFIER_URL__='"${VERIFIER_URL}"'` +
+      ` --define:__PROXY_URL__='"${PROXY_URL}"'`,
+    { stdio: 'inherit' },
+  );
+  console.log(`  ✓ ${plugin}.js`);
 }
 
 console.log('✓ All plugins built successfully');
