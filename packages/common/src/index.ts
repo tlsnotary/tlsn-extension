@@ -10,8 +10,4 @@ export {
 } from './logger/index.js';
 
 // IoChannel exports
-export {
-  type IoChannel,
-  fromWebSocket,
-  fromOpenWebSocket,
-} from './io-channel.js';
+export { type IoChannel, fromWebSocket, fromOpenWebSocket } from './io-channel.js';
