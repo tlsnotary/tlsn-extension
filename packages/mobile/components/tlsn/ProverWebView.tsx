@@ -13,7 +13,6 @@ export interface ProveParams {
   headers: Record<string, string>;
   proverOptions: {
     verifierUrl: string;
-    proxyUrl: string;
     maxSentData: number;
     maxRecvData: number;
   };

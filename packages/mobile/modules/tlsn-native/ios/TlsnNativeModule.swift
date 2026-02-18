@@ -47,9 +47,8 @@ public class TlsnNativeModule: Module {
                     )
 
                     // Parse prover options
-                    guard let verifierUrl = optionsDict["verifierUrl"] as? String,
-                          let proxyUrl = optionsDict["proxyUrl"] as? String else {
-                        promise.reject("InvalidOptions", "Missing verifierUrl or proxyUrl")
+                    guard let verifierUrl = optionsDict["verifierUrl"] as? String else {
+                        promise.reject("InvalidOptions", "Missing verifierUrl")
                         return
                     }
 
@@ -95,6 +94,10 @@ public class TlsnNativeModule: Module {
                             let part: HandlerPart
                             switch partStr {
                             case "StartLine": part = .startLine
+                            case "Protocol": part = .protocol
+                            case "Method": part = .method
+                            case "RequestTarget": part = .requestTarget
+                            case "StatusCode": part = .statusCode
                             case "Headers": part = .headers
                             case "Body": part = .body
                             case "All": part = .all
@@ -107,6 +110,7 @@ public class TlsnNativeModule: Module {
                             let action: HandlerAction
                             switch actionStr {
                             case "Reveal": action = .reveal
+                            case "Pedersen": action = .pedersen
                             default:
                                 print("[TlsnNative] Handler \(index): unknown action '\(actionStr)'")
                                 continue
@@ -116,9 +120,21 @@ public class TlsnNativeModule: Module {
                             var params: HandlerParams? = nil
                             if let paramsDict = handlerDict["params"] as? [String: Any] {
                                 let key = paramsDict["key"] as? String
+                                let hideKey = paramsDict["hideKey"] as? Bool
+                                let hideValue = paramsDict["hideValue"] as? Bool
                                 let contentType = paramsDict["contentType"] as? String
                                 let path = paramsDict["path"] as? String
-                                params = HandlerParams(key: key, contentType: contentType, path: path)
+                                let regex = paramsDict["regex"] as? String
+                                let flags = paramsDict["flags"] as? String
+                                params = HandlerParams(
+                                    key: key,
+                                    hideKey: hideKey,
+                                    hideValue: hideValue,
+                                    contentType: contentType,
+                                    path: path,
+                                    regex: regex,
+                                    flags: flags
+                                )
                                 print("[TlsnNative] Handler \(index) params: key=\(String(describing: key)), contentType=\(String(describing: contentType)), path=\(String(describing: path))")
                             }
 
@@ -139,7 +155,6 @@ public class TlsnNativeModule: Module {
 
                     let options = ProverOptions(
                         verifierUrl: verifierUrl,
-                        proxyUrl: proxyUrl,
                         maxSentData: maxSentData,
                         maxRecvData: maxRecvData,
                         handlers: handlers
