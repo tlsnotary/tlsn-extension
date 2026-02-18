@@ -5,3 +5,9 @@ ios/lib/
 # Generated Swift bindings (regenerate with build.sh)
 ios/tlsn_mobile.swift
 ios/include/
+
+# Built Android .so libraries (regenerate with build-android.sh)
+android/src/main/jniLibs/
+
+# Generated Kotlin bindings (regenerate with build-android.sh)
+android/src/main/java/uniffi/

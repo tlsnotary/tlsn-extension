@@ -3,22 +3,26 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TLSN_MOBILE_DIR="$SCRIPT_DIR/../../../tlsn-mobile"
-IOS_DIR="$SCRIPT_DIR/ios"
 
-echo "Building tlsn-mobile for iOS..."
-cd "$TLSN_MOBILE_DIR"
-./build-ios.sh
+PLATFORM="${1:-all}"
 
-echo "Copying artifacts to Expo module..."
+build_ios() {
+    echo "Building tlsn-mobile for iOS..."
+    cd "$TLSN_MOBILE_DIR"
+    ./build-ios.sh
+    echo "Done! iOS artifacts copied."
+}
 
-# Copy simulator library (for development)
-cp "$TLSN_MOBILE_DIR/target/aarch64-apple-ios-sim/release/libtlsn_mobile.a" "$IOS_DIR/lib/"
+build_android() {
+    echo "Building tlsn-mobile for Android..."
+    cd "$TLSN_MOBILE_DIR"
+    ./build-android.sh
+    echo "Done! Android artifacts copied."
+}
 
-# Copy Swift bindings
-cp "$TLSN_MOBILE_DIR/target/swift/tlsn_mobile.swift" "$IOS_DIR/"
-
-# Copy FFI header and modulemap
-cp "$TLSN_MOBILE_DIR/target/swift/tlsn_mobileFFI.h" "$IOS_DIR/include/"
-cp "$TLSN_MOBILE_DIR/target/swift/tlsn_mobileFFI.modulemap" "$IOS_DIR/include/"
-
-echo "Done! Artifacts copied to $IOS_DIR"
+case "$PLATFORM" in
+    ios)     build_ios ;;
+    android) build_android ;;
+    all)     build_ios; build_android ;;
+    *)       echo "Usage: $0 [ios|android|all]"; exit 1 ;;
+esac
