@@ -231,8 +231,8 @@ export class Prover {
      *
      * # Arguments
      *
-     * * `server_io` - A JavaScript object implementing the IoChannel interface,
-     *   connected to the server (typically via a WebSocket proxy).
+     * * `server_io` - A JavaScript object implementing the IoChannel
+     *   interface, connected to the server (typically via a WebSocket proxy).
      * * `request` - The HTTP request to send.
      */
     send_request(server_io: IoChannel, request: HttpRequest): Promise<HttpResponse>;
@@ -244,8 +244,8 @@ export class Prover {
      *
      * # Arguments
      *
-     * * `verifier_io` - A JavaScript object implementing the IoChannel interface,
-     *   connected to the verifier.
+     * * `verifier_io` - A JavaScript object implementing the IoChannel
+     *   interface, connected to the verifier.
      */
     setup(verifier_io: IoChannel): Promise<void>;
     /**
@@ -283,8 +283,8 @@ export class Verifier {
      *
      * # Arguments
      *
-     * * `prover_io` - A JavaScript object implementing the IoChannel interface,
-     *   connected to the prover.
+     * * `prover_io` - A JavaScript object implementing the IoChannel
+     *   interface, connected to the prover.
      */
     connect(prover_io: IoChannel): Promise<void>;
     /**
@@ -302,6 +302,25 @@ export class WorkerData {
     free(): void;
     [Symbol.dispose](): void;
 }
+
+/**
+ * Parses HTTP request/response transcripts and maps handlers to byte ranges.
+ *
+ * This is the WASM wrapper around `tlsn_sdk_core::compute_reveal`.
+ *
+ * # Arguments
+ *
+ * * `sent` - Raw bytes of the HTTP request (sent data).
+ * * `recv` - Raw bytes of the HTTP response (received data).
+ * * `handlers` - Array of handler objects (deserialized from JS).
+ *
+ * # Returns
+ *
+ * A `ComputeRevealOutput` object containing:
+ * - `sentRanges` / `recvRanges`: byte ranges for `Prover.reveal()`
+ * - `sentRangesWithHandlers` / `recvRangesWithHandlers`: ranges annotated with handlers
+ */
+export function compute_reveal(sent: Uint8Array, recv: Uint8Array, handlers: any): any;
 
 /**
  * Initializes the module.
@@ -322,6 +341,7 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 export interface InitOutput {
     readonly __wbg_prover_free: (a: number, b: number) => void;
     readonly __wbg_verifier_free: (a: number, b: number) => void;
+    readonly compute_reveal: (a: number, b: number, c: number, d: number, e: any) => [number, number, number];
     readonly initialize: (a: number, b: number) => any;
     readonly prover_new: (a: any) => [number, number, number];
     readonly prover_reveal: (a: number, b: any) => any;

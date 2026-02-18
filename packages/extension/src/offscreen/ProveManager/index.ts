@@ -22,6 +22,15 @@ const workerApi = Comlink.wrap<{
     request: HttpRequest,
   ) => Promise<void>;
   getTranscript: (proverId: string) => { sent: number[]; recv: number[] };
+  computeReveal: (
+    proverId: string,
+    handlers: any[],
+  ) => {
+    sentRanges: any[];
+    recvRanges: any[];
+    sentRangesWithHandlers: any[];
+    recvRangesWithHandlers: any[];
+  };
   reveal: (proverId: string, revealConfig: Reveal) => Promise<void>;
   freeProver: (proverId: string) => void;
 }>(new Worker(new URL('./worker.ts', import.meta.url)));
@@ -333,6 +342,14 @@ export class ProveManager {
 
   async transcript(proverId: string) {
     return workerApi.getTranscript(proverId);
+  }
+
+  /**
+   * Compute reveal ranges by parsing transcripts and mapping handlers to byte ranges.
+   * Runs in the WASM worker — no transcript bytes transferred to the main thread.
+   */
+  async computeReveal(proverId: string, handlers: any[]) {
+    return workerApi.computeReveal(proverId, handlers);
   }
 
   async reveal(

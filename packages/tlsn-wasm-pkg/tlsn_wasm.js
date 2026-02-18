@@ -45,8 +45,8 @@ export class Prover {
      *
      * # Arguments
      *
-     * * `server_io` - A JavaScript object implementing the IoChannel interface,
-     *   connected to the server (typically via a WebSocket proxy).
+     * * `server_io` - A JavaScript object implementing the IoChannel
+     *   interface, connected to the server (typically via a WebSocket proxy).
      * * `request` - The HTTP request to send.
      * @param {IoChannel} server_io
      * @param {HttpRequest} request
@@ -64,8 +64,8 @@ export class Prover {
      *
      * # Arguments
      *
-     * * `verifier_io` - A JavaScript object implementing the IoChannel interface,
-     *   connected to the verifier.
+     * * `verifier_io` - A JavaScript object implementing the IoChannel
+     *   interface, connected to the verifier.
      * @param {IoChannel} verifier_io
      * @returns {Promise<void>}
      */
@@ -153,8 +153,8 @@ export class Verifier {
      *
      * # Arguments
      *
-     * * `prover_io` - A JavaScript object implementing the IoChannel interface,
-     *   connected to the prover.
+     * * `prover_io` - A JavaScript object implementing the IoChannel
+     *   interface, connected to the prover.
      * @param {IoChannel} prover_io
      * @returns {Promise<void>}
      */
@@ -196,6 +196,39 @@ export class WorkerData {
     }
 }
 if (Symbol.dispose) WorkerData.prototype[Symbol.dispose] = WorkerData.prototype.free;
+
+/**
+ * Parses HTTP request/response transcripts and maps handlers to byte ranges.
+ *
+ * This is the WASM wrapper around `tlsn_sdk_core::compute_reveal`.
+ *
+ * # Arguments
+ *
+ * * `sent` - Raw bytes of the HTTP request (sent data).
+ * * `recv` - Raw bytes of the HTTP response (received data).
+ * * `handlers` - Array of handler objects (deserialized from JS).
+ *
+ * # Returns
+ *
+ * A `ComputeRevealOutput` object containing:
+ * - `sentRanges` / `recvRanges`: byte ranges for `Prover.reveal()`
+ * - `sentRangesWithHandlers` / `recvRangesWithHandlers`: ranges annotated with handlers
+ * @param {Uint8Array} sent
+ * @param {Uint8Array} recv
+ * @param {any} handlers
+ * @returns {any}
+ */
+export function compute_reveal(sent, recv, handlers) {
+    const ptr0 = passArray8ToWasm0(sent, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passArray8ToWasm0(recv, wasm.__wbindgen_malloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.compute_reveal(ptr0, len0, ptr1, len1, handlers);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
 
 /**
  * Initializes the module.
@@ -689,12 +722,12 @@ function __wbg_get_imports(memory) {
             return ret;
         }, arguments); },
         __wbindgen_cast_0000000000000001: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { dtor_idx: 3289, function: Function { arguments: [Externref], shim_idx: 3290, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            // Cast intrinsic for `Closure(Closure { dtor_idx: 3813, function: Function { arguments: [Externref], shim_idx: 3814, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen_882de39c336d20b6___closure__destroy___dyn_core_a0678809250066c8___ops__function__FnMut__wasm_bindgen_882de39c336d20b6___JsValue____Output_______, wasm_bindgen_882de39c336d20b6___convert__closures_____invoke___wasm_bindgen_882de39c336d20b6___JsValue_____);
             return ret;
         },
         __wbindgen_cast_0000000000000002: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { dtor_idx: 3289, function: Function { arguments: [NamedExternref("MessageEvent")], shim_idx: 3290, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            // Cast intrinsic for `Closure(Closure { dtor_idx: 3813, function: Function { arguments: [NamedExternref("MessageEvent")], shim_idx: 3814, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen_882de39c336d20b6___closure__destroy___dyn_core_a0678809250066c8___ops__function__FnMut__wasm_bindgen_882de39c336d20b6___JsValue____Output_______, wasm_bindgen_882de39c336d20b6___convert__closures_____invoke___wasm_bindgen_882de39c336d20b6___JsValue_____);
             return ret;
         },
@@ -746,7 +779,7 @@ function __wbg_get_imports(memory) {
             getDataViewMemory0().setInt32(arg0 + 4 * 1, len1, true);
             getDataViewMemory0().setInt32(arg0 + 4 * 0, ptr1, true);
         },
-        memory: memory || new WebAssembly.Memory({initial:220,maximum:65536,shared:true}),
+        memory: memory || new WebAssembly.Memory({initial:226,maximum:65536,shared:true}),
     };
     return {
         __proto__: null,
@@ -917,6 +950,13 @@ function makeMutClosure(arg0, arg1, dtor, f) {
     };
     CLOSURE_DTORS.register(real, state, state);
     return real;
+}
+
+function passArray8ToWasm0(arg, malloc) {
+    const ptr = malloc(arg.length * 1, 1) >>> 0;
+    getUint8ArrayMemory0().set(arg, ptr / 1);
+    WASM_VECTOR_LEN = arg.length;
+    return ptr;
 }
 
 function passStringToWasm0(arg, malloc, realloc) {

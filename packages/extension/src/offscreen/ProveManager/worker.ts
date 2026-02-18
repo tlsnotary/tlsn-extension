@@ -8,6 +8,7 @@ import initWasm, {
   ProverConfig,
   HttpRequest,
   Reveal,
+  compute_reveal as wasmComputeReveal,
 } from '../../../../tlsn-wasm-pkg/tlsn_wasm';
 
 // IoChannel interface for bidirectional byte streams (matches Rust JsIo extern)
@@ -152,6 +153,38 @@ async function reveal(proverId: string, revealConfig: Reveal): Promise<void> {
 }
 
 /**
+ * Computes reveal ranges by parsing transcripts and mapping handlers to byte ranges.
+ * Runs entirely in the worker to avoid transferring transcript bytes to the main thread.
+ */
+function computeReveal(
+  proverId: string,
+  handlers: any[],
+): { sentRanges: any[]; recvRanges: any[]; sentRangesWithHandlers: any[]; recvRangesWithHandlers: any[] } {
+  const prover = provers.get(proverId);
+  if (!prover) throw new Error(`Prover not found: ${proverId}`);
+
+  const transcript = prover.transcript();
+
+  // Copy byte arrays since they may be WASM memory views that get invalidated
+  const sent = new Uint8Array(transcript.sent);
+  const recv = new Uint8Array(transcript.recv);
+
+  // WASM returns snake_case fields from serde; map to camelCase for TS consumers
+  const output = wasmComputeReveal(sent, recv, handlers) as {
+    reveal: { sent: any[]; recv: any[] };
+    sent_ranges_with_handlers: any[];
+    recv_ranges_with_handlers: any[];
+  };
+
+  return {
+    sentRanges: output.reveal.sent,
+    recvRanges: output.reveal.recv,
+    sentRangesWithHandlers: output.sent_ranges_with_handlers,
+    recvRangesWithHandlers: output.recv_ranges_with_handlers,
+  };
+}
+
+/**
  * Frees a prover instance.
  */
 function freeProver(proverId: string): void {
@@ -215,6 +248,7 @@ Comlink.expose({
   setupProver,
   sendRequest,
   getTranscript,
+  computeReveal,
   reveal,
   freeProver,
 });

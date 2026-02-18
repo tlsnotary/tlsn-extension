@@ -1,8 +1,7 @@
-import Host, { Parser } from '@tlsn/plugin-sdk/src';
+import Host from '@tlsn/plugin-sdk/src';
 import { ProveManager } from './ProveManager';
 import type { Method } from '../../../tlsn-wasm-pkg/tlsn_wasm';
 import { DomJson, Handler, PluginConfig } from '@tlsn/plugin-sdk/src/types';
-import { processHandlers } from './rangeExtractor';
 import { logger } from '@tlsn/common';
 import {
   validateProvePermission,
@@ -74,22 +73,16 @@ export class SessionManager {
             },
           );
 
-          // Get transcripts for parsing
-          const { sent, recv } = await this.proveManager.transcript(proverId);
-
-          const parsedSent = new Parser(Buffer.from(sent));
-          const parsedRecv = new Parser(Buffer.from(recv));
-
-          logger.debug('parsedSent', parsedSent.json());
-          logger.debug('parsedRecv', parsedRecv.json());
-
-          // Use refactored range extraction logic
+          // Compute reveal ranges via WASM (parses HTTP transcripts + maps handlers to byte ranges)
           const {
             sentRanges,
             recvRanges,
             sentRangesWithHandlers,
             recvRangesWithHandlers,
-          } = processHandlers(proverOptions.handlers, parsedSent, parsedRecv);
+          } = await this.proveManager.computeReveal(
+            proverId,
+            proverOptions.handlers,
+          );
 
           logger.debug('sentRanges', sentRanges);
           logger.debug('recvRanges', recvRanges);
