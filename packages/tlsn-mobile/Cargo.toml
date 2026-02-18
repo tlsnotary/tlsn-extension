@@ -23,8 +23,8 @@ uniffi = { version = "0.28", features = ["cli"] }
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "macros", "net"] }
 tokio-util = { version = "0.7", features = ["compat"] }
 
-# Networking - use native-tls for iOS (uses Security.framework)
-tokio-tungstenite = { version = "0.21", features = ["native-tls"] }
+# WebSocket transport — rustls with bundled Mozilla CA roots (reliable on iOS + Android)
+tokio-tungstenite = { version = "0.21", features = ["rustls-tls-webpki-roots"] }
 futures = "0.3"
 
 # URL parsing

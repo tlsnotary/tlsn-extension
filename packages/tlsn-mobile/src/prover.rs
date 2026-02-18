@@ -182,27 +182,39 @@ pub(crate) async fn prove_async(
         .await
         .map_err(|e| TlsnError::ProofFailed(format!("failed to send reveal_config: {e}")))?;
 
-    // Wait for session_completed.
-    loop {
-        match session_ws.next().await {
-            Some(Ok(Message::Text(text))) => {
-                let resp: serde_json::Value = serde_json::from_str(&text)?;
-                if resp["type"] == "session_completed" {
-                    tracing::info!("session completed");
-                    break;
-                } else if resp["type"] == "error" {
-                    return Err(TlsnError::ProofFailed(
-                        resp["message"].as_str().unwrap_or("unknown error").into(),
-                    ));
+    // Wait for session_completed (with timeout — proof result is already available).
+    let wait_result = tokio::time::timeout(
+        std::time::Duration::from_secs(30),
+        async {
+            loop {
+                match session_ws.next().await {
+                    Some(Ok(Message::Text(text))) => {
+                        let resp: serde_json::Value = serde_json::from_str(&text)?;
+                        tracing::info!("session message: {}", resp["type"]);
+                        if resp["type"] == "session_completed" {
+                            tracing::info!("session completed");
+                            return Ok::<(), TlsnError>(());
+                        } else if resp["type"] == "error" {
+                            return Err(TlsnError::ProofFailed(
+                                resp["message"].as_str().unwrap_or("unknown error").into(),
+                            ));
+                        }
+                    }
+                    Some(Ok(_)) => continue,
+                    Some(Err(e)) => return Err(TlsnError::ProofFailed(format!("WebSocket error: {e}"))),
+                    None => {
+                        tracing::warn!("session WebSocket closed before completion");
+                        return Ok(());
+                    }
                 }
             }
-            Some(Ok(_)) => continue,
-            Some(Err(e)) => return Err(TlsnError::ProofFailed(format!("WebSocket error: {e}"))),
-            None => {
-                tracing::warn!("session WebSocket closed before completion");
-                break;
-            }
         }
+    ).await;
+
+    match wait_result {
+        Ok(Ok(())) => {}
+        Ok(Err(e)) => return Err(e),
+        Err(_) => tracing::warn!("timed out waiting for session_completed (proof still valid)"),
     }
 
     // -----------------------------------------------------------------------
