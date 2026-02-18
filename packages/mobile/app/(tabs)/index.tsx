@@ -47,7 +47,7 @@ export default function SpotifyProverScreen() {
         // Response: reveal date header only
         { handlerType: 'Recv', part: 'Headers', action: 'Reveal', params: { key: 'date' } },
         // Response: reveal only the top artist name from JSON body
-        { handlerType: 'Recv', part: 'Body', action: 'Reveal', params: { contentType: 'json', path: 'items[0].name' } },
+        { handlerType: 'Recv', part: 'Body', action: 'Reveal', params: { contentType: 'json', path: 'items.0.name' } },
       ];
 
       const result = await proverRef.current.prove({
@@ -61,7 +61,6 @@ export default function SpotifyProverScreen() {
         },
         proverOptions: {
           verifierUrl: 'https://demo.tlsnotary.org',
-          proxyUrl: `wss://notary.pse.dev/proxy?token=${SPOTIFY_API}`,
           maxRecvData: 2400,
           maxSentData: 600,
           handlers,

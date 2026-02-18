@@ -17,7 +17,7 @@ export type HandlerAction = 'Reveal';
 export interface HandlerParams {
   key?: string;        // For HEADERS: specific header key
   contentType?: string; // For BODY: "json" for JSON parsing
-  path?: string;       // For BODY with JSON: JSON path like "items[0].name"
+  path?: string;       // For BODY with JSON: JSON path like "items.0.name"
 }
 
 export interface Handler {
@@ -29,7 +29,6 @@ export interface Handler {
 
 interface ProverOptions {
   verifierUrl: string;
-  proxyUrl: string;
   maxSentData?: number;
   maxRecvData?: number;
   handlers?: Handler[];
@@ -51,7 +50,6 @@ export interface NativeProveParams {
   headers: Record<string, string>;
   proverOptions: {
     verifierUrl: string;
-    proxyUrl: string;
     maxSentData: number;
     maxRecvData: number;
     handlers?: Handler[];
@@ -144,7 +142,6 @@ function NativeProverComponent(
 
     const options: ProverOptions = {
       verifierUrl: params.proverOptions.verifierUrl,
-      proxyUrl: params.proverOptions.proxyUrl,
       maxSentData: params.proverOptions.maxSentData,
       maxRecvData: params.proverOptions.maxRecvData,
       handlers: params.proverOptions.handlers || [],
