@@ -2,6 +2,7 @@
 /* eslint-disable */
 export const __wbg_prover_free: (a: number, b: number) => void;
 export const __wbg_verifier_free: (a: number, b: number) => void;
+export const compute_reveal: (a: number, b: number, c: number, d: number, e: any) => [number, number, number];
 export const initialize: (a: number, b: number) => any;
 export const prover_new: (a: any) => [number, number, number];
 export const prover_reveal: (a: number, b: any) => any;

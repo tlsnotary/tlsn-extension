@@ -38,7 +38,7 @@ Plugins run in a sandboxed QuickJS environment with access to the following APIs
 
 - **`prove(request, options)`** - Generate TLSNotary proofs for HTTP requests
   - Request: `url`, `method`, `headers`
-  - Options: `verifierUrl`, `proxyUrl`, `maxRecvData`, `maxSentData`, `reveal` handlers
+  - Options: `verifierUrl`, `proxyUrl`, `maxRecvData`, `maxSentData`, `handlers`
 
 ### HTTP Parser
 
