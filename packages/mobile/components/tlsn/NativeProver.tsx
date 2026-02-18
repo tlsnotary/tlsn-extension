@@ -74,7 +74,7 @@ let TlsnNative: {
 } | null = null;
 
 function getNativeModule() {
-  if (TlsnNative === null && Platform.OS === 'ios') {
+  if (TlsnNative === null && (Platform.OS === 'ios' || Platform.OS === 'android')) {
     try {
       // Dynamic require to avoid bundling errors when module isn't built yet
       TlsnNative = require('../../modules/tlsn-native/src');
