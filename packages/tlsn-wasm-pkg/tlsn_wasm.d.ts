@@ -359,9 +359,9 @@ export interface InitOutput {
     readonly web_spawn_recover_spawner: (a: number) => number;
     readonly web_spawn_start_worker: (a: number) => void;
     readonly ring_core_0_17_14__bn_mul_mont: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
-    readonly wasm_bindgen_882de39c336d20b6___closure__destroy___dyn_core_a0678809250066c8___ops__function__FnMut__wasm_bindgen_882de39c336d20b6___JsValue____Output_______: (a: number, b: number) => void;
-    readonly wasm_bindgen_882de39c336d20b6___convert__closures_____invoke___wasm_bindgen_882de39c336d20b6___JsValue__wasm_bindgen_882de39c336d20b6___JsValue_____: (a: number, b: number, c: any, d: any) => void;
-    readonly wasm_bindgen_882de39c336d20b6___convert__closures_____invoke___wasm_bindgen_882de39c336d20b6___JsValue_____: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_64ca65b1dd5c216a___closure__destroy___dyn_core_a0678809250066c8___ops__function__FnMut__wasm_bindgen_64ca65b1dd5c216a___JsValue____Output_______: (a: number, b: number) => void;
+    readonly wasm_bindgen_64ca65b1dd5c216a___convert__closures_____invoke___wasm_bindgen_64ca65b1dd5c216a___JsValue__wasm_bindgen_64ca65b1dd5c216a___JsValue_____: (a: number, b: number, c: any, d: any) => void;
+    readonly wasm_bindgen_64ca65b1dd5c216a___convert__closures_____invoke___wasm_bindgen_64ca65b1dd5c216a___JsValue_____: (a: number, b: number, c: any) => void;
     readonly memory: WebAssembly.Memory;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;

@@ -29,7 +29,7 @@ export default defineConfig({
 
     // Test patterns
     include: ['tests/**/*.{test,spec}.{js,ts,tsx}'],
-    exclude: ['node_modules', 'build', 'dist'],
+    exclude: ['node_modules', 'build', 'dist', 'tests/browser/**'],
   },
 
   resolve: {
