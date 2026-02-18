@@ -16,7 +16,7 @@ iOS app that proves your Spotify top artist using TLSNotary.
 - [x] Handler-based selective disclosure API
 - [x] Build scripts for iOS (device + simulator)
 - [x] Selective disclosure at MPC level (verified working)
-- [x] JSON path support for body reveal (e.g., `items[0].name`)
+- [x] JSON path support for body reveal (e.g., `items.0.name`)
 - [x] Podspec updated to use XCFramework (was using old static library)
 - [x] Build script auto-copies XCFramework and Swift bindings to Expo module
 
@@ -179,21 +179,21 @@ const handlers: Handler[] = [
   { handlerType: 'Recv', part: 'Headers', action: 'Reveal', params: { key: 'date' } },
 
   // Response: reveal only the top artist name from JSON body
-  { handlerType: 'Recv', part: 'Body', action: 'Reveal', params: { contentType: 'json', path: 'items[0].name' } },
+  { handlerType: 'Recv', part: 'Body', action: 'Reveal', params: { contentType: 'json', path: 'items.0.name' } },
 ];
 ```
 
 ### Handler Reference
 
-| Handler Type | Part        | Params                         | Description                               |
-| ------------ | ----------- | ------------------------------ | ----------------------------------------- |
-| `Sent`       | `StartLine` | -                              | HTTP request line (method, path, version) |
-| `Sent`       | `Headers`   | `{ key?: string }`             | Request headers (or specific header)      |
-| `Sent`       | `Body`      | -                              | Request body                              |
-| `Recv`       | `StartLine` | -                              | HTTP response status line                 |
-| `Recv`       | `Headers`   | `{ key?: string }`             | Response headers (or specific header)     |
-| `Recv`       | `Body`      | `{ contentType?, path? }`      | Response body (or JSON path)              |
-| `*`          | `All`       | -                              | Entire message                            |
+| Handler Type | Part        | Params                    | Description                               |
+| ------------ | ----------- | ------------------------- | ----------------------------------------- |
+| `Sent`       | `StartLine` | -                         | HTTP request line (method, path, version) |
+| `Sent`       | `Headers`   | `{ key?: string }`        | Request headers (or specific header)      |
+| `Sent`       | `Body`      | -                         | Request body                              |
+| `Recv`       | `StartLine` | -                         | HTTP response status line                 |
+| `Recv`       | `Headers`   | `{ key?: string }`        | Response headers (or specific header)     |
+| `Recv`       | `Body`      | `{ contentType?, path? }` | Response body (or JSON path)              |
+| `*`          | `All`       | -                         | Entire message                            |
 
 ### JSON Path Support
 
@@ -206,15 +206,15 @@ For response bodies, you can specify a JSON path to reveal only specific fields:
   action: 'Reveal',
   params: {
     contentType: 'json',
-    path: 'items[0].name'  // Only reveals the artist name
+    path: 'items.0.name'  // Only reveals the artist name
   }
 }
 ```
 
 Supported path syntax:
 - Simple keys: `"name"`, `"status"`
-- Array access: `"items[0]"`, `"data[2]"`
-- Nested: `"items[0].name"`, `"user.profile.name"`
+- Array access: `"items.0"`, `"data[2]"`
+- Nested: `"items.0.name"`, `"user.profile.name"`
 
 ## Key Bug Fixes
 

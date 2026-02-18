@@ -23,7 +23,7 @@ export type HandlerAction = 'Reveal';
 export interface HandlerParams {
   key?: string;        // For HEADERS: specific header key
   contentType?: string; // For BODY: "json" for JSON parsing
-  path?: string;       // For BODY with JSON: JSON path like "items[0].name"
+  path?: string;       // For BODY with JSON: JSON path like "items.0.name"
 }
 
 export interface Handler {
@@ -35,7 +35,6 @@ export interface Handler {
 
 export interface ProverOptions {
   verifierUrl: string;
-  proxyUrl: string;
   maxSentData?: number;
   maxRecvData?: number;
   handlers?: Handler[];

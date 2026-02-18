@@ -13,49 +13,33 @@ name = "uniffi-bindgen"
 path = "uniffi-bindgen.rs"
 
 [dependencies]
+# Core SDK — shared protocol engine with WASM/browser
+tlsn-sdk-core = { path = "../tlsn-wasm/tlsn/crates/sdk-core" }
+
 # UniFFI for Swift/Kotlin bindings
 uniffi = { version = "0.28", features = ["cli"] }
 
 # Async runtime
-tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "macros", "io-util"] }
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "macros", "net"] }
 tokio-util = { version = "0.7", features = ["compat"] }
 
 # Networking - use native-tls for iOS (uses Security.framework)
 tokio-tungstenite = { version = "0.21", features = ["native-tls"] }
 futures = "0.3"
-futures-util = "0.3"
-async_io_stream = "0.3"
+
+# URL parsing
 url = "2"
 
-# HTTP
-http = "1"
-http-body-util = "0.1"
-httparse = "1"
-hyper = { version = "1", features = ["client", "http1"] }
-hyper-util = { version = "0.1", features = ["tokio"] }
-
-# Serialization
+# Serialization (for verifier session protocol messages)
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
 # Error handling
 thiserror = "1"
-anyhow = "1"
 
 # Logging
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-
-# Bytes crate
-bytes = "1"
-
-# Spansy for HTTP/JSON parsing with span tracking
-spansy = { git = "https://github.com/tlsnotary/tlsn-utils", rev = "adfc5ba" }
-
-# TLSN dependencies (from GitHub)
-tlsn = { git = "https://github.com/tlsnotary/tlsn", tag = "v0.1.0-alpha.14", default-features = false, features = ["rayon", "mozilla-certs"] }
-tlsn-core = { git = "https://github.com/tlsnotary/tlsn", tag = "v0.1.0-alpha.14" }
-tlsn-tls-client-async = { git = "https://github.com/tlsnotary/tlsn", tag = "v0.1.0-alpha.14" }
 
 [features]
 default = []
