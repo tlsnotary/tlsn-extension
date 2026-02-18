@@ -1,5 +1,5 @@
 import { Parser, Range } from '@tlsn/plugin-sdk/src';
-import { Handler, HandlerPart, HandlerType } from '@tlsn/plugin-sdk/src/types';
+import type { Handler } from '@tlsn/plugin-sdk/src/types';
 
 /**
  * Extracts byte ranges from HTTP transcript based on handler configuration.
@@ -11,28 +11,28 @@ import { Handler, HandlerPart, HandlerType } from '@tlsn/plugin-sdk/src/types';
  */
 export function extractRanges(handler: Handler, parser: Parser): Range[] {
   switch (handler.part) {
-    case HandlerPart.START_LINE:
+    case 'START_LINE':
       return parser.ranges.startLine();
 
-    case HandlerPart.PROTOCOL:
+    case 'PROTOCOL':
       return parser.ranges.protocol();
 
-    case HandlerPart.METHOD:
+    case 'METHOD':
       return parser.ranges.method();
 
-    case HandlerPart.REQUEST_TARGET:
+    case 'REQUEST_TARGET':
       return parser.ranges.requestTarget();
 
-    case HandlerPart.STATUS_CODE:
+    case 'STATUS_CODE':
       return parser.ranges.statusCode();
 
-    case HandlerPart.HEADERS:
+    case 'HEADERS':
       return extractHeaderRanges(handler, parser);
 
-    case HandlerPart.BODY:
+    case 'BODY':
       return extractBodyRanges(handler, parser);
 
-    case HandlerPart.ALL:
+    case 'ALL':
       return extractAllRanges(handler, parser);
 
     default:
@@ -44,7 +44,7 @@ export function extractRanges(handler: Handler, parser: Parser): Range[] {
  * Extracts header ranges based on handler configuration.
  */
 function extractHeaderRanges(handler: Handler, parser: Parser): Range[] {
-  if (handler.part !== HandlerPart.HEADERS) {
+  if (handler.part !== 'HEADERS') {
     throw new Error('Handler part must be HEADERS');
   }
 
@@ -90,7 +90,7 @@ function extractHeaderRanges(handler: Handler, parser: Parser): Range[] {
  * Extracts body ranges based on handler configuration.
  */
 function extractBodyRanges(handler: Handler, parser: Parser): Range[] {
-  if (handler.part !== HandlerPart.BODY) {
+  if (handler.part !== 'BODY') {
     throw new Error('Handler part must be BODY');
   }
 
@@ -117,7 +117,7 @@ function extractBodyRanges(handler: Handler, parser: Parser): Range[] {
  * Extracts ranges for the entire transcript, optionally filtered by regex.
  */
 function extractAllRanges(handler: Handler, parser: Parser): Range[] {
-  if (handler.part !== HandlerPart.ALL) {
+  if (handler.part !== 'ALL') {
     throw new Error('Handler part must be ALL');
   }
 
@@ -159,13 +159,10 @@ export function processHandlers(
   const recvRangesWithHandlers: Array<Range & { handler: Handler }> = [];
 
   for (const handler of handlers) {
-    const transcript =
-      handler.type === HandlerType.SENT ? parsedSent : parsedRecv;
-    const ranges = handler.type === HandlerType.SENT ? sentRanges : recvRanges;
+    const transcript = handler.type === 'SENT' ? parsedSent : parsedRecv;
+    const ranges = handler.type === 'SENT' ? sentRanges : recvRanges;
     const rangesWithHandlers =
-      handler.type === HandlerType.SENT
-        ? sentRangesWithHandlers
-        : recvRangesWithHandlers;
+      handler.type === 'SENT' ? sentRangesWithHandlers : recvRangesWithHandlers;
 
     // Extract ranges for this handler
     const extractedRanges = extractRanges(handler, transcript);

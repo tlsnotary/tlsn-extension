@@ -9,15 +9,16 @@ export default defineConfig({
       outDir: 'dist',
       include: ['src/**/*.ts'],
       exclude: ['**/*.test.ts', '**/*.spec.ts'],
-      rollupTypes: true,
     }),
   ],
   build: {
     target: 'es2020',
     lib: {
+      // Separate entry for styles enables tree-shaking:
+      // plugins import styling from '/styles' without pulling in the full SDK.
       entry: {
-        index: path.resolve(__dirname, 'src/index.ts'),
-        styles: path.resolve(__dirname, 'src/styles.ts'),
+        index: path.resolve(__dirname, 'src/index.ts'), // Full SDK: Host, Parser, QuickJS sandbox
+        styles: path.resolve(__dirname, 'src/styles.ts'), // Tailwind-like styling helpers
       },
       formats: ['es'],
     },

@@ -867,11 +867,11 @@ export async function extractConfig(code: string): Promise<PluginConfig | null> 
   }
 }
 
-// Export enums (runtime values)
-export { HandlerType, HandlerPart, HandlerAction } from './types';
-
 // Export types
 export type {
+  HandlerType,
+  HandlerPart,
+  HandlerAction,
   PluginConfig,
   RequestPermission,
   Handler,

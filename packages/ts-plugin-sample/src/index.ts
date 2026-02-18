@@ -15,7 +15,6 @@
  * via the SDK type declarations.
  */
 import type { Handler, DomJson } from '@tlsn/plugin-sdk';
-import { HandlerType, HandlerPart, HandlerAction } from '@tlsn/plugin-sdk';
 import { config } from './config';
 import { FloatingButton, PluginOverlay } from './components';
 
@@ -28,7 +27,7 @@ declare const __PROXY_URL__: string;
 // =============================================================================
 /**
  * This function is triggered when the user clicks the "Prove" button.
- * It extracts authentication headers from intercepted requests and generates
+ * It reads cached authentication headers from state and generates
  * a TLSNotary proof using the unified prove() API.
  */
 async function onClick(): Promise<void> {
@@ -38,27 +37,24 @@ async function onClick(): Promise<void> {
 
   setState('isRequestPending', true);
 
-  // Step 1: Get the intercepted header from the X.com API request
-  const [header] = useHeaders((headers) => {
-    return headers.filter((header) =>
-      header.url.includes('https://api.x.com/1.1/account/settings.json')
-    );
-  });
+  // Step 1: Read cached authentication headers from state
+  const cachedCookie = useState<string | null>('cookie', null);
+  const cachedCsrfToken = useState<string | null>('x-csrf-token', null);
+  const cachedTransactionId = useState<string | null>('x-client-transaction-id', null);
+  const cachedAuthorization = useState<string | null>('authorization', null);
 
-  if (!header) {
+  if (!cachedCookie || !cachedCsrfToken || !cachedAuthorization) {
     setState('isRequestPending', false);
     return;
   }
 
-  // Step 2: Extract authentication headers from the intercepted request
-  const headers: Record<string, string | undefined> = {
-    cookie: header.requestHeaders.find((h) => h.name === 'Cookie')?.value,
-    'x-csrf-token': header.requestHeaders.find((h) => h.name === 'x-csrf-token')?.value,
-    'x-client-transaction-id': header.requestHeaders.find(
-      (h) => h.name === 'x-client-transaction-id'
-    )?.value,
+  // Step 2: Build request headers from cached values
+  const headers: Record<string, string> = {
+    cookie: cachedCookie,
+    'x-csrf-token': cachedCsrfToken,
+    ...(cachedTransactionId ? { 'x-client-transaction-id': cachedTransactionId } : {}),
     Host: 'api.x.com',
-    authorization: header.requestHeaders.find((h) => h.name === 'authorization')?.value,
+    authorization: cachedAuthorization,
     'Accept-Encoding': 'identity',
     Connection: 'close',
   };
@@ -83,32 +79,32 @@ async function onClick(): Promise<void> {
       handlers: [
         // Reveal the request start line
         {
-          type: HandlerType.SENT,
-          part: HandlerPart.START_LINE,
-          action: HandlerAction.REVEAL,
+          type: 'SENT',
+          part: 'START_LINE',
+          action: 'REVEAL',
         } satisfies Handler,
         // Reveal the response start line
         {
-          type: HandlerType.RECV,
-          part: HandlerPart.START_LINE,
-          action: HandlerAction.REVEAL,
+          type: 'RECV',
+          part: 'START_LINE',
+          action: 'REVEAL',
         } satisfies Handler,
         // Reveal the 'date' header from the response
         {
-          type: HandlerType.RECV,
-          part: HandlerPart.HEADERS,
-          action: HandlerAction.REVEAL,
+          type: 'RECV',
+          part: 'HEADERS',
+          action: 'REVEAL',
           params: {
             key: 'date',
           },
         } satisfies Handler,
         // Reveal the 'screen_name' field from the JSON response body
         {
-          type: HandlerType.RECV,
-          part: HandlerPart.BODY,
-          action: HandlerAction.REVEAL,
+          type: 'RECV',
+          part: 'BODY',
+          action: 'REVEAL',
           params: {
-            type: 'json' as const,
+            type: 'json',
             path: 'screen_name',
           },
         } satisfies Handler,
@@ -142,13 +138,36 @@ function minimizeUI(): void {
  * It returns a DOM structure that is rendered as the plugin UI.
  */
 function main(): DomJson {
-  // Subscribe to intercepted headers for the X.com API endpoint
-  const [header] = useHeaders((headers) =>
-    headers.filter((header) => header.url.includes('https://api.x.com/1.1/account/settings.json'))
-  );
-
   const isMinimized = useState<boolean>('isMinimized', false);
   const isRequestPending = useState<boolean>('isRequestPending', false);
+
+  // Read cached header values from state
+  const cachedCookie = useState<string | null>('cookie', null);
+  const cachedCsrfToken = useState<string | null>('x-csrf-token', null);
+  const cachedTransactionId = useState<string | null>('x-client-transaction-id', null);
+  const cachedAuthorization = useState<string | null>('authorization', null);
+
+  // Only search for headers if not already cached
+  if (!cachedCookie || !cachedCsrfToken || !cachedAuthorization) {
+    const [header] = useHeaders((headers) =>
+      headers.filter((h) => h.url.includes('https://api.x.com/1.1/account/settings.json'))
+    );
+
+    if (header) {
+      const cookie = header.requestHeaders.find((h) => h.name === 'Cookie')?.value;
+      const csrfToken = header.requestHeaders.find((h) => h.name === 'x-csrf-token')?.value;
+      const transactionId = header.requestHeaders.find((h) => h.name === 'x-client-transaction-id')?.value;
+      const authorization = header.requestHeaders.find((h) => h.name === 'authorization')?.value;
+
+      if (cookie && !cachedCookie) setState('cookie', cookie);
+      if (csrfToken && !cachedCsrfToken) setState('x-csrf-token', csrfToken);
+      if (transactionId && !cachedTransactionId) setState('x-client-transaction-id', transactionId);
+      if (authorization && !cachedAuthorization) setState('authorization', authorization);
+    }
+  }
+
+  // Connection requires all essential headers to be cached
+  const isConnected = !!(cachedCookie && cachedCsrfToken && cachedAuthorization);
 
   // Run once on plugin load: Open X.com in a new window
   useEffect(() => {
@@ -163,7 +182,7 @@ function main(): DomJson {
   // Render the plugin UI overlay
   return PluginOverlay({
     title: 'X Profile Prover',
-    isConnected: !!header,
+    isConnected,
     isPending: isRequestPending,
     onMinimize: 'minimizeUI',
     onProve: 'onClick',

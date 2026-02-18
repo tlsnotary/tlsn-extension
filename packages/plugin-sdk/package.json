@@ -20,7 +20,7 @@
     },
     "./src/types": {
       "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./dist/types.d.ts"
     }
   },
   "scripts": {

@@ -1,243 +1,287 @@
-/// <reference types="@tlsn/plugin-sdk/src/globals" />
+import type {
+  PluginConfig,
+  RequestPermission,
+  Handler,
+  DomJson,
+} from '@tlsn/plugin-sdk';
 
-// @ts-ignore - These will be replaced at build time by Vite's define option
-const VERIFIER_URL = VITE_VERIFIER_URL;
-// @ts-ignore
-const PROXY_URL_BASE = VITE_PROXY_URL;
+// Injected at build time via esbuild --define
+declare const __VERIFIER_URL__: string;
+declare const __PROXY_URL__: string;
 
 const api = 'www.duolingo.com';
 const ui = 'https://www.duolingo.com/';
 
-const config = {
-    name: 'Duolingo Plugin',
-    description: 'This plugin will prove your email and current streak on Duolingo.',
-    requests: [
-        {
-            method: 'GET',
-            host: 'www.duolingo.com',
-            pathname: '/2023-05-23/users/*',
-            verifierUrl: VERIFIER_URL,
-        },
-    ],
-    urls: [
-        'https://www.duolingo.com/*',
-    ],
+// =============================================================================
+// PLUGIN CONFIGURATION
+// =============================================================================
+
+const config: PluginConfig = {
+  name: 'Duolingo Plugin',
+  description:
+    'This plugin will prove your email and current streak on Duolingo.',
+  requests: [
+    {
+      method: 'GET',
+      host: 'www.duolingo.com',
+      pathname: '/2023-05-23/users/*',
+      verifierUrl: __VERIFIER_URL__,
+    } satisfies RequestPermission,
+  ],
+  urls: ['https://www.duolingo.com/*'],
 };
 
-async function onClick() {
-    const isRequestPending = useState('isRequestPending', false);
+// =============================================================================
+// PROOF GENERATION CALLBACK
+// =============================================================================
 
-    if (isRequestPending) return;
+async function onClick(): Promise<void> {
+  const isRequestPending = useState<boolean>('isRequestPending', false);
 
-    setState('isRequestPending', true);
+  if (isRequestPending) return;
 
-    // Use cached values from state
-    const authorization = useState('authorization', null);
-    const user_id = useState('user_id', null);
+  setState('isRequestPending', true);
 
-    if (!authorization || !user_id) {
-        setState('isRequestPending', false);
-        return;
-    }
+  const authorization = useState<string | null>('authorization', null);
+  const userId = useState<string | null>('user_id', null);
 
-    const headers = {
-        authorization: authorization,
-        Host: api,
-        'Accept-Encoding': 'identity',
-        Connection: 'close',
-    };
+  if (!authorization || !userId) {
+    setState('isRequestPending', false);
+    return;
+  }
 
-    const resp = await prove(
+  const headers: Record<string, string> = {
+    authorization,
+    Host: api,
+    'Accept-Encoding': 'identity',
+    Connection: 'close',
+  };
+
+  const resp = await prove(
+    {
+      url: `https://${api}/2023-05-23/users/${userId}?fields=longestStreak,username`,
+      method: 'GET',
+      headers,
+    },
+    {
+      verifierUrl: __VERIFIER_URL__,
+      proxyUrl: __PROXY_URL__ + api,
+      maxRecvData: 2400,
+      maxSentData: 1200,
+      handlers: [
+        { type: 'SENT', part: 'START_LINE', action: 'REVEAL' } satisfies Handler,
         {
-            url: `https://${api}/2023-05-23/users/${user_id}?fields=longestStreak,username`,
-            method: 'GET',
-            headers: headers,
-        },
-        {
-            verifierUrl: VERIFIER_URL,
-            proxyUrl: PROXY_URL_BASE + api,
-            maxRecvData: 2400,
-            maxSentData: 1200,
-            handlers: [
-                { type: 'SENT', part: 'START_LINE', action: 'REVEAL', },
-                { type: 'RECV', part: 'BODY', action: 'REVEAL', params: { type: 'json', path: 'longestStreak', }, },
-            ]
-        }
+          type: 'RECV',
+          part: 'BODY',
+          action: 'REVEAL',
+          params: { type: 'json', path: 'longestStreak' },
+        } satisfies Handler,
+      ],
+    },
+  );
+  done(JSON.stringify(resp));
+}
+
+function expandUI(): void {
+  setState('isMinimized', false);
+}
+
+function minimizeUI(): void {
+  setState('isMinimized', true);
+}
+
+// =============================================================================
+// MAIN UI FUNCTION
+// =============================================================================
+
+function main(): DomJson {
+  const isMinimized = useState<boolean>('isMinimized', false);
+  const isRequestPending = useState<boolean>('isRequestPending', false);
+  const authorization = useState<string | null>('authorization', null);
+  const userId = useState<string | null>('user_id', null);
+
+  // Only search for auth values if not already cached
+  if (!authorization || !userId) {
+    const [header] = useHeaders((headers) =>
+      headers.filter((h) =>
+        h.url.includes(`https://${api}/2023-05-23/users`),
+      ),
     );
-    done(JSON.stringify(resp));
-}
 
-function expandUI() {
-    setState('isMinimized', false);
-}
+    const authValue = header?.requestHeaders.find(
+      (h) => h.name === 'Authorization',
+    )?.value;
+    const traceId = header?.requestHeaders.find(
+      (h) => h.name === 'X-Amzn-Trace-Id',
+    )?.value;
+    const userIdValue = traceId?.split('=')[1];
 
-function minimizeUI() {
-    setState('isMinimized', true);
-}
-
-function main() {
-    const isMinimized = useState('isMinimized', false);
-    const isRequestPending = useState('isRequestPending', false);
-    const authorization = useState('authorization', null);
-    const user_id = useState('user_id', null);
-
-    // Only search for auth values if not already cached
-    if (!authorization || !user_id) {
-        const [header] = useHeaders(headers => {
-            return headers.filter(header => header.url.includes(`https://${api}/2023-05-23/users`));
-        });
-
-        const authValue = header?.requestHeaders.find(h => h.name === 'Authorization')?.value;
-        const traceId = header?.requestHeaders.find(h => h.name === 'X-Amzn-Trace-Id')?.value;
-        const userIdValue = traceId?.split('=')[1];
-
-        if (authValue && !authorization) {
-            setState('authorization', authValue);
-            console.log('Authorization found:', authValue);
-        }
-        if (userIdValue && !user_id) {
-            setState('user_id', userIdValue);
-            console.log('User ID found:', userIdValue);
-        }
+    if (authValue && !authorization) {
+      setState('authorization', authValue);
     }
+    if (userIdValue && !userId) {
+      setState('user_id', userIdValue);
+    }
+  }
 
-    const header_has_necessary_values = authorization && user_id;
+  const isConnected = !!(authorization && userId);
 
-    useEffect(() => {
-        openWindow(ui);
-    }, []);
+  useEffect(() => {
+    openWindow(ui);
+  }, []);
 
-    if (isMinimized) {
-        return div({
-            style: {
-                position: 'fixed',
-                bottom: '20px',
-                right: '20px',
-                width: '60px',
-                height: '60px',
-                borderRadius: '50%',
-                backgroundColor: '#58CC02',
-                boxShadow: '0 4px 8px rgba(0,0,0,0.3)',
-                zIndex: '999999',
+  if (isMinimized) {
+    return div(
+      {
+        style: {
+          position: 'fixed',
+          bottom: '20px',
+          right: '20px',
+          width: '60px',
+          height: '60px',
+          borderRadius: '50%',
+          backgroundColor: '#58CC02',
+          boxShadow: '0 4px 8px rgba(0,0,0,0.3)',
+          zIndex: '999999',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          transition: 'all 0.3s ease',
+          fontSize: '24px',
+          color: 'white',
+        },
+        onclick: 'expandUI',
+      },
+      ['\uD83E\uDD89'],
+    );
+  }
+
+  return div(
+    {
+      style: {
+        position: 'fixed',
+        bottom: '0',
+        right: '8px',
+        width: '280px',
+        borderRadius: '8px 8px 0 0',
+        backgroundColor: 'white',
+        boxShadow: '0 -2px 10px rgba(0,0,0,0.1)',
+        zIndex: '999999',
+        fontSize: '14px',
+        fontFamily:
+          '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+        overflow: 'hidden',
+      },
+    },
+    [
+      div(
+        {
+          style: {
+            background: 'linear-gradient(135deg, #58CC02 0%, #4CAF00 100%)',
+            padding: '12px 16px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            color: 'white',
+          },
+        },
+        [
+          div(
+            { style: { fontWeight: '600', fontSize: '16px' } },
+            ['Duolingo Streak'],
+          ),
+          button(
+            {
+              style: {
+                background: 'transparent',
+                border: 'none',
+                color: 'white',
+                fontSize: '20px',
+                cursor: 'pointer',
+                padding: '0',
+                width: '24px',
+                height: '24px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                cursor: 'pointer',
-                transition: 'all 0.3s ease',
-                fontSize: '24px',
-                color: 'white',
+              },
+              onclick: 'minimizeUI',
             },
-            onclick: 'expandUI',
-        }, ['🦉']);
-    }
-
-    return div({
-        style: {
-            position: 'fixed',
-            bottom: '0',
-            right: '8px',
-            width: '280px',
-            borderRadius: '8px 8px 0 0',
-            backgroundColor: 'white',
-            boxShadow: '0 -2px 10px rgba(0,0,0,0.1)',
-            zIndex: '999999',
-            fontSize: '14px',
-            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-            overflow: 'hidden',
-        },
-    }, [
-        div({
-            style: {
-                background: 'linear-gradient(135deg, #58CC02 0%, #4CAF00 100%)',
-                padding: '12px 16px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                color: 'white',
-            }
-        }, [
-            div({
-                style: {
-                    fontWeight: '600',
-                    fontSize: '16px',
-                }
-            }, ['Duolingo Streak']),
-            button({
-                style: {
-                    background: 'transparent',
-                    border: 'none',
-                    color: 'white',
-                    fontSize: '20px',
-                    cursor: 'pointer',
-                    padding: '0',
-                    width: '24px',
-                    height: '24px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                },
-                onclick: 'minimizeUI',
-            }, ['−'])
-        ]),
-
-        div({
-            style: {
-                padding: '20px',
-                backgroundColor: '#f8f9fa',
-            }
-        }, [
-            div({
-                style: {
-                    marginBottom: '16px',
-                    padding: '12px',
+            ['\u2212'],
+          ),
+        ],
+      ),
+      div(
+        { style: { padding: '20px', backgroundColor: '#f8f9fa' } },
+        [
+          div(
+            {
+              style: {
+                marginBottom: '16px',
+                padding: '12px',
+                borderRadius: '6px',
+                backgroundColor: isConnected ? '#d4edda' : '#f8d7da',
+                color: isConnected ? '#155724' : '#721c24',
+                border: `1px solid ${isConnected ? '#c3e6cb' : '#f5c6cb'}`,
+                fontWeight: '500',
+              },
+            },
+            [
+              isConnected
+                ? '\u2713 Api token detected'
+                : '\u26A0 No API token detected',
+            ],
+          ),
+          isConnected
+            ? button(
+                {
+                  style: {
+                    width: '100%',
+                    padding: '12px 24px',
                     borderRadius: '6px',
-                    backgroundColor: header_has_necessary_values ? '#d4edda' : '#f8d7da',
-                    color: header_has_necessary_values ? '#155724' : '#721c24',
-                    border: `1px solid ${header_has_necessary_values ? '#c3e6cb' : '#f5c6cb'}`,
-                    fontWeight: '500',
+                    border: 'none',
+                    background:
+                      'linear-gradient(135deg, #58CC02 0%, #4CAF00 100%)',
+                    color: 'white',
+                    fontWeight: '600',
+                    fontSize: '15px',
+                    cursor: isRequestPending ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.2s ease',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                    opacity: isRequestPending ? '0.5' : '1',
+                  },
+                  onclick: 'onClick',
                 },
-            }, [
-                header_has_necessary_values ? '✓ Api token detected' : '⚠ No API token detected'
-            ]),
-
-            header_has_necessary_values ? (
-                button({
-                    style: {
-                        width: '100%',
-                        padding: '12px 24px',
-                        borderRadius: '6px',
-                        border: 'none',
-                        background: 'linear-gradient(135deg, #58CC02 0%, #4CAF00 100%)',
-                        color: 'white',
-                        fontWeight: '600',
-                        fontSize: '15px',
-                        cursor: isRequestPending ? 'not-allowed' : 'pointer',
-                        transition: 'all 0.2s ease',
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                        opacity: isRequestPending ? 0.5 : 1,
-                    },
-                    onclick: 'onClick',
-                }, [isRequestPending ? 'Generating Proof...' : 'Generate Proof'])
-            ) : (
-                div({
-                    style: {
-                        textAlign: 'center',
-                        color: '#666',
-                        padding: '12px',
-                        backgroundColor: '#fff3cd',
-                        borderRadius: '6px',
-                        border: '1px solid #ffeaa7',
-                    }
-                }, ['Please login to Duolingo to continue'])
-            )
-        ])
-    ]);
+                [isRequestPending ? 'Generating Proof...' : 'Generate Proof'],
+              )
+            : div(
+                {
+                  style: {
+                    textAlign: 'center',
+                    color: '#666',
+                    padding: '12px',
+                    backgroundColor: '#fff3cd',
+                    borderRadius: '6px',
+                    border: '1px solid #ffeaa7',
+                  },
+                },
+                ['Please login to Duolingo to continue'],
+              ),
+        ],
+      ),
+    ],
+  );
 }
 
+// =============================================================================
+// PLUGIN EXPORTS
+// =============================================================================
+
 export default {
-    main,
-    onClick,
-    expandUI,
-    minimizeUI,
-    config,
+  main,
+  onClick,
+  expandUI,
+  minimizeUI,
+  config,
 };

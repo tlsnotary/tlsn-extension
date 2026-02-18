@@ -1,6 +1,5 @@
-const VERIFIER_URL = "http://localhost:7047";
-const PROXY_URL_BASE = "ws://localhost:7047/proxy?token=";
-const config = {
+// plugins/twitter.plugin.ts
+var config = {
   name: "X Profile Prover",
   description: "This plugin will prove your X.com profile.",
   requests: [
@@ -8,12 +7,10 @@ const config = {
       method: "GET",
       host: "api.x.com",
       pathname: "/1.1/account/settings.json",
-      verifierUrl: VERIFIER_URL
+      verifierUrl: "http://localhost:7047"
     }
   ],
-  urls: [
-    "https://x.com/*"
-  ]
+  urls: ["https://x.com/*"]
 };
 async function onClick() {
   const isRequestPending = useState("isRequestPending", false);
@@ -21,14 +18,17 @@ async function onClick() {
   setState("isRequestPending", true);
   const cachedCookie = useState("cookie", null);
   const cachedCsrfToken = useState("x-csrf-token", null);
-  const cachedTransactionId = useState("x-client-transaction-id", null);
+  const cachedTransactionId = useState(
+    "x-client-transaction-id",
+    null
+  );
   const cachedAuthorization = useState("authorization", null);
   if (!cachedCookie || !cachedCsrfToken || !cachedAuthorization) {
     setState("isRequestPending", false);
     return;
   }
   const headers = {
-    "cookie": cachedCookie,
+    cookie: cachedCookie,
     "x-csrf-token": cachedCsrfToken,
     ...cachedTransactionId ? { "x-client-transaction-id": cachedTransactionId } : {},
     Host: "api.x.com",
@@ -43,8 +43,8 @@ async function onClick() {
       headers
     },
     {
-      verifierUrl: VERIFIER_URL,
-      proxyUrl: PROXY_URL_BASE + "api.x.com",
+      verifierUrl: "http://localhost:7047",
+      proxyUrl: "ws://localhost:7047/proxy?token=api.x.com",
       maxRecvData: 4e3,
       maxSentData: 2e3,
       handlers: [
@@ -60,10 +60,7 @@ async function onClick() {
           type: "RECV",
           part: "BODY",
           action: "REVEAL",
-          params: {
-            type: "json",
-            path: "screen_name"
-          }
+          params: { type: "json", path: "screen_name" }
         }
       ]
     }
@@ -81,36 +78,39 @@ function main() {
   const isRequestPending = useState("isRequestPending", false);
   const cachedCookie = useState("cookie", null);
   const cachedCsrfToken = useState("x-csrf-token", null);
-  const cachedTransactionId = useState("x-client-transaction-id", null);
+  const cachedTransactionId = useState(
+    "x-client-transaction-id",
+    null
+  );
   const cachedAuthorization = useState("authorization", null);
   if (!cachedCookie || !cachedCsrfToken || !cachedAuthorization) {
-    const [header2] = useHeaders(
-      (headers) => headers.filter((h) => h.url.includes("https://api.x.com/1.1/account/settings.json"))
+    const [header] = useHeaders(
+      (headers) => headers.filter(
+        (h) => h.url.includes("https://api.x.com/1.1/account/settings.json")
+      )
     );
-    if (header2) {
-      const cookie = header2.requestHeaders.find((h) => h.name === "Cookie")?.value;
-      const csrfToken = header2.requestHeaders.find((h) => h.name === "x-csrf-token")?.value;
-      const transactionId = header2.requestHeaders.find((h) => h.name === "x-client-transaction-id")?.value;
-      const authorization = header2.requestHeaders.find((h) => h.name === "authorization")?.value;
-      if (cookie && !cachedCookie) {
-        setState("cookie", cookie);
-        console.log("Cookie found");
-      }
-      if (csrfToken && !cachedCsrfToken) {
-        setState("x-csrf-token", csrfToken);
-        console.log("CSRF token found");
-      }
-      if (transactionId && !cachedTransactionId) {
+    if (header) {
+      const cookie = header.requestHeaders.find(
+        (h) => h.name === "Cookie"
+      )?.value;
+      const csrfToken = header.requestHeaders.find(
+        (h) => h.name === "x-csrf-token"
+      )?.value;
+      const transactionId = header.requestHeaders.find(
+        (h) => h.name === "x-client-transaction-id"
+      )?.value;
+      const authorization = header.requestHeaders.find(
+        (h) => h.name === "authorization"
+      )?.value;
+      if (cookie && !cachedCookie) setState("cookie", cookie);
+      if (csrfToken && !cachedCsrfToken) setState("x-csrf-token", csrfToken);
+      if (transactionId && !cachedTransactionId)
         setState("x-client-transaction-id", transactionId);
-        console.log("Transaction ID found");
-      }
-      if (authorization && !cachedAuthorization) {
+      if (authorization && !cachedAuthorization)
         setState("authorization", authorization);
-        console.log("Authorization found");
-      }
     }
   }
-  const header = cachedCookie && cachedCsrfToken && cachedAuthorization;
+  const isConnected = !!(cachedCookie && cachedCsrfToken && cachedAuthorization);
   useEffect(() => {
     openWindow("https://x.com");
   }, []);
@@ -137,7 +137,7 @@ function main() {
         },
         onclick: "expandUI"
       },
-      ["🔐"]
+      ["\u{1F510}"]
     );
   }
   return div(
@@ -170,12 +170,7 @@ function main() {
         },
         [
           div(
-            {
-              style: {
-                fontWeight: "600",
-                fontSize: "16px"
-              }
-            },
+            { style: { fontWeight: "600", fontSize: "16px" } },
             ["X Profile Prover"]
           ),
           button(
@@ -195,17 +190,12 @@ function main() {
               },
               onclick: "minimizeUI"
             },
-            ["−"]
+            ["\u2212"]
           )
         ]
       ),
       div(
-        {
-          style: {
-            padding: "20px",
-            backgroundColor: "#f8f9fa"
-          }
-        },
+        { style: { padding: "20px", backgroundColor: "#f8f9fa" } },
         [
           div(
             {
@@ -213,15 +203,17 @@ function main() {
                 marginBottom: "16px",
                 padding: "12px",
                 borderRadius: "6px",
-                backgroundColor: header ? "#d4edda" : "#f8d7da",
-                color: header ? "#155724" : "#721c24",
-                border: `1px solid ${header ? "#c3e6cb" : "#f5c6cb"}`,
+                backgroundColor: isConnected ? "#d4edda" : "#f8d7da",
+                color: isConnected ? "#155724" : "#721c24",
+                border: `1px solid ${isConnected ? "#c3e6cb" : "#f5c6cb"}`,
                 fontWeight: "500"
               }
             },
-            [header ? "✓ Profile detected" : "⚠ No profile detected"]
+            [
+              isConnected ? "\u2713 Profile detected" : "\u26A0 No profile detected"
+            ]
           ),
-          header ? button(
+          isConnected ? button(
             {
               style: {
                 width: "100%",
@@ -258,7 +250,7 @@ function main() {
     ]
   );
 }
-const twitter_plugin = {
+var twitter_plugin_default = {
   main,
   onClick,
   expandUI,
@@ -266,5 +258,5 @@ const twitter_plugin = {
   config
 };
 export {
-  twitter_plugin as default
+  twitter_plugin_default as default
 };

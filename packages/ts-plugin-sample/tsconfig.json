@@ -33,8 +33,7 @@
     "skipLibCheck": true
   },
   "include": [
-    "src/**/*",
-    "../plugin-sdk/src/globals.d.ts"
+    "src/**/*"
   ],
   "exclude": ["node_modules", "build"]
 }

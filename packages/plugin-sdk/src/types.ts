@@ -117,42 +117,30 @@ export type WindowMessage =
       windowId: number;
     };
 
-export enum HandlerType {
-  SENT = 'SENT',
-  RECV = 'RECV',
-}
+export type HandlerType = 'SENT' | 'RECV';
 
-export enum HandlerPart {
-  START_LINE = 'START_LINE',
-  PROTOCOL = 'PROTOCOL',
-  METHOD = 'METHOD',
-  REQUEST_TARGET = 'REQUEST_TARGET',
-  STATUS_CODE = 'STATUS_CODE',
-  HEADERS = 'HEADERS',
-  BODY = 'BODY',
-  ALL = 'ALL',
-}
+export type HandlerPart =
+  | 'START_LINE'
+  | 'PROTOCOL'
+  | 'METHOD'
+  | 'REQUEST_TARGET'
+  | 'STATUS_CODE'
+  | 'HEADERS'
+  | 'BODY'
+  | 'ALL';
 
-export enum HandlerAction {
-  REVEAL = 'REVEAL',
-  PEDERSEN = 'PEDERSEN',
-}
+export type HandlerAction = 'REVEAL' | 'PEDERSEN';
 
 export type StartLineHandler = {
   type: HandlerType;
-  part:
-    | HandlerPart.START_LINE
-    | HandlerPart.PROTOCOL
-    | HandlerPart.METHOD
-    | HandlerPart.REQUEST_TARGET
-    | HandlerPart.STATUS_CODE;
-  action: HandlerAction.REVEAL | HandlerAction.PEDERSEN;
+  part: 'START_LINE' | 'PROTOCOL' | 'METHOD' | 'REQUEST_TARGET' | 'STATUS_CODE';
+  action: HandlerAction;
 };
 
 export type HeadersHandler = {
   type: HandlerType;
-  part: HandlerPart.HEADERS;
-  action: HandlerAction.REVEAL | HandlerAction.PEDERSEN;
+  part: 'HEADERS';
+  action: HandlerAction;
   params?: {
     key: string;
     hideKey?: boolean;
@@ -162,8 +150,8 @@ export type HeadersHandler = {
 
 export type BodyHandler = {
   type: HandlerType;
-  part: HandlerPart.BODY;
-  action: HandlerAction.REVEAL | HandlerAction.PEDERSEN;
+  part: 'BODY';
+  action: HandlerAction;
   params?: {
     type: 'json';
     path: string;
@@ -174,8 +162,8 @@ export type BodyHandler = {
 
 export type AllHandler = {
   type: HandlerType;
-  part: HandlerPart.ALL; // Not used for regex handlers
-  action: HandlerAction.REVEAL | HandlerAction.PEDERSEN;
+  part: 'ALL';
+  action: HandlerAction;
   params?: {
     type: 'regex';
     regex: string;
