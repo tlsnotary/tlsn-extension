@@ -534,7 +534,7 @@ function __wbg_get_imports(memory) {
                     const a = state0.a;
                     state0.a = 0;
                     try {
-                        return wasm_bindgen_882de39c336d20b6___convert__closures_____invoke___wasm_bindgen_882de39c336d20b6___JsValue__wasm_bindgen_882de39c336d20b6___JsValue_____(a, state0.b, arg0, arg1);
+                        return wasm_bindgen_64ca65b1dd5c216a___convert__closures_____invoke___wasm_bindgen_64ca65b1dd5c216a___JsValue__wasm_bindgen_64ca65b1dd5c216a___JsValue_____(a, state0.b, arg0, arg1);
                     } finally {
                         state0.a = a;
                     }
@@ -723,12 +723,12 @@ function __wbg_get_imports(memory) {
         }, arguments); },
         __wbindgen_cast_0000000000000001: function(arg0, arg1) {
             // Cast intrinsic for `Closure(Closure { dtor_idx: 3813, function: Function { arguments: [Externref], shim_idx: 3814, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-            const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen_882de39c336d20b6___closure__destroy___dyn_core_a0678809250066c8___ops__function__FnMut__wasm_bindgen_882de39c336d20b6___JsValue____Output_______, wasm_bindgen_882de39c336d20b6___convert__closures_____invoke___wasm_bindgen_882de39c336d20b6___JsValue_____);
+            const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen_64ca65b1dd5c216a___closure__destroy___dyn_core_a0678809250066c8___ops__function__FnMut__wasm_bindgen_64ca65b1dd5c216a___JsValue____Output_______, wasm_bindgen_64ca65b1dd5c216a___convert__closures_____invoke___wasm_bindgen_64ca65b1dd5c216a___JsValue_____);
             return ret;
         },
         __wbindgen_cast_0000000000000002: function(arg0, arg1) {
             // Cast intrinsic for `Closure(Closure { dtor_idx: 3813, function: Function { arguments: [NamedExternref("MessageEvent")], shim_idx: 3814, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-            const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen_882de39c336d20b6___closure__destroy___dyn_core_a0678809250066c8___ops__function__FnMut__wasm_bindgen_882de39c336d20b6___JsValue____Output_______, wasm_bindgen_882de39c336d20b6___convert__closures_____invoke___wasm_bindgen_882de39c336d20b6___JsValue_____);
+            const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen_64ca65b1dd5c216a___closure__destroy___dyn_core_a0678809250066c8___ops__function__FnMut__wasm_bindgen_64ca65b1dd5c216a___JsValue____Output_______, wasm_bindgen_64ca65b1dd5c216a___convert__closures_____invoke___wasm_bindgen_64ca65b1dd5c216a___JsValue_____);
             return ret;
         },
         __wbindgen_cast_0000000000000003: function(arg0) {
@@ -787,12 +787,12 @@ function __wbg_get_imports(memory) {
     };
 }
 
-function wasm_bindgen_882de39c336d20b6___convert__closures_____invoke___wasm_bindgen_882de39c336d20b6___JsValue_____(arg0, arg1, arg2) {
-    wasm.wasm_bindgen_882de39c336d20b6___convert__closures_____invoke___wasm_bindgen_882de39c336d20b6___JsValue_____(arg0, arg1, arg2);
+function wasm_bindgen_64ca65b1dd5c216a___convert__closures_____invoke___wasm_bindgen_64ca65b1dd5c216a___JsValue_____(arg0, arg1, arg2) {
+    wasm.wasm_bindgen_64ca65b1dd5c216a___convert__closures_____invoke___wasm_bindgen_64ca65b1dd5c216a___JsValue_____(arg0, arg1, arg2);
 }
 
-function wasm_bindgen_882de39c336d20b6___convert__closures_____invoke___wasm_bindgen_882de39c336d20b6___JsValue__wasm_bindgen_882de39c336d20b6___JsValue_____(arg0, arg1, arg2, arg3) {
-    wasm.wasm_bindgen_882de39c336d20b6___convert__closures_____invoke___wasm_bindgen_882de39c336d20b6___JsValue__wasm_bindgen_882de39c336d20b6___JsValue_____(arg0, arg1, arg2, arg3);
+function wasm_bindgen_64ca65b1dd5c216a___convert__closures_____invoke___wasm_bindgen_64ca65b1dd5c216a___JsValue__wasm_bindgen_64ca65b1dd5c216a___JsValue_____(arg0, arg1, arg2, arg3) {
+    wasm.wasm_bindgen_64ca65b1dd5c216a___convert__closures_____invoke___wasm_bindgen_64ca65b1dd5c216a___JsValue__wasm_bindgen_64ca65b1dd5c216a___JsValue_____(arg0, arg1, arg2, arg3);
 }
 
 
