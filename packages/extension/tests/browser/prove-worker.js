@@ -19,13 +19,17 @@ import { fromWebSocket } from '/@tlsn-common/io-channel.js';
 // ============================================================================
 
 class SessionClient {
-  constructor() { this.ws = null; this.sessionId = null; }
+  constructor() {
+    this.ws = null;
+    this.sessionId = null;
+  }
 
   async connect(verifierUrl) {
     return new Promise((resolve, reject) => {
       this.ws = new WebSocket(`${verifierUrl}/session`);
       this.ws.onopen = () => resolve();
-      this.ws.onerror = () => reject(new Error(`Session WebSocket failed: ${verifierUrl}`));
+      this.ws.onerror = () =>
+        reject(new Error(`Session WebSocket failed: ${verifierUrl}`));
     });
   }
 
@@ -43,7 +47,14 @@ class SessionClient {
         }
       };
       this.ws.addEventListener('message', handler);
-      this.ws.send(JSON.stringify({ type: 'register', maxRecvData, maxSentData, sessionData }));
+      this.ws.send(
+        JSON.stringify({
+          type: 'register',
+          maxRecvData,
+          maxSentData,
+          sessionData,
+        }),
+      );
     });
   }
 
@@ -93,8 +104,12 @@ function log(level, message) {
 
 async function runProve(config) {
   const {
-    verifierPort, serverName, requestPath,
-    maxSentData, maxRecvData, threads,
+    verifierPort,
+    serverName,
+    requestPath,
+    maxSentData,
+    maxRecvData,
+    threads,
   } = config;
 
   const verifierBase = `ws://127.0.0.1:${verifierPort}`;
@@ -109,7 +124,9 @@ async function runProve(config) {
   // 2. Register session with verifier
   const session = new SessionClient();
   await session.connect(verifierBase);
-  const sessionId = await session.register(maxRecvData, maxSentData, { test: 'browser-prove' });
+  const sessionId = await session.register(maxRecvData, maxSentData, {
+    test: 'browser-prove',
+  });
   log('info', `Session registered: ${sessionId}`);
 
   // 3. Create prover
@@ -152,11 +169,18 @@ async function runProve(config) {
   const transcript = prover.transcript();
   const sent = new Uint8Array(transcript.sent);
   const recv = new Uint8Array(transcript.recv);
-  log('info', `Transcript: sent=${sent.length} bytes, recv=${recv.length} bytes`);
+  log(
+    'info',
+    `Transcript: sent=${sent.length} bytes, recv=${recv.length} bytes`,
+  );
 
   // 7. Build reveal config (reveal everything)
-  const sentRanges = [{ start: 0, end: sent.length, handler: { type: 'SENT', part: 'ALL' } }];
-  const recvRanges = [{ start: 0, end: recv.length, handler: { type: 'RECV', part: 'ALL' } }];
+  const sentRanges = [
+    { start: 0, end: sent.length, handler: { type: 'SENT', part: 'ALL' } },
+  ];
+  const recvRanges = [
+    { start: 0, end: recv.length, handler: { type: 'RECV', part: 'ALL' } },
+  ];
 
   // 8. Send reveal config to verifier via session WebSocket
   session.sendRevealConfig(sentRanges, recvRanges);

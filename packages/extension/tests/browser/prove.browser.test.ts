@@ -85,35 +85,31 @@ function runProveInWorker(config: {
 // ============================================================================
 
 describe('WASM Prove Integration', () => {
-  it(
-    'should perform MPC-TLS prove against raw.githubusercontent.com',
-    async () => {
-      console.log('[Test] Starting MPC-TLS prove via Worker...');
-      console.log('[Test] crossOriginIsolated:', self.crossOriginIsolated);
+  it('should perform MPC-TLS prove against raw.githubusercontent.com', async () => {
+    console.log('[Test] Starting MPC-TLS prove via Worker...');
+    console.log('[Test] crossOriginIsolated:', self.crossOriginIsolated);
 
-      const result = await runProveInWorker({
-        verifierPort: VERIFIER_PORT,
-        serverName: SERVER_NAME,
-        requestPath: REQUEST_PATH,
-        maxSentData: MAX_SENT_DATA,
-        maxRecvData: MAX_RECV_DATA,
-        threads: Math.min(navigator.hardwareConcurrency || 4, 4),
-      });
+    const result = await runProveInWorker({
+      verifierPort: VERIFIER_PORT,
+      serverName: SERVER_NAME,
+      requestPath: REQUEST_PATH,
+      maxSentData: MAX_SENT_DATA,
+      maxRecvData: MAX_RECV_DATA,
+      threads: Math.min(navigator.hardwareConcurrency || 4, 4),
+    });
 
-      console.log('[Test] Prove completed successfully');
+    console.log('[Test] Prove completed successfully');
 
-      // Assertions (same as Rust integration test)
-      expect(result.sessionId).toBeTruthy();
-      expect(result.sentLength).toBeGreaterThan(0);
-      expect(result.recvLength).toBeGreaterThan(0);
-      expect(result.resultsLength).toBeGreaterThan(0);
-      expect(
-        result.recvStr.includes('software engineer') ||
-          result.recvStr.includes('Anytown'),
-      ).toBe(true);
+    // Assertions (same as Rust integration test)
+    expect(result.sessionId).toBeTruthy();
+    expect(result.sentLength).toBeGreaterThan(0);
+    expect(result.recvLength).toBeGreaterThan(0);
+    expect(result.resultsLength).toBeGreaterThan(0);
+    expect(
+      result.recvStr.includes('software engineer') ||
+        result.recvStr.includes('Anytown'),
+    ).toBe(true);
 
-      console.log('[Test] All assertions passed');
-    },
-    180_000,
-  );
+    console.log('[Test] All assertions passed');
+  }, 180_000);
 });

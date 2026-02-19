@@ -61,14 +61,26 @@ function tlsnWasmPlugin(): Plugin {
 
         // Serve WASM pkg files raw
         if (url.startsWith(wasmPrefix)) {
-          const filePath = path.join(wasmPkgDir, decodeURIComponent(url.slice(wasmPrefix.length)));
-          if (fs.existsSync(filePath)) { serveRaw(res, filePath); return; }
+          const filePath = path.join(
+            wasmPkgDir,
+            decodeURIComponent(url.slice(wasmPrefix.length)),
+          );
+          if (fs.existsSync(filePath)) {
+            serveRaw(res, filePath);
+            return;
+          }
         }
 
         // Serve @tlsn/common dist files raw
         if (url.startsWith(commonPrefix)) {
-          const filePath = path.join(commonDistDir, decodeURIComponent(url.slice(commonPrefix.length)));
-          if (fs.existsSync(filePath)) { serveRaw(res, filePath); return; }
+          const filePath = path.join(
+            commonDistDir,
+            decodeURIComponent(url.slice(commonPrefix.length)),
+          );
+          if (fs.existsSync(filePath)) {
+            serveRaw(res, filePath);
+            return;
+          }
         }
 
         next();
