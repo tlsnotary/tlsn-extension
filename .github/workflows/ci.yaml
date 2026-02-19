@@ -42,6 +42,43 @@ jobs:
           path: ./packages/extension/zip/*.zip
           if-no-files-found: error
 
+  browser-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Build verifier server
+        working-directory: packages/verifier
+        run: cargo build --release
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm install rollup --force
+
+      - name: Build dependencies
+        run: npm run build:deps
+
+      - name: Install Playwright Chromium
+        working-directory: packages/extension
+        run: npx playwright install --with-deps chromium
+
+      - name: Run browser integration test
+        working-directory: packages/extension
+        run: npm run test:browser
+
   release:
     if: github.event_name == 'release'
     runs-on: ubuntu-latest
