@@ -1,8 +1,7 @@
-import Host, { Parser } from '@tlsn/plugin-sdk/src';
+import Host from '@tlsn/plugin-sdk/src';
 import { ProveManager } from './ProveManager';
 import type { Method } from '../../../tlsn-wasm-pkg/tlsn_wasm';
 import { DomJson, Handler, PluginConfig } from '@tlsn/plugin-sdk/src/types';
-import { processHandlers } from './rangeExtractor';
 import { logger } from '@tlsn/common';
 import {
   validateProvePermission,
@@ -62,40 +61,28 @@ export class SessionManager {
         );
 
         try {
-          const prover = await this.proveManager.getProver(proverId);
-
-          const headerMap: Map<string, number[]> = new Map();
-          Object.entries(requestOptions.headers || {}).forEach(
-            ([key, value]) => {
-              if (value !== undefined && value !== null) {
-                headerMap.set(key, Buffer.from(String(value)).toJSON().data);
-              }
+          // Send request via ProveManager which handles IoChannel creation in the worker.
+          await this.proveManager.sendRequest(
+            proverId,
+            proverOptions.proxyUrl,
+            {
+              url: requestOptions.url,
+              method: requestOptions.method as Method,
+              headers: requestOptions.headers,
+              body: requestOptions.body,
             },
           );
 
-          await prover.send_request(proverOptions.proxyUrl, {
-            uri: requestOptions.url,
-            method: requestOptions.method as Method,
-            headers: headerMap,
-            body: requestOptions.body,
-          });
-
-          // Get transcripts for parsing
-          const { sent, recv } = await prover.transcript();
-
-          const parsedSent = new Parser(Buffer.from(sent));
-          const parsedRecv = new Parser(Buffer.from(recv));
-
-          logger.debug('parsedSent', parsedSent.json());
-          logger.debug('parsedRecv', parsedRecv.json());
-
-          // Use refactored range extraction logic
+          // Compute reveal ranges via WASM (parses HTTP transcripts + maps handlers to byte ranges)
           const {
             sentRanges,
             recvRanges,
             sentRangesWithHandlers,
             recvRangesWithHandlers,
-          } = processHandlers(proverOptions.handlers, parsedSent, parsedRecv);
+          } = await this.proveManager.computeReveal(
+            proverId,
+            proverOptions.handlers,
+          );
 
           logger.debug('sentRanges', sentRanges);
           logger.debug('recvRanges', recvRanges);
@@ -107,10 +94,9 @@ export class SessionManager {
           });
 
           // Reveal the ranges
-          await prover.reveal({
+          await this.proveManager.reveal(proverId, {
             sent: sentRanges,
             recv: recvRanges,
-            server_identity: true,
           });
 
           // Get structured response from verifier (now includes handler results)
