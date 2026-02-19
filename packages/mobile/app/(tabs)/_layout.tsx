@@ -19,17 +19,17 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#1DB954', // Spotify green
+        tabBarActiveTintColor: '#243f5f',
         headerShown: useClientOnlyValue(false, true),
       }}>
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Spotify',
-          tabBarIcon: ({ color }) => <TabBarIcon name="music" color={color} />,
-          headerTitle: 'TLSN Spotify Prover',
+          title: 'Plugins',
+          tabBarIcon: ({ color }) => <TabBarIcon name="list" color={color} />,
+          headerTitle: 'TLSNotary',
           headerStyle: {
-            backgroundColor: '#1DB954',
+            backgroundColor: '#243f5f',
           },
           headerTintColor: '#fff',
           headerTitleStyle: {
@@ -41,7 +41,7 @@ export default function TabLayout() {
         name="two"
         options={{
           title: 'About',
-          tabBarIcon: ({ color }) => <TabBarIcon name="info-circle" color={color} />,
+          tabBarIcon: ({ color }) => <TabBarIcon name="info" color={color} />,
         }}
       />
     </Tabs>
