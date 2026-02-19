@@ -159,7 +159,12 @@ async function reveal(proverId: string, revealConfig: Reveal): Promise<void> {
 function computeReveal(
   proverId: string,
   handlers: any[],
-): { sentRanges: any[]; recvRanges: any[]; sentRangesWithHandlers: any[]; recvRangesWithHandlers: any[] } {
+): {
+  sentRanges: any[];
+  recvRanges: any[];
+  sentRangesWithHandlers: any[];
+  recvRangesWithHandlers: any[];
+} {
   const prover = provers.get(proverId);
   if (!prover) throw new Error(`Prover not found: ${proverId}`);
 
