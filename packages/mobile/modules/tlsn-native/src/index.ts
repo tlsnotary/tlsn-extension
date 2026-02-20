@@ -71,7 +71,25 @@ export async function prove(
   request: ProveRequest,
   options: ProverOptions
 ): Promise<ProveResult> {
-  return TlsnNativeModule.prove(request, options);
+  const isAndroid = require('react-native').Platform.OS === 'android';
+
+  // On Android emulator, localhost refers to the emulator itself.
+  // Rewrite to 10.0.2.2 which routes to the host machine.
+  if (isAndroid && options.verifierUrl) {
+    options = {
+      ...options,
+      verifierUrl: options.verifierUrl
+        .replace('://localhost', '://10.0.2.2')
+        .replace('://127.0.0.1', '://10.0.2.2'),
+    };
+  }
+
+  // Android's Expo Kotlin bridge can't auto-convert nested JS objects,
+  // so we serialize to JSON strings and parse on the native side.
+  if (isAndroid) {
+    return TlsnNativeModule.prove(JSON.stringify(request), JSON.stringify(options)) as unknown as Promise<ProveResult>;
+  }
+  return TlsnNativeModule.prove(request, options) as unknown as Promise<ProveResult>;
 }
 
 /**

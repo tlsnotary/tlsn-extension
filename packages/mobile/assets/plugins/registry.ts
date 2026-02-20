@@ -66,7 +66,7 @@ export const PLUGIN_REGISTRY: PluginEntry[] = [
     id: 'duolingo',
     name: 'Duolingo',
     logo: '🦉',
-    resultLabel: 'Current Streak',
+    resultLabel: 'Longest Streak',
     accentColor: '#58CC02',
     description:
       'Prove your Duolingo language learning progress and achievements',
