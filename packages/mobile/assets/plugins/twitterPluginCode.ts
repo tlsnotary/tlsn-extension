@@ -10,7 +10,7 @@ var config = {
     {
       method: 'GET',
       host: 'api.x.com',
-      pathname: '/1.1/account/settings.json',
+      pathname: '/1.1/account/verify_credentials.json',
       verifierUrl: VERIFIER_URL,
     },
   ],
@@ -45,26 +45,26 @@ async function onClick() {
     headers['x-client-transaction-id'] = cachedTransactionId;
   }
 
-  var resp = await prove(
-    {
-      url: 'https://api.x.com/1.1/account/settings.json',
-      method: 'GET',
-      headers: headers,
-    },
-    {
-      verifierUrl: VERIFIER_URL,
-      proxyUrl: '',
-      maxRecvData: 16384,
-      maxSentData: 4096,
-      handlers: [
-        { type: 'SENT', part: 'START_LINE', action: 'REVEAL' },
-        { type: 'RECV', part: 'START_LINE', action: 'REVEAL' },
-        { type: 'RECV', part: 'HEADERS', action: 'REVEAL', params: { key: 'date' } },
-        { type: 'RECV', part: 'BODY', action: 'REVEAL', params: { type: 'json', path: 'screen_name' } },
-      ],
-    },
-  );
-  done(JSON.stringify(resp));
+  try {
+    var resp = await prove(
+      {
+        url: 'https://api.x.com/1.1/account/verify_credentials.json',
+        method: 'GET',
+        headers: headers,
+      },
+      {
+        verifierUrl: VERIFIER_URL,
+        proxyUrl: '',
+        maxRecvData: 16384,
+        maxSentData: 4096,
+        handlers: [],
+      },
+    );
+    done(JSON.stringify(resp));
+  } catch (e) {
+    setState('isRequestPending', false);
+    setState('error', e && e.message ? e.message : String(e));
+  }
 }
 
 function expandUI() {
@@ -78,41 +78,44 @@ function minimizeUI() {
 function main() {
   var isMinimized = useState('isMinimized', false);
   var isRequestPending = useState('isRequestPending', false);
+  var pluginError = useState('error', null);
   var cachedCookie = useState('cookie', null);
   var cachedCsrfToken = useState('x-csrf-token', null);
   var cachedTransactionId = useState('x-client-transaction-id', null);
   var cachedAuthorization = useState('authorization', null);
 
-  if (!cachedCookie || !cachedCsrfToken || !cachedAuthorization) {
-    var headers = useHeaders(function(h) {
-      return h.filter(function(x) {
-        return x.url.indexOf('x.com') >= 0;
-      });
+  var headers = useHeaders(function(h) {
+    return h.filter(function(x) {
+      return x.url.indexOf('x.com') >= 0;
     });
+  });
 
-    if (headers.length > 0) {
-      var cookie = null;
-      var csrfToken = null;
-      var transactionId = null;
-      var authorization = null;
+  if (headers.length > 0) {
+    var cookie = null;
+    var csrfToken = null;
+    var transactionId = null;
+    var authorization = null;
 
-      for (var j = 0; j < headers.length; j++) {
-        var header = headers[j];
-        for (var i = 0; i < header.requestHeaders.length; i++) {
-          var h = header.requestHeaders[i];
-          var lname = h.name.toLowerCase();
-          if (lname === 'cookie' && !cookie) cookie = h.value;
-          if (lname === 'x-csrf-token' && !csrfToken) csrfToken = h.value;
-          if (lname === 'x-client-transaction-id' && !transactionId) transactionId = h.value;
-          if (lname === 'authorization' && !authorization) authorization = h.value;
+    for (var j = 0; j < headers.length; j++) {
+      var header = headers[j];
+      for (var i = 0; i < header.requestHeaders.length; i++) {
+        var h = header.requestHeaders[i];
+        var lname = h.name.toLowerCase();
+        // Always take the longest cookie (native cookies include HttpOnly auth_token)
+        if (lname === 'cookie' && h.value) {
+          if (!cookie || h.value.length > cookie.length) cookie = h.value;
         }
+        if (lname === 'x-csrf-token' && !csrfToken) csrfToken = h.value;
+        if (lname === 'x-client-transaction-id' && !transactionId) transactionId = h.value;
+        if (lname === 'authorization' && !authorization) authorization = h.value;
       }
-
-      if (cookie && !cachedCookie) setState('cookie', cookie);
-      if (csrfToken && !cachedCsrfToken) setState('x-csrf-token', csrfToken);
-      if (transactionId && !cachedTransactionId) setState('x-client-transaction-id', transactionId);
-      if (authorization && !cachedAuthorization) setState('authorization', authorization);
     }
+
+    // Update cookie if we found a more complete one (native cookies > document.cookie)
+    if (cookie && (!cachedCookie || cookie.length > cachedCookie.length)) setState('cookie', cookie);
+    if (csrfToken && !cachedCsrfToken) setState('x-csrf-token', csrfToken);
+    if (transactionId && !cachedTransactionId) setState('x-client-transaction-id', transactionId);
+    if (authorization && !cachedAuthorization) setState('authorization', authorization);
   }
 
   var isConnected = !!(cachedCookie && cachedCsrfToken && cachedAuthorization);
@@ -251,6 +254,22 @@ function main() {
                 },
                 ['Please login to x.com to continue'],
               ),
+          pluginError
+            ? div(
+                {
+                  style: {
+                    marginTop: '12px',
+                    padding: '10px',
+                    borderRadius: '6px',
+                    backgroundColor: '#f8d7da',
+                    color: '#721c24',
+                    fontSize: '12px',
+                    border: '1px solid #f5c6cb',
+                  },
+                },
+                [pluginError],
+              )
+            : div({}, []),
         ],
       ),
     ],

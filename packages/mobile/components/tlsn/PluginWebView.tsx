@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { WebView, WebViewMessageEvent, WebViewNavigation } from 'react-native-webview';
 import type { ShouldStartLoadRequest } from 'react-native-webview/lib/WebViewTypes';
 import CookieManager from '@react-native-cookies/cookies';
@@ -34,59 +34,56 @@ interface PluginWebViewProps {
 
 let headerIdCounter = 0;
 
-function urlMatchesHosts(url: string, hosts: string[]): boolean {
-  for (const host of hosts) {
-    if (url.includes(host)) return true;
-  }
-  return false;
-}
-
 /**
- * Read cookies from the native cookie store for the given URL.
+ * Read cookies from the native cookie store for the target hosts.
  * This captures HttpOnly cookies that document.cookie cannot see.
+ * Checks both the target host (e.g. api.x.com) and its base domain (x.com)
+ * to ensure parent-domain cookies are included.
  */
 async function readNativeCookies(
-  pageUrl: string,
   targetHosts: string[],
   onHeaderIntercepted: (header: InterceptedRequestHeader) => void,
 ): Promise<void> {
   try {
-    // Build full URLs to check for each target host
+    // Build full URLs to check — include target hosts AND their base domains
+    // so cookies set on x.com are found when the target is api.x.com.
     const urlsToCheck = new Set<string>();
 
-    // Always check the page URL itself
-    urlsToCheck.add(pageUrl);
-
-    // Also check https:// URLs for each target host
     for (const host of targetHosts) {
       urlsToCheck.add(`https://${host}`);
+      // Also check the base domain (e.g. api.x.com → x.com)
+      const parts = host.split('.');
+      if (parts.length > 2) {
+        urlsToCheck.add(`https://${parts.slice(-2).join('.')}`);
+      }
     }
 
+    // Merge cookies from all checked URLs into a single cookie string
+    const allCookies = new Map<string, string>();
     for (const checkUrl of urlsToCheck) {
-      if (!urlMatchesHosts(checkUrl, targetHosts)) continue;
-
       const cookies = await CookieManager.get(checkUrl);
-      const cookiePairs: string[] = [];
       for (const [name, cookie] of Object.entries(cookies)) {
-        if (cookie.value) {
-          cookiePairs.push(`${name}=${cookie.value}`);
+        if (cookie.value && !allCookies.has(name)) {
+          allCookies.set(name, `${name}=${cookie.value}`);
         }
       }
+    }
 
-      if (cookiePairs.length > 0) {
-        const cookieString = cookiePairs.join('; ');
-        console.log('[PluginWebView] Native cookies found for', checkUrl, ':', cookiePairs.length, 'cookies');
-        const header: InterceptedRequestHeader = {
-          id: `header-${++headerIdCounter}`,
-          method: 'GET',
-          url: checkUrl,
-          timestamp: Date.now(),
-          type: 'cookie',
-          requestHeaders: [{ name: 'Cookie', value: cookieString }],
-          tabId: 0,
-        };
-        onHeaderIntercepted(header);
-      }
+    if (allCookies.size > 0) {
+      const cookieString = Array.from(allCookies.values()).join('; ');
+      console.log('[PluginWebView] Native cookies:', allCookies.size, 'cookies from', Array.from(urlsToCheck).join(', '));
+      // Emit with the first target host URL so plugin filters match
+      const emitUrl = `https://${targetHosts[0]}`;
+      const header: InterceptedRequestHeader = {
+        id: `header-${++headerIdCounter}`,
+        method: 'GET',
+        url: emitUrl,
+        timestamp: Date.now(),
+        type: 'cookie',
+        requestHeaders: [{ name: 'Cookie', value: cookieString }],
+        tabId: 0,
+      };
+      onHeaderIntercepted(header);
     }
   } catch (e) {
     console.error('[PluginWebView] Failed to read native cookies:', e);
@@ -152,7 +149,7 @@ export function PluginWebView({
       if (!navState.loading && navState.url) {
         // Delay slightly to ensure cookies from the response are stored
         setTimeout(() => {
-          readNativeCookies(navState.url, targetHosts, (header) => {
+          readNativeCookies(targetHosts, (header: InterceptedRequestHeader) => {
             // Deduplicate: only emit if cookies changed
             const cookieValue = header.requestHeaders[0]?.value || '';
             if (cookieValue && cookieValue !== lastNativeCookie.current) {
@@ -165,6 +162,21 @@ export function PluginWebView({
     },
     [targetHosts, onHeaderIntercepted],
   );
+
+  // Periodically poll native cookies to catch HttpOnly cookies set after
+  // XHR-based logins (e.g. Twitter) where no navigation event fires.
+  useEffect(() => {
+    const interval = setInterval(() => {
+      readNativeCookies(targetHosts, (header: InterceptedRequestHeader) => {
+        const cookieValue = header.requestHeaders[0]?.value || '';
+        if (cookieValue && cookieValue !== lastNativeCookie.current) {
+          lastNativeCookie.current = cookieValue;
+          onHeaderIntercepted(header);
+        }
+      });
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [url, targetHosts, onHeaderIntercepted]);
 
   // Keep all http(s) navigations inside the WebView; block custom schemes.
   const handleShouldStartLoad = useCallback((request: ShouldStartLoadRequest) => {
@@ -208,6 +220,12 @@ function buildInterceptionScript(targetHosts: string[]): string {
     if (!url) return false;
     for (var i = 0; i < TARGET_HOSTS.length; i++) {
       if (url.indexOf(TARGET_HOSTS[i]) !== -1) return true;
+      // Also match base domain (target=api.x.com matches urls on x.com)
+      var parts = TARGET_HOSTS[i].split('.');
+      if (parts.length > 2) {
+        var base = parts.slice(-2).join('.');
+        if (url.indexOf(base) !== -1) return true;
+      }
     }
     return false;
   }
