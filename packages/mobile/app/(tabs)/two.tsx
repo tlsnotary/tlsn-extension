@@ -29,8 +29,9 @@ export default function AboutScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>This App</Text>
           <Text style={styles.text}>
-            This is a mobile proof-of-concept demonstrating TLSNotary with Spotify.
-            It proves your top artist without revealing your full listening history.
+            This is a mobile proof-of-concept demonstrating TLSNotary.
+            Use plugins to generate cryptographic proofs of web data
+            while keeping sensitive information private.
           </Text>
         </View>
 
@@ -62,7 +63,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#1DB954',
+    color: '#243f5f',
     marginBottom: 24,
     textAlign: 'center',
   },
@@ -81,7 +82,7 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   link: {
-    backgroundColor: '#1DB954',
+    backgroundColor: '#243f5f',
     padding: 16,
     borderRadius: 8,
     alignItems: 'center',
