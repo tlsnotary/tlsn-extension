@@ -1,40 +1,35 @@
 #!/usr/bin/env node
 /**
- * Build all demo plugins with esbuild.
- *
- * Reads VITE_VERIFIER_HOST and VITE_SSL from environment (or .env defaults)
- * and injects __VERIFIER_URL__ / __PROXY_URL__ at build time.
+ * Build demo plugins via the shared @tlsn/plugins package,
+ * then copy the output to public/plugins/.
  */
 import { execSync } from 'child_process';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const monorepoRoot = path.resolve(__dirname, '../..');
+
+// Forward env variables and build shared plugins for demo target
+execSync('npm run build:demo --workspace=@tlsn/plugins', {
+  stdio: 'inherit',
+  env: process.env,
+  cwd: monorepoRoot,
+});
+
+// Copy built plugins to public/plugins/
+const sourceDir = path.resolve(__dirname, '../plugins/dist/demo');
+const targetDir = path.resolve(__dirname, 'public/plugins');
+fs.mkdirSync(targetDir, { recursive: true });
 
 const plugins = ['twitter', 'swissbank', 'spotify', 'duolingo'];
-
-// Build URLs from environment variables (matching .env / .env.production)
-const VERIFIER_HOST = process.env.VITE_VERIFIER_HOST || 'localhost:7047';
-const SSL = process.env.VITE_SSL === 'true';
-
-const VERIFIER_URL = `${SSL ? 'https' : 'http'}://${VERIFIER_HOST}`;
-const PROXY_URL = `${SSL ? 'wss' : 'ws'}://${VERIFIER_HOST}/proxy?token=`;
-
-console.log('Building plugins with esbuild...');
-console.log(`  VERIFIER_URL: ${VERIFIER_URL}`);
-console.log(`  PROXY_URL: ${PROXY_URL}`);
-
 for (const plugin of plugins) {
-  const entry = path.resolve(__dirname, `plugins/${plugin}.plugin.ts`);
-  const outfile = path.resolve(__dirname, `public/plugins/${plugin}.js`);
-
-  execSync(
-    `esbuild ${entry} --bundle --format=esm --outfile=${outfile}` +
-      ` --define:__VERIFIER_URL__='"${VERIFIER_URL}"'` +
-      ` --define:__PROXY_URL__='"${PROXY_URL}"'`,
-    { stdio: 'inherit' },
+  fs.copyFileSync(
+    path.join(sourceDir, `${plugin}.js`),
+    path.join(targetDir, `${plugin}.js`),
   );
-  console.log(`  ✓ ${plugin}.js`);
+  console.log(`  Copied ${plugin}.js`);
 }
 
-console.log('✓ All plugins built successfully');
+console.log('Demo plugins ready');

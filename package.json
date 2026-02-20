@@ -13,7 +13,8 @@
   ],
   "scripts": {
     "build": "npm run build:deps && npm run build --workspace=extension",
-    "build:deps": "npm run build --workspace=@tlsn/common && npm run build --workspace=@tlsn/plugin-sdk",
+    "build:deps": "npm run build --workspace=@tlsn/common && npm run build --workspace=@tlsn/plugin-sdk && npm run build --workspace=@tlsn/plugins",
+    "build:plugins": "npm run build --workspace=@tlsn/plugins",
     "build:extension": "npm run build --workspace=extension",
     "build:all": "npm run build --workspaces",
     "dev": "npm run dev --workspace=extension",
