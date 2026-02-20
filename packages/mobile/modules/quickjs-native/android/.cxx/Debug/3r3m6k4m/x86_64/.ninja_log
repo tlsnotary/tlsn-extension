@@ -1,0 +1,10 @@
+# ninja log v5
+10	83	1771576904378028613	CMakeFiles/quickjs-jni.dir/quickjs_jni.c.o	cb07fe6401973f35
+1	93	1771576904388170978	CMakeFiles/quickjs.dir/cutils.c.o	7b262a6c7b079308
+3	131	1771576904419944829	CMakeFiles/quickjs.dir/dtoa.c.o	d6e42762908b15d5
+4	155	1771576904449007296	CMakeFiles/quickjs.dir/libregexp.c.o	f78abe48877dcfc5
+5	202	1771576904493495646	CMakeFiles/quickjs.dir/libunicode.c.o	c9ed8c0ff236fdbe
+6	271	1771576904563905244	CMakeFiles/quickjs.dir/quickjs-libc.c.o	e90cde280821651b
+8	2396	1771576906665623166	CMakeFiles/quickjs.dir/quickjs.c.o	4049e24ffadcc7d1
+2396	2455	1771576906748381429	/Users/heeckhau/tlsnotary/tlsn-extension/packages/mobile/modules/quickjs-native/android/build/intermediates/cxx/Debug/3r3m6k4m/obj/x86_64/libquickjs.so	170483f7fff2753a
+2455	2522	1771576906814536222	/Users/heeckhau/tlsnotary/tlsn-extension/packages/mobile/modules/quickjs-native/android/build/intermediates/cxx/Debug/3r3m6k4m/obj/x86_64/libquickjs-jni.so	88dbe58a301cdfdd

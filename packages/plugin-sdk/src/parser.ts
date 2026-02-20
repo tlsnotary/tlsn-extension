@@ -547,7 +547,7 @@ export class Parser {
 
   /**
    * Recursively processes a JSON array and tracks ranges for all elements.
-   * Stores elements with keys like "items[0]".
+   * Stores elements with keys like "items.0".
    */
   private processJsonArray(
     arr: any[],
@@ -616,7 +616,7 @@ export class Parser {
 
   /**
    * Converts a path array to a string key.
-   * Examples: ["a", "b"] → "a.b", ["items", 0] → "items[0]"
+   * Examples: ["a", "b"] → "a.b", ["items", 0] → "items.0"
    */
   private pathToString(path: PathSegment[]): string {
     if (path.length === 0) return '';

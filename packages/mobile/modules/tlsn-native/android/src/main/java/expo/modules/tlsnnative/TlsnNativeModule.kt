@@ -44,23 +44,31 @@ class TlsnNativeModule : Module() {
             rustInitialize()
         }
 
-        AsyncFunction("prove") { requestMap: Map<String, Any?>, optionsMap: Map<String, Any?>, promise: Promise ->
+        // Accept JSON strings to avoid Expo Kotlin bridge type conversion issues
+        // with nested objects. The JS side JSON.stringifies before calling.
+        AsyncFunction("prove") { requestJson: String, optionsJson: String, promise: Promise ->
             Thread {
                 try {
+                    val requestObj = JSONObject(requestJson)
+                    val optionsObj = JSONObject(optionsJson)
+
                     // Parse HTTP request
-                    val url = requestMap["url"] as? String
-                        ?: return@Thread promise.reject("InvalidRequest", "Missing url", null)
-                    val method = requestMap["method"] as? String
-                        ?: return@Thread promise.reject("InvalidRequest", "Missing method", null)
+                    val url = requestObj.optString("url", "")
+                        .ifEmpty { return@Thread promise.reject("InvalidRequest", "Missing url", null) }
+                    val method = requestObj.optString("method", "")
+                        .ifEmpty { return@Thread promise.reject("InvalidRequest", "Missing method", null) }
 
                     val headers = mutableListOf<HttpHeader>()
-                    @Suppress("UNCHECKED_CAST")
-                    val headersMap = requestMap["headers"] as? Map<String, String> ?: emptyMap()
-                    for ((name, value) in headersMap) {
-                        headers.add(HttpHeader(name, value))
+                    val headersJsonObj = requestObj.optJSONObject("headers")
+                    if (headersJsonObj != null) {
+                        for (name in headersJsonObj.keys()) {
+                            headers.add(HttpHeader(name, headersJsonObj.getString(name)))
+                        }
                     }
 
-                    val body = requestMap["body"] as? String
+                    val body: String? = if (requestObj.has("body") && !requestObj.isNull("body")) {
+                        requestObj.getString("body")
+                    } else null
 
                     val request = HttpRequest(
                         url = url,
@@ -70,64 +78,67 @@ class TlsnNativeModule : Module() {
                     )
 
                     // Parse prover options
-                    val verifierUrl = optionsMap["verifierUrl"] as? String
-                        ?: return@Thread promise.reject("InvalidOptions", "Missing verifierUrl", null)
+                    val verifierUrl = optionsObj.optString("verifierUrl", "")
+                        .ifEmpty { return@Thread promise.reject("InvalidOptions", "Missing verifierUrl", null) }
 
-                    val maxSentData = (optionsMap["maxSentData"] as? Number)?.toInt()?.toUInt() ?: 4096u
-                    val maxRecvData = (optionsMap["maxRecvData"] as? Number)?.toInt()?.toUInt() ?: 16384u
+                    val maxSentData = optionsObj.optInt("maxSentData", 4096).toUInt()
+                    val maxRecvData = optionsObj.optInt("maxRecvData", 16384).toUInt()
 
                     // Parse handlers for selective disclosure
                     val handlers = mutableListOf<Handler>()
-                    @Suppress("UNCHECKED_CAST")
-                    val handlersList = optionsMap["handlers"] as? List<Map<String, Any?>> ?: emptyList()
+                    val handlersArray = optionsObj.optJSONArray("handlers")
 
-                    for ((index, handlerMap) in handlersList.withIndex()) {
-                        val handlerTypeStr = handlerMap["handlerType"] as? String ?: continue
-                        val partStr = handlerMap["part"] as? String ?: continue
-                        val actionStr = handlerMap["action"] as? String ?: continue
+                    if (handlersArray != null) {
+                        for (index in 0 until handlersArray.length()) {
+                            val handlerObj = handlersArray.getJSONObject(index)
+                            val handlerTypeStr = handlerObj.optString("handlerType", "")
+                            val partStr = handlerObj.optString("part", "")
+                            val actionStr = handlerObj.optString("action", "")
 
-                        val handlerType = when (handlerTypeStr) {
-                            "Sent" -> HandlerType.SENT
-                            "Recv" -> HandlerType.RECV
-                            else -> continue
+                            if (handlerTypeStr.isEmpty() || partStr.isEmpty() || actionStr.isEmpty()) continue
+
+                            val handlerType = when (handlerTypeStr) {
+                                "Sent" -> HandlerType.SENT
+                                "Recv" -> HandlerType.RECV
+                                else -> continue
+                            }
+
+                            val part = when (partStr) {
+                                "StartLine" -> HandlerPart.START_LINE
+                                "Protocol" -> HandlerPart.PROTOCOL
+                                "Method" -> HandlerPart.METHOD
+                                "RequestTarget" -> HandlerPart.REQUEST_TARGET
+                                "StatusCode" -> HandlerPart.STATUS_CODE
+                                "Headers" -> HandlerPart.HEADERS
+                                "Body" -> HandlerPart.BODY
+                                "All" -> HandlerPart.ALL
+                                else -> continue
+                            }
+
+                            val action = when (actionStr) {
+                                "Reveal" -> HandlerAction.REVEAL
+                                "Pedersen" -> HandlerAction.PEDERSEN
+                                else -> continue
+                            }
+
+                            val paramsObj = handlerObj.optJSONObject("params")
+                            val params = if (paramsObj != null) {
+                                HandlerParams(
+                                    key = if (paramsObj.has("key")) paramsObj.optString("key") else null,
+                                    hideKey = if (paramsObj.has("hideKey")) paramsObj.optBoolean("hideKey") else null,
+                                    hideValue = if (paramsObj.has("hideValue")) paramsObj.optBoolean("hideValue") else null,
+                                    contentType = if (paramsObj.has("contentType")) paramsObj.optString("contentType") else null,
+                                    path = if (paramsObj.has("path")) paramsObj.optString("path") else null,
+                                    regex = if (paramsObj.has("regex")) paramsObj.optString("regex") else null,
+                                    flags = if (paramsObj.has("flags")) paramsObj.optString("flags") else null
+                                )
+                            } else {
+                                null
+                            }
+
+                            handlers.add(Handler(handlerType, part, action, params))
+                            android.util.Log.i("TlsnNative", "Handler $index: type=$handlerTypeStr, part=$partStr, action=$actionStr")
                         }
-
-                        val part = when (partStr) {
-                            "StartLine" -> HandlerPart.START_LINE
-                            "Protocol" -> HandlerPart.PROTOCOL
-                            "Method" -> HandlerPart.METHOD
-                            "RequestTarget" -> HandlerPart.REQUEST_TARGET
-                            "StatusCode" -> HandlerPart.STATUS_CODE
-                            "Headers" -> HandlerPart.HEADERS
-                            "Body" -> HandlerPart.BODY
-                            "All" -> HandlerPart.ALL
-                            else -> continue
-                        }
-
-                        val action = when (actionStr) {
-                            "Reveal" -> HandlerAction.REVEAL
-                            "Pedersen" -> HandlerAction.PEDERSEN
-                            else -> continue
-                        }
-
-                        @Suppress("UNCHECKED_CAST")
-                        val paramsMap = handlerMap["params"] as? Map<String, Any?>
-                        val params = if (paramsMap != null) {
-                            HandlerParams(
-                                key = paramsMap["key"] as? String,
-                                hideKey = paramsMap["hideKey"] as? Boolean,
-                                hideValue = paramsMap["hideValue"] as? Boolean,
-                                contentType = paramsMap["contentType"] as? String,
-                                path = paramsMap["path"] as? String,
-                                regex = paramsMap["regex"] as? String,
-                                flags = paramsMap["flags"] as? String
-                            )
-                        } else {
-                            null
-                        }
-
-                        handlers.add(Handler(handlerType, part, action, params))
-                        android.util.Log.i("TlsnNative", "Handler $index: type=$handlerTypeStr, part=$partStr, action=$actionStr")
                     }
 
                     android.util.Log.i("TlsnNative", "Final handlers count: ${handlers.size}")

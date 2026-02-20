@@ -1,0 +1,4 @@
+module QuickJSBridge {
+    header "quickjs_bridge.h"
+    export *
+}

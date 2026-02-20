@@ -1,0 +1,4 @@
+/Users/heeckhau/tlsnotary/tlsn-extension/packages/mobile/modules/quickjs-native/android/.cxx/Debug/3r3m6k4m/armeabi-v7a/CMakeFiles/quickjs.dir
+/Users/heeckhau/tlsnotary/tlsn-extension/packages/mobile/modules/quickjs-native/android/.cxx/Debug/3r3m6k4m/armeabi-v7a/CMakeFiles/quickjs-jni.dir
+/Users/heeckhau/tlsnotary/tlsn-extension/packages/mobile/modules/quickjs-native/android/.cxx/Debug/3r3m6k4m/armeabi-v7a/CMakeFiles/edit_cache.dir
+/Users/heeckhau/tlsnotary/tlsn-extension/packages/mobile/modules/quickjs-native/android/.cxx/Debug/3r3m6k4m/armeabi-v7a/CMakeFiles/rebuild_cache.dir
