@@ -1,3 +1,7 @@
+import {
+  getPluginsForPlatform,
+  type PluginMetadata,
+} from '@tlsn/plugins';
 import type { PluginConfig } from '../../lib/MobilePluginHost';
 
 export interface PluginEntry {
@@ -13,81 +17,40 @@ export interface PluginEntry {
   getPluginCode: () => string;
 }
 
-export const PLUGIN_REGISTRY: PluginEntry[] = [
-  {
-    id: 'swissbank',
-    name: 'Swiss Bank',
-    logo: '🏦',
-    resultLabel: 'Account Balance (CHF)',
-    accentColor: '#4CAF50',
-    description:
-      'Verify your Swiss bank account balance securely and privately. (Login: admin / admin)',
+// Static require map — Metro needs static require() calls for bundling.
+// These reference the auto-generated string exports from @tlsn/plugins/dist/mobile/.
+// Run `npm run build:plugins` to generate these files.
+const CODE_MAP: Record<string, () => string> = {
+  swissbank: () => require('@tlsn/plugins/dist/mobile/swissbank').SWISSBANK_PLUGIN_CODE,
+  spotify: () => require('@tlsn/plugins/dist/mobile/spotify').SPOTIFY_PLUGIN_CODE,
+  duolingo: () => require('@tlsn/plugins/dist/mobile/duolingo').DUOLINGO_PLUGIN_CODE,
+};
+
+const VERIFIER_URL = 'http://localhost:7047';
+
+function toPluginEntry(meta: PluginMetadata): PluginEntry {
+  return {
+    id: meta.id,
+    name: meta.name,
+    description: meta.description,
+    logo: meta.logo,
+    resultLabel: meta.resultLabel,
+    accentColor: meta.accentColor,
     pluginConfig: {
-      name: 'Swiss Bank Prover',
-      description: 'This plugin will prove your Swiss Bank account balance.',
-      requests: [
-        {
-          method: 'GET',
-          host: 'swissbank.tlsnotary.org',
-          pathname: '/balances',
-          verifierUrl: 'http://localhost:7047',
-        },
-      ],
-      urls: ['https://swissbank.tlsnotary.org/*'],
+      name: meta.pluginConfig.name,
+      description: meta.pluginConfig.description,
+      requests: meta.pluginConfig.requests.map((r) => ({
+        ...r,
+        verifierUrl: VERIFIER_URL,
+      })),
+      urls: meta.pluginConfig.urls,
     },
-    getPluginCode: () =>
-      require('./swissbankPluginCode').SWISSBANK_PLUGIN_CODE,
-  },
-  {
-    id: 'spotify',
-    name: 'Spotify',
-    logo: '🎵',
-    resultLabel: 'Top Artist',
-    accentColor: '#1DB954',
-    description:
-      'Prove your Spotify listening history and music preferences',
-    pluginConfig: {
-      name: 'Spotify Top Artist',
-      description: 'This plugin will prove your top artist on Spotify.',
-      requests: [
-        {
-          method: 'GET',
-          host: 'api.spotify.com',
-          pathname: '/v1/me/top/artists',
-          verifierUrl: 'http://localhost:7047',
-        },
-      ],
-      urls: ['https://developer.spotify.com/*'],
-    },
-    getPluginCode: () =>
-      require('./spotifyPluginCode').SPOTIFY_PLUGIN_CODE,
-  },
-  {
-    id: 'duolingo',
-    name: 'Duolingo',
-    logo: '🦉',
-    resultLabel: 'Longest Streak',
-    accentColor: '#58CC02',
-    description:
-      'Prove your Duolingo language learning progress and achievements',
-    pluginConfig: {
-      name: 'Duolingo Plugin',
-      description:
-        'This plugin will prove your email and current streak on Duolingo.',
-      requests: [
-        {
-          method: 'GET',
-          host: 'www.duolingo.com',
-          pathname: '/2023-05-23/users/*',
-          verifierUrl: 'http://localhost:7047',
-        },
-      ],
-      urls: ['https://www.duolingo.com/*'],
-    },
-    getPluginCode: () =>
-      require('./duolingoPluginCode').DUOLINGO_PLUGIN_CODE,
-  },
-];
+    getPluginCode: CODE_MAP[meta.id] || (() => ''),
+  };
+}
+
+export const PLUGIN_REGISTRY: PluginEntry[] =
+  getPluginsForPlatform('mobile').map(toPluginEntry);
 
 export function getPluginById(id: string): PluginEntry | undefined {
   return PLUGIN_REGISTRY.find((p) => p.id === id);

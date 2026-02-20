@@ -4,16 +4,18 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node build-plugins.js --watch & vite",
+    "dev": "npm run build:plugins && vite",
     "build": "npm run build:plugins && vite build",
     "build:plugins": "node build-plugins.js",
     "preview": "vite preview",
     "type-check": "tsc --noEmit",
-    "typecheck:plugins": "tsc --noEmit -p plugins/tsconfig.json",
+    "typecheck:plugins": "tsc --noEmit -p ../plugins/src/tsconfig.json",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
   },
   "dependencies": {
+    "@tlsn/plugins": "*",
+    "happy-dom": "20.0.11",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },

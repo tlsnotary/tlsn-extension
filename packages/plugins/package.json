@@ -1,0 +1,27 @@
+{
+  "name": "@tlsn/plugins",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "source": "src/registry.ts",
+  "main": "dist/registry.js",
+  "types": "dist/registry.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/registry.js",
+      "types": "./dist/registry.d.ts"
+    },
+    "./demo/*": "./dist/demo/*",
+    "./mobile/*": "./dist/mobile/*"
+  },
+  "scripts": {
+    "build": "node build.js && tsc -p tsconfig.build.json",
+    "build:demo": "node build.js --target=demo",
+    "build:mobile": "node build.js --target=mobile"
+  },
+  "devDependencies": {
+    "@tlsn/plugin-sdk": "*",
+    "esbuild": "^0.24.2",
+    "typescript": "^5.3.3"
+  }
+}
