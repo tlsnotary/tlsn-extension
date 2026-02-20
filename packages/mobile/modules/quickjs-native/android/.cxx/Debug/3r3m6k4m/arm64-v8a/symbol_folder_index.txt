@@ -1,1 +1,0 @@
-/Users/heeckhau/tlsnotary/tlsn-extension/packages/mobile/modules/quickjs-native/android/build/intermediates/cxx/Debug/3r3m6k4m/obj/arm64-v8a

@@ -10,3 +10,6 @@ android/src/main/jni/*.c
 android/src/main/jni/*.h
 !android/src/main/jni/quickjs_jni.c
 !android/src/main/jni/CMakeLists.txt
+
+# CMake/NDK build cache
+android/.cxx/
