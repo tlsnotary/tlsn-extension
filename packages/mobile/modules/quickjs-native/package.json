@@ -1,0 +1,9 @@
+{
+  "name": "quickjs-native",
+  "version": "1.0.0",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "description": "Native QuickJS JavaScript sandbox for React Native/Expo",
+  "author": "TLSNotary",
+  "license": "MIT"
+}

@@ -1,0 +1,35 @@
+{
+  "buildFiles": [
+    "/Users/heeckhau/tlsnotary/tlsn-extension/packages/mobile/modules/quickjs-native/android/src/main/jni/CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "/Users/heeckhau/Library/Android/sdk/cmake/3.22.1/bin/ninja",
+      "-C",
+      "/Users/heeckhau/tlsnotary/tlsn-extension/packages/mobile/modules/quickjs-native/android/.cxx/Debug/3r3m6k4m/x86",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "/Users/heeckhau/Library/Android/sdk/cmake/3.22.1/bin/ninja",
+    "-C",
+    "/Users/heeckhau/tlsnotary/tlsn-extension/packages/mobile/modules/quickjs-native/android/.cxx/Debug/3r3m6k4m/x86",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {
+    "quickjs-jni::@6890427a1f51a3e7e1df": {
+      "artifactName": "quickjs-jni",
+      "abi": "x86",
+      "output": "/Users/heeckhau/tlsnotary/tlsn-extension/packages/mobile/modules/quickjs-native/android/build/intermediates/cxx/Debug/3r3m6k4m/obj/x86/libquickjs-jni.so",
+      "runtimeFiles": [
+        "/Users/heeckhau/tlsnotary/tlsn-extension/packages/mobile/modules/quickjs-native/android/build/intermediates/cxx/Debug/3r3m6k4m/obj/x86/libquickjs.so"
+      ]
+    },
+    "quickjs::@6890427a1f51a3e7e1df": {
+      "artifactName": "quickjs",
+      "abi": "x86",
+      "output": "/Users/heeckhau/tlsnotary/tlsn-extension/packages/mobile/modules/quickjs-native/android/build/intermediates/cxx/Debug/3r3m6k4m/obj/x86/libquickjs.so",
+      "runtimeFiles": []
+    }
+  }
+}

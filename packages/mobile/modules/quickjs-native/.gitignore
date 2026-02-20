@@ -1,0 +1,12 @@
+# QuickJS C sources are downloaded by setup.sh, don't commit them
+ios/quickjs/*.c
+ios/quickjs/*.h
+!ios/quickjs/module.modulemap
+!ios/quickjs/SETUP.md
+!ios/quickjs/quickjs_bridge.h
+!ios/quickjs/quickjs_bridge.c
+
+android/src/main/jni/*.c
+android/src/main/jni/*.h
+!android/src/main/jni/quickjs_jni.c
+!android/src/main/jni/CMakeLists.txt
