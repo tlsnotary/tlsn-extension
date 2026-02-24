@@ -1,0 +1,19 @@
+{
+  "name": "@tlsn/verifier-node",
+  "version": "0.1.0-alpha.14",
+  "private": true,
+  "type": "module",
+  "description": "TLSNotary verifier running in Node.js using WASM",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.10",
+    "tsx": "^4.7.0",
+    "typescript": "^5.5.4"
+  }
+}

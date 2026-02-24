@@ -25,7 +25,8 @@
     "demo": "npm run dev --workspace=@tlsnotary/demo",
     "tutorial": "npm run dev --workspace=@tlsn/tutorial",
     "docker:up": "cd packages/demo && docker compose up --build -d",
-    "docker:down": "cd packages/demo && docker compose down"
+    "docker:down": "cd packages/demo && docker compose down",
+    "verifier:node": "npm run dev --workspace=@tlsn/verifier-node"
   },
   "devDependencies": {
     "baseline-browser-mapping": "^2.10.0",
