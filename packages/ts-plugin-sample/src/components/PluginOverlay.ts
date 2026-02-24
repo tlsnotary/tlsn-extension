@@ -25,6 +25,7 @@ import { OverlayHeader } from './OverlayHeader';
 import { StatusIndicator } from './StatusIndicator';
 import { ProveButton } from './ProveButton';
 import { LoginPrompt } from './LoginPrompt';
+import { ProgressBar } from './ProgressBar';
 
 export interface PluginOverlayProps {
   title: string;
@@ -78,6 +79,9 @@ export function PluginOverlay({
           isConnected
             ? ProveButton({ onClick: onProve, isPending })
             : LoginPrompt(),
+
+          // Progress bar (visible during proof generation)
+          ...ProgressBar(),
         ]
       ),
     ]

@@ -7,7 +7,8 @@ import type {
 } from '../../../../tlsn-wasm-pkg/tlsn_wasm';
 import { logger } from '@tlsn/common';
 
-// Worker API - all prover operations happen in the worker to avoid serialization issues.
+// Extract worker reference so we can listen for progress messages alongside Comlink.
+const worker = new Worker(new URL('./worker.ts', import.meta.url));
 const workerApi = Comlink.wrap<{
   init: (config?: {
     loggingLevel?: string;
@@ -33,7 +34,7 @@ const workerApi = Comlink.wrap<{
   };
   reveal: (proverId: string, revealConfig: Reveal) => Promise<void>;
   freeProver: (proverId: string) => void;
-}>(new Worker(new URL('./worker.ts', import.meta.url)));
+}>(worker);
 
 // ============================================================================
 // WebSocket Message Types (matching Rust verifier)
@@ -67,13 +68,39 @@ interface SessionState {
   responseReceived: boolean;
 }
 
+/** Progress callback signature for WASM and JS-side progress events. */
+export type ProgressCallback = (data: {
+  step: string;
+  progress: number;
+  message: string;
+  source: string;
+}) => void;
+
 export class ProveManager {
   /** Maps proverId to its session state - each prover has isolated session */
   private sessions: Map<string, SessionState> = new Map();
+  private onProgress: ProgressCallback | null = null;
+
+  /** Set a callback to receive WASM-side progress events from the worker. */
+  setProgressCallback(cb: ProgressCallback | null) {
+    this.onProgress = cb;
+  }
 
   async init() {
+    // Listen for WASM_PROGRESS messages from worker (alongside Comlink).
+    worker.addEventListener('message', (event: MessageEvent) => {
+      if (event.data?.type === 'WASM_PROGRESS' && this.onProgress) {
+        this.onProgress({
+          step: event.data.step,
+          progress: event.data.progress,
+          message: event.data.message,
+          source: 'wasm',
+        });
+      }
+    });
+
     await workerApi.init({
-      loggingLevel: 'Debug',
+      loggingLevel: 'Info',
       hardwareConcurrency: navigator.hardwareConcurrency,
       crateFilters: [
         { name: 'yamux', level: 'Info' },

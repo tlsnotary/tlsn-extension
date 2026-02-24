@@ -39,6 +39,7 @@ Plugins run in a sandboxed QuickJS environment with access to the following APIs
 - **`prove(request, options)`** - Generate TLSNotary proofs for HTTP requests
   - Request: `url`, `method`, `headers`
   - Options: `verifierUrl`, `proxyUrl`, `maxRecvData`, `maxSentData`, `handlers`
+  - Automatically manages `_proveProgress` state for real-time progress feedback
 
 ### HTTP Parser
 
@@ -77,8 +78,9 @@ npm install @tlsn/plugin-sdk
 import { Host } from '@tlsn/plugin-sdk';
 
 const host = new Host({
-  onProve: async (request, options) => {
+  onProve: async (request, options, onProgress?) => {
     // Handle proof generation
+    // Call onProgress?.({ step, progress, message }) to update plugin UI
     return proofResult;
   },
   onRenderPluginUi: (domJson) => {
@@ -99,7 +101,21 @@ await host.executePlugin(pluginCode, { eventEmitter });
 
 ### Writing a Plugin
 
-See [`packages/demo/public/plugins/twitter.js`](../demo/public/plugins/twitter.js) for a complete working example, and [PLUGIN.md](../../PLUGIN.md) for full API documentation.
+See [`packages/demo/public/plugins/twitter.js`](../demo/public/plugins/twitter.js) for a complete working example, [`packages/ts-plugin-sample`](../ts-plugin-sample) for a TypeScript example, and [PLUGIN.md](../../PLUGIN.md) for full API documentation.
+
+### Progress Reporting
+
+The `prove()` function automatically updates a reserved `_proveProgress` state key with real-time progress data. Plugins can read this state in `main()` to render a progress bar:
+
+```javascript
+function main() {
+  const progress = useState('_proveProgress', null);
+  // progress = { step: 'MPC_SETUP', progress: 0.2, message: 'MPC session established' }
+  // ... render progress bar based on progress.progress and progress.message
+}
+```
+
+See [PLUGIN.md - Progress Reporting](../../PLUGIN.md#automatic-progress-via-_proveprogress-state) for full documentation and examples.
 
 ### Reveal Handlers
 

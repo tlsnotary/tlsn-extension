@@ -28,8 +28,9 @@
     "docker:down": "cd packages/demo && docker compose down"
   },
   "devDependencies": {
+    "baseline-browser-mapping": "^2.10.0",
+    "serve": "^14.2.4",
     "typescript": "^5.5.4",
-    "vite": "^7.1.7",
-    "serve": "^14.2.4"
+    "vite": "^7.1.7"
   }
 }

@@ -12,30 +12,36 @@ class ExtensionAPI {
    * Execute JavaScript code in a sandboxed environment
    *
    * @param code - The JavaScript code to execute
+   * @param options - Optional settings
+   * @param options.requestId - Caller-provided ID for correlating progress events.
+   *   When provided, progress events are dispatched as `TLSN_PROVE_PROGRESS`
+   *   window messages with this requestId so the caller can match them.
    * @returns Promise that resolves with the execution result or rejects with an error
    *
    * @example
    * ```javascript
-   * // Execute simple code
-   * const result = await window.tlsn.execCode('1 + 2');
-   * console.log(result); // 3
+   * // Listen for progress events
+   * window.addEventListener('message', (event) => {
+   *   if (event.data?.type === 'TLSN_PROVE_PROGRESS') {
+   *     console.log(event.data.step, event.data.progress, event.data.message);
+   *   }
+   * });
    *
-   * // Handle errors
-   * try {
-   *   await window.tlsn.execCode('throw new Error("test")');
-   * } catch (error) {
-   *   console.error(error);
-   * }
+   * // Execute with progress tracking
+   * const result = await window.tlsn.execCode(pluginCode, {
+   *   requestId: 'my-request-123',
+   * });
    * ```
    */
-  async execCode(code: string): Promise<any> {
+  async execCode(code: string, options?: { requestId?: string }): Promise<any> {
     if (!code || typeof code !== 'string') {
       throw new Error('Code must be a non-empty string');
     }
 
     return new Promise((resolve, reject) => {
-      // Generate a unique request ID for this execution
-      const requestId = `exec_${Date.now()}_${Math.random()}`;
+      // Use caller-provided requestId or generate one
+      const requestId =
+        options?.requestId || `exec_${Date.now()}_${Math.random()}`;
       let timeout: any = null;
 
       // Set up one-time listener for the response

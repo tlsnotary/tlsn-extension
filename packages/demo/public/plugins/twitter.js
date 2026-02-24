@@ -12,7 +12,7 @@ var config = {
   ],
   urls: ["https://x.com/*"]
 };
-var onClick = async () => {
+async function onClick() {
   const isRequestPending = useState("isRequestPending", false);
   if (isRequestPending) return;
   setState("isRequestPending", true);
@@ -66,14 +66,27 @@ var onClick = async () => {
     }
   );
   done(JSON.stringify(resp));
-};
-var expandUI = () => {
+}
+function expandUI() {
   setState("isMinimized", false);
-};
-var minimizeUI = () => {
+}
+function minimizeUI() {
   setState("isMinimized", true);
-};
-var main = () => {
+}
+function proveProgressBar() {
+  const progress = useState("_proveProgress", null);
+  if (!progress) return [];
+  const pct = `${Math.round(progress.progress * 100)}%`;
+  return [
+    div({ style: { marginTop: "12px" } }, [
+      div({ style: { height: "6px", backgroundColor: "#e5e7eb", borderRadius: "3px", overflow: "hidden" } }, [
+        div({ style: { height: "100%", width: pct, background: "linear-gradient(90deg, #667eea, #764ba2)", borderRadius: "3px", transition: "width 0.4s ease" } }, [])
+      ]),
+      div({ style: { fontSize: "12px", color: "#6b7280", marginTop: "6px", textAlign: "center" } }, [progress.message])
+    ])
+  ];
+}
+function main() {
   const isMinimized = useState("isMinimized", false);
   const isRequestPending = useState("isRequestPending", false);
   const cachedCookie = useState("cookie", null);
@@ -244,12 +257,13 @@ var main = () => {
               }
             },
             ["Please login to x.com to continue"]
-          )
+          ),
+          ...proveProgressBar()
         ]
       )
     ]
   );
-};
+}
 var twitter_plugin_default = {
   main,
   onClick,

@@ -21,6 +21,9 @@ getStoredLogLevel().then((level) => {
 // Initialize WindowManager for multi-window support
 const windowManager = new WindowManager();
 
+// Track requestId → tabId for routing progress events back to the originating tab
+const progressRoutes: Map<string, number> = new Map();
+
 // Create context menu for Developer Console - only for extension icon
 browser.contextMenus.create({
   id: 'developer-console',
@@ -166,9 +169,30 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
     return; // No response needed
   }
 
+  // Route PROVE_PROGRESS from offscreen to the originating tab
+  if (request.type === 'PROVE_PROGRESS') {
+    const tabId = progressRoutes.get(request.requestId);
+    if (tabId) {
+      browser.tabs.sendMessage(tabId, {
+        type: 'PROVE_PROGRESS',
+        requestId: request.requestId,
+        step: request.step,
+        progress: request.progress,
+        message: request.message,
+        source: request.source,
+      });
+    }
+    return; // No response needed
+  }
+
   // Handle code execution requests
   if (request.type === 'EXEC_CODE') {
     logger.debug('EXEC_CODE request received');
+
+    // Store requestId → tabId mapping for progress routing
+    if (request.requestId && sender.tab?.id) {
+      progressRoutes.set(request.requestId, sender.tab.id);
+    }
 
     (async () => {
       try {
@@ -234,6 +258,11 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
           error:
             error instanceof Error ? error.message : 'Code execution failed',
         });
+      } finally {
+        // Clean up progress route
+        if (request.requestId) {
+          progressRoutes.delete(request.requestId);
+        }
       }
     })();
 

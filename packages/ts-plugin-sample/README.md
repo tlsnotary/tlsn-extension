@@ -112,6 +112,23 @@ declare function prove(requestOptions: {...}, proverOptions: {...}): Promise<any
 declare function done(result?: any): void;
 ```
 
+### Progress Reporting
+
+The `prove()` function automatically manages a `_proveProgress` state key with real-time proof generation progress. The `ProgressBar` component reads this state and renders an animated progress bar:
+
+```typescript
+import { ProgressBar } from './components';
+
+function main(): DomJson {
+  return div({}, [
+    // ... other UI elements ...
+    ...ProgressBar(),  // Shows progress during proof generation
+  ]);
+}
+```
+
+See `src/components/ProgressBar.ts` for the implementation and [PLUGIN.md](../../PLUGIN.md) for full progress API documentation.
+
 ### Type-Safe Handlers
 
 ```typescript

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plugin } from '../types';
+import { Plugin, ProgressData } from '../types';
 
 interface PluginResultData {
     resultHtml: string;
@@ -10,6 +10,7 @@ interface PluginButtonsProps {
     plugins: Record<string, Plugin>;
     runningPlugins: Set<string>;
     pluginResults: Record<string, PluginResultData>;
+    pluginProgress: Record<string, ProgressData>;
     allChecksPass: boolean;
     onRunPlugin: (pluginKey: string) => void;
 }
@@ -18,6 +19,7 @@ export function PluginButtons({
     plugins,
     runningPlugins,
     pluginResults,
+    pluginProgress,
     allChecksPass,
     onRunPlugin,
 }: PluginButtonsProps) {
@@ -40,6 +42,7 @@ export function PluginButtons({
             {Object.entries(plugins).map(([key, plugin]) => {
                 const isRunning = runningPlugins.has(key);
                 const result = pluginResults[key];
+                const progress = pluginProgress[key];
                 const hasResult = !!result;
 
                 return (
@@ -82,6 +85,18 @@ export function PluginButtons({
                                 <span>📄 View Source</span>
                             </a>
                         </div>
+
+                        {isRunning && progress && (
+                            <div className="plugin-progress">
+                                <div className="plugin-progress-bar">
+                                    <div
+                                        className="plugin-progress-fill"
+                                        style={{ width: `${Math.round(progress.progress * 100)}%` }}
+                                    />
+                                </div>
+                                <div className="plugin-progress-text">{progress.message}</div>
+                            </div>
+                        )}
 
                         {hasResult && (
                             <div className="plugin-result">

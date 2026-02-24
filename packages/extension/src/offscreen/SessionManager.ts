@@ -1,7 +1,7 @@
 import Host from '@tlsn/plugin-sdk/src';
 import { ProveManager } from './ProveManager';
 import type { Method } from '../../../tlsn-wasm-pkg/tlsn_wasm';
-import { DomJson, Handler, PluginConfig } from '@tlsn/plugin-sdk/src/types';
+import { DomJson, Handler, PluginConfig, ProveProgressData } from '@tlsn/plugin-sdk/src/types';
 import { logger } from '@tlsn/common';
 import {
   validateProvePermission,
@@ -13,6 +13,7 @@ export class SessionManager {
   private proveManager: ProveManager;
   private initPromise: Promise<void>;
   private currentConfig: PluginConfig | null = null;
+  private currentRequestId: string | null = null;
 
   constructor() {
     this.host = new Host({
@@ -31,6 +32,7 @@ export class SessionManager {
           handlers: Handler[];
           sessionData?: Record<string, string>;
         },
+        onProgress?: (data: ProveProgressData) => void,
       ) => {
         let url;
 
@@ -52,6 +54,14 @@ export class SessionManager {
           ...proverOptions.sessionData,
         };
 
+        // Helper: emit to both the page (via background) and the plugin UI
+        const emitBoth = (step: string, progress: number, message: string) => {
+          this.emitProgress(step, progress, message);
+          onProgress?.({ step, progress, message });
+        };
+
+        emitBoth('CONNECTING', 0.0, 'Connecting to verifier...');
+
         const proverId = await this.proveManager.createProver(
           url.hostname,
           proverOptions.verifierUrl,
@@ -61,7 +71,10 @@ export class SessionManager {
         );
 
         try {
+          emitBoth('MPC_SETUP', 0.15, 'MPC session established');
+
           // Send request via ProveManager which handles IoChannel creation in the worker.
+          emitBoth('SENDING_REQUEST', 0.3, 'Sending request...');
           await this.proveManager.sendRequest(
             proverId,
             proverOptions.proxyUrl,
@@ -74,6 +87,7 @@ export class SessionManager {
           );
 
           // Compute reveal ranges via WASM (parses HTTP transcripts + maps handlers to byte ranges)
+          emitBoth('PROCESSING_TRANSCRIPT', 0.5, 'Processing transcript...');
           const {
             sentRanges,
             recvRanges,
@@ -88,19 +102,24 @@ export class SessionManager {
           logger.debug('recvRanges', recvRanges);
 
           // Send reveal config (ranges + handlers) to verifier BEFORE calling reveal()
+          emitBoth('SENDING_REVEAL_CONFIG', 0.6, 'Configuring selective disclosure...');
           await this.proveManager.sendRevealConfig(proverId, {
             sent: sentRangesWithHandlers,
             recv: recvRangesWithHandlers,
           });
 
           // Reveal the ranges
+          emitBoth('GENERATING_PROOF', 0.7, 'Generating proof...');
           await this.proveManager.reveal(proverId, {
             sent: sentRanges,
             recv: recvRanges,
           });
 
           // Get structured response from verifier (now includes handler results)
+          emitBoth('WAITING_FOR_VERIFICATION', 0.85, 'Waiting for verification...');
           const response = await this.proveManager.getResponse(proverId);
+
+          emitBoth('COMPLETE', 1.0, 'Complete');
 
           return response;
         } finally {
@@ -163,17 +182,49 @@ export class SessionManager {
     });
   }
 
+  /** Send a progress event to the background script for routing to the page. */
+  private emitProgress(
+    step: string,
+    progress: number,
+    message: string,
+    source: string = 'js',
+  ) {
+    if (!this.currentRequestId) return;
+    const chromeRuntime = (global as unknown as { chrome?: { runtime?: any } })
+      .chrome?.runtime;
+    if (chromeRuntime?.sendMessage) {
+      chromeRuntime.sendMessage({
+        type: 'PROVE_PROGRESS',
+        requestId: this.currentRequestId,
+        step,
+        progress,
+        message,
+        source,
+      });
+    }
+  }
+
   async awaitInit(): Promise<SessionManager> {
     await this.initPromise;
     return this;
   }
 
-  async executePlugin(code: string): Promise<unknown> {
+  async executePlugin(code: string, requestId?: string): Promise<unknown> {
     const chromeRuntime = (global as unknown as { chrome?: { runtime?: any } })
       .chrome?.runtime;
     if (!chromeRuntime?.onMessage) {
       throw new Error('Chrome runtime not available');
     }
+
+    // Store requestId and wire up WASM progress callback
+    this.currentRequestId = requestId || null;
+    this.proveManager.setProgressCallback(
+      this.currentRequestId
+        ? (data) => {
+            this.emitProgress(data.step, data.progress, data.message, data.source);
+          }
+        : null,
+    );
 
     // Extract and store plugin config before execution for permission validation
     this.currentConfig = await this.extractConfig(code);

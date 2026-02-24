@@ -11,6 +11,47 @@ import initWasm, {
   compute_reveal as wasmComputeReveal,
 } from '../../../../tlsn-wasm-pkg/tlsn_wasm';
 
+// ============================================================================
+// Console interception for WASM progress reporting
+// Captures Rust tracing output routed to console by wasm-tracing and maps
+// known messages to progress steps, forwarding them via postMessage.
+// ============================================================================
+
+const PROGRESS_PATTERNS: Array<{
+  pattern: RegExp;
+  step: string;
+  progress: number;
+  label: string;
+}> = [
+  { pattern: /connecting to verifier/i, step: 'VERIFIER_CONNECTING', progress: 0.05, label: 'Connecting to verifier...' },
+  { pattern: /setup complete/i, step: 'MPC_SETUP_COMPLETE', progress: 0.15, label: 'MPC setup complete' },
+  { pattern: /connecting to server/i, step: 'SERVER_CONNECTING', progress: 0.25, label: 'Connecting to server...' },
+  { pattern: /sending request/i, step: 'HTTP_SENDING', progress: 0.35, label: 'Sending request...' },
+  { pattern: /response received/i, step: 'HTTP_RESPONSE_RECEIVED', progress: 0.5, label: 'Response received' },
+  { pattern: /reveal\(\) called/i, step: 'PROOF_GENERATING', progress: 0.7, label: 'Generating proof...' },
+  { pattern: /\bfinalized\b/i, step: 'PROOF_FINALIZED', progress: 0.9, label: 'Proof finalized' },
+];
+
+function interceptConsole(
+  originalFn: (...args: any[]) => void,
+): (...args: any[]) => void {
+  return (...args: any[]) => {
+    originalFn.apply(console, args);
+    // Pattern-match against raw args (works even with %c formatting)
+    const raw = args.map(String).join(' ');
+    for (const { pattern, step, progress, label } of PROGRESS_PATTERNS) {
+      if (pattern.test(raw)) {
+        self.postMessage({ type: 'WASM_PROGRESS', step, progress, message: label });
+        break;
+      }
+    }
+  };
+}
+
+console.log = interceptConsole(console.log);
+console.debug = interceptConsole(console.debug);
+console.info = interceptConsole(console.info);
+
 // IoChannel interface for bidirectional byte streams (matches Rust JsIo extern)
 interface IoChannel {
   read(): Promise<Uint8Array | null>;

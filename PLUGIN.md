@@ -409,7 +409,7 @@ Set a state value by key. Triggers a UI re-render when the state changes.
 - Updates the state store with the new value
 - Compares new state with previous state using deep equality
 - Only triggers re-render if state actually changed
-- Sends `TO_BG_RE_RENDER_PLUGIN_UI` message to trigger UI update
+- Sends `RE_RENDER_PLUGIN_UI` message to trigger UI update
 
 **Example:**
 
@@ -840,6 +840,98 @@ console.log('Proof generated:', proof);
     hideKey: true,  // Result: "50000" instead of {"balance":"50000"}
   },
 }
+```
+
+---
+
+### Progress Reporting
+
+#### Automatic Progress via `_proveProgress` State
+
+When `prove()` is called, the plugin SDK automatically manages a reserved state key `_proveProgress` that tracks proof generation progress. This enables plugins to show real-time progress feedback without any manual wiring.
+
+**How it works:**
+
+1. When `prove()` starts, the SDK sets `_proveProgress` to `{ step: 'CONNECTING', progress: 0, message: 'Connecting...' }`
+2. As the proof pipeline progresses, the state is updated with intermediate steps (connecting to verifier, MPC setup, sending request, generating proof, etc.)
+3. When `prove()` completes, the state is set to `{ step: 'COMPLETE', progress: 1, message: 'Complete' }`
+4. If `prove()` fails, the state is reset to `null`
+
+Each update triggers a UI re-render, so your `main()` function can read this state and render a progress bar.
+
+**ProveProgressData Structure:**
+
+```typescript
+interface ProveProgressData {
+  step: string;      // Machine-readable step identifier (e.g., 'MPC_SETUP', 'HTTP_SENDING')
+  progress: number;  // 0.0 to 1.0
+  message: string;   // Human-readable message (e.g., 'Connecting to verifier...')
+}
+```
+
+**Example: Adding a progress bar to your plugin:**
+
+```javascript
+function proveProgressBar() {
+  const progress = useState('_proveProgress', null);
+  if (!progress) return [];
+
+  const pct = `${Math.round(progress.progress * 100)}%`;
+  return [
+    div({ style: { marginTop: '12px' } }, [
+      div({ style: { height: '6px', backgroundColor: '#e5e7eb', borderRadius: '3px', overflow: 'hidden' } }, [
+        div({ style: { height: '100%', width: pct, background: 'linear-gradient(90deg, #667eea, #764ba2)', borderRadius: '3px', transition: 'width 0.4s ease' } }, []),
+      ]),
+      div({ style: { fontSize: '12px', color: '#6b7280', marginTop: '6px', textAlign: 'center' } }, [progress.message]),
+    ]),
+  ];
+}
+
+function main() {
+  // ... your UI code ...
+  return div({}, [
+    // ... buttons, status indicators, etc. ...
+    ...proveProgressBar(),
+  ]);
+}
+```
+
+**Progress Steps:**
+
+| Step | Progress | Message |
+| ------ | ---------- | --------- |
+| `CONNECTING` | 0.00 | Connecting... |
+| `VERIFIER_CONNECTING` | 0.05 | Connecting to verifier... |
+| `MPC_SETUP_COMPLETE` | 0.15 | MPC setup complete |
+| `MPC_SETUP` | 0.20 | MPC session established |
+| `SERVER_CONNECTING` | 0.25 | Connecting to server... |
+| `SENDING_REQUEST` | 0.30 | Sending request... |
+| `HTTP_SENDING` | 0.35 | Sending request... |
+| `PROCESSING_TRANSCRIPT` | 0.50 | Processing transcript... |
+| `HTTP_RESPONSE_RECEIVED` | 0.50 | Response received |
+| `SENDING_REVEAL_CONFIG` | 0.60 | Configuring selective disclosure... |
+| `GENERATING_PROOF` | 0.70 | Generating proof... |
+| `PROOF_GENERATING` | 0.70 | Generating proof... |
+| `WAITING_FOR_VERIFICATION` | 0.85 | Waiting for verification... |
+| `PROOF_FINALIZED` | 0.90 | Proof finalized |
+| `COMPLETE` | 1.00 | Complete |
+
+> **Note:** Progress events come from two sources: JavaScript-side events (emitted between WASM calls in SessionManager) and Rust-side events (captured from WASM tracing output via console interception). The table above shows all possible steps from both sources.
+
+#### Progress Events for Web Apps
+
+Web applications using `window.tlsn.execCode()` can also receive progress events via `window.postMessage`:
+
+```javascript
+window.addEventListener('message', (event) => {
+  if (event.data?.type === 'TLSN_PROVE_PROGRESS') {
+    const { requestId, step, progress, message } = event.data;
+    console.log(`[${requestId}] ${step}: ${message} (${Math.round(progress * 100)}%)`);
+  }
+});
+
+// Pass a requestId to correlate progress events with your request
+const result = await window.tlsn.execCode(pluginCode, { requestId: 'my-req-123' });
 ```
 
 ---

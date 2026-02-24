@@ -109,6 +109,58 @@ const minimizeUI = (): void => {
 // MAIN UI FUNCTION
 // =============================================================================
 
+const proveProgressBar = (): DomJson[] => {
+  const progress = useState<{
+    step: string;
+    progress: number;
+    message: string;
+  } | null>('_proveProgress', null);
+
+  if (!progress) return [];
+
+  const pct = `${Math.round(progress.progress * 100)}%`;
+
+  return [
+    div({ style: { marginTop: '12px' } }, [
+      div(
+        {
+          style: {
+            height: '6px',
+            backgroundColor: '#e5e7eb',
+            borderRadius: '3px',
+            overflow: 'hidden',
+          },
+        },
+        [
+          div(
+            {
+              style: {
+                height: '100%',
+                width: pct,
+                background: 'linear-gradient(90deg, #667eea, #764ba2)',
+                borderRadius: '3px',
+                transition: 'width 0.4s ease',
+              },
+            },
+            [],
+          ),
+        ],
+      ),
+      div(
+        {
+          style: {
+            fontSize: '12px',
+            color: '#6b7280',
+            marginTop: '6px',
+            textAlign: 'center',
+          },
+        },
+        [progress.message],
+      ),
+    ]),
+  ];
+};
+
 const main = (): DomJson => {
   const isMinimized = useState<boolean>('isMinimized', false);
   const isRequestPending = useState<boolean>('isRequestPending', false);
@@ -299,6 +351,7 @@ const main = (): DomJson => {
                 },
                 ['Please login to x.com to continue'],
               ),
+          ...proveProgressBar(),
         ],
       ),
     ],

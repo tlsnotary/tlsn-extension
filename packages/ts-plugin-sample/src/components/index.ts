@@ -20,3 +20,5 @@ export { ProveButton } from './ProveButton';
 export type { ProveButtonProps } from './ProveButton';
 
 export { LoginPrompt } from './LoginPrompt';
+
+export { ProgressBar } from './ProgressBar';

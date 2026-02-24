@@ -9,7 +9,7 @@ import { WhyPlugins } from './components/WhyPlugins';
 import { BuildYourOwn } from './components/BuildYourOwn';
 import { plugins } from './plugins';
 import { checkBrowserCompatibility, checkExtension, checkVerifier, formatTimestamp } from './utils';
-import { ConsoleEntry, CheckStatus, PluginResult as PluginResultType } from './types';
+import { ConsoleEntry, CheckStatus, PluginResult as PluginResultType, ProgressData } from './types';
 import './App.css';
 
 interface PluginResultData {
@@ -51,6 +51,7 @@ export function App() {
     const [allChecksPass, setAllChecksPass] = useState(false);
     const [runningPlugins, setRunningPlugins] = useState<Set<string>>(new Set());
     const [pluginResults, setPluginResults] = useState<Record<string, PluginResultData>>({});
+    const [pluginProgress, setPluginProgress] = useState<Record<string, ProgressData>>({});
     const [consoleExpanded, setConsoleExpanded] = useState(false);
 
     const addConsoleEntry = useCallback((message: string, type: ConsoleEntry['type'] = 'info') => {
@@ -146,7 +147,9 @@ export function App() {
             const plugin = plugins[pluginKey];
             if (!plugin) return;
 
+            const requestId = `plugin_${pluginKey}_${Date.now()}`;
             setRunningPlugins((prev) => new Set(prev).add(pluginKey));
+            setPluginProgress((prev) => ({ ...prev, [pluginKey]: { step: 'STARTING', progress: 0, message: 'Please continue in the TLSNotary popup' } }));
             setConsoleExpanded(true);
 
             try {
@@ -154,7 +157,7 @@ export function App() {
                 const pluginCode = await fetch(plugin.file).then((r) => r.text());
 
                 addConsoleEntry('🔧 Executing plugin code...', 'info');
-                const result = await window.tlsn!.execCode(pluginCode);
+                const result = await window.tlsn!.execCode(pluginCode, { requestId });
                 const executionTime = (performance.now() - startTime).toFixed(2);
 
                 const json: PluginResultType = JSON.parse(result);
@@ -177,6 +180,11 @@ export function App() {
                     newSet.delete(pluginKey);
                     return newSet;
                 });
+                setPluginProgress((prev) => {
+                    const next = { ...prev };
+                    delete next[pluginKey];
+                    return next;
+                });
             }
         },
         [addConsoleEntry]
@@ -193,13 +201,23 @@ export function App() {
         return () => window.removeEventListener('tlsn_loaded', handleTlsnLoaded);
     }, [addConsoleEntry]);
 
-    // Listen for offscreen logs
+    // Listen for offscreen logs and progress events
     useEffect(() => {
         const handleMessage = (event: MessageEvent) => {
             if (event.origin !== window.location.origin) return;
 
             if (event.data?.type === 'TLSN_OFFSCREEN_LOG') {
                 addConsoleEntry(event.data.message, event.data.level);
+            }
+
+            if (event.data?.type === 'TLSN_PROVE_PROGRESS') {
+                const { requestId, step, progress, message } = event.data;
+                // Extract pluginKey from requestId (format: plugin_<key>_<timestamp>)
+                const match = requestId?.match(/^plugin_(.+)_\d+$/);
+                if (match) {
+                    const pluginKey = match[1];
+                    setPluginProgress((prev) => ({ ...prev, [pluginKey]: { step, progress, message } }));
+                }
             }
         };
 
@@ -264,6 +282,7 @@ export function App() {
                     plugins={plugins}
                     runningPlugins={runningPlugins}
                     pluginResults={pluginResults}
+                    pluginProgress={pluginProgress}
                     allChecksPass={allChecksPass}
                     onRunPlugin={handleRunPlugin}
                 />
