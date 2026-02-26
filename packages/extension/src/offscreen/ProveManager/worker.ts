@@ -23,13 +23,48 @@ const PROGRESS_PATTERNS: Array<{
   progress: number;
   label: string;
 }> = [
-  { pattern: /connecting to verifier/i, step: 'VERIFIER_CONNECTING', progress: 0.05, label: 'Connecting to verifier...' },
-  { pattern: /setup complete/i, step: 'MPC_SETUP_COMPLETE', progress: 0.15, label: 'MPC setup complete' },
-  { pattern: /connecting to server/i, step: 'SERVER_CONNECTING', progress: 0.25, label: 'Connecting to server...' },
-  { pattern: /sending request/i, step: 'HTTP_SENDING', progress: 0.35, label: 'Sending request...' },
-  { pattern: /response received/i, step: 'HTTP_RESPONSE_RECEIVED', progress: 0.5, label: 'Response received' },
-  { pattern: /reveal\(\) called/i, step: 'PROOF_GENERATING', progress: 0.7, label: 'Generating proof...' },
-  { pattern: /\bfinalized\b/i, step: 'PROOF_FINALIZED', progress: 0.9, label: 'Proof finalized' },
+  {
+    pattern: /connecting to verifier/i,
+    step: 'VERIFIER_CONNECTING',
+    progress: 0.05,
+    label: 'Connecting to verifier...',
+  },
+  {
+    pattern: /setup complete/i,
+    step: 'MPC_SETUP_COMPLETE',
+    progress: 0.15,
+    label: 'MPC setup complete',
+  },
+  {
+    pattern: /connecting to server/i,
+    step: 'SERVER_CONNECTING',
+    progress: 0.25,
+    label: 'Connecting to server...',
+  },
+  {
+    pattern: /sending request/i,
+    step: 'HTTP_SENDING',
+    progress: 0.35,
+    label: 'Sending request...',
+  },
+  {
+    pattern: /response received/i,
+    step: 'HTTP_RESPONSE_RECEIVED',
+    progress: 0.5,
+    label: 'Response received',
+  },
+  {
+    pattern: /reveal\(\) called/i,
+    step: 'PROOF_GENERATING',
+    progress: 0.7,
+    label: 'Generating proof...',
+  },
+  {
+    pattern: /\bfinalized\b/i,
+    step: 'PROOF_FINALIZED',
+    progress: 0.9,
+    label: 'Proof finalized',
+  },
 ];
 
 function interceptConsole(
@@ -41,7 +76,12 @@ function interceptConsole(
     const raw = args.map(String).join(' ');
     for (const { pattern, step, progress, label } of PROGRESS_PATTERNS) {
       if (pattern.test(raw)) {
-        self.postMessage({ type: 'WASM_PROGRESS', step, progress, message: label });
+        self.postMessage({
+          type: 'WASM_PROGRESS',
+          step,
+          progress,
+          message: label,
+        });
         break;
       }
     }

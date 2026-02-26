@@ -1,7 +1,12 @@
 import Host from '@tlsn/plugin-sdk/src';
 import { ProveManager } from './ProveManager';
 import type { Method } from '../../../tlsn-wasm-pkg/tlsn_wasm';
-import { DomJson, Handler, PluginConfig, ProveProgressData } from '@tlsn/plugin-sdk/src/types';
+import {
+  DomJson,
+  Handler,
+  PluginConfig,
+  ProveProgressData,
+} from '@tlsn/plugin-sdk/src/types';
 import { logger } from '@tlsn/common';
 import {
   validateProvePermission,
@@ -102,7 +107,11 @@ export class SessionManager {
           logger.debug('recvRanges', recvRanges);
 
           // Send reveal config (ranges + handlers) to verifier BEFORE calling reveal()
-          emitBoth('SENDING_REVEAL_CONFIG', 0.6, 'Configuring selective disclosure...');
+          emitBoth(
+            'SENDING_REVEAL_CONFIG',
+            0.6,
+            'Configuring selective disclosure...',
+          );
           await this.proveManager.sendRevealConfig(proverId, {
             sent: sentRangesWithHandlers,
             recv: recvRangesWithHandlers,
@@ -116,7 +125,11 @@ export class SessionManager {
           });
 
           // Get structured response from verifier (now includes handler results)
-          emitBoth('WAITING_FOR_VERIFICATION', 0.85, 'Waiting for verification...');
+          emitBoth(
+            'WAITING_FOR_VERIFICATION',
+            0.85,
+            'Waiting for verification...',
+          );
           const response = await this.proveManager.getResponse(proverId);
 
           emitBoth('COMPLETE', 1.0, 'Complete');
@@ -187,7 +200,7 @@ export class SessionManager {
     step: string,
     progress: number,
     message: string,
-    source: string = 'js',
+    source = 'js',
   ) {
     if (!this.currentRequestId) return;
     const chromeRuntime = (global as unknown as { chrome?: { runtime?: any } })
@@ -221,7 +234,12 @@ export class SessionManager {
     this.proveManager.setProgressCallback(
       this.currentRequestId
         ? (data) => {
-            this.emitProgress(data.step, data.progress, data.message, data.source);
+            this.emitProgress(
+              data.step,
+              data.progress,
+              data.message,
+              data.source,
+            );
           }
         : null,
     );
