@@ -1,6 +1,11 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { Host } from '../src/index';
-import type { WindowMessage, InterceptedRequest, InterceptedRequestHeader, DomJson } from '../src/types';
+import type {
+  WindowMessage,
+  InterceptedRequest,
+  InterceptedRequestHeader,
+  DomJson,
+} from '../src/types';
 
 /**
  * Browser E2E tests for the QuickJS sandbox.
@@ -813,7 +818,6 @@ describe('QuickJS Browser E2E', () => {
           host.executePlugin('export function main( { }', { eventEmitter: emitter }),
         ).rejects.toThrow('Plugin evaluation failed');
       });
-
     });
 
     // --- DOM rendering helpers ---
@@ -1068,9 +1072,27 @@ describe('QuickJS Browser E2E', () => {
           type: 'REQUESTS_BATCH',
           windowId: 1,
           requests: [
-            { id: 'b1', method: 'GET', url: 'https://example.com/a', timestamp: Date.now(), tabId: 1 },
-            { id: 'b2', method: 'GET', url: 'https://example.com/b', timestamp: Date.now(), tabId: 1 },
-            { id: 'b3', method: 'GET', url: 'https://example.com/c', timestamp: Date.now(), tabId: 1 },
+            {
+              id: 'b1',
+              method: 'GET',
+              url: 'https://example.com/a',
+              timestamp: Date.now(),
+              tabId: 1,
+            },
+            {
+              id: 'b2',
+              method: 'GET',
+              url: 'https://example.com/b',
+              timestamp: Date.now(),
+              tabId: 1,
+            },
+            {
+              id: 'b3',
+              method: 'GET',
+              url: 'https://example.com/c',
+              timestamp: Date.now(),
+              tabId: 1,
+            },
           ],
         } as unknown as WindowMessage);
 
@@ -1108,7 +1130,13 @@ describe('QuickJS Browser E2E', () => {
         emitter.emit({
           type: 'REQUEST_INTERCEPTED',
           windowId: 1,
-          request: { id: `r-${++reqCounter}`, method: 'GET', url: 'https://example.com/single', timestamp: Date.now(), tabId: 1 },
+          request: {
+            id: `r-${++reqCounter}`,
+            method: 'GET',
+            url: 'https://example.com/single',
+            timestamp: Date.now(),
+            tabId: 1,
+          },
         } as WindowMessage);
 
         await new Promise((r) => setTimeout(r, 50));
@@ -1118,9 +1146,27 @@ describe('QuickJS Browser E2E', () => {
           type: 'REQUESTS_BATCH',
           windowId: 1,
           requests: [
-            { id: `r-${++reqCounter}`, method: 'GET', url: 'https://example.com/b1', timestamp: Date.now(), tabId: 1 },
-            { id: `r-${++reqCounter}`, method: 'GET', url: 'https://example.com/b2', timestamp: Date.now(), tabId: 1 },
-            { id: `r-${++reqCounter}`, method: 'GET', url: 'https://example.com/b3', timestamp: Date.now(), tabId: 1 },
+            {
+              id: `r-${++reqCounter}`,
+              method: 'GET',
+              url: 'https://example.com/b1',
+              timestamp: Date.now(),
+              tabId: 1,
+            },
+            {
+              id: `r-${++reqCounter}`,
+              method: 'GET',
+              url: 'https://example.com/b2',
+              timestamp: Date.now(),
+              tabId: 1,
+            },
+            {
+              id: `r-${++reqCounter}`,
+              method: 'GET',
+              url: 'https://example.com/b3',
+              timestamp: Date.now(),
+              tabId: 1,
+            },
           ],
         } as unknown as WindowMessage);
 
@@ -1157,9 +1203,33 @@ describe('QuickJS Browser E2E', () => {
           type: 'HEADERS_BATCH',
           windowId: 1,
           headers: [
-            { id: 'h1', method: 'GET', url: 'https://example.com/x', timestamp: Date.now(), type: 'xmlhttprequest', requestHeaders: [], tabId: 1 },
-            { id: 'h2', method: 'GET', url: 'https://example.com/y', timestamp: Date.now(), type: 'xmlhttprequest', requestHeaders: [], tabId: 1 },
-            { id: 'h3', method: 'GET', url: 'https://example.com/z', timestamp: Date.now(), type: 'xmlhttprequest', requestHeaders: [], tabId: 1 },
+            {
+              id: 'h1',
+              method: 'GET',
+              url: 'https://example.com/x',
+              timestamp: Date.now(),
+              type: 'xmlhttprequest',
+              requestHeaders: [],
+              tabId: 1,
+            },
+            {
+              id: 'h2',
+              method: 'GET',
+              url: 'https://example.com/y',
+              timestamp: Date.now(),
+              type: 'xmlhttprequest',
+              requestHeaders: [],
+              tabId: 1,
+            },
+            {
+              id: 'h3',
+              method: 'GET',
+              url: 'https://example.com/z',
+              timestamp: Date.now(),
+              type: 'xmlhttprequest',
+              requestHeaders: [],
+              tabId: 1,
+            },
           ],
         } as unknown as WindowMessage);
 
@@ -1179,10 +1249,11 @@ describe('QuickJS Browser E2E', () => {
         const host = createHost();
         const emitter = createEventEmitter();
         let reqCounter = 200;
-        const mainCallUrls: string[] = [];
+        const _mainCallUrls: string[] = [];
 
-        const donePromise = host.executePlugin(
-          `
+        const donePromise = host
+          .executePlugin(
+            `
           export async function main() {
             const reqs = useRequests(r => r);
             // record urls seen so far via a side-channel capability
@@ -1195,13 +1266,14 @@ describe('QuickJS Browser E2E', () => {
             return div({}, ['waiting']);
           }
         `,
-          {
-            eventEmitter: {
-              ...emitter,
-              // Inject reportUrls capability via a wrapper host
+            {
+              eventEmitter: {
+                ...emitter,
+                // Inject reportUrls capability via a wrapper host
+              },
             },
-          },
-        ).catch(() => null); // may reject if context is cleaned up
+          )
+          .catch(() => null); // may reject if context is cleaned up
 
         // Use a separate host with the reportUrls capability instead
         const host2 = new Host({
@@ -1240,7 +1312,13 @@ describe('QuickJS Browser E2E', () => {
         emitter2.emit({
           type: 'REQUEST_INTERCEPTED',
           windowId: 1,
-          request: { id: `r-${++reqCounter}`, method: 'GET', url: 'https://example.com/after-close', timestamp: Date.now(), tabId: 1 },
+          request: {
+            id: `r-${++reqCounter}`,
+            method: 'GET',
+            url: 'https://example.com/after-close',
+            timestamp: Date.now(),
+            tabId: 1,
+          },
         } as WindowMessage);
 
         await new Promise((r) => setTimeout(r, 100));
@@ -1249,7 +1327,12 @@ describe('QuickJS Browser E2E', () => {
         // before WINDOW_CLOSED, and requests after close are ignored.
         // We verify by checking it's still pending after the timeout.
         let resolved = false;
-        donePromise2.then(() => { resolved = true; }).catch(() => {});
+        donePromise2
+          .then(() => {
+            resolved = true;
+          })
+          // eslint-disable-next-line @typescript-eslint/no-empty-function
+          .catch(() => {});
         await new Promise((r) => setTimeout(r, 100));
 
         expect(resolved).toBe(false);
@@ -1274,16 +1357,19 @@ describe('QuickJS Browser E2E', () => {
         let reqCounter = 300;
 
         // Plugin that renders on every request (never calls done)
-        host.executePlugin(
-          `
+        host
+          .executePlugin(
+            `
           export async function main() {
             const reqs = useRequests(r => r);
             await openWindow('https://example.com', { width: 400, height: 300 });
             return div({ id: 'count' }, ['Count: ' + reqs.length]);
           }
         `,
-          { eventEmitter: emitter },
-        ).catch(() => {});
+            { eventEmitter: emitter },
+          )
+          // eslint-disable-next-line @typescript-eslint/no-empty-function
+          .catch(() => {});
 
         await new Promise((r) => setTimeout(r, 200));
 
@@ -1291,7 +1377,13 @@ describe('QuickJS Browser E2E', () => {
         emitter.emit({
           type: 'REQUEST_INTERCEPTED',
           windowId: 1,
-          request: { id: `r-${++reqCounter}`, method: 'GET', url: 'https://example.com/1', timestamp: Date.now(), tabId: 1 },
+          request: {
+            id: `r-${++reqCounter}`,
+            method: 'GET',
+            url: 'https://example.com/1',
+            timestamp: Date.now(),
+            tabId: 1,
+          },
         } as WindowMessage);
         await new Promise((r) => setTimeout(r, 100));
 
@@ -1306,7 +1398,13 @@ describe('QuickJS Browser E2E', () => {
         emitter.emit({
           type: 'REQUEST_INTERCEPTED',
           windowId: 1,
-          request: { id: `r-${++reqCounter}`, method: 'GET', url: 'https://example.com/2', timestamp: Date.now(), tabId: 1 },
+          request: {
+            id: `r-${++reqCounter}`,
+            method: 'GET',
+            url: 'https://example.com/2',
+            timestamp: Date.now(),
+            tabId: 1,
+          },
         } as WindowMessage);
         await new Promise((r) => setTimeout(r, 100));
 

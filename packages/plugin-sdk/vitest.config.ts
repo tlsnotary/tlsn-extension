@@ -8,7 +8,14 @@ export default defineConfig({
     coverage: {
       provider: 'istanbul',
       reporter: ['text', 'json', 'html'],
-      exclude: ['node_modules', 'dist', '**/*.config.ts', '**/*.config.js', 'examples/**', 'test/**'],
+      exclude: [
+        'node_modules',
+        'dist',
+        '**/*.config.ts',
+        '**/*.config.js',
+        'examples/**',
+        'test/**',
+      ],
     },
     include: ['test/**/*.{test,spec}.ts'],
     exclude: ['node_modules', 'dist', 'test/**/*.browser.{test,spec}.ts'],
