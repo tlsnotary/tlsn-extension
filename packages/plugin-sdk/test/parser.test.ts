@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import Parser from './parser';
+import Parser from '../src/parser';
 
 describe('Parser', () => {
   describe('HTTP Request Parsing', () => {
@@ -1286,6 +1286,102 @@ describe('Parser', () => {
       // Should extract just the value, not corrupted by the emoji
       expect(extractedText).toBe('"test_user"');
       expect(extractedText).not.toContain('🙈');
+    });
+  });
+
+  describe('Error handling', () => {
+    describe('malformed HTTP input', () => {
+      it('throws on HTTP response start line with only one part', () => {
+        expect(() => new Parser('HTTP/1.1\r\n\r\n')).toThrow('Invalid HTTP response line');
+      });
+
+      it('throws on header line without CRLF', () => {
+        expect(() => new Parser('GET / HTTP/1.1\r\nBadHeaderNoCRLF')).toThrow(
+          'Invalid HTTP headers: no CRLF found',
+        );
+      });
+
+      it('throws on header line without a colon', () => {
+        expect(() => new Parser('GET / HTTP/1.1\r\nBadHeaderNoColon\r\n\r\n')).toThrow(
+          'Invalid header line',
+        );
+      });
+    });
+
+    describe('ranges.* called on wrong parser type', () => {
+      it('throws when requestTarget() is called on a response parser', () => {
+        const parser = new Parser('HTTP/1.1 200 OK\r\n\r\n');
+        expect(() => parser.ranges.requestTarget()).toThrow('only available for requests');
+      });
+
+      it('throws when method() is called on a response parser', () => {
+        const parser = new Parser('HTTP/1.1 200 OK\r\n\r\n');
+        expect(() => parser.ranges.method()).toThrow('only available for requests');
+      });
+
+      it('throws when statusCode() is called on a request parser', () => {
+        const parser = new Parser('GET / HTTP/1.1\r\n\r\n');
+        expect(() => parser.ranges.statusCode()).toThrow('only available for responses');
+      });
+    });
+
+    describe('ranges.body() type validation', () => {
+      it('throws when JSON type is used on a non-JSON body', () => {
+        const parser = new Parser('HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nplain text');
+        expect(() => parser.ranges.body('field', { type: 'json' })).toThrow('Body is not JSON');
+      });
+
+      it('throws when JSON path is not a string', () => {
+        const parser = new Parser(
+          'HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{"a":1}',
+        );
+        expect(() => parser.ranges.body(/regex/, { type: 'json' })).toThrow(
+          'Path must be a string',
+        );
+      });
+
+      it('throws when regex path is not a RegExp', () => {
+        const parser = new Parser(
+          'HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{"a":1}',
+        );
+        expect(() => parser.ranges.body('field', { type: 'regex' })).toThrow(
+          'Path must be a RegExp',
+        );
+      });
+
+      it('throws for xpath type (not yet implemented)', () => {
+        const parser = new Parser(
+          'HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{"a":1}',
+        );
+        expect(() => parser.ranges.body('field', { type: 'xpath' })).toThrow('XPath');
+      });
+
+      it('throws for unknown type', () => {
+        const parser = new Parser(
+          'HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{"a":1}',
+        );
+        expect(() => parser.ranges.body('field', { type: 'unknown' as any })).toThrow(
+          'Unknown type',
+        );
+      });
+
+      it('returns text range for text type', () => {
+        const parser = new Parser('HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nhello');
+        const ranges = parser.ranges.body(undefined, { type: 'text' } as any);
+        expect(ranges).toHaveLength(1);
+      });
+    });
+
+    describe('json() with array JSON body', () => {
+      it('returns empty object body when JSON is an array', () => {
+        // parseJsonWithRanges returns {} for arrays (only processes object types),
+        // so json() takes the plain-object path (no range structure)
+        const parser = new Parser(
+          'HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n[1,2,3]',
+        );
+        const result = parser.json();
+        expect(result.body).toEqual({});
+      });
     });
   });
 });
