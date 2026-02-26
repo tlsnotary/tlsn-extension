@@ -67,12 +67,20 @@ const PROGRESS_PATTERNS: Array<{
   },
 ];
 
+// Store original console methods so they can be restored if needed.
+const _originalConsoleLog = console.log;
+const _originalConsoleDebug = console.debug;
+const _originalConsoleInfo = console.info;
+
 function interceptConsole(
   originalFn: (...args: any[]) => void,
 ): (...args: any[]) => void {
   return (...args: any[]) => {
     originalFn.apply(console, args);
-    // Pattern-match against raw args (works even with %c formatting)
+    // Pattern-match against raw args (works even with %c formatting).
+    // NOTE: This is a stop-gap until the WASM side exposes a structured
+    // progress callback (e.g. set_progress_callback(fn)). Console parsing
+    // is fragile — Rust tracing format changes will silently break it.
     const raw = args.map(String).join(' ');
     for (const { pattern, step, progress, label } of PROGRESS_PATTERNS) {
       if (pattern.test(raw)) {
@@ -88,9 +96,9 @@ function interceptConsole(
   };
 }
 
-console.log = interceptConsole(console.log);
-console.debug = interceptConsole(console.debug);
-console.info = interceptConsole(console.info);
+console.log = interceptConsole(_originalConsoleLog);
+console.debug = interceptConsole(_originalConsoleDebug);
+console.info = interceptConsole(_originalConsoleInfo);
 
 // IoChannel interface for bidirectional byte streams (matches Rust JsIo extern)
 interface IoChannel {
@@ -143,9 +151,13 @@ function createIoChannel(url: string): Promise<IoChannel> {
 
     ws.onerror = (event) => {
       console.error('[Worker] WebSocket error:', url, event);
-      const err = new Error('WebSocket connection failed');
+      const err = new Error(`WebSocket connection failed: ${url}`);
       error = err;
-      if (!closed) reject(err);
+      if (!closed) {
+        closed = true;
+        ws.close();
+        reject(err);
+      }
     };
 
     ws.onmessage = (event) => {
@@ -172,10 +184,32 @@ function createIoChannel(url: string): Promise<IoChannel> {
 
 /**
  * Creates a new Prover instance and returns its ID.
+ * Wires up the structured progress callback so the WASM prover emits
+ * progress events via postMessage instead of relying on console interception.
  */
 async function createProver(config: ProverConfig): Promise<string> {
   const prover = new Prover(config);
   const id = `prover-${nextProverId++}`;
+
+  // Wire up structured progress callback from WASM.
+  // This is the preferred path; console interception above is the fallback.
+  prover.set_progress_callback(
+    (data: {
+      step: string;
+      progress: number;
+      message: string;
+      source: string;
+    }) => {
+      self.postMessage({
+        type: 'WASM_PROGRESS',
+        step: data.step,
+        progress: data.progress,
+        message: data.message,
+        source: data.source,
+      });
+    },
+  );
+
   provers.set(id, prover);
   return id;
 }
@@ -183,6 +217,9 @@ async function createProver(config: ProverConfig): Promise<string> {
 /**
  * Sets up the prover with the verifier via WebSocket URL.
  */
+/** Default timeout for prover setup (30 seconds). */
+const SETUP_TIMEOUT_MS = 30_000;
+
 async function setupProver(
   proverId: string,
   verifierUrl: string,
@@ -191,12 +228,33 @@ async function setupProver(
   if (!prover) throw new Error(`Prover not found: ${proverId}`);
 
   const verifierIo = await createIoChannel(verifierUrl);
-  await prover.setup(verifierIo);
+  try {
+    await Promise.race([
+      prover.setup(verifierIo),
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () =>
+            reject(
+              new Error(
+                `setupProver timed out after ${SETUP_TIMEOUT_MS}ms for ${proverId}`,
+              ),
+            ),
+          SETUP_TIMEOUT_MS,
+        ),
+      ),
+    ]);
+  } catch (err) {
+    await verifierIo.close();
+    throw err;
+  }
 }
 
 /**
  * Sends an HTTP request through the prover via WebSocket proxy URL.
  */
+/** Default timeout for send request (60 seconds). */
+const SEND_REQUEST_TIMEOUT_MS = 60_000;
+
 async function sendRequest(
   proverId: string,
   proxyUrl: string,
@@ -206,7 +264,25 @@ async function sendRequest(
   if (!prover) throw new Error(`Prover not found: ${proverId}`);
 
   const serverIo = await createIoChannel(proxyUrl);
-  await prover.send_request(serverIo, request);
+  try {
+    await Promise.race([
+      prover.send_request(serverIo, request),
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () =>
+            reject(
+              new Error(
+                `sendRequest timed out after ${SEND_REQUEST_TIMEOUT_MS}ms for ${proverId}`,
+              ),
+            ),
+          SEND_REQUEST_TIMEOUT_MS,
+        ),
+      ),
+    ]);
+  } catch (err) {
+    await serverIo.close();
+    throw err;
+  }
 }
 
 /**
@@ -255,18 +331,33 @@ function computeReveal(
   const sent = new Uint8Array(transcript.sent);
   const recv = new Uint8Array(transcript.recv);
 
-  // WASM returns snake_case fields from serde; map to camelCase for TS consumers
-  const output = wasmComputeReveal(sent, recv, handlers) as {
+  // WASM returns snake_case fields from serde; validate shape at the boundary
+  // since wasm-bindgen returns `any` and Rust format changes would be silent.
+  const output: unknown = wasmComputeReveal(sent, recv, handlers);
+
+  if (
+    !output ||
+    typeof output !== 'object' ||
+    !('reveal' in output) ||
+    !('sent_ranges_with_handlers' in output) ||
+    !('recv_ranges_with_handlers' in output)
+  ) {
+    throw new Error(
+      'compute_reveal returned unexpected shape — WASM binding may have changed',
+    );
+  }
+
+  const typed = output as {
     reveal: { sent: any[]; recv: any[] };
     sent_ranges_with_handlers: any[];
     recv_ranges_with_handlers: any[];
   };
 
   return {
-    sentRanges: output.reveal.sent,
-    recvRanges: output.reveal.recv,
-    sentRangesWithHandlers: output.sent_ranges_with_handlers,
-    recvRangesWithHandlers: output.recv_ranges_with_handlers,
+    sentRanges: typed.reveal.sent,
+    recvRanges: typed.reveal.recv,
+    sentRangesWithHandlers: typed.sent_ranges_with_handlers,
+    recvRangesWithHandlers: typed.recv_ranges_with_handlers,
   };
 }
 

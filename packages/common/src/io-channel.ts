@@ -37,12 +37,16 @@ export interface IoChannel {
  * await prover.setup(io);
  * ```
  */
+/** Maximum total bytes queued before the socket is closed (10 MB). */
+const MAX_READ_QUEUE_BYTES = 10 * 1024 * 1024;
+
 export async function fromWebSocket(url: string): Promise<IoChannel> {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(url);
     ws.binaryType = 'arraybuffer';
 
     const readQueue: Uint8Array[] = [];
+    let readQueueBytes = 0;
     let readResolver: ((value: Uint8Array | null) => void) | null = null;
     let closed = false;
     let error: Error | null = null;
@@ -72,6 +76,8 @@ export async function fromWebSocket(url: string): Promise<IoChannel> {
       const err = new Error(`WebSocket connection failed: ${event.type}`);
       if (!closed) {
         error = err;
+        closed = true;
+        ws.close();
         reject(err);
       }
     };
@@ -83,6 +89,13 @@ export async function fromWebSocket(url: string): Promise<IoChannel> {
         readResolver = null;
         resolver(data);
       } else {
+        readQueueBytes += data.byteLength;
+        if (readQueueBytes > MAX_READ_QUEUE_BYTES) {
+          error = new Error(`Read queue exceeded ${MAX_READ_QUEUE_BYTES} bytes — closing socket`);
+          closed = true;
+          ws.close(1009, 'Read queue overflow');
+          return;
+        }
         readQueue.push(data);
       }
     };
@@ -120,6 +133,7 @@ export function fromOpenWebSocket(ws: WebSocket): IoChannel {
   ws.binaryType = 'arraybuffer';
 
   const readQueue: Uint8Array[] = [];
+  let readQueueBytes = 0;
   let readResolver: ((value: Uint8Array | null) => void) | null = null;
   let closed = false;
   let error: Error | null = null;
@@ -131,6 +145,13 @@ export function fromOpenWebSocket(ws: WebSocket): IoChannel {
       readResolver = null;
       resolver(data);
     } else {
+      readQueueBytes += data.byteLength;
+      if (readQueueBytes > MAX_READ_QUEUE_BYTES) {
+        error = new Error(`Read queue exceeded ${MAX_READ_QUEUE_BYTES} bytes — closing socket`);
+        closed = true;
+        ws.close(1009, 'Read queue overflow');
+        return;
+      }
       readQueue.push(data);
     }
   };

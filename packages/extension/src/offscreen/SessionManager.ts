@@ -137,7 +137,7 @@ export class SessionManager {
           return response;
         } finally {
           // Always clean up prover resources to prevent memory leaks
-          this.proveManager.cleanupProver(proverId);
+          await this.proveManager.cleanupProver(proverId);
         }
       },
       onRenderPluginUi: (windowId: number, result: DomJson) => {
@@ -206,14 +206,18 @@ export class SessionManager {
     const chromeRuntime = (global as unknown as { chrome?: { runtime?: any } })
       .chrome?.runtime;
     if (chromeRuntime?.sendMessage) {
-      chromeRuntime.sendMessage({
-        type: 'PROVE_PROGRESS',
-        requestId: this.currentRequestId,
-        step,
-        progress,
-        message,
-        source,
-      });
+      chromeRuntime
+        .sendMessage({
+          type: 'PROVE_PROGRESS',
+          requestId: this.currentRequestId,
+          step,
+          progress,
+          message,
+          source,
+        })
+        .catch((err: unknown) =>
+          logger.warn('[SessionManager] emitProgress failed:', err),
+        );
     }
   }
 
