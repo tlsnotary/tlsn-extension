@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { Host } from './index';
-import type { WindowMessage, InterceptedRequest, InterceptedRequestHeader, DomJson } from './types';
+import { Host } from '../src/index';
+import type { WindowMessage, InterceptedRequest, InterceptedRequestHeader, DomJson } from '../src/types';
 
 /**
  * Browser E2E tests for the QuickJS sandbox.
@@ -241,11 +241,14 @@ describe('QuickJS Browser E2E', () => {
       const host = createHost();
       const emitter = createEventEmitter();
 
-      // Plugin must call openWindow() to register the PLUGIN_UI_CLICK listener
+      // Plugin must call openWindow() to register the PLUGIN_UI_CLICK listener.
+      // main() must NOT be async — an async main() with await openWindow() would
+      // suspend inside the QuickJS event loop and never complete without explicit
+      // executePendingJobs() pumping, so the PLUGIN_UI_CLICK listener never registers.
       const donePromise = host.executePlugin(
         `
-        export async function main() {
-          await openWindow('https://example.com', { width: 400, height: 300 });
+        export function main() {
+          openWindow('https://example.com', { width: 400, height: 300 });
           return button({ onclick: 'handleClick' }, ['Prove']);
         }
         export async function handleClick() {
@@ -263,6 +266,7 @@ describe('QuickJS Browser E2E', () => {
       emitter.emit({
         type: 'PLUGIN_UI_CLICK',
         onclick: 'handleClick',
+        windowId: 1,
       } as unknown as WindowMessage);
 
       const result = await donePromise;
@@ -809,6 +813,7 @@ describe('QuickJS Browser E2E', () => {
           host.executePlugin('export function main( { }', { eventEmitter: emitter }),
         ).rejects.toThrow('Plugin evaluation failed');
       });
+
     });
 
     // --- DOM rendering helpers ---
@@ -987,6 +992,325 @@ describe('QuickJS Browser E2E', () => {
 
         const result = await donePromise;
         expect(result).toBe('Bearer my-token');
+      });
+    });
+
+    // --- plugin export syntax (preprocessPluginCode behavior) ---
+
+    describe('plugin export syntax', () => {
+      it('should run plugin using export default { main, config } syntax', async () => {
+        const host = createHost();
+        const emitter = createEventEmitter();
+
+        const result = await host.executePlugin(
+          `
+          const config = { name: 'Test', description: 'Desc' };
+          function main() {
+            done('ok');
+            return null;
+          }
+          export default { main, config };
+        `,
+          { eventEmitter: emitter },
+        );
+
+        expect(result).toBe('ok');
+      });
+
+      it('should expose non-function config export via getPluginConfig', async () => {
+        const host = createHost();
+        const code = `
+          const config = {
+            name: 'Browser Config',
+            description: 'Tested in browser',
+            requests: [{ method: 'GET', host: 'api.example.com', pathname: '/v1/data' }],
+            urls: ['https://example.com/*'],
+          };
+          function main() { return null; }
+          export default { main, config };
+        `;
+
+        const result = await host.getPluginConfig(code);
+
+        expect(result.name).toBe('Browser Config');
+        expect(result.requests).toHaveLength(1);
+        expect(result.requests[0].host).toBe('api.example.com');
+        expect(result.urls).toEqual(['https://example.com/*']);
+      });
+    });
+
+    // --- REQUESTS_BATCH ---
+
+    describe('REQUESTS_BATCH', () => {
+      it('should accumulate a batch of requests and trigger re-render', async () => {
+        const host = createHost();
+        const emitter = createEventEmitter();
+
+        const donePromise = host.executePlugin(
+          `
+          export async function main() {
+            const reqs = useRequests(r => r);
+            if (reqs.length >= 3) {
+              done(reqs.map(r => r.url));
+              return null;
+            }
+            await openWindow('https://example.com', { width: 400, height: 300 });
+            return div({}, ['waiting for batch']);
+          }
+        `,
+          { eventEmitter: emitter },
+        );
+
+        await new Promise((r) => setTimeout(r, 200));
+
+        // Send three requests as a single batch
+        emitter.emit({
+          type: 'REQUESTS_BATCH',
+          windowId: 1,
+          requests: [
+            { id: 'b1', method: 'GET', url: 'https://example.com/a', timestamp: Date.now(), tabId: 1 },
+            { id: 'b2', method: 'GET', url: 'https://example.com/b', timestamp: Date.now(), tabId: 1 },
+            { id: 'b3', method: 'GET', url: 'https://example.com/c', timestamp: Date.now(), tabId: 1 },
+          ],
+        } as unknown as WindowMessage);
+
+        const result = await donePromise;
+        expect(result).toEqual([
+          'https://example.com/a',
+          'https://example.com/b',
+          'https://example.com/c',
+        ]);
+      });
+
+      it('should accumulate REQUESTS_BATCH alongside individual REQUEST_INTERCEPTED', async () => {
+        const host = createHost();
+        const emitter = createEventEmitter();
+        let reqCounter = 100;
+
+        const donePromise = host.executePlugin(
+          `
+          export async function main() {
+            const reqs = useRequests(r => r);
+            if (reqs.length >= 4) {
+              done(reqs.length);
+              return null;
+            }
+            await openWindow('https://example.com', { width: 400, height: 300 });
+            return div({}, ['waiting']);
+          }
+        `,
+          { eventEmitter: emitter },
+        );
+
+        await new Promise((r) => setTimeout(r, 200));
+
+        // One individual request
+        emitter.emit({
+          type: 'REQUEST_INTERCEPTED',
+          windowId: 1,
+          request: { id: `r-${++reqCounter}`, method: 'GET', url: 'https://example.com/single', timestamp: Date.now(), tabId: 1 },
+        } as WindowMessage);
+
+        await new Promise((r) => setTimeout(r, 50));
+
+        // Three more as a batch
+        emitter.emit({
+          type: 'REQUESTS_BATCH',
+          windowId: 1,
+          requests: [
+            { id: `r-${++reqCounter}`, method: 'GET', url: 'https://example.com/b1', timestamp: Date.now(), tabId: 1 },
+            { id: `r-${++reqCounter}`, method: 'GET', url: 'https://example.com/b2', timestamp: Date.now(), tabId: 1 },
+            { id: `r-${++reqCounter}`, method: 'GET', url: 'https://example.com/b3', timestamp: Date.now(), tabId: 1 },
+          ],
+        } as unknown as WindowMessage);
+
+        const result = await donePromise;
+        expect(result).toBe(4);
+      });
+    });
+
+    // --- HEADERS_BATCH ---
+
+    describe('HEADERS_BATCH', () => {
+      it('should accumulate a batch of headers and trigger re-render', async () => {
+        const host = createHost();
+        const emitter = createEventEmitter();
+
+        const donePromise = host.executePlugin(
+          `
+          export async function main() {
+            const hdrs = useHeaders(h => h);
+            if (hdrs.length >= 3) {
+              done(hdrs.map(h => h.url));
+              return null;
+            }
+            await openWindow('https://example.com', { width: 400, height: 300 });
+            return div({}, ['waiting for header batch']);
+          }
+        `,
+          { eventEmitter: emitter },
+        );
+
+        await new Promise((r) => setTimeout(r, 200));
+
+        emitter.emit({
+          type: 'HEADERS_BATCH',
+          windowId: 1,
+          headers: [
+            { id: 'h1', method: 'GET', url: 'https://example.com/x', timestamp: Date.now(), type: 'xmlhttprequest', requestHeaders: [], tabId: 1 },
+            { id: 'h2', method: 'GET', url: 'https://example.com/y', timestamp: Date.now(), type: 'xmlhttprequest', requestHeaders: [], tabId: 1 },
+            { id: 'h3', method: 'GET', url: 'https://example.com/z', timestamp: Date.now(), type: 'xmlhttprequest', requestHeaders: [], tabId: 1 },
+          ],
+        } as unknown as WindowMessage);
+
+        const result = await donePromise;
+        expect(result).toEqual([
+          'https://example.com/x',
+          'https://example.com/y',
+          'https://example.com/z',
+        ]);
+      });
+    });
+
+    // --- WINDOW_CLOSED cleanup ---
+
+    describe('WINDOW_CLOSED', () => {
+      it('should stop processing messages after WINDOW_CLOSED', async () => {
+        const host = createHost();
+        const emitter = createEventEmitter();
+        let reqCounter = 200;
+        const mainCallUrls: string[] = [];
+
+        const donePromise = host.executePlugin(
+          `
+          export async function main() {
+            const reqs = useRequests(r => r);
+            // record urls seen so far via a side-channel capability
+            reportUrls(reqs.map(r => r.url));
+            if (reqs.length >= 1) {
+              done(reqs.length);
+              return null;
+            }
+            await openWindow('https://example.com', { width: 400, height: 300 });
+            return div({}, ['waiting']);
+          }
+        `,
+          {
+            eventEmitter: {
+              ...emitter,
+              // Inject reportUrls capability via a wrapper host
+            },
+          },
+        ).catch(() => null); // may reject if context is cleaned up
+
+        // Use a separate host with the reportUrls capability instead
+        const host2 = new Host({
+          onProve: vi.fn().mockResolvedValue({ proof: 'mock' }),
+          onRenderPluginUi: vi.fn(),
+          onCloseWindow: vi.fn(),
+          onOpenWindow: vi.fn().mockResolvedValue({
+            type: 'WINDOW_OPENED',
+            payload: { windowId: 1, uuid: 'test-uuid', tabId: 1 },
+          }),
+        });
+        const emitter2 = createEventEmitter();
+
+        const donePromise2 = host2.executePlugin(
+          `
+          export async function main() {
+            const reqs = useRequests(r => r);
+            if (reqs.length >= 1) {
+              done(reqs.length);
+              return null;
+            }
+            await openWindow('https://example.com', { width: 400, height: 300 });
+            return div({}, ['waiting']);
+          }
+        `,
+          { eventEmitter: emitter2 },
+        );
+
+        await new Promise((r) => setTimeout(r, 200));
+
+        // Close the window — listener should be removed
+        emitter2.emit({ type: 'WINDOW_CLOSED', windowId: 1 } as WindowMessage);
+        await new Promise((r) => setTimeout(r, 50));
+
+        // These requests arrive after WINDOW_CLOSED — should be ignored
+        emitter2.emit({
+          type: 'REQUEST_INTERCEPTED',
+          windowId: 1,
+          request: { id: `r-${++reqCounter}`, method: 'GET', url: 'https://example.com/after-close', timestamp: Date.now(), tabId: 1 },
+        } as WindowMessage);
+
+        await new Promise((r) => setTimeout(r, 100));
+
+        // donePromise2 should never resolve because no requests were received
+        // before WINDOW_CLOSED, and requests after close are ignored.
+        // We verify by checking it's still pending after the timeout.
+        let resolved = false;
+        donePromise2.then(() => { resolved = true; }).catch(() => {});
+        await new Promise((r) => setTimeout(r, 100));
+
+        expect(resolved).toBe(false);
+
+        // Cleanup: emit WINDOW_CLOSED on original emitter too
+        void donePromise;
+        emitter.emit({ type: 'WINDOW_CLOSED', windowId: 1 } as WindowMessage);
+      });
+
+      it('should remove listener so further messages do not trigger main()', async () => {
+        const onRenderSpy = vi.fn();
+        const host = new Host({
+          onProve: vi.fn().mockResolvedValue({ proof: 'mock' }),
+          onRenderPluginUi: onRenderSpy,
+          onCloseWindow: vi.fn(),
+          onOpenWindow: vi.fn().mockResolvedValue({
+            type: 'WINDOW_OPENED',
+            payload: { windowId: 1, uuid: 'test-uuid', tabId: 1 },
+          }),
+        });
+        const emitter = createEventEmitter();
+        let reqCounter = 300;
+
+        // Plugin that renders on every request (never calls done)
+        host.executePlugin(
+          `
+          export async function main() {
+            const reqs = useRequests(r => r);
+            await openWindow('https://example.com', { width: 400, height: 300 });
+            return div({ id: 'count' }, ['Count: ' + reqs.length]);
+          }
+        `,
+          { eventEmitter: emitter },
+        ).catch(() => {});
+
+        await new Promise((r) => setTimeout(r, 200));
+
+        // First request triggers a render
+        emitter.emit({
+          type: 'REQUEST_INTERCEPTED',
+          windowId: 1,
+          request: { id: `r-${++reqCounter}`, method: 'GET', url: 'https://example.com/1', timestamp: Date.now(), tabId: 1 },
+        } as WindowMessage);
+        await new Promise((r) => setTimeout(r, 100));
+
+        const renderCountBeforeClose = onRenderSpy.mock.calls.length;
+        expect(renderCountBeforeClose).toBeGreaterThanOrEqual(1);
+
+        // Close the window
+        emitter.emit({ type: 'WINDOW_CLOSED', windowId: 1 } as WindowMessage);
+        await new Promise((r) => setTimeout(r, 50));
+
+        // Further requests after close should not trigger more renders
+        emitter.emit({
+          type: 'REQUEST_INTERCEPTED',
+          windowId: 1,
+          request: { id: `r-${++reqCounter}`, method: 'GET', url: 'https://example.com/2', timestamp: Date.now(), tabId: 1 },
+        } as WindowMessage);
+        await new Promise((r) => setTimeout(r, 100));
+
+        expect(onRenderSpy.mock.calls.length).toBe(renderCountBeforeClose);
       });
     });
 

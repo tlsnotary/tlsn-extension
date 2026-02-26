@@ -993,5 +993,8 @@ export type {
 // Re-export LogLevel for consumers
 export { LogLevel } from '@tlsn/common';
 
+// Export internal utilities (used by tests)
+export { preprocessPluginCode };
+
 // Default export
 export default Host;

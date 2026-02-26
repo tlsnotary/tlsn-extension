@@ -9,6 +9,9 @@ dist/
 coverage/
 .nyc_output/
 
+# Test screenshots
+**/__screenshots__/
+
 # IDE
 .vscode/
 .idea/
