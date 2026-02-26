@@ -148,7 +148,9 @@ export function main() {
       const result = preprocessPluginCode(code);
 
       expect(result).toContain('export default {');
-      expect(result).toContain('main: typeof main === \'function\' ? (...args) => main(...args) : main');
+      expect(result).toContain(
+        "main: typeof main === 'function' ? (...args) => main(...args) : main",
+      );
       expect(result).not.toMatch(/^export function main/m);
     });
 
@@ -162,7 +164,9 @@ export async function onClick() {
       const result = preprocessPluginCode(code);
 
       expect(result).toContain('export default {');
-      expect(result).toContain('onClick: typeof onClick === \'function\' ? (...args) => onClick(...args) : onClick');
+      expect(result).toContain(
+        "onClick: typeof onClick === 'function' ? (...args) => onClick(...args) : onClick",
+      );
     });
 
     it('should convert named export const function to default export with arrow wrapper', () => {
@@ -173,7 +177,9 @@ export const main = () => div({}, ['hi']);
       const result = preprocessPluginCode(code);
 
       expect(result).toContain('export default {');
-      expect(result).toContain('main: typeof main === \'function\' ? (...args) => main(...args) : main');
+      expect(result).toContain(
+        "main: typeof main === 'function' ? (...args) => main(...args) : main",
+      );
     });
 
     it('should pass non-function named export (config object) through directly', () => {
@@ -186,9 +192,13 @@ export function main() { return null; }
 
       expect(result).toContain('export default {');
       // config is non-function — value passed through
-      expect(result).toContain('config: typeof config === \'function\' ? (...args) => config(...args) : config');
+      expect(result).toContain(
+        "config: typeof config === 'function' ? (...args) => config(...args) : config",
+      );
       // main is a function — wrapped in arrow
-      expect(result).toContain('main: typeof main === \'function\' ? (...args) => main(...args) : main');
+      expect(result).toContain(
+        "main: typeof main === 'function' ? (...args) => main(...args) : main",
+      );
     });
 
     it('should wrap function references in export default {} syntax', () => {
@@ -201,8 +211,12 @@ export default { main, config };
       const result = preprocessPluginCode(code);
 
       expect(result).toContain('export default {');
-      expect(result).toContain('main: typeof main === \'function\' ? (...args) => main(...args) : main');
-      expect(result).toContain('config: typeof config === \'function\' ? (...args) => config(...args) : config');
+      expect(result).toContain(
+        "main: typeof main === 'function' ? (...args) => main(...args) : main",
+      );
+      expect(result).toContain(
+        "config: typeof config === 'function' ? (...args) => config(...args) : config",
+      );
       // original export default should be removed
       expect(result).not.toMatch(/export default \{ main, config \}/);
     });
