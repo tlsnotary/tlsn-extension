@@ -1,5 +1,5 @@
-import Host from '../index';
-import type { DomJson, WindowMessage } from '../types';
+import Host from '../../src/index';
+import type { DomJson, WindowMessage } from '../../src/types';
 import { todoPluginCode } from './plugin';
 
 // --- Event emitter (same pattern as browser tests) ---

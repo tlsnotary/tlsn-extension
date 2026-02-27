@@ -392,6 +392,27 @@ describe('WindowManager', () => {
       expect(windowManager.isOverlayVisible(999)).toBe(false);
     });
 
+    it('should retry showPluginUI by calling itself (not showOverlay)', async () => {
+      // Issue 2: showPluginUI retry was calling showOverlay instead of showPluginUI
+      vi.mocked(browser.tabs.sendMessage)
+        .mockRejectedValueOnce(new Error('Tab not found'))
+        .mockResolvedValueOnce(undefined);
+
+      const json = { type: 'div', options: {}, children: ['hello'] };
+      const showPromise = windowManager.showPluginUI(123, json);
+
+      // Advance past first retry delay
+      await vi.advanceTimersByTimeAsync(600);
+      await showPromise;
+
+      // Second call should be RENDER_PLUGIN_UI (showPluginUI), not SHOW_TLSN_OVERLAY (showOverlay)
+      const calls = vi.mocked(browser.tabs.sendMessage).mock.calls;
+      expect(calls).toHaveLength(2);
+      expect((calls[0][1] as any).type).toBe('RENDER_PLUGIN_UI');
+      expect((calls[1][1] as any).type).toBe('RENDER_PLUGIN_UI');
+      expect((calls[1][1] as any).json).toEqual(json);
+    });
+
     it('should handle overlay show error gracefully', async () => {
       // Mock sendMessage to fail for all retry attempts
       vi.mocked(browser.tabs.sendMessage).mockRejectedValue(

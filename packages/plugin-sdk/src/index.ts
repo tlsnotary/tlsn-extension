@@ -157,7 +157,7 @@ function makeUseHeaders(
 
     // Validate that filterFn returned an array
     if (result === undefined) {
-      throw new Error(`useHeaders: filter function returned undefined. expect an erray`);
+      throw new Error(`useHeaders: filter function returned undefined. expect an array`);
     }
     if (!Array.isArray(result)) {
       throw new Error(`useHeaders: filter function must return an array, got ${typeof result}. `);
@@ -180,7 +180,7 @@ function makeUseState(
     if (!executionContext) {
       throw new Error('Execution context not found');
     }
-    if (!stateStore[key] && defaultValue !== undefined) {
+    if (!(key in stateStore) && defaultValue !== undefined) {
       stateStore[key] = defaultValue;
     }
     // eventEmitter.emit({
@@ -231,6 +231,7 @@ function makeOpenWindow(
     },
   ) => Promise<OpenWindowResponse>,
   _onCloseWindow: (windowId: number) => void,
+  onError?: (error: Error) => void,
 ) {
   let cachedResult: { windowId: number; uuid: string; tabId: number } | null = null;
 
@@ -349,8 +350,11 @@ function makeOpenWindow(
             }
           } catch (error) {
             logger.error(`[makeOpenWindow] Error handling message ${message.type}:`, error);
-            // Clean up on error to prevent further issues
             eventEmitter.removeListener(onMessage);
+            const err = error instanceof Error ? error : new Error(String(error));
+            if (onError) {
+              onError(err);
+            }
           }
         };
 
@@ -608,8 +612,9 @@ export class Host {
 
   async getPluginConfig(code: string): Promise<any> {
     const sandbox = await this.createEvalCode();
-    const processedCode = preprocessPluginCode(code);
-    const exportedCode = await sandbox.eval(`
+    try {
+      const processedCode = preprocessPluginCode(code);
+      const exportedCode = await sandbox.eval(`
 const div = env.div;
 const button = env.button;
 const input = env.input;
@@ -629,8 +634,11 @@ const done = env.done;
 ${processedCode};
 `);
 
-    const { config } = exportedCode;
-    return config;
+      const { config } = exportedCode;
+      return config;
+    } finally {
+      sandbox.dispose();
+    }
   }
 
   async executePlugin(
@@ -727,7 +735,9 @@ ${processedCode};
         createDomJson('button', param1, param2),
       input: (param1?: DomOptions | DomJson[], param2?: DomJson[]) =>
         createDomJson('input', param1, param2),
-      openWindow: makeOpenWindow(uuid, eventEmitter, onOpenWindow, onCloseWindow),
+      openWindow: makeOpenWindow(uuid, eventEmitter, onOpenWindow, onCloseWindow, (err) =>
+        terminateWithError(err, sandbox),
+      ),
       useEffect: makeUseEffect(uuid, context),
       useRequests: makeUseRequests(uuid, context),
       useHeaders: makeUseHeaders(uuid, context),
@@ -837,9 +847,15 @@ ${processedCode};
 
           json = result;
           waitForWindow(async () => executionContextRegistry.get(uuid)?.windowId).then(
-            (windowId: number) => {
+            (windowId: number | null) => {
+              if (windowId == null) {
+                logger.error(
+                  '[executePlugin] Window never opened after timeout, skipping UI render',
+                );
+                return;
+              }
               logger.debug('render result', json as DomJson);
-              onRenderPluginUi(windowId!, json as DomJson);
+              onRenderPluginUi(windowId, json as DomJson);
             },
           );
         }

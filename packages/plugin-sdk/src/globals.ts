@@ -30,6 +30,14 @@ export type ButtonFunction = {
 };
 
 /**
+ * Create an input DOM element
+ */
+export type InputFunction = {
+  (options?: DomOptions, children?: DomJson[]): DomJson;
+  (children: DomJson[]): DomJson;
+};
+
+/**
  * Open a new browser window
  */
 export type OpenWindowFunction = (
@@ -104,6 +112,7 @@ export type DoneFunction = (result?: any) => void;
 export interface PluginAPI {
   div: DivFunction;
   button: ButtonFunction;
+  input: InputFunction;
   openWindow: OpenWindowFunction;
   useEffect: UseEffectFunction;
   useHeaders: UseHeadersFunction;
@@ -122,6 +131,7 @@ export interface PluginAPI {
 declare global {
   const div: DivFunction;
   const button: ButtonFunction;
+  const input: InputFunction;
   const openWindow: OpenWindowFunction;
   const useEffect: UseEffectFunction;
   const useHeaders: UseHeadersFunction;

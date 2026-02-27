@@ -412,7 +412,7 @@ export class WindowManager implements IWindowManager {
 
         // Check if window still exists before retrying
         if (this.windows.has(windowId)) {
-          return this.showOverlay(windowId, retryCount + 1);
+          return this.showPluginUI(windowId, json, retryCount + 1);
         } else {
           logger.warn(
             `[WindowManager] Window ${windowId} closed during retry, aborting plugin UI display`,

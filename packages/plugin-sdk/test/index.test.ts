@@ -252,6 +252,97 @@ export const config = { name: 'P' };
   });
 
   // -------------------------------------------------------------------------
+  // useState with falsy values (issue 1)
+  // -------------------------------------------------------------------------
+
+  describe('useState with falsy values', () => {
+    it('should preserve 0 as a stored state value', async () => {
+      const spy = vi.fn();
+      const sandbox = await host.createEvalCode({
+        spy,
+      });
+
+      await sandbox.eval(`
+        const spy = env.spy;
+        const state = {};
+        function useState(key, defaultValue) {
+          if (!(key in state) && defaultValue !== undefined) {
+            state[key] = defaultValue;
+          }
+          return state[key];
+        }
+        function setState(key, value) {
+          state[key] = value;
+        }
+
+        // Set to 0, then read back
+        setState('counter', 0);
+        spy(useState('counter', 99));
+      `);
+
+      // Should return 0, not overwrite with 99
+      expect(spy).toHaveBeenCalledWith(0);
+      sandbox.dispose();
+    });
+
+    it('should preserve false as a stored state value', async () => {
+      const spy = vi.fn();
+      const sandbox = await host.createEvalCode({
+        spy,
+      });
+
+      await sandbox.eval(`
+        const spy = env.spy;
+        const state = {};
+        function useState(key, defaultValue) {
+          if (!(key in state) && defaultValue !== undefined) {
+            state[key] = defaultValue;
+          }
+          return state[key];
+        }
+        function setState(key, value) {
+          state[key] = value;
+        }
+
+        setState('flag', false);
+        spy(useState('flag', true));
+      `);
+
+      // Should return false, not overwrite with true
+      expect(spy).toHaveBeenCalledWith(false);
+      sandbox.dispose();
+    });
+
+    it('should preserve empty string as a stored state value', async () => {
+      const spy = vi.fn();
+      const sandbox = await host.createEvalCode({
+        spy,
+      });
+
+      await sandbox.eval(`
+        const spy = env.spy;
+        const state = {};
+        function useState(key, defaultValue) {
+          if (!(key in state) && defaultValue !== undefined) {
+            state[key] = defaultValue;
+          }
+          return state[key];
+        }
+        function setState(key, value) {
+          state[key] = value;
+        }
+
+        setState('name', '');
+        spy(useState('name', 'default'));
+      `);
+
+      // Should return '', not overwrite with 'default'
+      expect(spy).toHaveBeenCalledWith('');
+      sandbox.dispose();
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // getPluginConfig
   // -------------------------------------------------------------------------
 
@@ -316,6 +407,26 @@ export function main() { return null; }
       const result = await host.getPluginConfig(code);
 
       expect(result).toBeUndefined();
+    });
+
+    it('should dispose sandbox even when eval throws (issue 3)', async () => {
+      const code = `
+export const config = { name: 'Test' };
+// This will cause a syntax error in the sandbox
+this is not valid javascript!!!
+`.trim();
+
+      // Should not leak the sandbox — just throw
+      await expect(host.getPluginConfig(code)).rejects.toThrow();
+
+      // Calling again should succeed (no resource leak blocking)
+      const code2 = `
+export const config = { name: 'Retry Plugin' };
+export function main() { return null; }
+`.trim();
+
+      const result = await host.getPluginConfig(code2);
+      expect(result.name).toBe('Retry Plugin');
     });
   });
 });

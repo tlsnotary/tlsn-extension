@@ -29,10 +29,51 @@ function renderPluginUI(json: DomJson, windowId: number) {
   container.appendChild(createNode(json, windowId));
 }
 
+const ALLOWED_ELEMENT_TYPES = new Set([
+  'div',
+  'span',
+  'p',
+  'button',
+  'input',
+  'label',
+  'a',
+  'img',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'ul',
+  'ol',
+  'li',
+  'table',
+  'tr',
+  'td',
+  'th',
+  'thead',
+  'tbody',
+  'form',
+  'select',
+  'option',
+  'textarea',
+  'pre',
+  'code',
+  'strong',
+  'em',
+  'br',
+  'hr',
+]);
+
 function createNode(json: DomJson, windowId: number): HTMLElement | Text {
   if (typeof json === 'string') {
     const node = document.createTextNode(json);
     return node;
+  }
+
+  if (!ALLOWED_ELEMENT_TYPES.has(json.type)) {
+    logger.warn(`[Content] Blocked disallowed element type: ${json.type}`);
+    return document.createTextNode('');
   }
 
   const node = document.createElement(json.type);
