@@ -29,10 +29,51 @@ function renderPluginUI(json: DomJson, windowId: number) {
   container.appendChild(createNode(json, windowId));
 }
 
+const ALLOWED_ELEMENT_TYPES = new Set([
+  'div',
+  'span',
+  'p',
+  'button',
+  'input',
+  'label',
+  'a',
+  'img',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'ul',
+  'ol',
+  'li',
+  'table',
+  'tr',
+  'td',
+  'th',
+  'thead',
+  'tbody',
+  'form',
+  'select',
+  'option',
+  'textarea',
+  'pre',
+  'code',
+  'strong',
+  'em',
+  'br',
+  'hr',
+]);
+
 function createNode(json: DomJson, windowId: number): HTMLElement | Text {
   if (typeof json === 'string') {
     const node = document.createTextNode(json);
     return node;
+  }
+
+  if (!ALLOWED_ELEMENT_TYPES.has(json.type)) {
+    logger.warn(`[Content] Blocked disallowed element type: ${json.type}`);
+    return document.createTextNode('');
   }
 
   const node = document.createElement(json.type);
@@ -50,6 +91,17 @@ function createNode(json: DomJson, windowId: number): HTMLElement | Text {
       node.style[key as any] = value;
     });
   }
+
+  if (json.options.inputType)
+    (node as HTMLInputElement).type = json.options.inputType;
+  if (json.options.checked !== undefined)
+    (node as HTMLInputElement).checked = json.options.checked;
+  if (json.options.value !== undefined)
+    (node as HTMLInputElement).value = json.options.value;
+  if (json.options.placeholder)
+    (node as HTMLInputElement).placeholder = json.options.placeholder;
+  if (json.options.disabled !== undefined)
+    (node as HTMLInputElement).disabled = json.options.disabled;
 
   if (json.options.onclick) {
     node.addEventListener('click', () => {

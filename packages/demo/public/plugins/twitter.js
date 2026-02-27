@@ -12,7 +12,7 @@ var config = {
   ],
   urls: ["https://x.com/*"]
 };
-async function onClick() {
+var onClick = async () => {
   const isRequestPending = useState("isRequestPending", false);
   if (isRequestPending) return;
   setState("isRequestPending", true);
@@ -66,14 +66,14 @@ async function onClick() {
     }
   );
   done(JSON.stringify(resp));
-}
-function expandUI() {
+};
+var expandUI = () => {
   setState("isMinimized", false);
-}
-function minimizeUI() {
+};
+var minimizeUI = () => {
   setState("isMinimized", true);
-}
-function main() {
+};
+var main = () => {
   const isMinimized = useState("isMinimized", false);
   const isRequestPending = useState("isRequestPending", false);
   const cachedCookie = useState("cookie", null);
@@ -249,7 +249,7 @@ function main() {
       )
     ]
   );
-}
+};
 var twitter_plugin_default = {
   main,
   onClick,

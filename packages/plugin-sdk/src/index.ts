@@ -51,7 +51,7 @@ function updateExecutionContext(
 
 // Pure function for creating DOM JSON without `this` binding
 function createDomJson(
-  type: 'div' | 'button',
+  type: 'div' | 'button' | 'input',
   param1: DomOptions | DomJson[] = {},
   param2: DomJson[] = [],
 ): DomJson {
@@ -157,7 +157,7 @@ function makeUseHeaders(
 
     // Validate that filterFn returned an array
     if (result === undefined) {
-      throw new Error(`useHeaders: filter function returned undefined. expect an erray`);
+      throw new Error(`useHeaders: filter function returned undefined. expect an array`);
     }
     if (!Array.isArray(result)) {
       throw new Error(`useHeaders: filter function must return an array, got ${typeof result}. `);
@@ -180,7 +180,7 @@ function makeUseState(
     if (!executionContext) {
       throw new Error('Execution context not found');
     }
-    if (!stateStore[key] && defaultValue !== undefined) {
+    if (!(key in stateStore) && defaultValue !== undefined) {
       stateStore[key] = defaultValue;
     }
     // eventEmitter.emit({
@@ -231,7 +231,10 @@ function makeOpenWindow(
     },
   ) => Promise<OpenWindowResponse>,
   _onCloseWindow: (windowId: number) => void,
+  onError?: (error: Error) => void,
 ) {
+  let cachedResult: { windowId: number; uuid: string; tabId: number } | null = null;
+
   return async (
     url: string,
     options?: {
@@ -242,6 +245,11 @@ function makeOpenWindow(
   ): Promise<{ windowId: number; uuid: string; tabId: number }> => {
     if (!url || typeof url !== 'string') {
       throw new Error('URL must be a non-empty string');
+    }
+
+    // Return cached result if window already opened (idempotent on re-renders)
+    if (cachedResult) {
+      return cachedResult;
     }
 
     try {
@@ -292,10 +300,26 @@ function makeOpenWindow(
               executionContext.main();
             }
 
+            if (message.type === 'REQUESTS_BATCH') {
+              const requests = message.requests;
+              updateExecutionContext(uuid, {
+                requests: [...(executionContext.requests || []), ...requests],
+              });
+              executionContext.main();
+            }
+
             if (message.type === 'HEADER_INTERCEPTED') {
               const header = message.header;
               updateExecutionContext(uuid, {
                 headers: [...(executionContext.headers || []), header],
+              });
+              executionContext.main();
+            }
+
+            if (message.type === 'HEADERS_BATCH') {
+              const headers = message.headers;
+              updateExecutionContext(uuid, {
+                headers: [...(executionContext.headers || []), ...headers],
               });
               executionContext.main();
             }
@@ -326,18 +350,22 @@ function makeOpenWindow(
             }
           } catch (error) {
             logger.error(`[makeOpenWindow] Error handling message ${message.type}:`, error);
-            // Clean up on error to prevent further issues
             eventEmitter.removeListener(onMessage);
+            const err = error instanceof Error ? error : new Error(String(error));
+            if (onError) {
+              onError(err);
+            }
           }
         };
 
         eventEmitter.addListener(onMessage);
 
-        return {
+        cachedResult = {
           windowId: response.payload.windowId,
           uuid: response.payload.uuid,
           tabId: response.payload.tabId,
         };
+        return cachedResult;
       }
 
       throw new Error('Invalid response from background script');
@@ -359,6 +387,63 @@ export {
   type HeaderRangeOptions,
   type BodyRangeOptions,
 } from './parser';
+
+/**
+ * Preprocess plugin code to work around @sebastianwessel/quickjs serialization bugs.
+ *
+ * Two issues:
+ * 1. handleToNative() has no circular reference detection — exporting any function
+ *    with a .prototype property causes infinite recursion (prototype.constructor cycle).
+ * 2. The library only returns `res.default` from module evaluation, so named exports
+ *    are silently discarded.
+ *
+ * This function strips named exports, then re-exports them via `export default { ... }`
+ * with arrow function wrappers (arrow functions have no .prototype).
+ */
+function preprocessPluginCode(code: string): string {
+  // Handle named exports: export function main() / export const config = ...
+  const exportNames: string[] = [];
+  const exportRegex = /export\s+(?:async\s+)?(?:function|const|let|var|class)\s+(\w+)/g;
+  let match;
+
+  while ((match = exportRegex.exec(code)) !== null) {
+    exportNames.push(match[1]);
+  }
+
+  if (exportNames.length > 0) {
+    const strippedCode = code.replace(/^(\s*)export\s+/gm, '$1');
+    const entries = exportNames
+      .map(
+        (name) =>
+          `${name}: typeof ${name} === 'function' ? (...args) => ${name}(...args) : ${name}`,
+      )
+      .join(',\n  ');
+
+    return `${strippedCode}\nexport default { ${entries} };`;
+  }
+
+  // Handle export default { ... } — wrap function references in arrow functions
+  // to avoid QuickJS handleToNative stack overflow on .prototype
+  const defaultExportMatch = code.match(/export\s+default\s+\{([^}]+)\}\s*;?\s*$/);
+
+  if (defaultExportMatch) {
+    const names = defaultExportMatch[1]
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const strippedCode = code.replace(/export\s+default\s+\{[^}]+\}\s*;?\s*$/, '');
+    const entries = names
+      .map(
+        (name) =>
+          `${name}: typeof ${name} === 'function' ? (...args) => ${name}(...args) : ${name}`,
+      )
+      .join(',\n  ');
+
+    return `${strippedCode}\nexport default { ${entries} };`;
+  }
+
+  return code;
+}
 
 export class Host {
   private capabilities: Map<string, (...args: any[]) => any> = new Map();
@@ -527,9 +612,12 @@ export class Host {
 
   async getPluginConfig(code: string): Promise<any> {
     const sandbox = await this.createEvalCode();
-    const exportedCode = await sandbox.eval(`
+    try {
+      const processedCode = preprocessPluginCode(code);
+      const exportedCode = await sandbox.eval(`
 const div = env.div;
 const button = env.button;
+const input = env.input;
 const openWindow = env.openWindow;
 const useEffect = env.useEffect;
 const useRequests = env.useRequests;
@@ -543,11 +631,14 @@ const reveal = env.reveal;
 const getResponse = env.getResponse;
 const closeWindow = env.closeWindow;
 const done = env.done;
-${code};
+${processedCode};
 `);
 
-    const { config } = exportedCode;
-    return config;
+      const { config } = exportedCode;
+      return config;
+    } finally {
+      sandbox.dispose();
+    }
   }
 
   async executePlugin(
@@ -642,7 +733,11 @@ ${code};
         createDomJson('div', param1, param2),
       button: (param1?: DomOptions | DomJson[], param2?: DomJson[]) =>
         createDomJson('button', param1, param2),
-      openWindow: makeOpenWindow(uuid, eventEmitter, onOpenWindow, onCloseWindow),
+      input: (param1?: DomOptions | DomJson[], param2?: DomJson[]) =>
+        createDomJson('input', param1, param2),
+      openWindow: makeOpenWindow(uuid, eventEmitter, onOpenWindow, onCloseWindow, (err) =>
+        terminateWithError(err, sandbox),
+      ),
       useEffect: makeUseEffect(uuid, context),
       useRequests: makeUseRequests(uuid, context),
       useHeaders: makeUseHeaders(uuid, context),
@@ -665,9 +760,11 @@ ${code};
 
     let exportedCode;
     try {
+      const processedCode = preprocessPluginCode(code);
       exportedCode = await sandbox.eval(`
 const div = env.div;
 const button = env.button;
+const input = env.input;
 const openWindow = env.openWindow;
 const useEffect = env.useEffect;
 const useRequests = env.useRequests;
@@ -677,7 +774,7 @@ const setState = env.setState;
 const prove = env.prove;
 const closeWindow = env.closeWindow;
 const done = env.done;
-${code};
+${processedCode};
 `);
     } catch (evalError) {
       const error = evalError instanceof Error ? evalError : new Error(String(evalError));
@@ -728,8 +825,8 @@ ${code};
           context: {
             ...executionContextRegistry.get(uuid)?.context,
             main: {
-              effects: JSON.parse(JSON.stringify(context['main']?.effects)),
-              selectors: JSON.parse(JSON.stringify(context['main']?.selectors)),
+              effects: JSON.parse(JSON.stringify(context['main']?.effects ?? [])),
+              selectors: JSON.parse(JSON.stringify(context['main']?.selectors ?? [])),
             },
           },
           stateStore: JSON.parse(JSON.stringify(stateStore)),
@@ -750,9 +847,15 @@ ${code};
 
           json = result;
           waitForWindow(async () => executionContextRegistry.get(uuid)?.windowId).then(
-            (windowId: number) => {
+            (windowId: number | null) => {
+              if (windowId == null) {
+                logger.error(
+                  '[executePlugin] Window never opened after timeout, skipping UI render',
+                );
+                return;
+              }
               logger.debug('render result', json as DomJson);
-              onRenderPluginUi(windowId!, json as DomJson);
+              onRenderPluginUi(windowId, json as DomJson);
             },
           );
         }
@@ -788,7 +891,7 @@ ${code};
    * Delegates to the pure module-level function
    */
   createDomJson = (
-    type: 'div' | 'button',
+    type: 'div' | 'button' | 'input',
     param1: DomOptions | DomJson[] = {},
     param2: DomJson[] = [],
   ): DomJson => {
@@ -905,6 +1008,9 @@ export type {
 
 // Re-export LogLevel for consumers
 export { LogLevel } from '@tlsn/common';
+
+// Export internal utilities (used by tests)
+export { preprocessPluginCode };
 
 // Default export
 export default Host;

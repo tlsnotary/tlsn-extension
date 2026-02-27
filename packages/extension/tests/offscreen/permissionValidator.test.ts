@@ -70,6 +70,35 @@ describe('matchesPathnamePattern', () => {
       ),
     ).toBe(true);
   });
+
+  it('should escape regex metacharacters in pattern (issue 5)', () => {
+    // Without escaping, a dot in the pattern would match any character
+    expect(matchesPathnamePattern('/api/v1.1/users', '/api/v1.1/users')).toBe(
+      true,
+    );
+    // The dot should NOT match arbitrary characters
+    expect(matchesPathnamePattern('/api/v1X1/users', '/api/v1.1/users')).toBe(
+      false,
+    );
+  });
+
+  it('should escape parentheses in pattern', () => {
+    expect(
+      matchesPathnamePattern('/api/(group)/test', '/api/(group)/test'),
+    ).toBe(true);
+    expect(matchesPathnamePattern('/api/group/test', '/api/(group)/test')).toBe(
+      false,
+    );
+  });
+
+  it('should escape plus sign in pattern', () => {
+    expect(matchesPathnamePattern('/api/v1+2/test', '/api/v1+2/test')).toBe(
+      true,
+    );
+    expect(matchesPathnamePattern('/api/v12/test', '/api/v1+2/test')).toBe(
+      false,
+    );
+  });
 });
 
 describe('validateProvePermission', () => {

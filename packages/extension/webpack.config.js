@@ -76,6 +76,14 @@ var options = {
         use: 'null-loader',
       },
       {
+        // Prevent webpack from splitting QuickJS dynamic imports into separate
+        // chunks that fail to load in Chrome extension offscreen documents.
+        test: /[\\/]node_modules[\\/](@jitl[\\/]quickjs|quickjs-emscripten)/,
+        parser: {
+          dynamicImportMode: 'eager',
+        },
+      },
+      {
         // look for .css or .scss files
         test: /\.(css|scss)$/,
         // in the `src` directory

@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TLSN Plugin SDK - Todo App</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+        background: #f5f5f5;
+        padding: 24px 20px;
+      }
+      #app {
+        max-width: 1100px;
+        margin: 0 auto;
+      }
+
+      /* --- Toolbar --- */
+      #toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 24px;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        margin-bottom: 16px;
+      }
+      #toolbar-left h1 {
+        font-size: 22px;
+        color: #1a1a1a;
+        margin-bottom: 2px;
+      }
+      .subtitle {
+        color: #666;
+        font-size: 13px;
+        margin-bottom: 8px;
+      }
+      #status-indicator {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        color: #888;
+      }
+      #status-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #bbb;
+        flex-shrink: 0;
+      }
+      #status-dot.running {
+        background: #4caf50;
+        animation: pulse 1.5s infinite;
+      }
+      #status-dot.done {
+        background: #1976d2;
+      }
+      #status-dot.error {
+        background: #ef5350;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.3;
+        }
+      }
+      #run-btn {
+        padding: 10px 24px;
+        background: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      #run-btn:hover {
+        background: #43a047;
+      }
+      #run-btn:disabled {
+        background: #9e9e9e;
+        cursor: not-allowed;
+      }
+
+      /* --- Two-panel layout --- */
+      #main-content {
+        display: flex;
+        gap: 16px;
+        min-height: 500px;
+      }
+      #plugin-panel {
+        flex: 1;
+        min-width: 0;
+      }
+      #plugin-container {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        padding: 24px;
+        min-height: 480px;
+      }
+      #idle-message {
+        color: #999;
+        text-align: center;
+        padding: 80px 20px;
+        font-size: 15px;
+      }
+
+      /* --- Console panel --- */
+      #console-panel {
+        flex: 1;
+        min-width: 0;
+        background: #1e1e1e;
+        border-radius: 12px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      #console-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 16px;
+        background: #252526;
+        border-bottom: 1px solid #333;
+      }
+      #console-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: #ccc;
+      }
+      #clear-btn {
+        padding: 4px 12px;
+        background: #3e3e42;
+        color: #ccc;
+        border: none;
+        border-radius: 4px;
+        font-size: 12px;
+        cursor: pointer;
+      }
+      #clear-btn:hover {
+        background: #4e4e52;
+      }
+      #console-output {
+        flex: 1;
+        overflow-y: auto;
+        padding: 12px 16px;
+        font-family: 'Monaco', 'Courier New', monospace;
+        font-size: 13px;
+        line-height: 1.6;
+        color: #d4d4d4;
+      }
+      .console-entry {
+        padding: 1px 0;
+        display: flex;
+        gap: 8px;
+      }
+      .console-entry.info .console-message {
+        color: #569cd6;
+      }
+      .console-entry.success .console-message {
+        color: #89d185;
+      }
+      .console-entry.error .console-message {
+        color: #f48771;
+      }
+      .console-entry.event .console-message {
+        color: #dcdcaa;
+      }
+      .console-timestamp {
+        color: #6a9955;
+        flex-shrink: 0;
+        user-select: none;
+      }
+      .console-message {
+        flex: 1;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      #console-output::-webkit-scrollbar {
+        width: 8px;
+      }
+      #console-output::-webkit-scrollbar-track {
+        background: #252526;
+      }
+      #console-output::-webkit-scrollbar-thumb {
+        background: #3e3e42;
+        border-radius: 4px;
+      }
+      #console-output::-webkit-scrollbar-thumb:hover {
+        background: #4e4e52;
+      }
+
+      /* --- Todo app styles (applied to plugin-rendered DOM) --- */
+      #header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 20px;
+      }
+      #new-todo-input {
+        flex: 1;
+        padding: 10px 14px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        font-size: 15px;
+        outline: none;
+        transition: border-color 0.2s;
+      }
+      #new-todo-input:focus {
+        border-color: #4caf50;
+      }
+      #add-btn {
+        padding: 10px 20px;
+        background: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 15px;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      #add-btn:hover {
+        background: #43a047;
+      }
+      #count {
+        font-size: 14px;
+        color: #888;
+        margin-bottom: 16px;
+      }
+      .todo-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px;
+        background: #fafafa;
+        border-radius: 8px;
+        margin-bottom: 8px;
+      }
+      .todo-item input[type='checkbox'] {
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+        accent-color: #4caf50;
+      }
+      .todo-text {
+        flex: 1;
+        font-size: 15px;
+      }
+      .todo-done {
+        text-decoration: line-through;
+        color: #999;
+      }
+      .todo-item button {
+        padding: 6px 14px;
+        background: #ef5350;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 13px;
+        cursor: pointer;
+      }
+      .todo-item button:hover {
+        background: #e53935;
+      }
+      #footer {
+        margin-top: 20px;
+        padding-top: 16px;
+        border-top: 1px solid #eee;
+      }
+      #finish-btn {
+        padding: 10px 20px;
+        background: #1976d2;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 15px;
+        cursor: pointer;
+      }
+      #finish-btn:hover {
+        background: #1565c0;
+      }
+      #empty-msg {
+        color: #bbb;
+        text-align: center;
+        padding: 40px 0;
+        font-size: 15px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div id="toolbar">
+        <div id="toolbar-left">
+          <h1>Todo App</h1>
+          <p class="subtitle">Powered by TLSN Plugin SDK &mdash; running in QuickJS sandbox</p>
+          <div id="status-indicator">
+            <div id="status-dot"></div>
+            <span id="status-text">Idle</span>
+          </div>
+        </div>
+        <button id="run-btn">Run Plugin</button>
+      </div>
+      <div id="main-content">
+        <div id="plugin-panel">
+          <div id="plugin-container">
+            <div id="idle-message">Click "Run Plugin" to start the sandbox.</div>
+          </div>
+        </div>
+        <div id="console-panel">
+          <div id="console-header">
+            <span id="console-title">Console</span>
+            <button id="clear-btn">Clear</button>
+          </div>
+          <div id="console-output"></div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/examples/todo/index.ts"></script>
+  </body>
+</html>

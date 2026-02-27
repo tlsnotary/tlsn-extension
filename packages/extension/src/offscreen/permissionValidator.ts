@@ -25,7 +25,9 @@ export function matchesPathnamePattern(
 ): boolean {
   const regexPattern = pattern
     .replace(/\*\*/g, '<<<MULTI>>>')
-    .replace(/\*/g, '[^/]*')
+    .replace(/\*/g, '<<<SINGLE>>>')
+    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+    .replace(/<<<SINGLE>>>/g, '[^/]*')
     .replace(/<<<MULTI>>>/g, '.*');
   const regex = new RegExp(`^${regexPattern}$`);
   return regex.test(pathname);

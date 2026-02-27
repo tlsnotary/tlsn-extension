@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractConfig } from './index';
+import { extractConfig } from '../src/index';
 
 describe('extractConfig', () => {
   it('should extract config from valid plugin code', async () => {
@@ -150,6 +150,12 @@ describe('extractConfig', () => {
     expect(result).not.toBeNull();
     expect(result?.name).toBe('Backtick Plugin');
     expect(result?.description).toBe('Uses template literals');
+  });
+
+  it('should return null when code is not a string (catch branch)', async () => {
+    // Passing null causes code.match() to throw a TypeError → hits the catch block → returns null
+    const result = await extractConfig(null as any);
+    expect(result).toBeNull();
   });
 
   // Note: The regex-based extractConfig cannot handle array fields like requests and urls.

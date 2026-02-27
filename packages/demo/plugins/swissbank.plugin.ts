@@ -36,7 +36,7 @@ const config: PluginConfig = {
 // PROOF GENERATION CALLBACK
 // =============================================================================
 
-async function onClick(): Promise<void> {
+const onClick = async (): Promise<void> => {
   const isRequestPending = useState<boolean>('isRequestPending', false);
 
   if (isRequestPending) return;
@@ -88,21 +88,21 @@ async function onClick(): Promise<void> {
   );
 
   done(JSON.stringify(resp));
-}
+};
 
-function expandUI(): void {
+const expandUI = (): void => {
   setState('isMinimized', false);
-}
+};
 
-function minimizeUI(): void {
+const minimizeUI = (): void => {
   setState('isMinimized', true);
-}
+};
 
 // =============================================================================
 // MAIN UI FUNCTION
 // =============================================================================
 
-function main(): DomJson {
+const main = (): DomJson => {
   const isMinimized = useState<boolean>('isMinimized', false);
   const isRequestPending = useState<boolean>('isRequestPending', false);
   const cachedCookie = useState<string | null>('cookie', null);
@@ -269,7 +269,7 @@ function main(): DomJson {
       ),
     ],
   );
-}
+};
 
 // =============================================================================
 // PLUGIN EXPORTS

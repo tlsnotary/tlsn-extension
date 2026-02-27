@@ -6,12 +6,19 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     coverage: {
-      provider: 'c8',
+      provider: 'istanbul',
       reporter: ['text', 'json', 'html'],
-      exclude: ['node_modules', 'dist', '**/*.config.ts', '**/*.config.js', '**/examples/**'],
+      exclude: [
+        'node_modules',
+        'dist',
+        '**/*.config.ts',
+        '**/*.config.js',
+        'examples/**',
+        'test/**',
+      ],
     },
-    include: ['src/**/*.{test,spec}.ts'],
-    exclude: ['node_modules', 'dist'],
+    include: ['test/**/*.{test,spec}.ts'],
+    exclude: ['node_modules', 'dist', 'test/**/*.browser.{test,spec}.ts'],
   },
   resolve: {
     alias: {

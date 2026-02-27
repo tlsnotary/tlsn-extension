@@ -1,14 +1,10 @@
-import { defineConfig, type Plugin } from 'vitest/config';
+import { defineConfig, type Plugin } from 'vite';
 import path from 'node:path';
 import fs from 'node:fs';
 
 /**
- * Vite plugin that serves the QuickJS WASM binary from the correct location.
- *
- * When Vite pre-bundles @jitl/quickjs-ng-wasmfile-release-sync, the JS is moved
- * to .vite/deps/ but the .wasm file stays in node_modules. The Emscripten loader
- * resolves the WASM URL relative to import.meta.url, so the fetch 404s.
- * This middleware intercepts those requests and serves the real file.
+ * Vite plugin that serves the QuickJS WASM binary from the correct monorepo path.
+ * Reused from vitest.browser.config.ts.
  */
 function quickjsWasmPlugin(): Plugin {
   const wasmPath = path.resolve(
@@ -35,33 +31,10 @@ function quickjsWasmPlugin(): Plugin {
 
 export default defineConfig({
   plugins: [quickjsWasmPlugin()],
-  test: {
-    globals: true,
-    browser: {
-      enabled: true,
-      instances: [
-        {
-          browser: 'chromium',
-        },
-      ],
-      provider: 'playwright',
-      // Enable headless mode by default
-      headless: true,
-    },
-    coverage: {
-      provider: 'istanbul',
-      reporter: ['text', 'json', 'html'],
-      exclude: [
-        'node_modules',
-        'dist',
-        '**/*.config.ts',
-        '**/*.config.js',
-        'examples/**',
-        'test/**',
-      ],
-    },
-    include: ['test/**/*.browser.{test,spec}.ts'],
-    exclude: ['node_modules', 'dist'],
+  root: __dirname,
+  server: {
+    port: 3001,
+    open: '/todo.html',
   },
   resolve: {
     alias: {
