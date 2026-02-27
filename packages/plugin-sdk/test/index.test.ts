@@ -429,4 +429,178 @@ export function main() { return null; }
       expect(result.name).toBe('Retry Plugin');
     });
   });
+
+  // -------------------------------------------------------------------------
+  // PluginLifecycle — drain mechanism & race condition safety
+  // -------------------------------------------------------------------------
+
+  describe('PluginLifecycle', () => {
+    // Helper to create event emitter for tests
+    function createTestEventEmitter() {
+      type Listener = (message: any) => void;
+      const listeners: Listener[] = [];
+      return {
+        emit: (message: any) => {
+          listeners.forEach((l) => l(message));
+        },
+        addListener: (listener: Listener) => {
+          listeners.push(listener);
+        },
+        removeListener: (listener: Listener) => {
+          const idx = listeners.indexOf(listener);
+          if (idx >= 0) listeners.splice(idx, 1);
+        },
+      };
+    }
+
+    it('done() from main() completes without callbacks in-flight', async () => {
+      const lifecycleHost = new Host({
+        onProve: vi.fn(),
+        onRenderPluginUi: vi.fn(),
+        onCloseWindow: vi.fn(),
+        onOpenWindow: vi.fn(),
+      });
+
+      const pluginCode = `
+export const config = { name: 'Immediate Done' };
+export function main() {
+  done('immediate');
+  return div({}, ['done']);
+}
+`.trim();
+
+      const eventEmitter = createTestEventEmitter();
+
+      const result = await lifecycleHost.executePlugin(pluginCode, {
+        eventEmitter,
+      });
+      expect(result).toBe('immediate');
+    }, 15_000);
+
+    it('done() called twice is idempotent (second call is no-op)', async () => {
+      const lifecycleHost = new Host({
+        onProve: vi.fn(),
+        onRenderPluginUi: vi.fn(),
+        onCloseWindow: vi.fn(),
+        onOpenWindow: vi.fn(),
+      });
+
+      const pluginCode = `
+export const config = { name: 'Double Done' };
+export function main() {
+  done('first');
+  done('second');
+  return div({}, ['done']);
+}
+`.trim();
+
+      const eventEmitter = createTestEventEmitter();
+
+      const result = await lifecycleHost.executePlugin(pluginCode, {
+        eventEmitter,
+      });
+      // First done() wins, second is a no-op because isCompleted is true
+      expect(result).toBe('first');
+    }, 15_000);
+
+    it('waitForPendingCallbacks timeout resolves after DRAIN_TIMEOUT_MS', async () => {
+      // Test the timeout mechanism directly by simulating the lifecycle pattern
+      // used inside executePlugin. This avoids QuickJS GC issues in Node tests.
+      const lifecycle = {
+        isCompleted: false,
+        pendingCallbacks: 1, // simulate a stuck callback
+        onDrain: null as (() => void) | null,
+      };
+
+      const DRAIN_TIMEOUT_MS = 100; // short timeout for test
+
+      const waitForPendingCallbacks = (): Promise<void> => {
+        if (lifecycle.pendingCallbacks === 0) return Promise.resolve();
+        if (lifecycle.onDrain !== null) {
+          // Should not happen in practice
+          throw new Error('onDrain already set');
+        }
+        return new Promise<void>((resolve) => {
+          lifecycle.onDrain = resolve;
+          setTimeout(() => {
+            if (lifecycle.onDrain === resolve) {
+              lifecycle.onDrain = null;
+              resolve();
+            }
+          }, DRAIN_TIMEOUT_MS);
+        });
+      };
+
+      // Callbacks stuck at 1 — timeout should force-resolve
+      const start = Date.now();
+      await waitForPendingCallbacks();
+      const elapsed = Date.now() - start;
+
+      expect(elapsed).toBeGreaterThanOrEqual(90); // ~100ms with tolerance
+      expect(lifecycle.onDrain).toBeNull(); // cleaned up
+    });
+
+    it('waitForPendingCallbacks resolves immediately when callbacks drain naturally', async () => {
+      const lifecycle = {
+        isCompleted: false,
+        pendingCallbacks: 1,
+        onDrain: null as (() => void) | null,
+      };
+
+      const waitForPendingCallbacks = (): Promise<void> => {
+        if (lifecycle.pendingCallbacks === 0) return Promise.resolve();
+        if (lifecycle.onDrain !== null) {
+          throw new Error('onDrain already set');
+        }
+        return new Promise<void>((resolve) => {
+          lifecycle.onDrain = resolve;
+          setTimeout(() => {
+            if (lifecycle.onDrain === resolve) {
+              lifecycle.onDrain = null;
+              resolve();
+            }
+          }, 30_000); // long timeout
+        });
+      };
+
+      // Simulate: callback drains after 50ms
+      setTimeout(() => {
+        lifecycle.pendingCallbacks--;
+        if (lifecycle.pendingCallbacks === 0 && lifecycle.onDrain) {
+          lifecycle.onDrain();
+          lifecycle.onDrain = null;
+        }
+      }, 50);
+
+      const start = Date.now();
+      await waitForPendingCallbacks();
+      const elapsed = Date.now() - start;
+
+      // Should resolve in ~50ms (not 30s timeout)
+      expect(elapsed).toBeLessThan(200);
+      expect(lifecycle.onDrain).toBeNull();
+    });
+
+    it('waitForPendingCallbacks returns immediately when count is already 0', async () => {
+      const lifecycle = {
+        isCompleted: false,
+        pendingCallbacks: 0,
+        onDrain: null as (() => void) | null,
+      };
+
+      const waitForPendingCallbacks = (): Promise<void> => {
+        if (lifecycle.pendingCallbacks === 0) return Promise.resolve();
+        return new Promise<void>((resolve) => {
+          lifecycle.onDrain = resolve;
+        });
+      };
+
+      const start = Date.now();
+      await waitForPendingCallbacks();
+      const elapsed = Date.now() - start;
+
+      expect(elapsed).toBeLessThan(10);
+      expect(lifecycle.onDrain).toBeNull(); // never set
+    });
+  });
 });

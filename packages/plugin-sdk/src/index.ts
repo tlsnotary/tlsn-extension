@@ -716,10 +716,32 @@ ${processedCode};
     });
 
     // Wait for all in-flight async callbacks to settle
+    const DRAIN_TIMEOUT_MS = 30_000;
+
     const waitForPendingCallbacks = (): Promise<void> => {
       if (lifecycle.pendingCallbacks === 0) return Promise.resolve();
+
+      // Defensive: onDrain should never already be set because isCompleted
+      // gates both done() and terminateWithError(). Log if invariant breaks.
+      if (lifecycle.onDrain !== null) {
+        logger.warn(
+          '[executePlugin] onDrain already set — multiple waiters detected, this is a bug',
+        );
+      }
+
       return new Promise<void>((resolve) => {
         lifecycle.onDrain = resolve;
+
+        // Safety net: if callbacks hang forever, force-resolve after timeout
+        setTimeout(() => {
+          if (lifecycle.onDrain === resolve) {
+            logger.warn(
+              `[executePlugin] Timed out waiting for ${lifecycle.pendingCallbacks} callback(s) to drain after ${DRAIN_TIMEOUT_MS}ms — forcing disposal`,
+            );
+            lifecycle.onDrain = null;
+            resolve();
+          }
+        }, DRAIN_TIMEOUT_MS);
       });
     };
 
