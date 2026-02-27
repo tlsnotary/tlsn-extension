@@ -399,7 +399,6 @@ where
     // 6. Pass proxy connection into the prover for TLS
     let (mpc_tls_connection, prover_fut) = prover
         .connect(tls_client_config, proxy_stream)
-        .await
         .map_err(|e| format!("TLS connect failed: {}", e))?;
 
     info!("[Prover] MPC-TLS connection established");

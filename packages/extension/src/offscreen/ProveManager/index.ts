@@ -1,15 +1,40 @@
 import * as Comlink from 'comlink';
-import { v4 as uuidv4 } from 'uuid';
 import type {
-  Prover as TProver,
+  ProverConfig,
+  HttpRequest,
+  Reveal,
   Method,
 } from '../../../../tlsn-wasm-pkg/tlsn_wasm';
 import { logger } from '@tlsn/common';
 
-const { init, Prover } = Comlink.wrap<{
-  init: any;
-  Prover: typeof TProver;
-}>(new Worker(new URL('./worker.ts', import.meta.url)));
+// Extract worker reference so we can listen for progress messages alongside Comlink.
+const worker = new Worker(new URL('./worker.ts', import.meta.url));
+const workerApi = Comlink.wrap<{
+  init: (config?: {
+    loggingLevel?: string;
+    hardwareConcurrency?: number;
+    crateFilters?: { name: string; level: string }[];
+  }) => Promise<void>;
+  createProver: (config: ProverConfig) => Promise<string>;
+  setupProver: (proverId: string, verifierUrl: string) => Promise<void>;
+  sendRequest: (
+    proverId: string,
+    proxyUrl: string,
+    request: HttpRequest,
+  ) => Promise<void>;
+  getTranscript: (proverId: string) => { sent: number[]; recv: number[] };
+  computeReveal: (
+    proverId: string,
+    handlers: any[],
+  ) => {
+    sentRanges: any[];
+    recvRanges: any[];
+    sentRangesWithHandlers: any[];
+    recvRangesWithHandlers: any[];
+  };
+  reveal: (proverId: string, revealConfig: Reveal) => Promise<void>;
+  freeProver: (proverId: string) => void;
+}>(worker);
 
 // ============================================================================
 // WebSocket Message Types (matching Rust verifier)
@@ -43,14 +68,43 @@ interface SessionState {
   responseReceived: boolean;
 }
 
+/** Progress callback signature for WASM and JS-side progress events. */
+export type ProgressCallback = (data: {
+  step: string;
+  progress: number;
+  message: string;
+  source: string;
+}) => void;
+
 export class ProveManager {
-  private provers: Map<string, TProver> = new Map();
   /** Maps proverId to its session state - each prover has isolated session */
   private sessions: Map<string, SessionState> = new Map();
+  private onProgress: ProgressCallback | null = null;
+  private listenerAdded = false;
+
+  /** Set a callback to receive WASM-side progress events from the worker. */
+  setProgressCallback(cb: ProgressCallback | null) {
+    this.onProgress = cb;
+  }
 
   async init() {
-    await init({
-      loggingLevel: 'Debug',
+    // Guard against duplicate listener registration if init() is called more than once.
+    if (!this.listenerAdded) {
+      this.listenerAdded = true;
+      worker.addEventListener('message', (event: MessageEvent) => {
+        if (event.data?.type === 'WASM_PROGRESS' && this.onProgress) {
+          this.onProgress({
+            step: event.data.step,
+            progress: event.data.progress,
+            message: event.data.message,
+            source: 'wasm',
+          });
+        }
+      });
+    }
+
+    await workerApi.init({
+      loggingLevel: 'Info',
       hardwareConcurrency: navigator.hardwareConcurrency,
       crateFilters: [
         { name: 'yamux', level: 'Info' },
@@ -79,11 +133,6 @@ export class ProveManager {
       const pathname = _url.pathname;
       const sessionWsUrl = `${protocol}://${_url.host}${pathname === '/' ? '' : pathname}/session`;
 
-      logger.debug(
-        '[ProveManager] Connecting to session WebSocket:',
-        sessionWsUrl,
-      );
-
       const ws = new WebSocket(sessionWsUrl);
 
       ws.onopen = () => {
@@ -98,7 +147,6 @@ export class ProveManager {
           maxSentData,
           sessionData,
         };
-        logger.debug('[ProveManager] Sending register message:', registerMsg);
         ws.send(JSON.stringify(registerMsg));
       };
 
@@ -125,10 +173,6 @@ export class ProveManager {
               });
 
               const verifierWsUrl = `${protocol}://${_url.host}${pathname === '/' ? '' : pathname}/verifier?sessionId=${sessionId}`;
-              logger.debug(
-                '[ProveManager] Prover will connect to:',
-                verifierWsUrl,
-              );
 
               resolve(verifierWsUrl);
               break;
@@ -136,7 +180,7 @@ export class ProveManager {
 
             case 'session_completed': {
               logger.debug(
-                '[ProveManager] ✅ Session completed for prover:',
+                '[ProveManager] Session completed for prover:',
                 proverId,
               );
               logger.debug(
@@ -230,62 +274,38 @@ export class ProveManager {
     maxSentData = 4096,
     sessionData: Record<string, string> = {},
   ) {
-    const proverId = uuidv4();
-
-    // Create isolated session for this prover
-    const sessionUrl = await this.createSession(
-      proverId,
-      verifierUrl,
-      maxRecvData,
-      maxSentData,
-      sessionData,
-    );
-
-    logger.debug('[ProveManager] Creating prover with config:', {
-      proverId,
+    // Create prover in the worker first to get the ID.
+    const proverId = await workerApi.createProver({
       server_name: serverDns,
       max_recv_data: maxRecvData,
       max_sent_data: maxSentData,
       network: 'Bandwidth',
+      max_sent_records: undefined,
+      max_recv_data_online: undefined,
+      max_recv_records_online: undefined,
+      defer_decryption_from_start: undefined,
+      client_auth: undefined,
     });
 
     try {
-      const prover = await new Prover({
-        server_name: serverDns,
-        max_recv_data: maxRecvData,
-        max_sent_data: maxSentData,
-        network: 'Bandwidth',
-        max_sent_records: undefined,
-        max_recv_data_online: undefined,
-        max_recv_records_online: undefined,
-        defer_decryption_from_start: undefined,
-        client_auth: undefined,
-      });
-      logger.debug(
-        '[ProveManager] Prover instance created, calling setup...',
-        sessionUrl,
+      // Create isolated session for this prover.
+      const sessionUrl = await this.createSession(
+        proverId,
+        verifierUrl,
+        maxRecvData,
+        maxSentData,
+        sessionData,
       );
 
-      await prover.setup(sessionUrl as string);
-      logger.debug('[ProveManager] Prover setup completed');
+      // Setup prover with verifier - IoChannel created in worker.
+      await workerApi.setupProver(proverId, sessionUrl);
 
-      this.provers.set(proverId, prover as any);
-      logger.debug('[ProveManager] Prover registered with ID:', proverId);
       return proverId;
     } catch (error) {
       logger.error('[ProveManager] Failed to create prover:', error);
-      // Clean up session state on failure
-      this.cleanupProver(proverId);
+      await this.cleanupProver(proverId);
       throw error;
     }
-  }
-
-  async getProver(proverId: string) {
-    const prover = this.provers.get(proverId);
-    if (!prover) {
-      throw new Error('Prover not found');
-    }
-    return prover;
   }
 
   /**
@@ -320,8 +340,14 @@ export class ProveManager {
       recvRanges: revealConfig.recv.length,
     });
 
-    session.webSocket.send(JSON.stringify(message));
-    logger.debug('[ProveManager] ✅ reveal_config sent to verifier');
+    try {
+      session.webSocket.send(JSON.stringify(message));
+    } catch (err) {
+      throw new Error(
+        `Reveal config send failed for prover ${proverId}: verifier connection was closed`,
+      );
+    }
+    logger.debug('[ProveManager] reveal_config sent to verifier');
   }
 
   async sendRequest(
@@ -334,15 +360,16 @@ export class ProveManager {
       body?: string;
     },
   ) {
-    const prover = await this.getProver(proverId);
-
+    // Convert headers to the format expected by the worker.
     const headerMap: Map<string, number[]> = new Map();
     Object.entries(options.headers || {}).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
         headerMap.set(key, Buffer.from(String(value)).toJSON().data);
       }
     });
-    await prover.send_request(proxyUrl, {
+
+    // Send request via worker - IoChannel created in worker.
+    await workerApi.sendRequest(proverId, proxyUrl, {
       uri: options.url,
       method: options.method as Method,
       headers: headerMap,
@@ -351,9 +378,15 @@ export class ProveManager {
   }
 
   async transcript(proverId: string) {
-    const prover = await this.getProver(proverId);
-    const transcript = await prover.transcript();
-    return transcript;
+    return workerApi.getTranscript(proverId);
+  }
+
+  /**
+   * Compute reveal ranges by parsing transcripts and mapping handlers to byte ranges.
+   * Runs in the WASM worker — no transcript bytes transferred to the main thread.
+   */
+  async computeReveal(proverId: string, handlers: any[]) {
+    return workerApi.computeReveal(proverId, handlers);
   }
 
   async reveal(
@@ -363,35 +396,48 @@ export class ProveManager {
       recv: { start: number; end: number }[];
     },
   ) {
-    const prover = await this.getProver(proverId);
-    await prover.reveal({ ...commit, server_identity: true });
+    await workerApi.reveal(proverId, { ...commit, server_identity: true });
   }
+
+  /** Hard timeout for getResponse polling (60 seconds). */
+  private static readonly GET_RESPONSE_TIMEOUT_MS = 60_000;
 
   /**
    * Get the verification response for a given prover ID.
-   * Returns null if no response is available yet, otherwise returns the structured handler results.
-   * After successful retrieval, the response is kept for potential re-reads but can be cleaned up
-   * via cleanupProver().
+   * Polls with a hard deadline — throws if the deadline is exceeded.
    */
   async getResponse(proverId: string, retry = 60): Promise<any | null> {
-    const session = this.sessions.get(proverId);
-    if (!session) {
-      logger.warn('[ProveManager] No session found for proverId:', proverId);
-      return null;
-    }
+    const deadline = Date.now() + ProveManager.GET_RESPONSE_TIMEOUT_MS;
 
-    if (session.responseReceived && session.response) {
-      logger.debug('[ProveManager] Returning response for prover:', proverId);
-      return session.response;
-    }
+    const poll = async (remaining: number): Promise<any | null> => {
+      const session = this.sessions.get(proverId);
+      if (!session) {
+        logger.warn('[ProveManager] No session found for proverId:', proverId);
+        return null;
+      }
 
-    if (retry > 0) {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      return this.getResponse(proverId, retry - 1);
-    }
+      if (session.responseReceived && session.response) {
+        logger.debug('[ProveManager] Returning response for prover:', proverId);
+        return session.response;
+      }
 
-    logger.warn('[ProveManager] Response timeout for prover:', proverId);
-    return null;
+      if (Date.now() >= deadline) {
+        throw new Error(
+          `Verification response timed out after ${ProveManager.GET_RESPONSE_TIMEOUT_MS}ms for prover: ${proverId}`,
+        );
+      }
+
+      if (remaining > 0) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        return poll(remaining - 1);
+      }
+
+      throw new Error(
+        `Verification response not received after ${retry} retries for prover: ${proverId}`,
+      );
+    };
+
+    return poll(retry);
   }
 
   /**
@@ -410,9 +456,8 @@ export class ProveManager {
 
   /**
    * Clean up all resources for a prover (session state, prover instance).
-   * Call this after proof generation is complete to prevent memory leaks.
    */
-  cleanupProver(proverId: string) {
+  async cleanupProver(proverId: string) {
     logger.debug('[ProveManager] Cleaning up prover:', proverId);
 
     // Close WebSocket if open
@@ -421,8 +466,12 @@ export class ProveManager {
     // Remove session state
     this.sessions.delete(proverId);
 
-    // Remove prover instance
-    this.provers.delete(proverId);
+    // Free worker prover
+    try {
+      await workerApi.freeProver(proverId);
+    } catch (err) {
+      logger.warn('[ProveManager] freeProver failed for', proverId, ':', err);
+    }
 
     logger.debug('[ProveManager] Prover cleanup complete:', proverId);
   }

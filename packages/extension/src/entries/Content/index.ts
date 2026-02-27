@@ -137,6 +137,22 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
     return; // No response needed
   }
 
+  // Forward progress events from background to page
+  if (request.type === 'PROVE_PROGRESS') {
+    window.postMessage(
+      {
+        type: 'TLSN_PROVE_PROGRESS',
+        requestId: request.requestId,
+        step: request.step,
+        progress: request.progress,
+        message: request.message,
+        source: request.source,
+      },
+      window.location.origin,
+    );
+    return; // No response needed
+  }
+
   if (request.type === 'GET_PAGE_INFO') {
     // Example: Get page information
     sendResponse({

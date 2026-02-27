@@ -71,10 +71,12 @@ const OffscreenApp: React.FC = () => {
           return true;
         }
 
-        // Execute plugin code using SessionManager
+        // Execute plugin code using SessionManager (pass requestId for progress routing)
         sessionManager
           .awaitInit()
-          .then((sessionManager) => sessionManager.executePlugin(request.code))
+          .then((sessionManager) =>
+            sessionManager.executePlugin(request.code, request.requestId),
+          )
           .then((result) => {
             logger.debug('Plugin execution result:', result);
             sendResponse({

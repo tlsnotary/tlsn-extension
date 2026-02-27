@@ -192,14 +192,14 @@ Plugin session management with TLSNotary proof generation:
 - Uses `@tlsn/plugin-sdk` Host class for sandboxed plugin execution
 - Provides unified `prove()` capability to plugins via QuickJS environment
 - Integrates with `ProveManager` for WASM-based TLS proof generation
-- Handles HTTP transcript parsing with byte-level range tracking
+- Uses WASM `compute_reveal()` for handler-based byte-range extraction from HTTP transcripts
 
 **Key Capability - Unified prove() API:**
 The SessionManager exposes a single `prove()` function to plugins that handles the entire proof pipeline:
 1. Creates prover connection to verifier server
 2. Sends HTTP request through TLS prover
 3. Captures TLS transcript (sent/received bytes)
-4. Parses transcript with Parser class for range extraction
+4. Computes reveal ranges via WASM `compute_reveal()` (Rust/spansy-based HTTP parsing + handler-to-byte-range mapping)
 5. Applies selective reveal handlers to show only specified data
 6. Generates and returns cryptographic proof
 

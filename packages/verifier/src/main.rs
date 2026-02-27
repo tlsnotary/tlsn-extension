@@ -67,7 +67,11 @@ async fn main() {
         .with_state(app_state);
 
     // Start server
-    let addr = SocketAddr::from(([0, 0, 0, 0], 7047));
+    let port: u16 = std::env::var("PORT")
+        .ok()
+        .and_then(|p| p.parse().ok())
+        .unwrap_or(7047);
+    let addr = SocketAddr::from(([0, 0, 0, 0], port));
     info!("TLSNotary Verifier Server starting on {}", addr);
 
     let listener = tokio::net::TcpListener::bind(addr)

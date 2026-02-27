@@ -21,6 +21,12 @@ getStoredLogLevel().then((level) => {
 // Initialize WindowManager for multi-window support
 const windowManager = new WindowManager();
 
+// Track requestId → tabId for routing progress events back to the originating tab.
+// Entries have a TTL to prevent leaks if the offscreen document crashes before cleanup.
+const PROGRESS_ROUTE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const progressRoutes: Map<string, { tabId: number; createdAt: number }> =
+  new Map();
+
 // Create context menu for Developer Console - only for extension icon
 browser.contextMenus.create({
   id: 'developer-console',
@@ -166,9 +172,33 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
     return; // No response needed
   }
 
+  // Route PROVE_PROGRESS from offscreen to the originating tab
+  if (request.type === 'PROVE_PROGRESS') {
+    const route = progressRoutes.get(request.requestId);
+    if (route) {
+      browser.tabs.sendMessage(route.tabId, {
+        type: 'PROVE_PROGRESS',
+        requestId: request.requestId,
+        step: request.step,
+        progress: request.progress,
+        message: request.message,
+        source: request.source,
+      });
+    }
+    return; // No response needed
+  }
+
   // Handle code execution requests
   if (request.type === 'EXEC_CODE') {
     logger.debug('EXEC_CODE request received');
+
+    // Store requestId → tabId mapping for progress routing
+    if (request.requestId && sender.tab?.id) {
+      progressRoutes.set(request.requestId, {
+        tabId: sender.tab.id,
+        createdAt: Date.now(),
+      });
+    }
 
     (async () => {
       try {
@@ -234,6 +264,11 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
           error:
             error instanceof Error ? error.message : 'Code execution failed',
         });
+      } finally {
+        // Clean up progress route
+        if (request.requestId) {
+          progressRoutes.delete(request.requestId);
+        }
       }
     })();
 
@@ -467,13 +502,22 @@ async function extractConfigViaOffscreen(
   }
 }
 
-// Periodic cleanup of invalid windows (every 5 minutes)
+// Periodic cleanup of invalid windows and stale progress routes (every 5 minutes)
 const CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 setInterval(() => {
-  logger.debug('Running periodic window cleanup...');
+  logger.debug('Running periodic cleanup...');
   windowManager.cleanupInvalidWindows().catch((error) => {
-    logger.error('Error during cleanup:', error);
+    logger.error('Error during window cleanup:', error);
   });
+
+  // Evict stale progress routes (TTL-based)
+  const now = Date.now();
+  for (const [requestId, route] of progressRoutes) {
+    if (now - route.createdAt > PROGRESS_ROUTE_TTL_MS) {
+      logger.debug('Evicting stale progress route:', requestId);
+      progressRoutes.delete(requestId);
+    }
+  }
 }, CLEANUP_INTERVAL_MS);
 
 // Run initial cleanup after 10 seconds

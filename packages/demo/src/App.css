@@ -267,6 +267,33 @@ body {
     }
 }
 
+/* Plugin Progress Bar */
+.plugin-progress {
+    padding: 0 var(--spacing-xs);
+}
+
+.plugin-progress-bar {
+    height: 6px;
+    background: var(--gray-200);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.plugin-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary) 0%, var(--primary-light) 100%);
+    border-radius: 3px;
+    transition: width 0.4s ease;
+    min-width: 2%;
+}
+
+.plugin-progress-text {
+    font-size: 0.8125rem;
+    color: var(--gray-500);
+    margin-top: var(--spacing-xs);
+    text-align: center;
+}
+
 /* System Checks */
 .checks-section {
     background: var(--gray-50);

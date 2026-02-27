@@ -8,3 +8,6 @@ export {
   nameToLogLevel,
   type LogLevelName,
 } from './logger/index.js';
+
+// IoChannel exports
+export { type IoChannel, fromWebSocket, fromOpenWebSocket } from './io-channel.js';

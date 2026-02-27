@@ -132,6 +132,12 @@ export type WindowMessage =
       windowId: number;
     };
 
+export interface ProveProgressData {
+  step: string;
+  progress: number;
+  message: string;
+}
+
 export type HandlerType = 'SENT' | 'RECV';
 
 export type HandlerPart =

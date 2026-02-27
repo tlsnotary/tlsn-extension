@@ -20,7 +20,6 @@
     "lint": "npm run build:deps && npm run lint --workspace=@tlsn/common --workspace=extension --workspace=@tlsn/plugin-sdk",
     "lint:fix": "npm run build:deps && npm run lint:fix --workspace=@tlsn/common --workspace=extension --workspace=@tlsn/plugin-sdk",
     "test": "npm run test --workspaces --if-present",
-    "serve:test": "npm run serve:test --workspace=extension",
     "clean": "rm -rf packages/*/node_modules packages/*/dist packages/*/build node_modules",
     "build:wasm": "sh packages/tlsn-wasm/build.sh v0.1.0-alpha.14 --no-logging",
     "demo": "npm run dev --workspace=@tlsnotary/demo",
@@ -29,8 +28,9 @@
     "docker:down": "cd packages/demo && docker compose down"
   },
   "devDependencies": {
+    "baseline-browser-mapping": "^2.10.0",
+    "serve": "^14.2.4",
     "typescript": "^5.5.4",
-    "vite": "^7.1.7",
-    "serve": "^14.2.4"
+    "vite": "^7.1.7"
   }
 }

@@ -28,10 +28,16 @@ export interface SystemCheck {
     showInstructions?: boolean;
 }
 
+export interface ProgressData {
+    step: string;
+    progress: number;
+    message: string;
+}
+
 declare global {
     interface Window {
         tlsn?: {
-            execCode: (code: string) => Promise<string>;
+            execCode: (code: string, options?: { requestId?: string }) => Promise<string>;
         };
     }
 

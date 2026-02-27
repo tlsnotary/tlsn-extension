@@ -18,6 +18,7 @@ import {
   WindowMessage,
   Handler,
   PluginConfig,
+  ProveProgressData,
 } from './types';
 import deepEqual from 'fast-deep-equal';
 
@@ -568,6 +569,7 @@ export class Host {
       maxSentData?: number;
       handlers: Handler[];
     },
+    onProgress?: (data: ProveProgressData) => void,
   ) => Promise<any>;
   private onRenderPluginUi: (windowId: number, result: DomJson) => void;
   private onCloseWindow: (windowId: number) => void;
@@ -595,6 +597,7 @@ export class Host {
         maxSentData?: number;
         handlers: Handler[];
       },
+      onProgress?: (data: ProveProgressData) => void,
     ) => Promise<any>;
     onRenderPluginUi: (windowId: number, result: DomJson) => void;
     onCloseWindow: (windowId: number) => void;
@@ -908,7 +911,28 @@ ${processedCode};
       useHeaders: makeUseHeaders(uuid, context),
       useState: makeUseState(uuid, stateStore, eventEmitter),
       setState: makeSetState(uuid, stateStore, eventEmitter),
-      prove: onProve,
+      prove: async (requestOptions: any, proverOptions: any) => {
+        const setProgress = (data: ProveProgressData) => {
+          stateStore['_proveProgress'] = data;
+          eventEmitter.emit({
+            type: 'RE_RENDER_PLUGIN_UI',
+            windowId: executionContextRegistry.get(uuid)?.windowId || 0,
+          });
+        };
+        setProgress({ step: 'CONNECTING', progress: 0, message: 'Connecting...' });
+        try {
+          const result = await onProve(requestOptions, proverOptions, setProgress);
+          setProgress({ step: 'COMPLETE', progress: 1, message: 'Complete' });
+          return result;
+        } catch (err) {
+          stateStore['_proveProgress'] = null;
+          eventEmitter.emit({
+            type: 'RE_RENDER_PLUGIN_UI',
+            windowId: executionContextRegistry.get(uuid)?.windowId || 0,
+          });
+          throw err;
+        }
+      },
       done: (args?: any[]) => {
         if (lifecycle.isCompleted) return;
         lifecycle.isCompleted = true;
