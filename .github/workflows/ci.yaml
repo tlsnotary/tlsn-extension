@@ -8,6 +8,8 @@ on:
 jobs:
   build-lint-test:
     runs-on: ubuntu-latest
+    outputs:
+      extension-zip: ${{ steps.pkg.outputs.zip }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -17,6 +19,14 @@ jobs:
         with:
           node-version: 20
           cache: "npm"
+
+      - name: Set extension zip filename
+        id: pkg
+        run: |
+          PKG=./packages/extension/package.json
+          NAME=$(node -p "require('$PKG').name")
+          VERSION=$(node -p "require('$PKG').version")
+          echo "zip=${NAME}-${VERSION}.zip" >> "$GITHUB_OUTPUT"
 
       - name: Install dependencies
         # Use npm ci, then reinstall rollup to get correct platform-specific bindings
@@ -39,7 +49,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: extension-build
-          path: ./packages/extension/zip/*.zip
+          path: ./packages/extension/zip/${{ steps.pkg.outputs.zip }}
           if-no-files-found: error
 
   browser-test:
@@ -83,10 +93,9 @@ jobs:
     if: github.event_name == 'release'
     runs-on: ubuntu-latest
     needs: build-lint-test
+    env:
+      EXTENSION_ZIP: ${{ needs.build-lint-test.outputs.extension-zip }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: Download extension from build-lint-test job
         uses: actions/download-artifact@v4
         with:
@@ -97,15 +106,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Find the extension zip file
-          EXTENSION_ZIP=$(find ./dist -name "extension-*.zip" -type f | head -n 1)
-          if [ -z "$EXTENSION_ZIP" ]; then
-            echo "Error: Extension zip file not found"
+          if [ ! -f "./dist/$EXTENSION_ZIP" ]; then
+            echo "Error: Extension zip not found: ./dist/$EXTENSION_ZIP"
             exit 1
           fi
-          echo "Found extension zip: $EXTENSION_ZIP"
+          echo "Uploading: ./dist/$EXTENSION_ZIP"
           gh release upload "${{ github.event.release.tag_name }}" \
-            "$EXTENSION_ZIP" \
+            "./dist/$EXTENSION_ZIP" \
             --clobber
 
       # Get tokens as documented on
@@ -114,8 +121,8 @@ jobs:
       - name: 💨 Publish to chrome store
         uses: browser-actions/release-chrome-extension@latest # https://github.com/browser-actions/release-chrome-extension/tree/latest/
         with:
-          extension-id: "gcfkkledipjbgdbimfpijgbkhajiaaph"
-          extension-path: ./dist/extension-0.1.0.zip
+          extension-id: "gmffafnhddcekoffnikeijhpnlgmomhl"
+          extension-path: ./dist/${{ env.EXTENSION_ZIP }}
           oauth-client-id: ${{ secrets.OAUTH_CLIENT_ID }}
           oauth-client-secret: ${{ secrets.OAUTH_CLIENT_SECRET }}
           oauth-refresh-token: ${{ secrets.OAUTH_REFRESH_TOKEN }}
