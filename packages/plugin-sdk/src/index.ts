@@ -266,6 +266,134 @@ function makeOpenWindow(
       return cachedResult;
     }
 
+    // --- Race condition fix ---
+    // Register the event listener BEFORE calling onOpenWindow so that headers
+    // intercepted between window creation and response arrival are not lost.
+    // Messages that arrive before we know the windowId are buffered, then
+    // merged into the execution context in bulk (no replay/re-render needed —
+    // the next main() call will see the accumulated data).
+    let resolvedWindowId: number | null = null;
+    const pendingMessages: any[] = [];
+
+    const onMessage = async (message: any) => {
+      // Buffer messages while we don't have a windowId yet.
+      // They will be merged into execution context after onOpenWindow resolves.
+      if (resolvedWindowId === null) {
+        pendingMessages.push(message);
+        return;
+      }
+
+      // Handle window closed first - always remove listener
+      if (message.type === 'WINDOW_CLOSED') {
+        eventEmitter.removeListener(onMessage);
+        return;
+      }
+
+      // Skip processing if the plugin has completed (done() or error)
+      // This prevents new work from starting while disposal is pending
+      if (lifecycle.isCompleted) {
+        logger.debug(`[makeOpenWindow] Ignoring message ${message.type}: plugin has completed`);
+        eventEmitter.removeListener(onMessage);
+        return;
+      }
+
+      // For all other messages, check if context still exists
+      // Context may have been cleaned up due to error or done() call
+      const executionContext = executionContextRegistry.get(uuid);
+      if (!executionContext) {
+        logger.debug(
+          `[makeOpenWindow] Ignoring message ${message.type}: execution context no longer exists`,
+        );
+        eventEmitter.removeListener(onMessage);
+        return;
+      }
+
+      // Only process messages for this plugin's window
+      if (message.windowId !== executionContext.windowId) {
+        return;
+      }
+
+      try {
+        if (message.type === 'REQUEST_INTERCEPTED') {
+          const request = message.request;
+          updateExecutionContext(uuid, {
+            requests: [...(executionContext.requests || []), request],
+          });
+          executionContext.main();
+        }
+
+        if (message.type === 'REQUESTS_BATCH') {
+          const requests = message.requests;
+          updateExecutionContext(uuid, {
+            requests: [...(executionContext.requests || []), ...requests],
+          });
+          executionContext.main();
+        }
+
+        if (message.type === 'HEADER_INTERCEPTED') {
+          const header = message.header;
+          updateExecutionContext(uuid, {
+            headers: [...(executionContext.headers || []), header],
+          });
+          executionContext.main();
+        }
+
+        if (message.type === 'HEADERS_BATCH') {
+          const headers = message.headers;
+          updateExecutionContext(uuid, {
+            headers: [...(executionContext.headers || []), ...headers],
+          });
+          executionContext.main();
+        }
+
+        if (message.type === 'PLUGIN_UI_CLICK') {
+          logger.debug('PLUGIN_UI_CLICK', message);
+          const cb = executionContext.callbacks[message.onclick];
+
+          logger.debug('Callback:', cb);
+          if (cb) {
+            // Track this async callback so sandbox disposal waits for it
+            lifecycle.pendingCallbacks++;
+            try {
+              updateExecutionContext(uuid, {
+                currentContext: message.onclick,
+              });
+              const result = await cb();
+              // Re-check context exists after async callback
+              if (executionContextRegistry.has(uuid)) {
+                updateExecutionContext(uuid, {
+                  currentContext: '',
+                });
+              }
+              logger.debug('Callback result:', result);
+            } finally {
+              lifecycle.pendingCallbacks--;
+              // If disposal is waiting for callbacks to drain, signal it
+              if (lifecycle.pendingCallbacks === 0 && lifecycle.onDrain) {
+                lifecycle.onDrain();
+                lifecycle.onDrain = null;
+              }
+            }
+          }
+        }
+
+        if (message.type === 'RE_RENDER_PLUGIN_UI') {
+          logger.debug('[makeOpenWindow] RE_RENDER_PLUGIN_UI', message.windowId);
+          executionContext.main(true);
+        }
+      } catch (error) {
+        logger.error(`[makeOpenWindow] Error handling message ${message.type}:`, error);
+        eventEmitter.removeListener(onMessage);
+        const err = error instanceof Error ? error : new Error(String(error));
+        if (onError) {
+          onError(err);
+        }
+      }
+    };
+
+    // Register listener BEFORE opening the window to capture all messages
+    eventEmitter.addListener(onMessage);
+
     try {
       const response = await onOpenWindow(url, options);
 
@@ -278,120 +406,64 @@ function makeOpenWindow(
 
       // Return window info from successful response
       if (response?.type === 'WINDOW_OPENED' && response.payload) {
+        const windowId = response.payload.windowId;
+
+        // Guard: context may have been cleaned up if done() was called
+        // from the initial main() before this async resolution.
+        if (!executionContextRegistry.has(uuid)) {
+          eventEmitter.removeListener(onMessage);
+          cachedResult = {
+            windowId: response.payload.windowId,
+            uuid: response.payload.uuid,
+            tabId: response.payload.tabId,
+          };
+          return cachedResult;
+        }
+
         updateExecutionContext(uuid, {
-          windowId: response.payload.windowId,
+          windowId,
         });
 
-        const onMessage = async (message: any) => {
-          // Handle window closed first - always remove listener
-          if (message.type === 'WINDOW_CLOSED') {
-            eventEmitter.removeListener(onMessage);
-            return;
+        // Merge any buffered messages into the execution context in bulk.
+        // This avoids re-entrant main() calls during replay. The next
+        // main() invocation will naturally pick up all the accumulated data.
+        const executionContext = executionContextRegistry.get(uuid);
+        if (executionContext) {
+          let headers = executionContext.headers || [];
+          let requests = executionContext.requests || [];
+          let bufferedCount = 0;
+
+          for (const msg of pendingMessages) {
+            if (msg.windowId !== windowId) continue;
+
+            if (msg.type === 'HEADER_INTERCEPTED' && msg.header) {
+              headers = [...headers, msg.header];
+              bufferedCount++;
+            } else if (msg.type === 'HEADERS_BATCH' && msg.headers) {
+              headers = [...headers, ...msg.headers];
+              bufferedCount += msg.headers.length;
+            } else if (msg.type === 'REQUEST_INTERCEPTED' && msg.request) {
+              requests = [...requests, msg.request];
+              bufferedCount++;
+            } else if (msg.type === 'REQUESTS_BATCH' && msg.requests) {
+              requests = [...requests, ...msg.requests];
+              bufferedCount += msg.requests.length;
+            }
           }
 
-          // Skip processing if the plugin has completed (done() or error)
-          // This prevents new work from starting while disposal is pending
-          if (lifecycle.isCompleted) {
-            logger.debug(`[makeOpenWindow] Ignoring message ${message.type}: plugin has completed`);
-            eventEmitter.removeListener(onMessage);
-            return;
-          }
-
-          // For all other messages, check if context still exists
-          // Context may have been cleaned up due to error or done() call
-          const executionContext = executionContextRegistry.get(uuid);
-          if (!executionContext) {
+          if (bufferedCount > 0) {
             logger.debug(
-              `[makeOpenWindow] Ignoring message ${message.type}: execution context no longer exists`,
+              `[makeOpenWindow] Replaying ${bufferedCount} buffered message(s) into execution context`,
             );
-            eventEmitter.removeListener(onMessage);
-            return;
+            updateExecutionContext(uuid, { headers, requests });
+            // Trigger a single re-render so the plugin sees the buffered data
+            executionContext.main(true);
           }
+        }
+        pendingMessages.length = 0;
 
-          // Only process messages for this plugin's window
-          if (message.windowId !== executionContext.windowId) {
-            return;
-          }
-
-          try {
-            if (message.type === 'REQUEST_INTERCEPTED') {
-              const request = message.request;
-              updateExecutionContext(uuid, {
-                requests: [...(executionContext.requests || []), request],
-              });
-              executionContext.main();
-            }
-
-            if (message.type === 'REQUESTS_BATCH') {
-              const requests = message.requests;
-              updateExecutionContext(uuid, {
-                requests: [...(executionContext.requests || []), ...requests],
-              });
-              executionContext.main();
-            }
-
-            if (message.type === 'HEADER_INTERCEPTED') {
-              const header = message.header;
-              updateExecutionContext(uuid, {
-                headers: [...(executionContext.headers || []), header],
-              });
-              executionContext.main();
-            }
-
-            if (message.type === 'HEADERS_BATCH') {
-              const headers = message.headers;
-              updateExecutionContext(uuid, {
-                headers: [...(executionContext.headers || []), ...headers],
-              });
-              executionContext.main();
-            }
-
-            if (message.type === 'PLUGIN_UI_CLICK') {
-              logger.debug('PLUGIN_UI_CLICK', message);
-              const cb = executionContext.callbacks[message.onclick];
-
-              logger.debug('Callback:', cb);
-              if (cb) {
-                // Track this async callback so sandbox disposal waits for it
-                lifecycle.pendingCallbacks++;
-                try {
-                  updateExecutionContext(uuid, {
-                    currentContext: message.onclick,
-                  });
-                  const result = await cb();
-                  // Re-check context exists after async callback
-                  if (executionContextRegistry.has(uuid)) {
-                    updateExecutionContext(uuid, {
-                      currentContext: '',
-                    });
-                  }
-                  logger.debug('Callback result:', result);
-                } finally {
-                  lifecycle.pendingCallbacks--;
-                  // If disposal is waiting for callbacks to drain, signal it
-                  if (lifecycle.pendingCallbacks === 0 && lifecycle.onDrain) {
-                    lifecycle.onDrain();
-                    lifecycle.onDrain = null;
-                  }
-                }
-              }
-            }
-
-            if (message.type === 'RE_RENDER_PLUGIN_UI') {
-              logger.debug('[makeOpenWindow] RE_RENDER_PLUGIN_UI', message.windowId);
-              executionContext.main(true);
-            }
-          } catch (error) {
-            logger.error(`[makeOpenWindow] Error handling message ${message.type}:`, error);
-            eventEmitter.removeListener(onMessage);
-            const err = error instanceof Error ? error : new Error(String(error));
-            if (onError) {
-              onError(err);
-            }
-          }
-        };
-
-        eventEmitter.addListener(onMessage);
+        // Unblock the message handler — new messages are processed live
+        resolvedWindowId = windowId;
 
         cachedResult = {
           windowId: response.payload.windowId,
@@ -403,6 +475,8 @@ function makeOpenWindow(
 
       throw new Error('Invalid response from background script');
     } catch (error) {
+      // Clean up listener on failure to prevent leaks
+      eventEmitter.removeListener(onMessage);
       logger.error('[makeOpenWindow] Failed to open window:', error);
       throw error;
     }
