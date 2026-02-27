@@ -779,12 +779,12 @@ function __wbg_get_imports(memory) {
             return ret;
         },
         __wbindgen_cast_0000000000000002: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { dtor_idx: 3749, function: Function { arguments: [Externref], shim_idx: 3750, ret: Result(Unit), inner_ret: Some(Result(Unit)) }, mutable: true }) -> Externref`.
+            // Cast intrinsic for `Closure(Closure { dtor_idx: 3744, function: Function { arguments: [Externref], shim_idx: 3745, ret: Result(Unit), inner_ret: Some(Result(Unit)) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen_ac83de04fc99fbbd___closure__destroy___dyn_core_a0678809250066c8___ops__function__FnMut__wasm_bindgen_ac83de04fc99fbbd___JsValue____Output___core_a0678809250066c8___result__Result_____wasm_bindgen_ac83de04fc99fbbd___JsError___, wasm_bindgen_ac83de04fc99fbbd___convert__closures_____invoke___wasm_bindgen_ac83de04fc99fbbd___JsValue__core_a0678809250066c8___result__Result_____wasm_bindgen_ac83de04fc99fbbd___JsError__);
             return ret;
         },
         __wbindgen_cast_0000000000000003: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { dtor_idx: 3749, function: Function { arguments: [NamedExternref("MessageEvent")], shim_idx: 3752, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            // Cast intrinsic for `Closure(Closure { dtor_idx: 3744, function: Function { arguments: [NamedExternref("MessageEvent")], shim_idx: 3747, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen_ac83de04fc99fbbd___closure__destroy___dyn_core_a0678809250066c8___ops__function__FnMut__wasm_bindgen_ac83de04fc99fbbd___JsValue____Output___core_a0678809250066c8___result__Result_____wasm_bindgen_ac83de04fc99fbbd___JsError___, wasm_bindgen_ac83de04fc99fbbd___convert__closures_____invoke___web_sys_a252a7efd31eb9c9___features__gen_MessageEvent__MessageEvent_____);
             return ret;
         },
