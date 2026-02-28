@@ -370,12 +370,12 @@ export interface InitOutput {
     readonly web_spawn_recover_spawner: (a: number) => number;
     readonly web_spawn_start_worker: (a: number) => void;
     readonly ring_core_0_17_14__bn_mul_mont: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
-    readonly wasm_bindgen_ac83de04fc99fbbd___closure__destroy___dyn_core_a0678809250066c8___ops__function__FnMut__wasm_bindgen_ac83de04fc99fbbd___JsValue____Output_______: (a: number, b: number) => void;
-    readonly wasm_bindgen_ac83de04fc99fbbd___closure__destroy___dyn_core_a0678809250066c8___ops__function__FnMut__wasm_bindgen_ac83de04fc99fbbd___JsValue____Output___core_a0678809250066c8___result__Result_____wasm_bindgen_ac83de04fc99fbbd___JsError___: (a: number, b: number) => void;
-    readonly wasm_bindgen_ac83de04fc99fbbd___convert__closures_____invoke___wasm_bindgen_ac83de04fc99fbbd___JsValue__core_a0678809250066c8___result__Result_____wasm_bindgen_ac83de04fc99fbbd___JsError__: (a: number, b: number, c: any) => [number, number];
-    readonly wasm_bindgen_ac83de04fc99fbbd___convert__closures_____invoke___js_sys_c035ef050bbf6fd2___Function_fn_wasm_bindgen_ac83de04fc99fbbd___JsValue_____wasm_bindgen_ac83de04fc99fbbd___sys__Undefined___js_sys_c035ef050bbf6fd2___Function_fn_wasm_bindgen_ac83de04fc99fbbd___JsValue_____wasm_bindgen_ac83de04fc99fbbd___sys__Undefined______: (a: number, b: number, c: any, d: any) => void;
-    readonly wasm_bindgen_ac83de04fc99fbbd___convert__closures_____invoke___wasm_bindgen_ac83de04fc99fbbd___JsValue_____: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen_ac83de04fc99fbbd___convert__closures_____invoke___web_sys_a252a7efd31eb9c9___features__gen_MessageEvent__MessageEvent_____: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_c8f778f8a1f77dd1___closure__destroy___dyn_core_a1e22386a1c4876a___ops__function__FnMut__wasm_bindgen_c8f778f8a1f77dd1___JsValue____Output_______: (a: number, b: number) => void;
+    readonly wasm_bindgen_c8f778f8a1f77dd1___closure__destroy___dyn_core_a1e22386a1c4876a___ops__function__FnMut__wasm_bindgen_c8f778f8a1f77dd1___JsValue____Output___core_a1e22386a1c4876a___result__Result_____wasm_bindgen_c8f778f8a1f77dd1___JsError___: (a: number, b: number) => void;
+    readonly wasm_bindgen_c8f778f8a1f77dd1___convert__closures_____invoke___wasm_bindgen_c8f778f8a1f77dd1___JsValue__core_a1e22386a1c4876a___result__Result_____wasm_bindgen_c8f778f8a1f77dd1___JsError___true_: (a: number, b: number, c: any) => [number, number];
+    readonly wasm_bindgen_c8f778f8a1f77dd1___convert__closures_____invoke___js_sys_8ac7f891b1662db4___Function_fn_wasm_bindgen_c8f778f8a1f77dd1___JsValue_____wasm_bindgen_c8f778f8a1f77dd1___sys__Undefined___js_sys_8ac7f891b1662db4___Function_fn_wasm_bindgen_c8f778f8a1f77dd1___JsValue_____wasm_bindgen_c8f778f8a1f77dd1___sys__Undefined_______true_: (a: number, b: number, c: any, d: any) => void;
+    readonly wasm_bindgen_c8f778f8a1f77dd1___convert__closures_____invoke___wasm_bindgen_c8f778f8a1f77dd1___JsValue______true_: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_c8f778f8a1f77dd1___convert__closures_____invoke___web_sys_4ebad808e018115___features__gen_MessageEvent__MessageEvent______true_: (a: number, b: number, c: any) => void;
     readonly memory: WebAssembly.Memory;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;

@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm install` - Install all dependencies for all packages and set up workspace links
 - `npm run dev` - Start extension development server on port 3000 (auto-builds dependencies)
 - `npm run build` - Build production extension (auto-builds dependencies first)
-- `npm run build:deps` - Build only dependencies (@tlsn/common and @tlsn/plugin-sdk)
+- `npm run build:deps` - Build only dependencies (@tlsn/common, @tlsn/plugin-sdk, and @tlsn/plugins)
 - `npm run build:extension` - Build only extension (assumes dependencies are built)
 - `npm run build:all` - Build all packages in monorepo
 - `npm run test` - Run tests for all packages
@@ -20,6 +20,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run tutorial` - Serve tutorial page on port 8080
 - `npm run docker:up` - Start demo Docker services (verifier + nginx)
 - `npm run docker:down` - Stop demo Docker services
+- `npm run mobile` - Start Expo dev server for mobile app
+- `npm run mobile:ios` - Build deps + build + launch iOS app
+- `npm run mobile:android` - Build deps + build + launch Android app
+- `npm run mobile:build` - Build deps + build mobile app (no launch)
 
 ### Extension Package Commands
 - `npm run build` - Production build with zip creation
@@ -50,6 +54,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `cargo test` - Run Rust tests
 - `cargo check` - Check compilation without building
 
+### Plugins Package Commands (`packages/plugins`)
+- `npm run build` - Build all plugins (demo + mobile targets) + TypeScript declarations
+- `npm run build:demo` - Build demo plugins only (ESM JS)
+- `npm run build:mobile` - Build mobile plugins only (es2016 TS for Hermes)
+
+### Mobile App Commands (`packages/mobile`)
+- `./build.sh ios` - Build all deps + launch iOS (one command)
+- `./build.sh android` - Build all deps + launch Android (one command)
+- `./build.sh --deps-only` - Build JS dependencies only
+- `./build.sh --native` - Rebuild Rust native libraries only
+- `npm run prebuild` - Run Expo prebuild (regenerate native projects)
+- `npm run setup:quickjs` - Download QuickJS C sources for native module
+- `npm run build:native` - Build Rust → XCFramework/.so via UniFFI
+
 ## Monorepo Architecture
 
 The project is organized as a monorepo using npm workspaces with the following packages:
@@ -58,6 +76,9 @@ The project is organized as a monorepo using npm workspaces with the following p
 - **`packages/extension`**: Chrome Extension (Manifest V3) for TLSNotary proof generation
 - **`packages/plugin-sdk`**: SDK for developing and running TLSN plugins using QuickJS sandboxing
 - **`packages/verifier`**: Rust-based WebSocket server for TLSNotary verification
+- **`packages/plugins`**: Plugin source code and build pipeline for demo and mobile targets
+- **`packages/mobile`**: React Native/Expo mobile app (iOS + Android) with native TLSNotary prover
+- **`packages/tlsn-mobile`**: Rust library with UniFFI bindings for native mobile prover (Swift/Kotlin)
 - **`packages/demo`**: Demo server with Docker setup and example plugins
 - **`packages/tutorial`**: Tutorial examples for learning plugin development
 
@@ -616,6 +637,26 @@ npm run docker:up
 # Docker with custom verifier
 VITE_VERIFIER_HOST=verifier.example.com VITE_SSL=true docker compose up --build
 ```
+
+## Mobile App (`packages/mobile`)
+
+React Native/Expo app (iOS + Android) with native TLSNotary prover. Uses `packages/tlsn-mobile` (Rust/UniFFI) for native proof generation and `packages/plugins` for plugin code.
+
+**One-command build:** `./build.sh ios` or `./build.sh android` from `packages/mobile/`. This builds JS deps, sets up native modules, and launches the app.
+
+**Key architecture:**
+- **Hermes JS engine**: Does NOT support `async/await` in dynamically evaluated code (`new Function()`). Plugin code must be compiled with esbuild `target: 'es2016'` to transform async/await into generator-based promises. This is handled by `packages/plugins/build.js`.
+- **Expo dev build required**: The app uses native modules (`tlsn-native`, `quickjs-native`, `@react-native-cookies/cookies`) that are NOT available in Expo Go. Always use `expo run:android` / `expo run:ios`, never `expo start --android`.
+- **Plugin code pipeline**: `packages/plugins/build.js` compiles plugins differently per platform:
+  - **Demo** (browser): ESM JavaScript with injected verifier/proxy URLs
+  - **Mobile** (Hermes): TypeScript string constants wrapped in backticks for `new Function()` evaluation, compiled to es2016
+- **Android SDK**: Requires `ANDROID_HOME` env var or `android/local.properties` with `sdk.dir=` path
+- **Android emulator clock drift**: MPC-TLS requires synced clocks. Sync with: `adb shell cmd alarm set-time $(( $(date +%s) * 1000 ))`
+
+**Native module build chain:**
+- `packages/tlsn-mobile/build-ios.sh` → Rust → XCFramework + Swift bindings → `modules/tlsn-native/ios/`
+- `packages/tlsn-mobile/build-android.sh` → Rust (cargo-ndk) → .so + Kotlin bindings → `modules/tlsn-native/android/`
+- `modules/quickjs-native/setup.sh` → Downloads QuickJS C sources from GitHub, patches BOOL→JS_BOOL for ObjC
 
 ## Important Implementation Notes
 

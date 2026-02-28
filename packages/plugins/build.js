@@ -70,10 +70,16 @@ if (target === 'all' || target === 'mobile') {
     const outfile = path.resolve(__dirname, `dist/mobile/${plugin}.ts`);
 
     // Bundle with esbuild (produces ESM JS)
+    // IMPORTANT: Target es2016 to compile async/await into generator-based
+    // promise chains. Hermes (React Native's JS engine) does NOT support
+    // async/await in dynamically evaluated code — new Function() and eval()
+    // bypass Metro's Babel transform, so the code must already be downleveled.
+    // Without this, plugins fail with "async functions are unsupported".
     await esbuild.build({
       entryPoints: [entry],
       bundle: true,
       format: 'esm',
+      target: 'es2016',
       outfile: tmpfile,
       define: {
         __VERIFIER_URL__: JSON.stringify(MOBILE_VERIFIER_URL),

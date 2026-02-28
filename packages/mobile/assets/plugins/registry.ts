@@ -18,12 +18,12 @@ export interface PluginEntry {
 }
 
 // Static require map — Metro needs static require() calls for bundling.
-// These reference the auto-generated string exports from @tlsn/plugins/dist/mobile/.
+// These reference the auto-generated string exports from @tlsn/plugins/mobile/*.
 // Run `npm run build:plugins` to generate these files.
 const CODE_MAP: Record<string, () => string> = {
-  swissbank: () => require('@tlsn/plugins/dist/mobile/swissbank').SWISSBANK_PLUGIN_CODE,
-  spotify: () => require('@tlsn/plugins/dist/mobile/spotify').SPOTIFY_PLUGIN_CODE,
-  duolingo: () => require('@tlsn/plugins/dist/mobile/duolingo').DUOLINGO_PLUGIN_CODE,
+  swissbank: () => require('@tlsn/plugins/mobile/swissbank').SWISSBANK_PLUGIN_CODE,
+  spotify: () => require('@tlsn/plugins/mobile/spotify').SPOTIFY_PLUGIN_CODE,
+  duolingo: () => require('@tlsn/plugins/mobile/duolingo').DUOLINGO_PLUGIN_CODE,
 };
 
 const VERIFIER_URL = 'http://localhost:7047';

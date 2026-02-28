@@ -56,6 +56,24 @@ tlsn-extension/
 │   │   ├── config.yaml           # Webhook configuration
 │   │   └── Cargo.toml
 │   │
+│   ├── plugins/             # Plugin source code + build pipeline
+│   │   ├── src/                  # Plugin TypeScript sources
+│   │   ├── build.js              # esbuild script (demo + mobile targets)
+│   │   └── package.json
+│   │
+│   ├── mobile/              # React Native/Expo mobile app (iOS + Android)
+│   │   ├── app/                  # Expo Router screens
+│   │   ├── lib/                  # MobilePluginHost (plugin execution)
+│   │   ├── modules/              # Native Expo modules (tlsn-native, quickjs-native)
+│   │   ├── build.sh              # Unified build script
+│   │   └── package.json
+│   │
+│   ├── tlsn-mobile/         # Rust library for native mobile prover
+│   │   ├── src/                  # Rust prover + UniFFI bindings
+│   │   ├── build-ios.sh          # → XCFramework + Swift bindings
+│   │   ├── build-android.sh      # → .so + Kotlin bindings
+│   │   └── Cargo.toml
+│   │
 │   ├── demo/                # Demo server with Docker setup
 │   │   ├── *.js                  # Example plugin files
 │   │   └── docker-compose.yml    # Docker services configuration
@@ -119,7 +137,26 @@ Docker-based demo environment with:
 - Docker Compose setup with verifier and nginx
 - Configurable verifier URLs via `.env` files or Docker build args
 
-#### 6. **tlsn-wasm-pkg** - TLSN WebAssembly Package
+#### 6. **plugins** - Plugin Source + Build Pipeline
+TypeScript plugin source code (Twitter, SwissBank, Spotify, Duolingo) compiled via esbuild for two targets:
+- **Demo** (browser extension): ESM JavaScript with injected verifier/proxy URLs
+- **Mobile** (Hermes): es2016-compiled TypeScript constants for `new Function()` evaluation
+
+#### 7. **mobile** - React Native/Expo Mobile App
+iOS and Android app with native TLSNotary proof generation:
+- Plugin gallery with embedded WebView for site login
+- Native Rust prover via UniFFI (Swift on iOS, Kotlin on Android)
+- QuickJS sandbox for plugin execution on Android
+- Unified `build.sh` for one-command builds
+
+See [`packages/mobile/README.md`](packages/mobile/README.md) for setup and usage.
+
+#### 8. **tlsn-mobile** - Native Rust Prover Library
+Rust library compiled to static/shared libraries for iOS and Android via UniFFI:
+- `build-ios.sh`: Compiles for `aarch64-apple-ios` + simulator, generates XCFramework + Swift bindings
+- `build-android.sh`: Compiles via `cargo-ndk` for `arm64-v8a`, generates Kotlin bindings
+
+#### 9. **tlsn-wasm-pkg** - TLSN WebAssembly Package
 Pre-built WebAssembly binaries for TLSNotary functionality in the browser.
 
 ## Architecture Overview
@@ -513,6 +550,28 @@ VITE_VERIFIER_HOST=verifier.example.com VITE_SSL=true docker compose up --build
 npm run tutorial
 
 # Open http://localhost:8080 in your browser
+```
+
+## Mobile App
+
+The mobile app provides TLSNotary proof generation on iOS and Android. See [`packages/mobile/README.md`](packages/mobile/README.md) for full documentation.
+
+### Quick Start
+
+```bash
+npm install
+
+# iOS
+cd packages/mobile && ./build.sh ios
+
+# Android (requires ANDROID_HOME set)
+cd packages/mobile && ./build.sh android
+```
+
+Or from the repo root:
+```bash
+npm run mobile:ios
+npm run mobile:android
 ```
 
 ## Websockify Integration

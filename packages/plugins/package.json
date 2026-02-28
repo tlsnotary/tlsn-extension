@@ -12,7 +12,7 @@
       "types": "./dist/registry.d.ts"
     },
     "./demo/*": "./dist/demo/*",
-    "./mobile/*": "./dist/mobile/*"
+    "./mobile/*": "./dist/mobile/*.ts"
   },
   "scripts": {
     "build": "node build.js && tsc -p tsconfig.build.json",

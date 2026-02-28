@@ -28,7 +28,9 @@
     "docker:up": "cd packages/demo && docker compose up --build -d",
     "docker:down": "cd packages/demo && docker compose down",
     "mobile": "npm run start --workspace=@tlsn/mobile",
-    "mobile:ios": "npm run ios --workspace=@tlsn/mobile"
+    "mobile:ios": "npm run ios --workspace=@tlsn/mobile",
+    "mobile:android": "npm run android --workspace=@tlsn/mobile",
+    "mobile:build": "npm run build --workspace=@tlsn/mobile"
   },
   "devDependencies": {
     "baseline-browser-mapping": "^2.10.0",
