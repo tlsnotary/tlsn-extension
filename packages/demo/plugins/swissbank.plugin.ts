@@ -162,7 +162,11 @@ const main = (): DomJson => {
   // Only search for cookie if not already cached
   if (!cachedCookie) {
     const [header] = useHeaders((headers) =>
-      headers.filter((h) => h.url.includes(`https://${host}`)),
+      headers.filter(
+        (h) =>
+          h.url.includes(`https://${host}`) &&
+          h.requestHeaders.some((r) => r.name === 'Cookie'),
+      ),
     );
 
     if (header) {
