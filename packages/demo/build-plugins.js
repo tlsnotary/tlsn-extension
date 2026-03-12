@@ -11,7 +11,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const plugins = ['twitter', 'swissbank', 'spotify', 'duolingo'];
+const plugins = ['twitter', 'swissbank', 'spotify', 'duolingo', 'discord_dm', 'discord_profile'];
 
 // Build URLs from environment variables (matching .env / .env.production)
 const VERIFIER_HOST = process.env.VITE_VERIFIER_HOST || 'localhost:7047';

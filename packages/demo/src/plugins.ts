@@ -37,4 +37,22 @@ export const plugins: Record<string, Plugin> = {
             return json.results[json.results.length - 1].value;
         },
     },
+    // discord_dm: {
+    //     name: 'Discord DM',
+    //     description: 'Prove your Discord direct messages',
+    //     logo: '💬',
+    //     file: '/plugins/discord_dm.js',
+    //     parseResult: (json) => {
+    //         return json.results[json.results.length - 1].value;
+    //     },
+    // },
+    discord_profile: {
+        name: 'Discord Profile',
+        description: 'Prove your Discord profile information',
+        logo: '💬',
+        file: '/plugins/discord_profile.js',
+        parseResult: (json) => {
+            return json.results[json.results.length - 1].value;
+        },
+    },
 };
