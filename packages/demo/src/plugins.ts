@@ -37,4 +37,13 @@ export const plugins: Record<string, Plugin> = {
             return json.results[json.results.length - 1].value;
         },
     },
+    uber: {
+        name: 'Uber Profile',
+        description: 'Prove your Uber rider profile via GraphQL POST request',
+        logo: '🚗',
+        file: '/plugins/uber.js',
+        parseResult: (json) => {
+            return json.results[json.results.length - 1].value;
+        },
+    },
 };
