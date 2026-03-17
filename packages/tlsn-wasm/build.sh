@@ -6,9 +6,7 @@ set -e # Exit on error
 cd "$(dirname "$0")"
 SCRIPT_DIR="$(pwd)"
 
-# TODO: Switch back to origin/main (or a tagged release like v0.1.0-alpha.15)
-# once the injectio branch is merged into tlsn main.
-VERSION=${1:-origin/injectio}
+VERSION=${1:-origin/main}
 NO_LOGGING=${2}
 
 TARGET_DIR="${SCRIPT_DIR}/../tlsn-wasm-pkg/"
