@@ -12,10 +12,10 @@ jobs:
       extension-zip: ${{ steps.pkg.outputs.zip }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 20
           cache: "npm"
@@ -46,7 +46,7 @@ jobs:
 
       - name: Save extension zip file for releases
         if: github.event_name == 'release'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: extension-build
           path: ./packages/extension/zip/${{ steps.pkg.outputs.zip }}
@@ -56,10 +56,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 20
           cache: "npm"
@@ -100,7 +100,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download extension from build-lint-test job
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: extension-build
           path: ./dist
