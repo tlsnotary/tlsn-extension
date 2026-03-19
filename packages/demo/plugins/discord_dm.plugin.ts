@@ -12,6 +12,10 @@ declare const __PROXY_URL__: string;
 const api = 'discord.com';
 const ui = `https://${api}/channels/@me`;
 
+// Discord DM channel URLs look like: https://discord.com/channels/@me/{channelId}
+// When the user clicks a DM, Discord fetches /api/v9/channels/{channelId}/* requests.
+const channelPattern = /\/api\/v9\/channels\/(\d+)/;
+
 // =============================================================================
 // PLUGIN CONFIGURATION
 // =============================================================================
@@ -20,12 +24,6 @@ const config: PluginConfig = {
   name: 'Discord DM Plugin',
   description: 'This plugin will prove your Discord direct messages.',
   requests: [
-    {
-      method: 'GET',
-      host: api,
-      pathname: '/api/v9/users/@me/channels',
-      verifierUrl: __VERIFIER_URL__,
-    } satisfies RequestPermission,
     {
       method: 'GET',
       host: api,
@@ -42,7 +40,7 @@ const config: PluginConfig = {
 
 const onClick = async (): Promise<void> => {
   const isRequestPending = useState<boolean>('isRequestPending', false);
-  const selectedDMId = useState<string>('selectedDMId', '');
+  const selectedDMId = useState<string | null>('selectedDMId', null);
 
   if (isRequestPending || !selectedDMId) return;
 
@@ -62,16 +60,20 @@ const onClick = async (): Promise<void> => {
     Connection: 'close',
   };
 
+  console.log(
+    `curl -s -H "Authorization: ${cachedAuthorization}" "https://${api}/api/v9/channels/${selectedDMId}/messages?limit=1" | jq .`,
+  );
+
   const resp = await prove(
     {
-      url: `https://${api}/api/v9/channels/${selectedDMId}/messages?limit=50`,
+      url: `https://${api}/api/v9/channels/${selectedDMId}/messages?limit=1`,
       method: 'GET',
       headers,
     },
     {
       verifierUrl: __VERIFIER_URL__,
       proxyUrl: __PROXY_URL__ + api,
-      maxRecvData: 8000,
+      maxRecvData: 10000,
       maxSentData: 2000,
       handlers: [
         { type: 'SENT', part: 'START_LINE', action: 'REVEAL' } satisfies Handler,
@@ -86,19 +88,13 @@ const onClick = async (): Promise<void> => {
           type: 'RECV',
           part: 'BODY',
           action: 'REVEAL',
-          params: { type: 'json', path: '[*].content' },
+          params: { type: 'json', path: '0.timestamp' },
         } satisfies Handler,
         {
           type: 'RECV',
           part: 'BODY',
           action: 'REVEAL',
-          params: { type: 'json', path: '[*].author.username' },
-        } satisfies Handler,
-        {
-          type: 'RECV',
-          part: 'BODY',
-          action: 'REVEAL',
-          params: { type: 'json', path: '[*].timestamp' },
+          params: { type: 'json', path: '0.content' },
         } satisfies Handler,
       ],
     },
@@ -106,45 +102,6 @@ const onClick = async (): Promise<void> => {
 
   setState('isRequestPending', false);
   done(JSON.stringify(resp));
-};
-
-const fetchDMs = async (): Promise<void> => {
-  const cachedAuthorization = useState<string | null>('authorization', null);
-
-  if (!cachedAuthorization) return;
-
-  try {
-    const headers: Record<string, string> = {
-      authorization: cachedAuthorization,
-      Host: api,
-      'Accept-Encoding': 'identity',
-      Connection: 'close',
-    };
-
-    const response = await fetch(`https://${api}/api/v9/users/@me/channels`, {
-      method: 'GET',
-      headers,
-    });
-
-    const channels = await response.json();
-
-    // Filter only DM channels (type 1)
-    const dms = channels
-      .filter((channel: any) => channel.type === 1)
-      .map((channel: any) => ({
-        id: channel.id,
-        name: channel.recipients?.[0]?.username || 'Unknown User',
-        avatar: channel.recipients?.[0]?.avatar,
-      }));
-
-    setState('dmList', dms);
-  } catch (error) {
-    console.error('Error fetching DMs:', error);
-  }
-};
-
-const selectDM = (dmId: string): void => {
-  setState('selectedDMId', dmId);
 };
 
 const expandUI = (): void => {
@@ -215,10 +172,9 @@ const main = (): DomJson => {
   const isMinimized = useState<boolean>('isMinimized', false);
   const isRequestPending = useState<boolean>('isRequestPending', false);
   const cachedAuthorization = useState<string | null>('authorization', null);
-  const selectedDMId = useState<string>('selectedDMId', '');
-  const dmList = useState<any[]>('dmList', []);
+  const selectedDMId = useState<string | null>('selectedDMId', null);
 
-  // Only search for header values if not already cached
+  // Extract authorization token from intercepted headers
   if (!cachedAuthorization) {
     const [header] = useHeaders((headers) =>
       headers.filter(
@@ -237,17 +193,33 @@ const main = (): DomJson => {
     }
   }
 
+  // TODO: Channel detection is unreliable when revisiting a previously selected DM,
+  // because Discord may serve cached data and not make a new API request.
+  // Fix: use the page URL (e.g. via tabs.onUpdated + NAVIGATE events) instead.
+  //
+  // Extract channel ID from intercepted /api/v9/channels/{id} requests.
+  // Discord makes these when the user opens a DM channel.
+  const channelRequests = useRequests((requests) =>
+    requests.filter((r) => channelPattern.test(r.url)),
+  );
+  const lastChannelRequest =
+    channelRequests.length > 0
+      ? channelRequests[channelRequests.length - 1]
+      : null;
+
+  if (lastChannelRequest) {
+    const match = lastChannelRequest.url.match(channelPattern);
+
+    if (match && match[1] !== selectedDMId) {
+      setState('selectedDMId', match[1]);
+    }
+  }
+
   const isConnected = !!cachedAuthorization;
 
   useEffect(() => {
     openWindow(ui);
   }, []);
-
-  useEffect(() => {
-    if (isConnected && dmList.length === 0) {
-      fetchDMs();
-    }
-  }, [isConnected]);
 
   if (isMinimized) {
     return div(
@@ -354,112 +326,76 @@ const main = (): DomJson => {
             ],
           ),
 
-          // Step 2: DM Selection
-          isConnected && dmList.length > 0
-            ? div({ style: { marginBottom: '16px' } }, [
-                div(
-                  {
-                    style: {
-                      marginBottom: '8px',
-                      fontWeight: '600',
-                      color: '#333',
-                    },
-                  },
-                  ['Select a DM:'],
-                ),
-                div(
-                  {
-                    style: {
-                      maxHeight: '200px',
-                      overflowY: 'auto',
-                      border: '1px solid #ddd',
-                      borderRadius: '6px',
-                      backgroundColor: 'white',
-                    },
-                  },
-                  dmList.map((dm: any) =>
-                    div(
-                      {
-                        style: {
-                          padding: '10px 12px',
-                          cursor: 'pointer',
-                          borderBottom: '1px solid #f0f0f0',
-                          backgroundColor:
-                            selectedDMId === dm.id ? '#e3f2fd' : 'transparent',
-                          transition: 'background-color 0.2s',
-                        },
-                        onclick: () => selectDM(dm.id),
-                      },
-                      [
-                        div(
-                          {
-                            style: {
-                              fontWeight:
-                                selectedDMId === dm.id ? '600' : '400',
-                              color: '#333',
-                            },
-                          },
-                          [dm.name],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ])
-            : null,
-
-          // Step 3: Notarize Button
-          isConnected && selectedDMId
-            ? button(
+          // Step 2+3: Action area
+          !isConnected
+            ? div(
                 {
                   style: {
-                    width: '100%',
-                    padding: '12px 24px',
+                    textAlign: 'center',
+                    color: '#666',
+                    padding: '12px',
+                    backgroundColor: '#fff3cd',
                     borderRadius: '6px',
-                    border: 'none',
-                    background:
-                      'linear-gradient(135deg, #5865F2 0%, #4752C4 100%)',
-                    color: 'white',
-                    fontWeight: '600',
-                    fontSize: '15px',
-                    transition: 'all 0.2s ease',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                    opacity: isRequestPending ? '0.5' : '1',
-                    cursor: isRequestPending ? 'not-allowed' : 'pointer',
+                    border: '1px solid #ffeaa7',
                   },
-                  onclick: 'onClick',
                 },
-                [isRequestPending ? 'Generating Proof...' : 'Generate Proof'],
+                ['Please login to Discord to continue'],
               )
-            : isConnected && dmList.length === 0
+            : !selectedDMId
               ? div(
                   {
                     style: {
-                      textAlign: 'center',
-                      color: '#666',
                       padding: '12px',
-                      backgroundColor: '#fff3cd',
                       borderRadius: '6px',
+                      backgroundColor: '#fff3cd',
+                      color: '#856404',
                       border: '1px solid #ffeaa7',
+                      fontWeight: '500',
                     },
                   },
-                  ['Loading DMs...'],
+                  ['Please select a DM conversation in Discord'],
                 )
-              : !isConnected
-                ? div(
+              : div({}, [
+                  div(
                     {
                       style: {
-                        textAlign: 'center',
-                        color: '#666',
+                        marginBottom: '16px',
                         padding: '12px',
-                        backgroundColor: '#fff3cd',
                         borderRadius: '6px',
-                        border: '1px solid #ffeaa7',
+                        backgroundColor: '#d4edda',
+                        color: '#155724',
+                        border: '1px solid #c3e6cb',
+                        fontWeight: '500',
                       },
                     },
-                    ['Please login to Discord to continue'],
-                  )
-                : null,
+                    [`\u2713 Channel selected: ${selectedDMId}`],
+                  ),
+                  button(
+                    {
+                      style: {
+                        width: '100%',
+                        padding: '12px 24px',
+                        borderRadius: '6px',
+                        border: 'none',
+                        background:
+                          'linear-gradient(135deg, #5865F2 0%, #4752C4 100%)',
+                        color: 'white',
+                        fontWeight: '600',
+                        fontSize: '15px',
+                        transition: 'all 0.2s ease',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                        opacity: isRequestPending ? '0.5' : '1',
+                        cursor: isRequestPending ? 'not-allowed' : 'pointer',
+                      },
+                      onclick: 'onClick',
+                    },
+                    [
+                      isRequestPending
+                        ? 'Generating Proof...'
+                        : 'Generate Proof',
+                    ],
+                  ),
+                ]),
           ...proveProgressBar(),
         ],
       ),
@@ -476,7 +412,5 @@ export default {
   onClick,
   expandUI,
   minimizeUI,
-  fetchDMs,
-  selectDM,
   config,
 };
