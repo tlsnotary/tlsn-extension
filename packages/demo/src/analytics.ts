@@ -46,10 +46,6 @@ export function trackPluginError(pluginName: string, errorMessage: string) {
 }
 
 // Engagement
-export function trackConsoleExpanded() {
-    track('engagement', 'console_expanded');
-}
-
 export function trackViewSource(pluginName: string) {
     track('engagement', 'view_source_clicked', pluginName);
 }

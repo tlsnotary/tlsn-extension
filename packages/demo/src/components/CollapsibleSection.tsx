@@ -4,11 +4,10 @@ interface CollapsibleSectionProps {
     title: string;
     defaultExpanded?: boolean;
     expanded?: boolean;
-    onExpand?: () => void;
     children: React.ReactNode;
 }
 
-export function CollapsibleSection({ title, defaultExpanded = false, expanded, onExpand, children }: CollapsibleSectionProps) {
+export function CollapsibleSection({ title, defaultExpanded = false, expanded, children }: CollapsibleSectionProps) {
     const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
     useEffect(() => {
@@ -17,15 +16,9 @@ export function CollapsibleSection({ title, defaultExpanded = false, expanded, o
         }
     }, [expanded]);
 
-    const handleToggle = () => {
-        const next = !isExpanded;
-        setIsExpanded(next);
-        if (next && onExpand) onExpand();
-    };
-
     return (
         <div className="collapsible-section">
-            <button className="collapsible-header" onClick={handleToggle}>
+            <button className="collapsible-header" onClick={() => setIsExpanded(!isExpanded)}>
                 <span className="collapsible-icon">{isExpanded ? '▼' : '▶'}</span>
                 <span className="collapsible-title">{title}</span>
             </button>

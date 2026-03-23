@@ -19,7 +19,6 @@ import {
     trackPluginStarted,
     trackPluginSuccess,
     trackPluginError,
-    trackConsoleExpanded,
     trackOutboundClick,
 } from './analytics';
 import './App.css';
@@ -321,7 +320,7 @@ export function App() {
 
             <BuildYourOwn />
 
-            <CollapsibleSection title="Console Output" expanded={consoleExpanded} onExpand={trackConsoleExpanded}>
+            <CollapsibleSection title="Console Output" expanded={consoleExpanded}>
                 <ConsoleOutput
                     entries={consoleEntries}
                     onClear={handleClearConsole}
