@@ -4,6 +4,22 @@ declare global {
     }
 }
 
+const MATOMO_URL = 'https://psedev.matomo.cloud/';
+const MATOMO_SITE_ID = '16';
+
+export function initMatomo() {
+    const _paq = (window._paq = window._paq || []);
+    _paq.push(['trackPageView']);
+    _paq.push(['enableLinkTracking']);
+    _paq.push(['setTrackerUrl', MATOMO_URL + 'matomo.php']);
+    _paq.push(['setSiteId', MATOMO_SITE_ID]);
+
+    const script = document.createElement('script');
+    script.async = true;
+    script.src = `https://cdn.matomo.cloud/psedev.matomo.cloud/matomo.js`;
+    document.head.appendChild(script);
+}
+
 function track(category: string, action: string, name?: string, value?: number) {
     const args: unknown[] = ['trackEvent', category, action];
     if (name !== undefined) args.push(name);
