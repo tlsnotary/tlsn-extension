@@ -1257,13 +1257,19 @@ body {
 /* App Footer */
 .app-footer {
     display: flex;
-    justify-content: center;
+    flex-direction: column;
     align-items: center;
-    gap: var(--spacing-lg);
+    gap: var(--spacing-sm);
     padding: var(--spacing-xl) 0;
     margin-top: var(--spacing-xl);
     color: rgba(255, 255, 255, 0.7);
     font-size: 0.875rem;
+}
+
+.app-footer-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-lg);
 }
 
 .footer-link {
@@ -1282,4 +1288,12 @@ body {
     color: rgba(255, 255, 255, 0.6);
     font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
     font-size: 0.8125rem;
+}
+
+.footer-analytics {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 0.75rem;
+    max-width: 480px;
+    text-align: center;
+    line-height: 1.4;
 }

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Plugin, ProgressData } from '../types';
+import { trackViewSource } from '../analytics';
 
 interface PluginResultData {
     resultHtml: string;
@@ -81,6 +82,7 @@ export function PluginButtons({
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="plugin-source-btn"
+                                onClick={() => trackViewSource(plugin.name)}
                             >
                                 <span>📄 View Source</span>
                             </a>

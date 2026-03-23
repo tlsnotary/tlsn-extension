@@ -10,6 +10,17 @@ import { BuildYourOwn } from './components/BuildYourOwn';
 import { plugins } from './plugins';
 import { checkBrowserCompatibility, checkExtension, checkVerifier, formatTimestamp } from './utils';
 import { ConsoleEntry, CheckStatus, PluginResult as PluginResultType, ProgressData } from './types';
+import {
+    trackBrowserCheck,
+    trackExtensionCheck,
+    trackVerifierCheck,
+    trackAllChecksPass,
+    trackRecheck,
+    trackPluginStarted,
+    trackPluginSuccess,
+    trackPluginError,
+    trackOutboundClick,
+} from './analytics';
 import './App.css';
 
 interface PluginResultData {
@@ -91,6 +102,7 @@ export function App() {
     const runAllChecks = useCallback(async () => {
         // Browser check
         const browserOk = checkBrowserCompatibility();
+        trackBrowserCheck(browserOk);
         if (browserOk) {
             setBrowserCheck({ status: 'success', message: '✅ Chrome-based browser detected' });
             setShowBrowserWarning(false);
@@ -98,11 +110,13 @@ export function App() {
             setBrowserCheck({ status: 'error', message: '❌ Unsupported browser' });
             setShowBrowserWarning(true);
             setAllChecksPass(false);
+            trackAllChecksPass(false);
             return;
         }
 
         // Extension check
         const extensionOk = await checkExtension();
+        trackExtensionCheck(extensionOk);
         if (extensionOk) {
             setExtensionCheck({ status: 'success', message: '✅ Extension installed' });
         } else {
@@ -111,19 +125,24 @@ export function App() {
 
         // Verifier check
         const verifierOk = await checkVerifier();
+        trackVerifierCheck(verifierOk);
         if (verifierOk) {
             setVerifierCheck({ status: 'success', message: '✅ Verifier running', showInstructions: false });
         } else {
             setVerifierCheck({ status: 'error', message: '❌ Verifier not running', showInstructions: true });
         }
 
-        setAllChecksPass(extensionOk && verifierOk);
+        const allPass = extensionOk && verifierOk;
+        setAllChecksPass(allPass);
+        trackAllChecksPass(allPass);
     }, []);
 
     const handleRecheck = useCallback(async () => {
+        trackRecheck();
         // Recheck extension
         setExtensionCheck({ status: 'checking', message: 'Checking...' });
         const extensionOk = await checkExtension();
+        trackExtensionCheck(extensionOk);
         if (extensionOk) {
             setExtensionCheck({ status: 'success', message: '✅ Extension installed' });
         } else {
@@ -133,13 +152,16 @@ export function App() {
         // Recheck verifier
         setVerifierCheck({ status: 'checking', message: 'Checking...', showInstructions: false });
         const verifierOk = await checkVerifier();
+        trackVerifierCheck(verifierOk);
         if (verifierOk) {
             setVerifierCheck({ status: 'success', message: '✅ Verifier running', showInstructions: false });
         } else {
             setVerifierCheck({ status: 'error', message: '❌ Verifier not running', showInstructions: true });
         }
 
-        setAllChecksPass(extensionOk && verifierOk);
+        const allPass = extensionOk && verifierOk;
+        setAllChecksPass(allPass);
+        trackAllChecksPass(allPass);
     }, []);
 
     const handleRunPlugin = useCallback(
@@ -152,13 +174,16 @@ export function App() {
             setPluginProgress((prev) => ({ ...prev, [pluginKey]: { step: 'STARTING', progress: 0, message: 'Please continue in the TLSNotary popup' } }));
             setConsoleExpanded(true);
 
+            trackPluginStarted(plugin.name);
+
             try {
                 const startTime = performance.now();
                 const pluginCode = await fetch(plugin.file).then((r) => r.text());
 
                 addConsoleEntry('🔧 Executing plugin code...', 'info');
                 const result = await window.tlsn!.execCode(pluginCode, { requestId });
-                const executionTime = (performance.now() - startTime).toFixed(2);
+                const durationMs = performance.now() - startTime;
+                const executionTime = durationMs.toFixed(2);
 
                 const json: PluginResultType = JSON.parse(result);
 
@@ -170,10 +195,13 @@ export function App() {
                     },
                 }));
 
+                trackPluginSuccess(plugin.name, durationMs);
                 addConsoleEntry(`✅ ${plugin.name} completed successfully in ${executionTime}ms`, 'success');
             } catch (err) {
                 console.error(err);
-                addConsoleEntry(`❌ Error: ${err instanceof Error ? err.message : String(err)}`, 'error');
+                const errorMsg = err instanceof Error ? err.message : String(err);
+                trackPluginError(plugin.name, errorMsg);
+                addConsoleEntry(`❌ Error: ${errorMsg}`, 'error');
             } finally {
                 setRunningPlugins((prev) => {
                     const newSet = new Set(prev);
@@ -301,15 +329,28 @@ export function App() {
             </CollapsibleSection>
 
             <footer className="app-footer">
-                <a
-                    href="https://github.com/tlsnotary/tlsn-extension/tree/main/packages/demo"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="footer-link"
-                >
-                    View source on GitHub
-                </a>
-                <span className="footer-version">{__GIT_COMMIT_HASH__}</span>
+                <div className="app-footer-row">
+                    <a
+                        href="https://github.com/tlsnotary/tlsn-extension/tree/main/packages/demo"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="footer-link"
+                        onClick={() => trackOutboundClick('github')}
+                    >
+                        View source on GitHub
+                    </a>
+                    <span className="footer-version">{__GIT_COMMIT_HASH__}</span>
+                </div>
+                <span className="footer-analytics">
+                    This site collects anonymous usage statistics to improve the demo.<br/>
+                    No cookies are used and no personal data is logged.
+                    {' '}<a
+                        href="https://github.com/tlsnotary/tlsn-extension/blob/main/packages/demo/src/analytics.ts"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => trackOutboundClick('analytics_source')}
+                    >See what we track.</a>
+                </span>
             </footer>
         </div>
     );
