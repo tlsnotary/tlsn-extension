@@ -9,6 +9,7 @@ const MATOMO_SITE_ID = '16';
 
 export function initMatomo() {
     const _paq = (window._paq = window._paq || []);
+    _paq.push(['disableCookies']);
     _paq.push(['trackPageView']);
     _paq.push(['enableLinkTracking']);
     _paq.push(['setTrackerUrl', MATOMO_URL + 'matomo.php']);

@@ -329,16 +329,28 @@ export function App() {
             </CollapsibleSection>
 
             <footer className="app-footer">
-                <a
-                    href="https://github.com/tlsnotary/tlsn-extension/tree/main/packages/demo"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="footer-link"
-                    onClick={() => trackOutboundClick('github')}
-                >
-                    View source on GitHub
-                </a>
-                <span className="footer-version">{__GIT_COMMIT_HASH__}</span>
+                <div className="app-footer-row">
+                    <a
+                        href="https://github.com/tlsnotary/tlsn-extension/tree/main/packages/demo"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="footer-link"
+                        onClick={() => trackOutboundClick('github')}
+                    >
+                        View source on GitHub
+                    </a>
+                    <span className="footer-version">{__GIT_COMMIT_HASH__}</span>
+                </div>
+                <span className="footer-analytics">
+                    This site collects anonymous usage statistics to improve the demo.<br/>
+                    No cookies are used and no personal data is logged.
+                    {' '}<a
+                        href="https://github.com/tlsnotary/tlsn-extension/blob/main/packages/demo/src/analytics.ts"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => trackOutboundClick('analytics_source')}
+                    >See what we track.</a>
+                </span>
             </footer>
         </div>
     );
