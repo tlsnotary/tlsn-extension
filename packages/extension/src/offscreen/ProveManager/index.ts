@@ -369,8 +369,11 @@ export class ProveManager {
     });
 
     // Send request via worker - IoChannel created in worker.
+    // Extract path+query from full URL (hyper sends absolute-form if given full URL)
+    const parsedUrl = new URL(options.url);
+    const requestUri = parsedUrl.pathname + parsedUrl.search;
     await workerApi.sendRequest(proverId, proxyUrl, {
-      uri: options.url,
+      uri: requestUri,
       method: options.method as Method,
       headers: headerMap,
       body: options.body,
