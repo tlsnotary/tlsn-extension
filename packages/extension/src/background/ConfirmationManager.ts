@@ -17,6 +17,7 @@ interface PendingConfirmation {
  */
 export class ConfirmationManager {
   private pendingConfirmations: Map<string, PendingConfirmation> = new Map();
+  private pluginCodeStore: Map<string, string> = new Map();
   private currentPopupWindowId: number | null = null;
 
   // Confirmation timeout in milliseconds (60 seconds)
@@ -24,7 +25,7 @@ export class ConfirmationManager {
 
   // Popup window dimensions
   private readonly POPUP_WIDTH = 600;
-  private readonly POPUP_HEIGHT = 550;
+  private readonly POPUP_HEIGHT = 500;
 
   constructor() {
     // Listen for window removal to handle popup close
@@ -42,6 +43,8 @@ export class ConfirmationManager {
   async requestConfirmation(
     config: PluginConfig | null,
     requestId: string,
+    senderOrigin?: string,
+    pluginCode?: string,
   ): Promise<boolean> {
     // Check if there's already a pending confirmation
     if (this.pendingConfirmations.size > 0) {
@@ -51,17 +54,49 @@ export class ConfirmationManager {
       throw new Error('Another plugin confirmation is already in progress');
     }
 
+    // Store plugin code in memory so the popup can request it
+    if (pluginCode) {
+      this.pluginCodeStore.set(requestId, pluginCode);
+    }
+
     // Build URL with plugin info as query params
-    const popupUrl = this.buildPopupUrl(config, requestId);
+    const popupUrl = this.buildPopupUrl(config, requestId, senderOrigin);
 
     return new Promise<boolean>(async (resolve, reject) => {
       try {
+        // Calculate position to center on the active browser window
+        let left: number | undefined;
+        let top: number | undefined;
+
+        try {
+          const currentWindow = await browser.windows.getCurrent();
+
+          if (
+            currentWindow.left != null &&
+            currentWindow.top != null &&
+            currentWindow.width != null &&
+            currentWindow.height != null
+          ) {
+            left = Math.round(
+              currentWindow.left + (currentWindow.width - this.POPUP_WIDTH) / 2,
+            );
+            top = Math.round(
+              currentWindow.top +
+                (currentWindow.height - this.POPUP_HEIGHT) / 2,
+            );
+          }
+        } catch {
+          // Fall back to default positioning
+        }
+
         // Create the confirmation popup window
         const window = await browser.windows.create({
           url: popupUrl,
           type: 'popup',
           width: this.POPUP_WIDTH,
           height: this.POPUP_HEIGHT,
+          left,
+          top,
           focused: true,
         });
 
@@ -169,11 +204,16 @@ export class ConfirmationManager {
   private buildPopupUrl(
     config: PluginConfig | null,
     requestId: string,
+    senderOrigin?: string,
   ): string {
     const baseUrl = browser.runtime.getURL('confirmPopup.html');
     const params = new URLSearchParams();
 
     params.set('requestId', requestId);
+
+    if (senderOrigin) {
+      params.set('senderOrigin', encodeURIComponent(senderOrigin));
+    }
 
     if (config) {
       params.set('name', encodeURIComponent(config.name));
@@ -213,6 +253,9 @@ export class ConfirmationManager {
     }
     this.pendingConfirmations.delete(requestId);
 
+    // Clean up stored plugin code
+    this.pluginCodeStore.delete(requestId);
+
     if (this.pendingConfirmations.size === 0) {
       this.currentPopupWindowId = null;
     }
@@ -223,6 +266,13 @@ export class ConfirmationManager {
    */
   hasPendingConfirmation(): boolean {
     return this.pendingConfirmations.size > 0;
+  }
+
+  /**
+   * Get stored plugin code for a confirmation request.
+   */
+  getPluginCode(requestId: string): string | undefined {
+    return this.pluginCodeStore.get(requestId);
   }
 }
 

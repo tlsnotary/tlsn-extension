@@ -162,6 +162,13 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
     return; // No response needed
   }
 
+  // Handle plugin code request from confirmation popup
+  if (request.type === 'GET_PLUGIN_CODE') {
+    const code = confirmationManager.getPluginCode(request.requestId);
+    sendResponse({ code: code || null });
+    return true;
+  }
+
   // Handle plugin confirmation responses from popup
   if (request.type === 'PLUGIN_CONFIRM_RESPONSE') {
     logger.debug('PLUGIN_CONFIRM_RESPONSE received:', request);
@@ -220,6 +227,8 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
           userAllowed = await confirmationManager.requestConfirmation(
             pluginConfig,
             confirmRequestId,
+            sender.tab?.url,
+            request.code,
           );
         } catch (confirmError) {
           logger.error('Confirmation error:', confirmError);

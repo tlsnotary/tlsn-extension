@@ -1,5 +1,5 @@
 // Confirmation Popup Styles
-// Size: 600x550 pixels
+// Size: 600x500 pixels
 
 * {
   box-sizing: border-box;
@@ -7,15 +7,22 @@
   padding: 0;
 }
 
+html,
 body {
-  width: 600px;
-  height: 550px;
+  height: 100%;
+}
+
+body {
   margin: 0;
   padding: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
   color: #e8e8e8;
   overflow: hidden;
+}
+
+#root {
+  height: 100%;
 }
 
 .confirm-popup {
@@ -40,89 +47,43 @@ body {
     }
   }
 
-  &__header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 20px;
-
-    h1 {
-      font-size: 20px;
-      font-weight: 600;
-      color: #ffffff;
-    }
-  }
-
-  &__icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-    font-weight: 700;
-    color: #ffffff;
-  }
-
   &__content {
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
     overflow-y: auto;
   }
 
-  &__field {
-    margin-bottom: 16px;
-
-    label {
-      display: block;
-      font-size: 12px;
-      font-weight: 500;
-      color: #8b8b9a;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 6px;
-    }
-
-    &--inline {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 8px;
-
-      label {
-        margin-bottom: 0;
-        min-width: 60px;
-      }
-
-      .confirm-popup__value {
-        margin: 0;
-      }
-    }
-  }
-
-  &__value {
-    font-size: 16px;
+  &__title {
+    font-size: 18px;
+    font-weight: 400;
     color: #ffffff;
     line-height: 1.5;
-    background: rgba(255, 255, 255, 0.05);
-    padding: 10px 14px;
-    border-radius: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    text-align: center;
+    margin-bottom: 12px;
 
-    &--description {
-      min-height: 60px;
-      max-height: 100px;
-      overflow-y: auto;
-    }
-
-    &--warning {
-      border-color: rgba(255, 193, 7, 0.5);
-      background: rgba(255, 193, 7, 0.1);
-      color: #ffc107;
+    strong {
+      font-weight: 600;
     }
   }
 
+  &__description {
+    font-size: 14px;
+    color: #b0b0c0;
+    line-height: 1.5;
+    text-align: center;
+    margin-bottom: 8px;
+  }
+
+  &__meta {
+    font-size: 12px;
+    color: #8b8b9a;
+    text-align: center;
+    margin-bottom: 16px;
+  }
+
+  // Warning
   &__warning {
     display: flex;
     align-items: flex-start;
@@ -131,7 +92,7 @@ body {
     background: rgba(255, 193, 7, 0.1);
     border: 1px solid rgba(255, 193, 7, 0.3);
     border-radius: 8px;
-    margin-top: 12px;
+    margin: 12px 0;
 
     p {
       font-size: 13px;
@@ -154,131 +115,149 @@ body {
     font-weight: 700;
   }
 
-  // Permissions Section
-  &__permissions {
-    margin-top: 16px;
-    padding-top: 16px;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-  }
-
-  &__permissions-title {
-    font-size: 14px;
-    font-weight: 600;
-    color: #ffffff;
-    margin-bottom: 12px;
-  }
-
-  &__permission-group {
-    margin-bottom: 12px;
-
-    label {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 12px;
-      font-weight: 500;
-      color: #8b8b9a;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 8px;
-    }
-  }
-
-  &__permission-icon {
-    font-size: 14px;
-  }
-
-  &__permission-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 8px;
-    max-height: 120px;
-    overflow-y: auto;
-  }
-
-  &__permission-item {
+  // Links
+  &__links {
     display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    font-size: 13px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    justify-content: center;
+    gap: 16px;
+    margin: 12px 0;
+  }
 
-    &:last-child {
-      border-bottom: none;
+  &__link {
+    font-size: 12px;
+    color: #8fa4f0;
+    text-decoration: none;
+    transition: color 0.15s ease;
+
+    &:hover {
+      color: #b0c0ff;
+      text-decoration: underline;
     }
   }
 
-  &__method {
-    background: rgba(102, 126, 234, 0.2);
-    color: #8fa4f0;
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    min-width: 50px;
-    text-align: center;
-  }
-
-  &__host {
-    color: #e8e8e8;
-    font-weight: 500;
-  }
-
-  &__pathname {
-    color: #8b8b9a;
-    font-family: 'SF Mono', Monaco, 'Courier New', monospace;
-    font-size: 12px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  &__url {
-    color: #8fa4f0;
-    font-family: 'SF Mono', Monaco, 'Courier New', monospace;
-    font-size: 12px;
-    word-break: break-all;
-  }
-
-  &__no-permissions {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 12px;
-    background: rgba(139, 139, 154, 0.1);
-    border: 1px solid rgba(139, 139, 154, 0.3);
-    border-radius: 8px;
-    margin-top: 12px;
-
-    p {
-      font-size: 13px;
-      line-height: 1.4;
-      color: #8b8b9a;
-    }
-  }
-
+  // Error
   &__error-message {
     font-size: 14px;
     color: #ff6b6b;
     text-align: center;
   }
 
-  &__divider {
-    height: 1px;
-    background: rgba(255, 255, 255, 0.1);
-    margin: 16px 0;
+  // Shared nav header (details + source views)
+  &__nav-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   }
 
+  &__back-btn {
+    background: none;
+    border: none;
+    color: #8fa4f0;
+    font-size: 14px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+  }
+
+  &__nav-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: #8b8b9a;
+  }
+
+  // Details view
+  &__details {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  &__detail-row {
+    label {
+      display: block;
+      font-size: 11px;
+      font-weight: 500;
+      color: #8b8b9a;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    p {
+      font-size: 14px;
+      color: #e8e8e8;
+      line-height: 1.5;
+    }
+  }
+
+  &__detail-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    max-height: 140px;
+    overflow-y: auto;
+
+    li {
+      padding: 8px 12px;
+      font-size: 13px;
+      color: #e8e8e8;
+      font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      word-break: break-all;
+
+      &:last-child {
+        border-bottom: none;
+      }
+    }
+  }
+
+  &__detail-method {
+    background: rgba(102, 126, 234, 0.2);
+    color: #8fa4f0;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-right: 6px;
+  }
+
+  // Source code view
+  &__source-code {
+    flex: 1;
+    overflow: auto;
+    font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    color: #d4d4d4;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 14px;
+    white-space: pre;
+    tab-size: 2;
+  }
+
+  // Actions
   &__actions {
     display: flex;
     gap: 12px;
     justify-content: flex-end;
     margin-top: auto;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
   }
 
   &__btn {
@@ -327,11 +306,16 @@ body {
     }
   }
 
+  &__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 12px;
+  }
+
   &__hint {
-    text-align: center;
     font-size: 11px;
     color: #6b6b7a;
-    margin-top: 12px;
 
     kbd {
       display: inline-block;

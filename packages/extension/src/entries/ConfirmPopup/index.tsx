@@ -24,13 +24,44 @@ interface PluginInfo {
   urls?: string[];
 }
 
+/**
+ * Extract unique domains from request permissions.
+ */
+function extractDomains(requests?: RequestPermission[]): string[] {
+  const domains = new Set<string>();
+
+  if (requests) {
+    for (const req of requests) {
+      domains.add(req.host);
+    }
+  }
+
+  return Array.from(domains);
+}
+
+/**
+ * Format domains for display in the title.
+ * Shows up to 3 domains, with "+N more" if there are extras.
+ */
+function formatDomainsForTitle(domains: string[]): string {
+  if (domains.length === 0) return '';
+
+  if (domains.length <= 3) {
+    return domains.join(', ');
+  }
+
+  return `${domains.slice(0, 3).join(', ')} +${domains.length - 3} more`;
+}
+
 const ConfirmPopup: React.FC = () => {
   const [pluginInfo, setPluginInfo] = useState<PluginInfo | null>(null);
   const [requestId, setRequestId] = useState<string>('');
+  const [senderOrigin, setSenderOrigin] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sourceCode, setSourceCode] = useState<string | null>(null);
+  const [showDetails, setShowDetails] = useState(false);
 
   useEffect(() => {
-    // Parse URL params to get plugin info
     const params = new URLSearchParams(window.location.search);
     const name = params.get('name');
     const description = params.get('description');
@@ -38,6 +69,7 @@ const ConfirmPopup: React.FC = () => {
     const author = params.get('author');
     const requestsParam = params.get('requests');
     const urlsParam = params.get('urls');
+    const senderOriginParam = params.get('senderOrigin');
     const reqId = params.get('requestId');
 
     if (!reqId) {
@@ -47,8 +79,16 @@ const ConfirmPopup: React.FC = () => {
 
     setRequestId(reqId);
 
+    if (senderOriginParam) {
+      try {
+        const url = new URL(decodeURIComponent(senderOriginParam));
+        setSenderOrigin(url.hostname);
+      } catch {
+        setSenderOrigin(decodeURIComponent(senderOriginParam));
+      }
+    }
+
     if (name) {
-      // Parse permission arrays from JSON
       let requests: RequestPermission[] | undefined;
       let urls: string[] | undefined;
 
@@ -79,7 +119,6 @@ const ConfirmPopup: React.FC = () => {
         urls,
       });
     } else {
-      // No plugin info available - show unknown plugin warning
       setPluginInfo({
         name: 'Unknown Plugin',
         description:
@@ -135,11 +174,34 @@ const ConfirmPopup: React.FC = () => {
     }
   }, [requestId]);
 
+  const handleViewSource = useCallback(
+    async (e: React.MouseEvent) => {
+      e.preventDefault();
+      if (!requestId) return;
+
+      try {
+        const response = await browser.runtime.sendMessage({
+          type: 'GET_PLUGIN_CODE',
+          requestId,
+        });
+
+        if (response?.code) {
+          setSourceCode(response.code);
+        } else {
+          logger.warn('Plugin source code not available');
+        }
+      } catch (err) {
+        logger.error('Failed to load plugin source:', err);
+      }
+    },
+    [requestId],
+  );
+
   if (error) {
     return (
       <div className="confirm-popup confirm-popup--error">
         <div className="confirm-popup__header">
-          <span className="confirm-popup__icon">Error</span>
+          <span className="confirm-popup__icon">!</span>
           <h1>Configuration Error</h1>
         </div>
         <div className="confirm-popup__content">
@@ -167,115 +229,142 @@ const ConfirmPopup: React.FC = () => {
   }
 
   const isUnknown = pluginInfo.name === 'Unknown Plugin';
+  const requestDomains = extractDomains(pluginInfo.requests);
+  const hasRequestDomains = requestDomains.length > 0;
 
+  // Source code view
+  if (sourceCode) {
+    return (
+      <div className="confirm-popup">
+        <div className="confirm-popup__nav-header">
+          <button
+            className="confirm-popup__back-btn"
+            onClick={() => setSourceCode(null)}
+          >
+            &larr; Back
+          </button>
+          <span className="confirm-popup__nav-title">Plugin source</span>
+        </div>
+        <pre className="confirm-popup__source-code">{sourceCode}</pre>
+      </div>
+    );
+  }
+
+  // Details view
+  if (showDetails) {
+    return (
+      <div className="confirm-popup">
+        <div className="confirm-popup__nav-header">
+          <button
+            className="confirm-popup__back-btn"
+            onClick={() => setShowDetails(false)}
+          >
+            &larr; Back
+          </button>
+          <span className="confirm-popup__nav-title">Plugin details</span>
+        </div>
+        <div className="confirm-popup__details">
+          <div className="confirm-popup__detail-row">
+            <label>Title</label>
+            <p>{pluginInfo.name}</p>
+          </div>
+          <div className="confirm-popup__detail-row">
+            <label>Description</label>
+            <p>{pluginInfo.description}</p>
+          </div>
+          {pluginInfo.requests && pluginInfo.requests.length > 0 && (
+            <div className="confirm-popup__detail-row">
+              <label>Request URLs</label>
+              <ul className="confirm-popup__detail-list">
+                {pluginInfo.requests.map((req, i) => (
+                  <li key={i}>
+                    <span className="confirm-popup__detail-method">
+                      {req.method}
+                    </span>
+                    {req.host}
+                    {req.pathname}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {pluginInfo.urls && pluginInfo.urls.length > 0 && (
+            <div className="confirm-popup__detail-row">
+              <label>Navigation URLs</label>
+              <ul className="confirm-popup__detail-list">
+                {pluginInfo.urls.map((url, i) => (
+                  <li key={i}>{url}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <a
+            href="#"
+            className="confirm-popup__link"
+            onClick={handleViewSource}
+          >
+            View plugin source
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  // Build meta line: "v1.0.0 by AuthorName"
+  const metaParts: string[] = [];
+
+  if (pluginInfo.version) metaParts.push(`v${pluginInfo.version}`);
+  if (pluginInfo.author) metaParts.push(`by ${pluginInfo.author}`);
+
+  const metaLine = metaParts.join(' ');
+
+  // Main confirmation view
   return (
     <div className="confirm-popup">
-      <div className="confirm-popup__header">
-        <span className="confirm-popup__icon">{isUnknown ? '?' : 'P'}</span>
-        <h1>Plugin Execution Request</h1>
-      </div>
-
       <div className="confirm-popup__content">
-        <div className="confirm-popup__field">
-          <label>Plugin Name</label>
-          <p
-            className={`confirm-popup__value ${isUnknown ? 'confirm-popup__value--warning' : ''}`}
-          >
-            {pluginInfo.name}
-          </p>
-        </div>
+        <h1 className="confirm-popup__title">
+          {isUnknown ? (
+            'An unknown plugin wants to run'
+          ) : hasRequestDomains ? (
+            <>
+              Allow <strong>{senderOrigin || pluginInfo.name}</strong> to access
+              your data on{' '}
+              <strong>{formatDomainsForTitle(requestDomains)}</strong>?
+            </>
+          ) : (
+            <>
+              Allow <strong>{senderOrigin || pluginInfo.name}</strong> to run?
+            </>
+          )}
+        </h1>
 
-        <div className="confirm-popup__field">
-          <label>Description</label>
-          <p
-            className={`confirm-popup__value confirm-popup__value--description ${isUnknown ? 'confirm-popup__value--warning' : ''}`}
-          >
-            {pluginInfo.description}
-          </p>
-        </div>
+        <p className="confirm-popup__description">{pluginInfo.description}</p>
 
-        {pluginInfo.version && (
-          <div className="confirm-popup__field confirm-popup__field--inline">
-            <label>Version</label>
-            <p className="confirm-popup__value">{pluginInfo.version}</p>
-          </div>
-        )}
-
-        {pluginInfo.author && (
-          <div className="confirm-popup__field confirm-popup__field--inline">
-            <label>Author</label>
-            <p className="confirm-popup__value">{pluginInfo.author}</p>
-          </div>
-        )}
-
-        {/* Permissions Section */}
-        {(pluginInfo.requests || pluginInfo.urls) && (
-          <div className="confirm-popup__permissions">
-            <h2 className="confirm-popup__permissions-title">Permissions</h2>
-
-            {pluginInfo.requests && pluginInfo.requests.length > 0 && (
-              <div className="confirm-popup__permission-group">
-                <label>
-                  <span className="confirm-popup__permission-icon">🌐</span>
-                  Network Requests
-                </label>
-                <ul className="confirm-popup__permission-list">
-                  {pluginInfo.requests.map((req, index) => (
-                    <li key={index} className="confirm-popup__permission-item">
-                      <span className="confirm-popup__method">
-                        {req.method}
-                      </span>
-                      <span className="confirm-popup__host">{req.host}</span>
-                      <span className="confirm-popup__pathname">
-                        {req.pathname}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {pluginInfo.urls && pluginInfo.urls.length > 0 && (
-              <div className="confirm-popup__permission-group">
-                <label>
-                  <span className="confirm-popup__permission-icon">🔗</span>
-                  Allowed URLs
-                </label>
-                <ul className="confirm-popup__permission-list">
-                  {pluginInfo.urls.map((url, index) => (
-                    <li key={index} className="confirm-popup__permission-item">
-                      <span className="confirm-popup__url">{url}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* No permissions warning */}
-        {!pluginInfo.requests && !pluginInfo.urls && !isUnknown && (
-          <div className="confirm-popup__no-permissions">
-            <span className="confirm-popup__warning-icon">!</span>
-            <p>
-              This plugin has no permissions defined. It will not be able to
-              make network requests or open browser windows.
-            </p>
-          </div>
-        )}
+        {metaLine && <p className="confirm-popup__meta">{metaLine}</p>}
 
         {isUnknown && (
           <div className="confirm-popup__warning">
             <span className="confirm-popup__warning-icon">!</span>
             <p>
-              This plugin's configuration could not be verified. Only proceed if
-              you trust the source.
+              This plugin could not be verified. Only allow it if you trust
+              where it came from.
             </p>
           </div>
         )}
-      </div>
 
-      <div className="confirm-popup__divider"></div>
+        <div className="confirm-popup__links">
+          <a
+            href="#"
+            className="confirm-popup__link"
+            onClick={(e) => {
+              e.preventDefault();
+              setShowDetails(true);
+            }}
+          >
+            More details
+          </a>
+        </div>
+      </div>
 
       <div className="confirm-popup__actions">
         <button
@@ -296,9 +385,19 @@ const ConfirmPopup: React.FC = () => {
         </button>
       </div>
 
-      <p className="confirm-popup__hint">
-        Press <kbd>Enter</kbd> to allow or <kbd>Esc</kbd> to deny
-      </p>
+      <div className="confirm-popup__footer">
+        <p className="confirm-popup__hint">
+          Press <kbd>Enter</kbd> to allow or <kbd>Esc</kbd> to deny
+        </p>
+        <a
+          href="https://tlsnotary.org/docs/extension/plugins"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="confirm-popup__link"
+        >
+          Learn more
+        </a>
+      </div>
     </div>
   );
 };
