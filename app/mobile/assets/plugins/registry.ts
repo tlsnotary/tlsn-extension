@@ -30,6 +30,7 @@ const CODE_MAP: Record<string, () => string> = {
   discord_dm: () => require('@tlsn/plugins/dist/mobile/discord_dm').DISCORD_DM_PLUGIN_CODE,
   discord_profile: () =>
     require('@tlsn/plugins/dist/mobile/discord_profile').DISCORD_PROFILE_PLUGIN_CODE,
+  garmin_badges: () => require('@tlsn/plugins/dist/mobile/garmin_badges').GARMIN_BADGES_PLUGIN_CODE,
 };
 
 const DEFAULT_VERIFIER_URL = 'https://demo.tlsnotary.org';

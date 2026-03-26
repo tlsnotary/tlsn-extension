@@ -77,7 +77,7 @@ export const PLUGIN_REGISTRY: PluginMetadata[] = [
       urls: ['https://swissbank.tlsnotary.org/*'],
     },
   },
-   {
+  {
     id: 'swissbank_hash',
     name: 'Swiss Bank (Hashed)',
     description:
@@ -88,7 +88,8 @@ export const PLUGIN_REGISTRY: PluginMetadata[] = [
     platforms: ['demo', 'mobile'],
     pluginConfig: {
       name: 'Swiss Bank Prover (Hashed)',
-      description: 'This plugin will prove a blinded hash of an account balance on a (dummy) Swiss bank.',
+      description:
+        'This plugin will prove a blinded hash of an account balance on a (dummy) Swiss bank.',
       requests: [
         {
           method: 'GET',
@@ -224,6 +225,27 @@ export const PLUGIN_REGISTRY: PluginMetadata[] = [
         },
       ],
       urls: ['https://account.id.me/*'],
+    },
+  },
+  {
+    id: 'garmin_badges',
+    name: 'Garmin Badges',
+    description: 'Prove your earned Garmin Connect badges',
+    logo: '🏅', // 🏅
+    resultLabel: 'Badge',
+    accentColor: '#007CC7',
+    platforms: ['demo', 'mobile'],
+    pluginConfig: {
+      name: 'Garmin Badges',
+      description: 'Prove your earned Garmin Connect badges.',
+      requests: [
+        {
+          method: 'GET',
+          host: 'connect.garmin.com',
+          pathname: '/gc-api/badge-service/badge/earned',
+        },
+      ],
+      urls: ['https://connect.garmin.com/*'],
     },
   },
 ];
