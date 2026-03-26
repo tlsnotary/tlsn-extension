@@ -321,18 +321,17 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
     const urlValidation = validateUrl(request.url);
     if (!urlValidation.valid) {
       logger.error('URL validation failed:', urlValidation.error);
-      sendResponse({
+      return Promise.resolve({
         type: 'WINDOW_ERROR',
         payload: {
           error: 'Invalid URL',
           details: urlValidation.error || 'URL validation failed',
         },
       });
-      return true;
     }
 
     // Open a new window with the requested URL
-    browser.windows
+    return browser.windows
       .create({
         url: request.url,
         type: 'popup',
@@ -365,15 +364,14 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
 
           logger.debug(`Window registered: ${managedWindow.uuid}`);
 
-          // Send success response
-          sendResponse({
+          return {
             type: 'WINDOW_OPENED',
             payload: {
               windowId: managedWindow.id,
               uuid: managedWindow.uuid,
               tabId: managedWindow.tabId,
             },
-          });
+          };
         } catch (registrationError) {
           // Registration failed (e.g., window limit exceeded)
           // Close the window we just created
@@ -382,27 +380,25 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
             // Ignore errors if window already closed
           });
 
-          sendResponse({
+          return {
             type: 'WINDOW_ERROR',
             payload: {
               error: 'Window registration failed',
               details: String(registrationError),
             },
-          });
+          };
         }
       })
       .catch((error) => {
         logger.error('Error creating window:', error);
-        sendResponse({
+        return {
           type: 'WINDOW_ERROR',
           payload: {
             error: 'Failed to create window',
             details: String(error),
           },
-        });
+        };
       });
-
-    return true; // Keep message channel open for async response
   }
 
   if (request.type === 'TO_BG_RE_RENDER_PLUGIN_UI') {
