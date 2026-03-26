@@ -5,6 +5,10 @@ import {
   getStoredLogLevel,
   setStoredLogLevel,
 } from '../../utils/logLevelStorage';
+import {
+  getStoredProxyUrl,
+  setStoredProxyUrl,
+} from '../../utils/proxyUrlStorage';
 import './index.scss';
 
 interface LogLevelOption {
@@ -42,22 +46,29 @@ const Options: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
+  const [proxyUrl, setProxyUrl] = useState('');
+  const [proxySaving, setProxySaving] = useState(false);
+  const [proxySaveSuccess, setProxySaveSuccess] = useState(false);
+  const [proxyError, setProxyError] = useState('');
+
   // Load current log level on mount
   useEffect(() => {
-    const loadLevel = async () => {
+    const loadSettings = async () => {
       try {
         const level = await getStoredLogLevel();
         setCurrentLevel(level);
-        // Initialize the logger with the stored level
         logger.init(level);
+
+        const storedProxy = await getStoredProxyUrl();
+        if (storedProxy) setProxyUrl(storedProxy);
       } catch (error) {
-        logger.error('Failed to load log level:', error);
+        logger.error('Failed to load settings:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    loadLevel();
+    loadSettings();
   }, []);
 
   const handleLevelChange = useCallback(async (level: LogLevel) => {
@@ -79,6 +90,37 @@ const Options: React.FC = () => {
       setSaving(false);
     }
   }, []);
+
+  const handleProxySave = useCallback(async () => {
+    setProxyError('');
+    const trimmed = proxyUrl.trim();
+
+    if (trimmed) {
+      if (!trimmed.startsWith('ws://') && !trimmed.startsWith('wss://')) {
+        setProxyError('URL must start with ws:// or wss://');
+        return;
+      }
+
+      try {
+        new URL(trimmed);
+      } catch {
+        setProxyError('Invalid URL format');
+        return;
+      }
+    }
+
+    setProxySaving(true);
+
+    try {
+      await setStoredProxyUrl(trimmed || null);
+      setProxySaveSuccess(true);
+      setTimeout(() => setProxySaveSuccess(false), 2000);
+    } catch {
+      setProxyError('Failed to save');
+    } finally {
+      setProxySaving(false);
+    }
+  }, [proxyUrl]);
 
   if (loading) {
     return (
@@ -140,6 +182,46 @@ const Options: React.FC = () => {
             )}
             <span className="options__current">
               Current: {logLevelToName(currentLevel)}
+            </span>
+          </div>
+        </section>
+
+        <section className="options__section options__section--proxy">
+          <h2>Proxy Override</h2>
+          <p className="options__section-description">
+            Override the proxy used by plugins with your own. The extension
+            appends <code>/proxy?token=&lt;host&gt;</code> automatically. Leave
+            empty to use the default proxy from each plugin.
+          </p>
+
+          <div className="options__proxy-field">
+            <input
+              type="text"
+              className="options__text-input"
+              placeholder="wss://my-verifier.example.com"
+              value={proxyUrl}
+              onChange={(e) => setProxyUrl(e.target.value)}
+              disabled={proxySaving}
+            />
+            <button
+              className="options__save-button"
+              onClick={handleProxySave}
+              disabled={proxySaving}
+            >
+              {proxySaving ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+
+          {proxyError && <p className="options__error">{proxyError}</p>}
+
+          <div className="options__status">
+            {proxySaveSuccess && (
+              <span className="options__success">Proxy setting saved!</span>
+            )}
+            <span className="options__current">
+              {proxyUrl.trim()
+                ? `Override active: ${proxyUrl.trim()}`
+                : 'Using plugin defaults'}
             </span>
           </div>
         </section>
