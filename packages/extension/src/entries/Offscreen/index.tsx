@@ -21,7 +21,10 @@ const OffscreenApp: React.FC = () => {
     browser.runtime.onMessage.addListener((request: any) => {
       // Example message handling
       if (request.type === 'PROCESS_DATA') {
-        return Promise.resolve({ success: true, data: 'Processed in offscreen' });
+        return Promise.resolve({
+          success: true,
+          data: 'Processed in offscreen',
+        });
       }
 
       // Handle config extraction requests (uses QuickJS)
@@ -62,9 +65,7 @@ const OffscreenApp: React.FC = () => {
 
         return sessionManager
           .awaitInit()
-          .then((sm) =>
-            sm.executePlugin(request.code, request.requestId),
-          )
+          .then((sm) => sm.executePlugin(request.code, request.requestId))
           .then((result) => {
             logger.debug('Plugin execution result:', result);
             return {
