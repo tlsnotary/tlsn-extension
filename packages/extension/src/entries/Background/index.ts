@@ -200,7 +200,10 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
       });
     }
 
-    (async () => {
+    // Return a Promise so the polyfill keeps the message channel open
+    // and resolves when the async work completes. This is more reliable
+    // than the sendResponse + return true pattern.
+    return (async () => {
       try {
         // Step 1: Extract plugin config for confirmation (via offscreen QuickJS)
         let pluginConfig: PluginConfig | null = null;
@@ -223,24 +226,22 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
           );
         } catch (confirmError) {
           logger.error('Confirmation error:', confirmError);
-          sendResponse({
+          return {
             success: false,
             error:
               confirmError instanceof Error
                 ? confirmError.message
                 : 'Confirmation failed',
-          });
-          return;
+          };
         }
 
         // Step 3: If user denied, return rejection error
         if (!userAllowed) {
           logger.info('User rejected plugin execution');
-          sendResponse({
+          return {
             success: false,
             error: 'User rejected plugin execution',
-          });
-          return;
+          };
         }
 
         // Step 4: User allowed - proceed with execution
@@ -256,14 +257,14 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
           requestId: request.requestId,
         });
         logger.debug('EXEC_CODE_OFFSCREEN response:', response);
-        sendResponse(response);
+        return response;
       } catch (error) {
         logger.error('Error executing code:', error);
-        sendResponse({
+        return {
           success: false,
           error:
             error instanceof Error ? error.message : 'Code execution failed',
-        });
+        };
       } finally {
         // Clean up progress route
         if (request.requestId) {
@@ -271,8 +272,6 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
         }
       }
     })();
-
-    return true; // Keep message channel open for async response
   }
 
   // Handle CLOSE_WINDOW requests
