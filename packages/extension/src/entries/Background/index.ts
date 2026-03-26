@@ -280,40 +280,37 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
 
     if (!request.windowId) {
       logger.error('No windowId provided');
-      sendResponse({
+      return Promise.resolve({
         type: 'WINDOW_ERROR',
         payload: {
           error: 'No windowId provided',
           details: 'windowId is required to close a window',
         },
       });
-      return true;
     }
 
     // Close the window using WindowManager
-    windowManager
+    return windowManager
       .closeWindow(request.windowId)
       .then(() => {
         logger.debug(`Window ${request.windowId} closed`);
-        sendResponse({
+        return {
           type: 'WINDOW_CLOSED',
           payload: {
             windowId: request.windowId,
           },
-        });
+        };
       })
       .catch((error) => {
         logger.error('Error closing window:', error);
-        sendResponse({
+        return {
           type: 'WINDOW_ERROR',
           payload: {
             error: 'Failed to close window',
             details: String(error),
           },
-        });
+        };
       });
-
-    return true; // Keep message channel open for async response
   }
 
   // Handle OPEN_WINDOW requests from content scripts
