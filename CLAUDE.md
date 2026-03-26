@@ -586,6 +586,17 @@ logger.setLevel(LogLevel.WARN);
 [HH:MM:SS] [LEVEL] message
 ```
 
+## Creating New Plugins
+
+Use the Claude Code command `/create-plugin` to interactively build a new demo plugin. The command (defined in `.claude/commands/create-plugin.md`) guides you through:
+
+1. Researching the target API endpoint
+2. Planning auth interception strategy
+3. Creating the plugin source, build registration, and demo registry entry
+4. Building and verifying the output
+
+For manual reference, see `PLUGIN.md` and the existing plugins in `packages/demo/plugins/`.
+
 ## Demo Package (`packages/demo`)
 
 Docker-based demo environment for testing plugins:
