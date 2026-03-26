@@ -12,6 +12,7 @@ import {
   validateProvePermission,
   validateOpenWindowPermission,
 } from './permissionValidator';
+import { getStoredProxyUrl } from '../utils/proxyUrlStorage';
 
 export class SessionManager {
   private host: Host;
@@ -47,11 +48,19 @@ export class SessionManager {
           throw new Error('Invalid URL');
         }
 
+        // Check for user-configured proxy override
+        const proxyOverride = await getStoredProxyUrl();
+        const proxyOverrideActive = !!proxyOverride;
+        const effectiveProxyUrl = proxyOverrideActive
+          ? `${proxyOverride.replace(/\/+$/, '')}/proxy?token=${url.hostname}`
+          : proverOptions.proxyUrl;
+
         // Validate permissions before proceeding
         validateProvePermission(
           requestOptions,
-          proverOptions,
+          { ...proverOptions, proxyUrl: effectiveProxyUrl },
           this.currentConfig,
+          proxyOverrideActive,
         );
 
         // Build sessionData with defaults + user-provided data
@@ -64,6 +73,13 @@ export class SessionManager {
           this.emitProgress(step, progress, message);
           onProgress?.({ step, progress, message });
         };
+
+        // Quick connectivity check when using a custom proxy
+        if (proxyOverrideActive) {
+          emitBoth('PROXY_CHECK', 0.0, 'Checking proxy connection...');
+          await checkProxyReachable(effectiveProxyUrl);
+          logger.info(`Using custom proxy override: ${effectiveProxyUrl}`);
+        }
 
         emitBoth('CONNECTING', 0.0, 'Connecting to verifier...');
 
@@ -80,16 +96,12 @@ export class SessionManager {
 
           // Send request via ProveManager which handles IoChannel creation in the worker.
           emitBoth('SENDING_REQUEST', 0.3, 'Sending request...');
-          await this.proveManager.sendRequest(
-            proverId,
-            proverOptions.proxyUrl,
-            {
-              url: requestOptions.url,
-              method: requestOptions.method as Method,
-              headers: requestOptions.headers,
-              body: requestOptions.body,
-            },
-          );
+          await this.proveManager.sendRequest(proverId, effectiveProxyUrl, {
+            url: requestOptions.url,
+            method: requestOptions.method as Method,
+            headers: requestOptions.headers,
+            body: requestOptions.body,
+          });
 
           // Compute reveal ranges via WASM (parses HTTP transcripts + maps handlers to byte ranges)
           emitBoth('PROCESSING_TRANSCRIPT', 0.5, 'Processing transcript...');
@@ -276,4 +288,42 @@ export class SessionManager {
   async extractConfig(code: string): Promise<any> {
     return this.host.getPluginConfig(code);
   }
+}
+
+/**
+ * Quick connectivity check: opens a WebSocket to the proxy URL and
+ * resolves on successful connection or rejects with a clear error.
+ */
+function checkProxyReachable(
+  proxyUrl: string,
+  timeoutMs = 5000,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      ws.close();
+      reject(
+        new Error(
+          `Custom proxy is not reachable (timed out after ${timeoutMs}ms): ${proxyUrl}`,
+        ),
+      );
+    }, timeoutMs);
+
+    const ws = new WebSocket(proxyUrl);
+
+    ws.onopen = () => {
+      clearTimeout(timer);
+      ws.close();
+      resolve();
+    };
+
+    ws.onerror = () => {
+      clearTimeout(timer);
+      reject(
+        new Error(
+          `Custom proxy is not reachable: ${proxyUrl}. ` +
+            `Make sure the proxy server is running and accessible.`,
+        ),
+      );
+    };
+  });
 }

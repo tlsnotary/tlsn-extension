@@ -36,11 +36,15 @@ export function matchesPathnamePattern(
 /**
  * Validates that a prove() call is allowed by the plugin's permissions.
  * Throws an error if the permission is not granted.
+ *
+ * When skipProxyCheck is true (user has a proxy override configured),
+ * the proxy URL is not validated against plugin permissions.
  */
 export function validateProvePermission(
   requestOptions: { url: string; method: string },
   proverOptions: { verifierUrl: string; proxyUrl: string },
   config: PluginConfig | null,
+  skipProxyCheck = false,
 ): void {
   // If no config or no requests permissions defined, deny by default
   if (!config?.requests || config.requests.length === 0) {
@@ -70,11 +74,13 @@ export function validateProvePermission(
     const verifierMatch = perm.verifierUrl === proverOptions.verifierUrl;
     if (!verifierMatch) return false;
 
-    // Check proxy URL (use derived default if not specified in permission)
-    const expectedProxyUrl =
-      perm.proxyUrl ?? deriveProxyUrl(perm.verifierUrl, url.hostname);
-    const proxyMatch = expectedProxyUrl === proverOptions.proxyUrl;
-    if (!proxyMatch) return false;
+    // Check proxy URL (skip if user override is active)
+    if (!skipProxyCheck) {
+      const expectedProxyUrl =
+        perm.proxyUrl ?? deriveProxyUrl(perm.verifierUrl, url.hostname);
+      const proxyMatch = expectedProxyUrl === proverOptions.proxyUrl;
+      if (!proxyMatch) return false;
+    }
 
     return true;
   });
