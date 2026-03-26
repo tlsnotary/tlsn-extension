@@ -130,6 +130,10 @@ export type WindowMessage =
   | {
       type: 'RE_RENDER_PLUGIN_UI';
       windowId: number;
+    }
+  | {
+      type: 'TO_BG_RE_RENDER_PLUGIN_UI';
+      windowId: number;
     };
 
 export interface ProveProgressData {

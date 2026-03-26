@@ -915,7 +915,7 @@ ${processedCode};
         const setProgress = (data: ProveProgressData) => {
           stateStore['_proveProgress'] = data;
           eventEmitter.emit({
-            type: 'RE_RENDER_PLUGIN_UI',
+            type: 'TO_BG_RE_RENDER_PLUGIN_UI',
             windowId: executionContextRegistry.get(uuid)?.windowId || 0,
           });
         };
@@ -927,7 +927,7 @@ ${processedCode};
         } catch (err) {
           stateStore['_proveProgress'] = null;
           eventEmitter.emit({
-            type: 'RE_RENDER_PLUGIN_UI',
+            type: 'TO_BG_RE_RENDER_PLUGIN_UI',
             windowId: executionContextRegistry.get(uuid)?.windowId || 0,
           });
           throw err;
