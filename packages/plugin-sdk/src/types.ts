@@ -246,5 +246,4 @@ export interface PluginConfig {
    * Empty array or undefined means no openWindow() calls allowed.
    */
   urls?: string[];
-
 }
