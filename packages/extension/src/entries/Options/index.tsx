@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { LogLevel, logLevelToName, logger } from '@tlsn/common';
 import {

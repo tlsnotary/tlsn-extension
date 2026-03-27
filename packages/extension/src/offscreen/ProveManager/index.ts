@@ -342,7 +342,7 @@ export class ProveManager {
 
     try {
       session.webSocket.send(JSON.stringify(message));
-    } catch (err) {
+    } catch (_err) {
       throw new Error(
         `Reveal config send failed for prover ${proverId}: verifier connection was closed`,
       );

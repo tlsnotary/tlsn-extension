@@ -35,7 +35,7 @@ browser.contextMenus.create({
 });
 
 // Handle context menu clicks
-browser.contextMenus.onClicked.addListener((info, tab) => {
+browser.contextMenus.onClicked.addListener((info, _tab) => {
   if (info.menuItemId === 'developer-console') {
     // Open Developer Console
     browser.tabs.create({
@@ -113,7 +113,7 @@ browser.windows.onRemoved.addListener(async (windowId) => {
 });
 
 // Listen for tab updates to show overlay when tab is ready (Task 3.4)
-browser.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+browser.tabs.onUpdated.addListener(async (tabId, changeInfo, _tab) => {
   // Only act when tab becomes complete
   if (changeInfo.status !== 'complete') {
     return;

@@ -171,7 +171,7 @@ function createIoChannel(url: string): Promise<IoChannel> {
       }
     };
 
-    ws.onclose = (event) => {
+    ws.onclose = (_event) => {
       closed = true;
       if (readResolver) {
         const resolver = readResolver;

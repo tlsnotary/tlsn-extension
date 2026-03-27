@@ -1,7 +1,6 @@
 import { defineConfig } from 'eslint/config';
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
-import eslintConfigPrettier from 'eslint-config-prettier';
 import eslintPluginPrettier from 'eslint-plugin-prettier/recommended';
 import reactPlugin from 'eslint-plugin-react';
 import reactHooksPlugin from 'eslint-plugin-react-hooks';
@@ -24,7 +23,6 @@ export default defineConfig(
   // Base config for all JS/TS files
   js.configs.recommended,
   ...tseslint.configs.recommended,
-  eslintConfigPrettier,
   eslintPluginPrettier,
 
   // Shared settings for all files
@@ -37,7 +35,6 @@ export default defineConfig(
     },
     rules: {
       'no-console': 'warn',
-      'no-debugger': 'error',
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-unused-vars': [
         'error',
@@ -54,7 +51,6 @@ export default defineConfig(
   {
     files: ['**/*.test.ts', '**/*.spec.ts'],
     rules: {
-      '@typescript-eslint/no-empty-function': 'off',
       'no-console': 'off',
     },
   },
@@ -68,12 +64,13 @@ export default defineConfig(
         URLPattern: 'readonly',
       },
     },
+  },
+
+  // CJS build scripts
+  {
+    files: ['packages/extension/**/*.js'],
     rules: {
       '@typescript-eslint/no-require-imports': 'off',
-      '@typescript-eslint/ts-comment': 'off',
-      '@typescript-eslint/no-unused-vars': 'off',
-      'no-useless-escape': 'off',
-      'padding-line-between-statements': 'error',
     },
   },
 

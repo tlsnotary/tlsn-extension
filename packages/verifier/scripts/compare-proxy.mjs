@@ -36,7 +36,7 @@ const HTTP_REQUEST = [
  * Connect to a WebSocket proxy and perform TLS handshake + HTTP request
  */
 async function testProxy(proxyUrl, name) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve, _reject) => {
     const startTime = Date.now();
     const messages = [];
     let totalBytesReceived = 0;

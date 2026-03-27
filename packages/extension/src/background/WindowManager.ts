@@ -750,7 +750,7 @@ export class WindowManager implements IWindowManager {
       try {
         // Check if window still exists in browser
         await browser.windows.get(windowId);
-      } catch (error) {
+      } catch (_error) {
         // Window no longer exists, clean it up
         const window = this.windows.get(windowId);
         this.windows.delete(windowId);

@@ -77,7 +77,7 @@ export function validateUrl(urlString: unknown): UrlValidationResult {
   let parsedUrl: URL;
   try {
     parsedUrl = new URL(trimmedUrl);
-  } catch (error) {
+  } catch (_error) {
     return {
       valid: false,
       error: `Invalid URL format: ${trimmedUrl}`,

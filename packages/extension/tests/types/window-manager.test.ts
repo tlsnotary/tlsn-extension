@@ -143,23 +143,23 @@ describe('WindowManager Type Definitions', () => {
           overlayVisible: false,
           showOverlayWhenReady: config.showOverlay !== false,
         }),
-        closeWindow: async (windowId: number) => {
+        closeWindow: async (_windowId: number) => {
           /* no-op mock */
         },
-        getWindow: (windowId: number) => undefined,
-        getWindowByTabId: (tabId: number) => undefined,
+        getWindow: (_windowId: number) => undefined,
+        getWindowByTabId: (_tabId: number) => undefined,
         getAllWindows: () => new Map(),
-        addRequest: (windowId: number, request: InterceptedRequest) => {
+        addRequest: (_windowId: number, _request: InterceptedRequest) => {
           /* no-op mock */
         },
-        getWindowRequests: (windowId: number) => [],
-        showOverlay: async (windowId: number) => {
+        getWindowRequests: (_windowId: number) => [],
+        showOverlay: async (_windowId: number) => {
           /* no-op mock */
         },
-        hideOverlay: async (windowId: number) => {
+        hideOverlay: async (_windowId: number) => {
           /* no-op mock */
         },
-        isOverlayVisible: (windowId: number) => false,
+        isOverlayVisible: (_windowId: number) => false,
         cleanupInvalidWindows: async () => {
           /* no-op mock */
         },
@@ -190,23 +190,23 @@ describe('WindowManager Type Definitions', () => {
           overlayVisible: false,
           showOverlayWhenReady: config.showOverlay !== false,
         }),
-        closeWindow: async (windowId) => {
+        closeWindow: async (_windowId) => {
           /* no-op mock */
         },
-        getWindow: (windowId) => undefined,
-        getWindowByTabId: (tabId) => undefined,
+        getWindow: (_windowId) => undefined,
+        getWindowByTabId: (_tabId) => undefined,
         getAllWindows: () => new Map(),
-        addRequest: (windowId, request) => {
+        addRequest: (_windowId, _request) => {
           /* no-op mock */
         },
-        getWindowRequests: (windowId) => [],
-        showOverlay: async (windowId) => {
+        getWindowRequests: (_windowId) => [],
+        showOverlay: async (_windowId) => {
           /* no-op mock */
         },
-        hideOverlay: async (windowId) => {
+        hideOverlay: async (_windowId) => {
           /* no-op mock */
         },
-        isOverlayVisible: (windowId) => false,
+        isOverlayVisible: (_windowId) => false,
         cleanupInvalidWindows: async () => {
           /* no-op mock */
         },

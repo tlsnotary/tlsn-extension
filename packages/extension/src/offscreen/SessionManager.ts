@@ -43,7 +43,7 @@ export class SessionManager {
 
         try {
           url = new URL(requestOptions.url);
-        } catch (error) {
+        } catch (_error) {
           throw new Error('Invalid URL');
         }
 

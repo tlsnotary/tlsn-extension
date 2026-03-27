@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import CodeMirror from '@uiw/react-codemirror';
 import { javascript } from '@codemirror/lang-javascript';
@@ -377,7 +377,8 @@ const main = () => {
           borderRadius: '6px',
           backgroundColor: header ? '#d4edda' : '#f8d7da',
           color: header ? '#155724' : '#721c24',
-          border: \`1px solid \$\{header ? '#c3e6cb' : '#f5c6cb'\}\`,
+          // eslint-disable-next-line no-useless-escape
+          border: \`1px solid \${header ? '#c3e6cb' : '#f5c6cb'}\`,
           fontWeight: '500',
         },
       }, [
