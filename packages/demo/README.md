@@ -53,11 +53,13 @@ You can use the websocketproxy hosted by the TLSNotary team, or run your own pro
 - TLSNotary proxy: `wss://notary.pse.dev/proxy?token=host`,
 - Run a local proxy:
   1. Install [wstcp](https://github.com/sile/wstcp):
+
   ```shell
   cargo install wstcp
   ```
 
   1. Run a websocket proxy for `https://<host>`:
+
   ```shell
   wstcp --bind-addr 127.0.0.1:55688 <host>:443
   ```

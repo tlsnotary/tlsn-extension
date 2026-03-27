@@ -2,8 +2,5 @@ build
 dist
 coverage
 node_modules
-packages/extension/wasm
-packages/extension/tlsn
 packages/extension/lib
-packages/demo
 packages/tlsn-wasm-pkg
