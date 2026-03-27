@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
+import browser from 'webextension-polyfill';
 import { SessionManager } from '../../offscreen/SessionManager';
 import { logger } from '@tlsn/common';
 import { getStoredLogLevel } from '../../utils/logLevelStorage';
@@ -17,12 +18,13 @@ const OffscreenApp: React.FC = () => {
     logger.debug('SessionManager initialized in Offscreen');
 
     // Listen for messages from background script
-    chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
+    browser.runtime.onMessage.addListener((request: any) => {
       // Example message handling
       if (request.type === 'PROCESS_DATA') {
-        // Process data in offscreen context
-        sendResponse({ success: true, data: 'Processed in offscreen' });
-        return true;
+        return Promise.resolve({
+          success: true,
+          data: 'Processed in offscreen',
+        });
       }
 
       // Handle config extraction requests (uses QuickJS)
@@ -30,32 +32,23 @@ const OffscreenApp: React.FC = () => {
         logger.debug('Offscreen extracting config from code');
 
         if (!sessionManager) {
-          sendResponse({
+          return Promise.resolve({
             success: false,
             error: 'SessionManager not initialized',
           });
-          return true;
         }
 
-        sessionManager
+        return sessionManager
           .awaitInit()
           .then((sm) => sm.extractConfig(request.code))
           .then((config) => {
             logger.debug('Extracted config:', config);
-            sendResponse({
-              success: true,
-              config,
-            });
+            return { success: true, config };
           })
           .catch((error) => {
             logger.error('Config extraction error:', error);
-            sendResponse({
-              success: false,
-              error: error.message,
-            });
+            return { success: false, error: error.message };
           });
-
-        return true; // Keep message channel open for async response
       }
 
       // Handle code execution requests
@@ -63,38 +56,32 @@ const OffscreenApp: React.FC = () => {
         logger.debug('Offscreen executing code:', request.code);
 
         if (!sessionManager) {
-          sendResponse({
+          return Promise.resolve({
             success: false,
             error: 'SessionManager not initialized',
             requestId: request.requestId,
           });
-          return true;
         }
 
-        // Execute plugin code using SessionManager (pass requestId for progress routing)
-        sessionManager
+        return sessionManager
           .awaitInit()
-          .then((sessionManager) =>
-            sessionManager.executePlugin(request.code, request.requestId),
-          )
+          .then((sm) => sm.executePlugin(request.code, request.requestId))
           .then((result) => {
             logger.debug('Plugin execution result:', result);
-            sendResponse({
+            return {
               success: true,
               result,
               requestId: request.requestId,
-            });
+            };
           })
           .catch((error) => {
             logger.error('Plugin execution error:', error);
-            sendResponse({
+            return {
               success: false,
               error: error.message,
               requestId: request.requestId,
-            });
+            };
           });
-
-        return true; // Keep message channel open for async response
       }
     });
   }, []);

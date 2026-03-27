@@ -200,7 +200,10 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
       });
     }
 
-    (async () => {
+    // Return a Promise so the polyfill keeps the message channel open
+    // and resolves when the async work completes. This is more reliable
+    // than the sendResponse + return true pattern.
+    return (async () => {
       try {
         // Step 1: Extract plugin config for confirmation (via offscreen QuickJS)
         let pluginConfig: PluginConfig | null = null;
@@ -223,24 +226,22 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
           );
         } catch (confirmError) {
           logger.error('Confirmation error:', confirmError);
-          sendResponse({
+          return {
             success: false,
             error:
               confirmError instanceof Error
                 ? confirmError.message
                 : 'Confirmation failed',
-          });
-          return;
+          };
         }
 
         // Step 3: If user denied, return rejection error
         if (!userAllowed) {
           logger.info('User rejected plugin execution');
-          sendResponse({
+          return {
             success: false,
             error: 'User rejected plugin execution',
-          });
-          return;
+          };
         }
 
         // Step 4: User allowed - proceed with execution
@@ -256,14 +257,14 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
           requestId: request.requestId,
         });
         logger.debug('EXEC_CODE_OFFSCREEN response:', response);
-        sendResponse(response);
+        return response;
       } catch (error) {
         logger.error('Error executing code:', error);
-        sendResponse({
+        return {
           success: false,
           error:
             error instanceof Error ? error.message : 'Code execution failed',
-        });
+        };
       } finally {
         // Clean up progress route
         if (request.requestId) {
@@ -271,8 +272,6 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
         }
       }
     })();
-
-    return true; // Keep message channel open for async response
   }
 
   // Handle CLOSE_WINDOW requests
@@ -281,40 +280,37 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
 
     if (!request.windowId) {
       logger.error('No windowId provided');
-      sendResponse({
+      return Promise.resolve({
         type: 'WINDOW_ERROR',
         payload: {
           error: 'No windowId provided',
           details: 'windowId is required to close a window',
         },
       });
-      return true;
     }
 
     // Close the window using WindowManager
-    windowManager
+    return windowManager
       .closeWindow(request.windowId)
       .then(() => {
         logger.debug(`Window ${request.windowId} closed`);
-        sendResponse({
+        return {
           type: 'WINDOW_CLOSED',
           payload: {
             windowId: request.windowId,
           },
-        });
+        };
       })
       .catch((error) => {
         logger.error('Error closing window:', error);
-        sendResponse({
+        return {
           type: 'WINDOW_ERROR',
           payload: {
             error: 'Failed to close window',
             details: String(error),
           },
-        });
+        };
       });
-
-    return true; // Keep message channel open for async response
   }
 
   // Handle OPEN_WINDOW requests from content scripts
@@ -325,18 +321,17 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
     const urlValidation = validateUrl(request.url);
     if (!urlValidation.valid) {
       logger.error('URL validation failed:', urlValidation.error);
-      sendResponse({
+      return Promise.resolve({
         type: 'WINDOW_ERROR',
         payload: {
           error: 'Invalid URL',
           details: urlValidation.error || 'URL validation failed',
         },
       });
-      return true;
     }
 
     // Open a new window with the requested URL
-    browser.windows
+    return browser.windows
       .create({
         url: request.url,
         type: 'popup',
@@ -369,15 +364,14 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
 
           logger.debug(`Window registered: ${managedWindow.uuid}`);
 
-          // Send success response
-          sendResponse({
+          return {
             type: 'WINDOW_OPENED',
             payload: {
               windowId: managedWindow.id,
               uuid: managedWindow.uuid,
               tabId: managedWindow.tabId,
             },
-          });
+          };
         } catch (registrationError) {
           // Registration failed (e.g., window limit exceeded)
           // Close the window we just created
@@ -386,27 +380,25 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
             // Ignore errors if window already closed
           });
 
-          sendResponse({
+          return {
             type: 'WINDOW_ERROR',
             payload: {
               error: 'Window registration failed',
               details: String(registrationError),
             },
-          });
+          };
         }
       })
       .catch((error) => {
         logger.error('Error creating window:', error);
-        sendResponse({
+        return {
           type: 'WINDOW_ERROR',
           payload: {
             error: 'Failed to create window',
             details: String(error),
           },
-        });
+        };
       });
-
-    return true; // Keep message channel open for async response
   }
 
   if (request.type === 'TO_BG_RE_RENDER_PLUGIN_UI') {
