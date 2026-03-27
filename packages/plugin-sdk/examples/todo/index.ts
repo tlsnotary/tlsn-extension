@@ -94,7 +94,6 @@ function createEventEmitter() {
 
   // Re-render bridge: converts setState's message into a re-render trigger
   eventEmitter.addListener(((msg: any) => {
-    // eslint-disable-line @typescript-eslint/no-explicit-any
     if (msg.type === 'TO_BG_RE_RENDER_PLUGIN_UI') {
       addConsoleEntry('State changed, scheduling re-render...', 'info');
       setTimeout(() => {

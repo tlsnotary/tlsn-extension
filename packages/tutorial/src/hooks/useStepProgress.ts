@@ -5,7 +5,8 @@ export const useStepProgress = (stepId: number) => {
 
   const isCompleted = state.completedSteps.has(stepId);
   const isCurrent = state.currentStep === stepId;
-  const isLocked = stepId > 0 && !state.completedSteps.has(stepId - 1) && stepId !== state.currentStep;
+  const isLocked =
+    stepId > 0 && !state.completedSteps.has(stepId - 1) && stepId !== state.currentStep;
   const attempts = state.attempts[stepId] || 0;
   const userCode = state.userCode[stepId] || '';
   const pluginResult = state.pluginResults[stepId];

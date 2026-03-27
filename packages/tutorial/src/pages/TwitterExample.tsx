@@ -28,7 +28,9 @@ export const TwitterExample: React.FC = () => {
   return (
     <div className="max-w-6xl mx-auto">
       <div className="bg-white rounded-lg shadow-lg p-8 animate-slide-in-up mb-6">
-        <h1 className="text-3xl font-bold mb-6 gradient-text">Step 3: Run Twitter Plugin (Example)</h1>
+        <h1 className="text-3xl font-bold mb-6 gradient-text">
+          Step 3: Run Twitter Plugin (Example)
+        </h1>
 
         <p className="text-lg text-gray-700 mb-4">
           Let's start with a complete working example to understand how TLSNotary plugins work.
@@ -36,7 +38,8 @@ export const TwitterExample: React.FC = () => {
 
         <div className="bg-yellow-100 border border-yellow-300 rounded-lg p-4 mb-6">
           <p className="text-yellow-900 mb-3">
-            <strong>Note:</strong> This step is optional and only works if you have a Twitter/X account.
+            <strong>Note:</strong> This step is optional and only works if you have a Twitter/X
+            account.
           </p>
           <Button onClick={complete} variant="secondary" className="text-sm">
             Skip This Step
@@ -63,7 +66,11 @@ export const TwitterExample: React.FC = () => {
       <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-xl font-bold">Execution</h3>
-          <Button onClick={handleRunPlugin} disabled={isExecuting || !twitterCode} variant="primary">
+          <Button
+            onClick={handleRunPlugin}
+            disabled={isExecuting || !twitterCode}
+            variant="primary"
+          >
             {isExecuting ? 'Running...' : isCompleted ? 'Run Again' : 'Run Twitter Plugin'}
           </Button>
         </div>

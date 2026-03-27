@@ -1331,7 +1331,7 @@ describe('QuickJS Browser E2E', () => {
           .then(() => {
             resolved = true;
           })
-          // eslint-disable-next-line @typescript-eslint/no-empty-function
+
           .catch(() => {});
         await new Promise((r) => setTimeout(r, 100));
 
@@ -1368,7 +1368,7 @@ describe('QuickJS Browser E2E', () => {
         `,
             { eventEmitter: emitter },
           )
-          // eslint-disable-next-line @typescript-eslint/no-empty-function
+
           .catch(() => {});
 
         await new Promise((r) => setTimeout(r, 200));

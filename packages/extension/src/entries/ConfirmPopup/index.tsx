@@ -127,23 +127,6 @@ const ConfirmPopup: React.FC = () => {
     }
   }, []);
 
-  // Handle keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        handleDeny();
-      } else if (
-        e.key === 'Enter' &&
-        document.activeElement?.id === 'allow-btn'
-      ) {
-        handleAllow();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [requestId]);
-
   const handleAllow = useCallback(async () => {
     if (!requestId) return;
 
@@ -173,6 +156,23 @@ const ConfirmPopup: React.FC = () => {
       logger.error('Failed to send deny response:', err);
     }
   }, [requestId]);
+
+  // Handle keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleDeny();
+      } else if (
+        e.key === 'Enter' &&
+        document.activeElement?.id === 'allow-btn'
+      ) {
+        handleAllow();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleAllow, handleDeny]);
 
   const handleViewSource = useCallback(
     async (e: React.MouseEvent) => {

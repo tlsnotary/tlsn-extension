@@ -6,7 +6,10 @@ declare global {
   interface Window {
     tlsn?: {
       execCode: (code: string) => Promise<string>;
-      open: (url: string, options?: { width?: number; height?: number; showOverlay?: boolean }) => Promise<void>;
+      open: (
+        url: string,
+        options?: { width?: number; height?: number; showOverlay?: boolean }
+      ) => Promise<void>;
     };
   }
 }

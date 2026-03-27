@@ -19,7 +19,10 @@ if (!existsSync(outputDir)) {
 }
 
 // Twitter plugin: copy from canonical source (demo/public/plugins/twitter.js)
-const twitterPlugin = readFileSync(join(__dirname, '..', 'demo', 'public', 'plugins', 'twitter.js'), 'utf-8');
+const twitterPlugin = readFileSync(
+  join(__dirname, '..', 'demo', 'public', 'plugins', 'twitter.js'),
+  'utf-8'
+);
 
 // Swiss Bank Starter (with TODO comment)
 const swissbankStarter = `// Swiss Bank Plugin - Starter Template

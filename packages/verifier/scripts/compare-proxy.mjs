@@ -14,11 +14,11 @@
  *   node compare-proxy.mjs api.x.com
  */
 
-import WebSocket from 'ws';
-import * as tls from 'tls';
+import WebSocket from "ws";
+import * as tls from "tls";
 
-const TARGET_HOST = process.argv[2] || 'swapi.dev';
-const TARGET_PATH = process.argv[3] || '/api/films/1/';
+const TARGET_HOST = process.argv[2] || "swapi.dev";
+const TARGET_PATH = process.argv[3] || "/api/films/1/";
 const LOCAL_PROXY_URL = `ws://localhost:7047/proxy?token=${TARGET_HOST}`;
 const REMOTE_PROXY_URL = `wss://notary.pse.dev/proxy?token=${TARGET_HOST}`;
 
@@ -26,11 +26,11 @@ const REMOTE_PROXY_URL = `wss://notary.pse.dev/proxy?token=${TARGET_HOST}`;
 const HTTP_REQUEST = [
   `GET ${TARGET_PATH} HTTP/1.1`,
   `Host: ${TARGET_HOST}`,
-  'Connection: close',
-  'Accept-Encoding: identity',
-  '',
-  '',
-].join('\r\n');
+  "Connection: close",
+  "Accept-Encoding: identity",
+  "",
+  "",
+].join("\r\n");
 
 /**
  * Connect to a WebSocket proxy and perform TLS handshake + HTTP request
@@ -40,23 +40,23 @@ async function testProxy(proxyUrl, name) {
     const startTime = Date.now();
     const messages = [];
     let totalBytesReceived = 0;
-    let httpResponse = '';
+    let httpResponse = "";
 
-    console.log(`\n[${ name }] Connecting to ${proxyUrl}...`);
+    console.log(`\n[${name}] Connecting to ${proxyUrl}...`);
 
     const ws = new WebSocket(proxyUrl);
-    ws.binaryType = 'arraybuffer';
+    ws.binaryType = "arraybuffer";
 
     // Create TLS socket that will connect through the WebSocket proxy
     let tlsSocket = null;
     let resolved = false;
 
-    ws.on('open', () => {
+    ws.on("open", () => {
       const connectTime = Date.now() - startTime;
       console.log(`[${name}] WebSocket connected in ${connectTime}ms`);
 
       // Create a custom duplex stream that bridges TLS to WebSocket
-      const { Duplex } = require('stream');
+      const { Duplex } = require("stream");
 
       const wsStream = new Duplex({
         read() {},
@@ -65,20 +65,20 @@ async function testProxy(proxyUrl, name) {
             ws.send(chunk);
             callback();
           } else {
-            callback(new Error('WebSocket not open'));
+            callback(new Error("WebSocket not open"));
           }
         },
       });
 
       // Forward WebSocket messages to the stream
-      ws.on('message', (data) => {
+      ws.on("message", (data) => {
         const buffer = Buffer.from(data);
         totalBytesReceived += buffer.length;
         messages.push({ time: Date.now() - startTime, size: buffer.length });
         wsStream.push(buffer);
       });
 
-      ws.on('close', () => {
+      ws.on("close", () => {
         wsStream.push(null);
       });
 
@@ -89,18 +89,18 @@ async function testProxy(proxyUrl, name) {
         rejectUnauthorized: true,
       });
 
-      tlsSocket.on('secureConnect', () => {
+      tlsSocket.on("secureConnect", () => {
         const tlsTime = Date.now() - startTime;
         console.log(`[${name}] TLS handshake completed in ${tlsTime}ms`);
         console.log(`[${name}] Sending HTTP request...`);
         tlsSocket.write(HTTP_REQUEST);
       });
 
-      tlsSocket.on('data', (data) => {
+      tlsSocket.on("data", (data) => {
         httpResponse += data.toString();
       });
 
-      tlsSocket.on('end', () => {
+      tlsSocket.on("end", () => {
         const totalTime = Date.now() - startTime;
         if (!resolved) {
           resolved = true;
@@ -118,7 +118,7 @@ async function testProxy(proxyUrl, name) {
         }
       });
 
-      tlsSocket.on('error', (err) => {
+      tlsSocket.on("error", (err) => {
         console.error(`[${name}] TLS error:`, err.message);
         if (!resolved) {
           resolved = true;
@@ -133,7 +133,7 @@ async function testProxy(proxyUrl, name) {
       });
     });
 
-    ws.on('error', (err) => {
+    ws.on("error", (err) => {
       console.error(`[${name}] WebSocket error:`, err.message);
       if (!resolved) {
         resolved = true;
@@ -154,7 +154,7 @@ async function testProxy(proxyUrl, name) {
         resolve({
           name,
           proxyUrl,
-          error: 'Timeout after 30s',
+          error: "Timeout after 30s",
           success: false,
         });
       }
@@ -166,38 +166,38 @@ async function testProxy(proxyUrl, name) {
  * Compare two proxy results
  */
 function compareResults(local, remote) {
-  console.log('\n' + '='.repeat(60));
-  console.log('COMPARISON RESULTS');
-  console.log('='.repeat(60));
+  console.log("\n" + "=".repeat(60));
+  console.log("COMPARISON RESULTS");
+  console.log("=".repeat(60));
 
   console.log(`\nTarget: ${TARGET_HOST}${TARGET_PATH}`);
-  console.log('\n--- Local Proxy ---');
+  console.log("\n--- Local Proxy ---");
   if (local.success) {
     console.log(`  Total time: ${local.totalTime}ms`);
     console.log(`  Bytes received: ${local.totalBytesReceived}`);
     console.log(`  WS messages: ${local.messageCount}`);
-    console.log(`  HTTP status: ${local.httpResponse.split('\r\n')[0]}`);
+    console.log(`  HTTP status: ${local.httpResponse.split("\r\n")[0]}`);
   } else {
     console.log(`  Error: ${local.error}`);
   }
 
-  console.log('\n--- Remote Proxy (notary.pse.dev) ---');
+  console.log("\n--- Remote Proxy (notary.pse.dev) ---");
   if (remote.success) {
     console.log(`  Total time: ${remote.totalTime}ms`);
     console.log(`  Bytes received: ${remote.totalBytesReceived}`);
     console.log(`  WS messages: ${remote.messageCount}`);
-    console.log(`  HTTP status: ${remote.httpResponse.split('\r\n')[0]}`);
+    console.log(`  HTTP status: ${remote.httpResponse.split("\r\n")[0]}`);
   } else {
     console.log(`  Error: ${remote.error}`);
   }
 
-  console.log('\n--- Comparison ---');
+  console.log("\n--- Comparison ---");
   if (local.success && remote.success) {
-    const localStatus = local.httpResponse.split('\r\n')[0];
-    const remoteStatus = remote.httpResponse.split('\r\n')[0];
+    const localStatus = local.httpResponse.split("\r\n")[0];
+    const remoteStatus = remote.httpResponse.split("\r\n")[0];
 
     if (localStatus === remoteStatus) {
-      console.log('  HTTP Status: MATCH');
+      console.log("  HTTP Status: MATCH");
     } else {
       console.log(`  HTTP Status: MISMATCH`);
       console.log(`    Local:  ${localStatus}`);
@@ -205,32 +205,38 @@ function compareResults(local, remote) {
     }
 
     // Compare response body (after headers)
-    const localBody = local.httpResponse.split('\r\n\r\n').slice(1).join('\r\n\r\n');
-    const remoteBody = remote.httpResponse.split('\r\n\r\n').slice(1).join('\r\n\r\n');
+    const localBody = local.httpResponse
+      .split("\r\n\r\n")
+      .slice(1)
+      .join("\r\n\r\n");
+    const remoteBody = remote.httpResponse
+      .split("\r\n\r\n")
+      .slice(1)
+      .join("\r\n\r\n");
 
     if (localBody === remoteBody) {
-      console.log('  Response Body: MATCH');
+      console.log("  Response Body: MATCH");
     } else {
-      console.log('  Response Body: DIFFERENT (may vary by timestamp/headers)');
+      console.log("  Response Body: DIFFERENT (may vary by timestamp/headers)");
     }
 
     console.log(`\n  RESULT: Both proxies working correctly`);
     return true;
   } else if (!local.success && remote.success) {
-    console.log('  RESULT: Local proxy FAILED, remote works');
+    console.log("  RESULT: Local proxy FAILED, remote works");
     return false;
   } else if (local.success && !remote.success) {
-    console.log('  RESULT: Local works, remote proxy FAILED');
+    console.log("  RESULT: Local works, remote proxy FAILED");
     return false;
   } else {
-    console.log('  RESULT: Both proxies FAILED');
+    console.log("  RESULT: Both proxies FAILED");
     return false;
   }
 }
 
 async function main() {
-  console.log('Proxy Comparison Test');
-  console.log('='.repeat(60));
+  console.log("Proxy Comparison Test");
+  console.log("=".repeat(60));
   console.log(`Target host: ${TARGET_HOST}`);
   console.log(`Target path: ${TARGET_PATH}`);
   console.log(`Local proxy: ${LOCAL_PROXY_URL}`);
@@ -238,8 +244,8 @@ async function main() {
 
   // Test both proxies in parallel
   const [localResult, remoteResult] = await Promise.all([
-    testProxy(LOCAL_PROXY_URL, 'LOCAL'),
-    testProxy(REMOTE_PROXY_URL, 'REMOTE'),
+    testProxy(LOCAL_PROXY_URL, "LOCAL"),
+    testProxy(REMOTE_PROXY_URL, "REMOTE"),
   ]);
 
   const success = compareResults(localResult, remoteResult);
@@ -247,6 +253,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error('Fatal error:', err);
+  console.error("Fatal error:", err);
   process.exit(1);
 });

@@ -27,7 +27,9 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, message }) => 
   const config = statusConfig[status];
 
   return (
-    <div className={`${config.bg} ${config.text} px-4 py-2 rounded-lg font-medium flex items-center gap-2`}>
+    <div
+      className={`${config.bg} ${config.text} px-4 py-2 rounded-lg font-medium flex items-center gap-2`}
+    >
       <span>{config.icon}</span>
       <span>{message}</span>
     </div>

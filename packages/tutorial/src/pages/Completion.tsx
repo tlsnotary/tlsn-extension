@@ -32,23 +32,39 @@ export const Completion: React.FC = () => {
           <h3 className="text-xl font-bold text-green-900 mb-4">What's Next?</h3>
           <ul className="space-y-3 text-gray-700">
             <li>
-              <strong>Build Your Own Plugin:</strong> Apply what you've learned to create plugins for your favorite websites
+              <strong>Build Your Own Plugin:</strong> Apply what you've learned to create plugins
+              for your favorite websites
             </li>
             <li>
               <strong>Explore the Documentation:</strong> Dive deeper into the{' '}
-              <a href="https://docs.tlsnotary.org" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+              <a
+                href="https://docs.tlsnotary.org"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:underline"
+              >
                 TLSNotary docs
               </a>
             </li>
             <li>
               <strong>Join the Community:</strong> Connect with other developers on{' '}
-              <a href="https://discord.gg/tlsnotary" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+              <a
+                href="https://discord.gg/tlsnotary"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:underline"
+              >
                 Discord
               </a>
             </li>
             <li>
               <strong>Contribute:</strong> Help improve TLSNotary on{' '}
-              <a href="https://github.com/tlsnotary/tlsn" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+              <a
+                href="https://github.com/tlsnotary/tlsn"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:underline"
+              >
                 GitHub
               </a>
             </li>

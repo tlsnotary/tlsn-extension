@@ -179,7 +179,7 @@ browser.runtime
     type: 'CONTENT_SCRIPT_READY',
     url: window.location.href,
   })
-  .catch(console.error);
+  .catch((err) => logger.error('Failed to send CONTENT_SCRIPT_READY:', err));
 
 // Listen for messages from the page
 window.addEventListener('message', (event) => {

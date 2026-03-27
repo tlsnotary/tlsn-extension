@@ -10,7 +10,7 @@ export const Setup: React.FC = () => {
   const [checkResult, setCheckResult] = useState<CheckResult | null>(null);
   const [isChecking, setIsChecking] = useState(false);
 
-  const performChecks = async () => {
+  const performChecks = React.useCallback(async () => {
     setIsChecking(true);
     const result = await performSystemChecks();
     setCheckResult(result);
@@ -19,14 +19,15 @@ export const Setup: React.FC = () => {
     if (result.browserCompatible && result.extensionReady && result.verifierReady) {
       complete();
     }
-  };
+  }, [complete]);
 
   useEffect(() => {
     performChecks();
-  }, []);
+  }, [performChecks]);
 
   const checks = checkResult ? getSystemCheckStatus(checkResult) : [];
-  const allPassed = checkResult?.browserCompatible && checkResult?.extensionReady && checkResult?.verifierReady;
+  const allPassed =
+    checkResult?.browserCompatible && checkResult?.extensionReady && checkResult?.verifierReady;
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -40,23 +41,36 @@ export const Setup: React.FC = () => {
         <div className="space-y-4 mb-8">
           {checks.map((check, index) => (
             <div key={index}>
-              <StatusBadge status={isChecking ? 'checking' : check.status} message={check.message} />
+              <StatusBadge
+                status={isChecking ? 'checking' : check.status}
+                message={check.message}
+              />
 
               {check.status === 'error' && check.name === 'TLSNotary Extension' && (
                 <div className="mt-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
                   <p className="font-medium text-gray-800 mb-2">Installation Instructions:</p>
                   <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700">
-                    <li>Navigate to the extension directory and build it:
+                    <li>
+                      Navigate to the extension directory and build it:
                       <pre className="mt-2 bg-gray-800 text-white p-3 rounded overflow-x-auto">
-cd packages/extension{'\n'}
-npm install{'\n'}
-npm run build
+                        cd packages/extension{'\n'}
+                        npm install{'\n'}
+                        npm run build
                       </pre>
                     </li>
-                    <li>Open Chrome and go to <code className="bg-gray-200 px-2 py-1 rounded">chrome://extensions/</code></li>
+                    <li>
+                      Open Chrome and go to{' '}
+                      <code className="bg-gray-200 px-2 py-1 rounded">chrome://extensions/</code>
+                    </li>
                     <li>Enable "Developer mode" (toggle in top right)</li>
                     <li>Click "Load unpacked"</li>
-                    <li>Select the <code className="bg-gray-200 px-2 py-1 rounded">packages/extension/build/</code> folder</li>
+                    <li>
+                      Select the{' '}
+                      <code className="bg-gray-200 px-2 py-1 rounded">
+                        packages/extension/build/
+                      </code>{' '}
+                      folder
+                    </li>
                   </ol>
                 </div>
               )}
@@ -65,11 +79,19 @@ npm run build
                 <div className="mt-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
                   <p className="font-medium text-gray-800 mb-2">Start the Verifier Server:</p>
                   <pre className="bg-gray-800 text-white p-3 rounded overflow-x-auto">
-cd packages/verifier{'\n'}
-cargo run --release
+                    cd packages/verifier{'\n'}
+                    cargo run --release
                   </pre>
                   <p className="mt-2 text-sm text-gray-600">
-                    Make sure you have Rust installed. If not, install it from <a href="https://rustup.rs/" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">rustup.rs</a>
+                    Make sure you have Rust installed. If not, install it from{' '}
+                    <a
+                      href="https://rustup.rs/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline"
+                    >
+                      rustup.rs
+                    </a>
                   </p>
                 </div>
               )}

@@ -9,14 +9,18 @@ interface InteractiveQuizProps {
 
 export const InteractiveQuiz: React.FC<InteractiveQuizProps> = ({ questions, onComplete }) => {
   const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [selectedAnswers, setSelectedAnswers] = useState<number[]>(Array(questions.length).fill(-1));
+  const [selectedAnswers, setSelectedAnswers] = useState<number[]>(
+    Array(questions.length).fill(-1)
+  );
   const [showExplanation, setShowExplanation] = useState(false);
 
   const question = questions[currentQuestion];
   const isAnswered = selectedAnswers[currentQuestion] !== -1;
   const isCorrect = selectedAnswers[currentQuestion] === question.correctAnswer;
   const allAnswered = selectedAnswers.every((answer) => answer !== -1);
-  const allCorrect = selectedAnswers.every((answer, index) => answer === questions[index].correctAnswer);
+  const allCorrect = selectedAnswers.every(
+    (answer, index) => answer === questions[index].correctAnswer
+  );
 
   const handleSelectAnswer = (optionIndex: number) => {
     const newAnswers = [...selectedAnswers];
@@ -84,8 +88,8 @@ export const InteractiveQuiz: React.FC<InteractiveQuizProps> = ({ questions, onC
                       ? 'border-green-500 bg-green-50'
                       : 'border-red-500 bg-red-50'
                     : isSelected
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-gray-200 hover:border-gray-300 bg-white'
                 } ${isAnswered && isCorrect ? 'cursor-not-allowed' : 'cursor-pointer'}`}
               >
                 <div className="flex items-center justify-between">
@@ -103,7 +107,9 @@ export const InteractiveQuiz: React.FC<InteractiveQuizProps> = ({ questions, onC
       {showExplanation && (
         <div
           className={`p-4 rounded-lg mb-4 ${
-            isCorrect ? 'bg-green-100 border border-green-300' : 'bg-yellow-100 border border-yellow-300'
+            isCorrect
+              ? 'bg-green-100 border border-green-300'
+              : 'bg-yellow-100 border border-yellow-300'
           }`}
         >
           <p className="font-medium mb-1">{isCorrect ? 'Correct!' : 'Not quite right.'}</p>
