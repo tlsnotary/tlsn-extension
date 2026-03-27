@@ -62,79 +62,70 @@ export class ConfirmationManager {
     // Build URL with plugin info as query params
     const popupUrl = this.buildPopupUrl(config, requestId, senderOrigin);
 
-    return new Promise<boolean>(async (resolve, reject) => {
-      try {
-        // Calculate position to center on the active browser window
-        let left: number | undefined;
-        let top: number | undefined;
+    // Calculate position to center on the active browser window
+    let left: number | undefined;
+    let top: number | undefined;
 
-        try {
-          const currentWindow = await browser.windows.getCurrent();
+    try {
+      const currentWindow = await browser.windows.getCurrent();
 
-          if (
-            currentWindow.left != null &&
-            currentWindow.top != null &&
-            currentWindow.width != null &&
-            currentWindow.height != null
-          ) {
-            left = Math.round(
-              currentWindow.left + (currentWindow.width - this.POPUP_WIDTH) / 2,
-            );
-            top = Math.round(
-              currentWindow.top +
-                (currentWindow.height - this.POPUP_HEIGHT) / 2,
-            );
-          }
-        } catch {
-          // Fall back to default positioning
-        }
-
-        // Create the confirmation popup window
-        const window = await browser.windows.create({
-          url: popupUrl,
-          type: 'popup',
-          width: this.POPUP_WIDTH,
-          height: this.POPUP_HEIGHT,
-          left,
-          top,
-          focused: true,
-        });
-
-        if (!window.id) {
-          throw new Error('Failed to create confirmation popup window');
-        }
-
-        this.currentPopupWindowId = window.id;
-
-        // Set up timeout
-        const timeoutId = setTimeout(() => {
-          const pending = this.pendingConfirmations.get(requestId);
-          if (pending) {
-            logger.debug('[ConfirmationManager] Confirmation timed out');
-            this.cleanup(requestId);
-            resolve(false); // Treat timeout as denial
-          }
-        }, this.CONFIRMATION_TIMEOUT_MS);
-
-        // Store pending confirmation
-        this.pendingConfirmations.set(requestId, {
-          requestId,
-          resolve,
-          reject,
-          windowId: window.id,
-          timeoutId,
-        });
-
-        logger.debug(
-          `[ConfirmationManager] Confirmation popup opened: ${window.id} for request: ${requestId}`,
+      if (
+        currentWindow.left != null &&
+        currentWindow.top != null &&
+        currentWindow.width != null &&
+        currentWindow.height != null
+      ) {
+        left = Math.round(
+          currentWindow.left + (currentWindow.width - this.POPUP_WIDTH) / 2,
         );
-      } catch (error) {
-        logger.error(
-          '[ConfirmationManager] Failed to open confirmation popup:',
-          error,
+        top = Math.round(
+          currentWindow.top + (currentWindow.height - this.POPUP_HEIGHT) / 2,
         );
-        reject(error);
       }
+    } catch {
+      // Fall back to default positioning
+    }
+
+    // Create the confirmation popup window
+    const window = await browser.windows.create({
+      url: popupUrl,
+      type: 'popup',
+      width: this.POPUP_WIDTH,
+      height: this.POPUP_HEIGHT,
+      left,
+      top,
+      focused: true,
+    });
+
+    if (!window.id) {
+      throw new Error('Failed to create confirmation popup window');
+    }
+
+    this.currentPopupWindowId = window.id;
+
+    return new Promise<boolean>((resolve, reject) => {
+      // Set up timeout
+      const timeoutId = setTimeout(() => {
+        const pending = this.pendingConfirmations.get(requestId);
+        if (pending) {
+          logger.debug('[ConfirmationManager] Confirmation timed out');
+          this.cleanup(requestId);
+          resolve(false); // Treat timeout as denial
+        }
+      }, this.CONFIRMATION_TIMEOUT_MS);
+
+      // Store pending confirmation
+      this.pendingConfirmations.set(requestId, {
+        requestId,
+        resolve,
+        reject,
+        windowId: window.id!,
+        timeoutId,
+      });
+
+      logger.debug(
+        `[ConfirmationManager] Confirmation popup opened: ${window.id} for request: ${requestId}`,
+      );
     });
   }
 

@@ -54,7 +54,7 @@ function convertArrayBuffersToArrays(obj: any): any {
   if (typeof obj === 'object' && obj.constructor === Object) {
     const converted: any = {};
     for (const key in obj) {
-      if (obj.hasOwnProperty(key)) {
+      if (Object.hasOwn(obj, key)) {
         converted[key] = convertArrayBuffersToArrays(obj[key]);
       }
     }

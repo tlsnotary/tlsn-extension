@@ -2,16 +2,5 @@
   "parserOptions": {
     "project": "./tsconfig.eslint.json"
   },
-  "rules": {
-    "no-console": "warn",
-    "no-debugger": "error",
-    "@typescript-eslint/no-unused-vars": [
-      "error",
-      {
-        "argsIgnorePattern": "^_",
-        "varsIgnorePattern": "^_"
-      }
-    ]
-  },
   "ignorePatterns": ["*.config.ts", "*.config.js"]
 }
