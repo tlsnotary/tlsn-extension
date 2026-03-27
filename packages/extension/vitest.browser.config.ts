@@ -1,4 +1,5 @@
 import { defineConfig, type Plugin } from 'vitest/config';
+import { playwright } from '@vitest/browser-playwright';
 import path from 'node:path';
 import fs from 'node:fs';
 
@@ -96,7 +97,7 @@ export default defineConfig({
     globals: true,
     browser: {
       enabled: true,
-      provider: 'playwright',
+      provider: playwright,
       instances: [
         {
           browser: 'chromium',

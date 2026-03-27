@@ -1,4 +1,5 @@
 import { defineConfig, type Plugin } from 'vitest/config';
+import { playwright } from '@vitest/browser-playwright';
 import path from 'node:path';
 import fs from 'node:fs';
 
@@ -44,7 +45,7 @@ export default defineConfig({
           browser: 'chromium',
         },
       ],
-      provider: 'playwright',
+      provider: playwright,
       // Enable headless mode by default
       headless: true,
     },
