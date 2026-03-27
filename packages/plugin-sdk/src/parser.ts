@@ -304,11 +304,11 @@ export class Parser {
           // For chunked encoding, use firstChunkDataStart as base offset
           // This points to where the actual JSON data begins (after chunk size line)
           body.json = this.parseJsonWithRanges(text, jsonBaseOffset);
-        } catch (e) {
+        } catch (_e) {
           // Not valid JSON, skip
         }
       }
-    } catch (e) {
+    } catch (_e) {
       // Not valid UTF-8 text
     }
 
