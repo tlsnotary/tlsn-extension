@@ -177,15 +177,14 @@ const main = (): DomJson => {
   const isMinimized = useState<boolean>('isMinimized', false);
   const isRequestPending = useState<boolean>('isRequestPending', false);
   const cachedCookie = useState<string | null>('cookie', null);
-  const cachedCsrfToken = useState<string | null>('x-csrf-token', null);
 
   // Only search for credentials if not already cached
   if (!cachedCookie) {
     const [header] = useHeaders((headers) =>
       headers.filter(
         (h) =>
-          h.url.includes(`https://${host}`) &&
-          h.requestHeaders.some((r) => r.name === 'Cookie'),
+          h.url.includes(`https://${host}${apiPath}`) &&
+          h.requestHeaders.some((r) => r.name === 'x-csrf-token'),
       ),
     );
 
