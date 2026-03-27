@@ -1,3 +1,4 @@
+import { defineConfig } from 'eslint/config';
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import eslintConfigPrettier from 'eslint-config-prettier';
@@ -6,27 +7,16 @@ import reactPlugin from 'eslint-plugin-react';
 import reactHooksPlugin from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 
-export default tseslint.config(
+export default defineConfig(
   // Global ignores
   {
     ignores: [
-      '**/node_modules/',
-      '**/dist/',
       '**/build/',
-      '**/coverage/',
-      'packages/extension/zip/',
-      'packages/extension/wasm/',
-      'packages/extension/tlsn/',
-      'packages/extension/util/',
+      '**/dist/',
       'packages/extension/lib/',
-      'packages/extension/plugins/',
       'packages/extension/webpack.config.js',
-      'packages/extension/utils/',
-      'packages/plugin-sdk/*.config.{ts,js}',
       'packages/demo/',
       'packages/ts-plugin-sample/',
-      'packages/verifier/',
-      'packages/tlsn-wasm/',
       'packages/tlsn-wasm-pkg/',
     ],
   },
@@ -40,16 +30,12 @@ export default tseslint.config(
   // Shared settings for all files
   {
     languageOptions: {
-      ecmaVersion: 'latest',
-      sourceType: 'module',
       globals: {
         ...globals.browser,
-        ...globals.es2021,
         ...globals.node,
       },
     },
     rules: {
-      'prettier/prettier': 'error',
       'no-console': 'warn',
       'no-debugger': 'error',
       '@typescript-eslint/no-explicit-any': 'warn',
@@ -61,8 +47,6 @@ export default tseslint.config(
           caughtErrorsIgnorePattern: '^_',
         },
       ],
-      '@typescript-eslint/explicit-function-return-type': 'off',
-      '@typescript-eslint/explicit-module-boundary-types': 'off',
     },
   },
 
@@ -86,27 +70,22 @@ export default tseslint.config(
     },
     rules: {
       '@typescript-eslint/no-require-imports': 'off',
-      '@typescript-eslint/ban-ts-comment': 'off',
+      '@typescript-eslint/ts-comment': 'off',
       '@typescript-eslint/no-unused-vars': 'off',
-      'no-undef': 'error',
       'no-useless-escape': 'off',
       'padding-line-between-statements': 'error',
     },
   },
 
-  // Tutorial-specific overrides (React)
+  // React overrides (extension + tutorial)
   {
-    files: ['packages/tutorial/src/**/*.{ts,tsx,js,jsx}'],
+    files: [
+      'packages/extension/**/*.{tsx,jsx}',
+      'packages/tutorial/src/**/*.{tsx,jsx}',
+    ],
     plugins: {
       react: reactPlugin,
       'react-hooks': reactHooksPlugin,
-    },
-    languageOptions: {
-      parserOptions: {
-        ecmaFeatures: {
-          jsx: true,
-        },
-      },
     },
     settings: {
       react: {
