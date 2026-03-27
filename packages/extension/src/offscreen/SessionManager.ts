@@ -189,10 +189,7 @@ export class SessionManager {
       },
     });
     this.proveManager = new ProveManager();
-    this.initPromise = new Promise(async (resolve) => {
-      await this.proveManager.init();
-      resolve();
-    });
+    this.initPromise = this.proveManager.init();
   }
 
   /** Send a progress event to the background script for routing to the page. */
