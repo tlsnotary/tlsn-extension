@@ -20,15 +20,14 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
         className="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 flex justify-between items-center transition-colors"
       >
         <span className="font-semibold text-gray-800">{title}</span>
-        <span className="text-gray-600 transform transition-transform duration-200" style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+        <span
+          className="text-gray-600 transform transition-transform duration-200"
+          style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
+        >
           ▼
         </span>
       </button>
-      {isOpen && (
-        <div className="p-4 bg-white animate-slide-in-up">
-          {children}
-        </div>
-      )}
+      {isOpen && <div className="p-4 bg-white animate-slide-in-up">{children}</div>}
     </div>
   );
 };

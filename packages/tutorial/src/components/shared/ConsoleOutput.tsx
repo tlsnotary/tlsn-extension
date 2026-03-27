@@ -37,9 +37,7 @@ export const ConsoleOutput: React.FC<ConsoleOutputProps> = ({ result }) => {
       {result.results && result.results.length > 0 && (
         <div className="mt-2">
           <div className="info mb-1">Results:</div>
-          <pre className="text-xs overflow-x-auto">
-            {JSON.stringify(result.results, null, 2)}
-          </pre>
+          <pre className="text-xs overflow-x-auto">{JSON.stringify(result.results, null, 2)}</pre>
         </div>
       )}
 

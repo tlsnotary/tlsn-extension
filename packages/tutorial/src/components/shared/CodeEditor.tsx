@@ -18,24 +18,31 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
 }) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  const initialValueRef = useRef(value);
+  const readOnlyRef = useRef(readOnly);
+  readOnlyRef.current = readOnly;
+  const heightRef = useRef(height);
+  heightRef.current = height;
 
   useEffect(() => {
     if (!editorRef.current) return;
 
     const startState = EditorState.create({
-      doc: value,
+      doc: initialValueRef.current,
       extensions: [
         basicSetup,
         javascript(),
-        EditorView.editable.of(!readOnly),
+        EditorView.editable.of(!readOnlyRef.current),
         EditorView.updateListener.of((update) => {
-          if (update.docChanged && !readOnly) {
+          if (update.docChanged && !readOnlyRef.current) {
             const newValue = update.state.doc.toString();
-            onChange(newValue);
+            onChangeRef.current(newValue);
           }
         }),
         EditorView.theme({
-          '&': { height },
+          '&': { height: heightRef.current },
           '.cm-scroller': { overflow: 'auto' },
           '.cm-content': {
             fontFamily: 'Monaco, Menlo, "Ubuntu Mono", Consolas, monospace',

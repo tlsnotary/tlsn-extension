@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import CodeMirror from '@uiw/react-codemirror';
 import { javascript } from '@codemirror/lang-javascript';
@@ -52,7 +52,7 @@ class ExtensionAPI {
 
 // Initialize window.tlsn API for use in DevConsole
 if (typeof window !== 'undefined') {
-  (window as any).tlsn = new ExtensionAPI();
+  (window as unknown as { tlsn: ExtensionAPI }).tlsn = new ExtensionAPI();
 }
 
 /**
@@ -377,7 +377,8 @@ const main = () => {
           borderRadius: '6px',
           backgroundColor: header ? '#d4edda' : '#f8d7da',
           color: header ? '#155724' : '#721c24',
-          border: \`1px solid \$\{header ? '#c3e6cb' : '#f5c6cb'\}\`,
+          // eslint-disable-next-line no-useless-escape
+          border: \`1px solid \${header ? '#c3e6cb' : '#f5c6cb'}\`,
           fontWeight: '500',
         },
       }, [
@@ -528,7 +529,9 @@ const DevConsole: React.FC = () => {
 
     try {
       // Execute code in sandboxed QuickJS environment
-      const result = await (window as any).tlsn.execCode(codeToExecute);
+      const result = await (
+        window as unknown as { tlsn: ExtensionAPI }
+      ).tlsn.execCode(codeToExecute);
       const executionTime = (performance.now() - startTime).toFixed(2);
 
       addConsoleEntry(`Execution completed in ${executionTime}ms`, 'success');
@@ -549,10 +552,12 @@ const DevConsole: React.FC = () => {
           'success',
         );
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       const executionTime = (performance.now() - startTime).toFixed(2);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       addConsoleEntry(
-        `Error after ${executionTime}ms:\n${error.message}`,
+        `Error after ${executionTime}ms:\n${errorMessage}`,
         'error',
       );
     }

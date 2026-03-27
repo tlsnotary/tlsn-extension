@@ -28,7 +28,7 @@ export const SwissBankBasic: React.FC = () => {
         })
         .catch((err) => console.error('Failed to load Swiss Bank starter:', err));
     }
-  }, []);
+  }, [userCode, updateCode]);
 
   const handleCodeChange = (newCode: string) => {
     setCode(newCode);

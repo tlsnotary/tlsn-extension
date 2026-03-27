@@ -64,7 +64,6 @@ describe('fromWebSocket', () => {
 
     // @ts-expect-error mock
     globalThis.WebSocket = class extends MockWebSocket {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       constructor(_url: string) {
         super();
         capturedWs = this; // eslint-disable-line @typescript-eslint/no-this-alias
@@ -86,7 +85,6 @@ describe('fromWebSocket', () => {
 
     // @ts-expect-error mock
     globalThis.WebSocket = class extends MockWebSocket {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       constructor(_url: string) {
         super();
         capturedWs = this; // eslint-disable-line @typescript-eslint/no-this-alias

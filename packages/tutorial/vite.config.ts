@@ -20,7 +20,12 @@ export default defineConfig({
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom'],
-          codemirror: ['codemirror', '@codemirror/lang-javascript', '@codemirror/state', '@codemirror/view'],
+          codemirror: [
+            'codemirror',
+            '@codemirror/lang-javascript',
+            '@codemirror/state',
+            '@codemirror/view',
+          ],
         },
       },
     },

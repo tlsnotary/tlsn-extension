@@ -19,7 +19,7 @@ export interface InterceptedRequest {
     error?: string;
     formData?: Record<string, string>;
     raw?: {
-      bytes?: any;
+      bytes?: ArrayBuffer;
       file?: string;
     }[];
   };
@@ -44,17 +44,17 @@ export type ExecutionContext = {
   windowId?: number;
   context: {
     [functionName: string]: {
-      effects: any[][];
-      selectors: any[][];
+      effects: unknown[][];
+      selectors: unknown[][];
     };
   };
-  stateStore: { [key: string]: any };
+  stateStore: Record<string, unknown>;
   currentContext: string;
   sandbox: {
     eval: (code: string) => Promise<unknown>;
     dispose: () => void;
   };
-  main: (force?: boolean) => any;
+  main: (force?: boolean) => DomJson | null;
   callbacks: {
     [callbackName: string]: () => Promise<void>;
   };

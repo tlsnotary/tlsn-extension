@@ -33,7 +33,10 @@ class ExtensionAPI {
    * });
    * ```
    */
-  async execCode(code: string, options?: { requestId?: string }): Promise<any> {
+  async execCode(
+    code: string,
+    options?: { requestId?: string },
+  ): Promise<unknown> {
     if (!code || typeof code !== 'string') {
       throw new Error('Code must be a non-empty string');
     }
@@ -42,7 +45,7 @@ class ExtensionAPI {
       // Use caller-provided requestId or generate one
       const requestId =
         options?.requestId || `exec_${Date.now()}_${Math.random()}`;
-      let timeout: any = null;
+      let timeout: ReturnType<typeof setTimeout> | null = null;
 
       // Set up one-time listener for the response
       const handleMessage = (event: MessageEvent) => {
@@ -91,7 +94,7 @@ class ExtensionAPI {
 }
 
 // Expose API to the page
-(window as any).tlsn = new ExtensionAPI();
+(window as unknown as { tlsn: ExtensionAPI }).tlsn = new ExtensionAPI();
 
 // Dispatch event to notify page that extension is loaded
 window.dispatchEvent(new CustomEvent('tlsn_loaded'));

@@ -29,20 +29,25 @@ import { logger } from '@tlsn/common';
  * This is needed because Chrome's webRequest API returns ArrayBuffers in requestBody.raw[].bytes
  * which cannot be JSON stringified
  */
-function convertArrayBuffersToArrays(obj: any): any {
+function convertArrayBuffersToArrays(obj: unknown): unknown {
   // Handle null/undefined
   if (obj == null) {
     return obj;
   }
 
   // Check for ArrayBuffer
-  if (obj instanceof ArrayBuffer || obj.constructor?.name === 'ArrayBuffer') {
-    return Array.from(new Uint8Array(obj));
+  if (
+    obj instanceof ArrayBuffer ||
+    (typeof obj === 'object' &&
+      (obj as { constructor?: { name?: string } }).constructor?.name ===
+        'ArrayBuffer')
+  ) {
+    return Array.from(new Uint8Array(obj as ArrayBuffer));
   }
 
   // Check for typed arrays (Uint8Array, Int8Array, etc.)
   if (ArrayBuffer.isView(obj)) {
-    return Array.from(obj as any);
+    return Array.from(new Uint8Array((obj as ArrayBufferView).buffer));
   }
 
   // Handle regular arrays
@@ -52,10 +57,12 @@ function convertArrayBuffersToArrays(obj: any): any {
 
   // Handle objects (but not Date, RegExp, etc.)
   if (typeof obj === 'object' && obj.constructor === Object) {
-    const converted: any = {};
-    for (const key in obj) {
+    const converted: Record<string, unknown> = {};
+    for (const key in obj as Record<string, unknown>) {
       if (Object.hasOwn(obj, key)) {
-        converted[key] = convertArrayBuffersToArrays(obj[key]);
+        converted[key] = convertArrayBuffersToArrays(
+          (obj as Record<string, unknown>)[key],
+        );
       }
     }
     return converted;
@@ -378,7 +385,7 @@ export class WindowManager implements IWindowManager {
 
   async showPluginUI(
     windowId: number,
-    json: any,
+    json: unknown,
     retryCount = 0,
   ): Promise<void> {
     const window = this.windows.get(windowId);
@@ -750,7 +757,7 @@ export class WindowManager implements IWindowManager {
       try {
         // Check if window still exists in browser
         await browser.windows.get(windowId);
-      } catch (error) {
+      } catch (_error) {
         // Window no longer exists, clean it up
         const window = this.windows.get(windowId);
         this.windows.delete(windowId);

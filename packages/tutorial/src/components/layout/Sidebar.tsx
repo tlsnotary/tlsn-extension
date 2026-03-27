@@ -40,10 +40,10 @@ export const Sidebar: React.FC = () => {
                       isCurrent
                         ? 'bg-gradient-to-r from-[#667eea] to-[#764ba2] text-white'
                         : isCompleted
-                        ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                        : isLocked
-                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                        : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                          ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                          : isLocked
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
                     }`}
                   >
                     <div className="flex items-center justify-between">

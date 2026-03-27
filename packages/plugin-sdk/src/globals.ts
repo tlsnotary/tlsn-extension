@@ -56,7 +56,7 @@ export type OpenWindowFunction = (
 /**
  * React-like effect hook that runs when dependencies change
  */
-export type UseEffectFunction = (callback: () => void, deps: any[]) => void;
+export type UseEffectFunction = (callback: () => void, deps: unknown[]) => void;
 
 /**
  * Subscribe to intercepted HTTP headers with filtering
@@ -99,12 +99,12 @@ export type ProveFunction = (
     maxSentData?: number;
     handlers: Handler[];
   },
-) => Promise<any>;
+) => Promise<unknown>;
 
 /**
  * Complete plugin execution and return result
  */
-export type DoneFunction = (result?: any) => void;
+export type DoneFunction = (result?: unknown) => void;
 
 /**
  * Complete Plugin API surface available in the QuickJS sandbox

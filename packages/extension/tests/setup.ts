@@ -73,7 +73,7 @@ const chromeMock = {
 };
 
 // Set up chrome global for webextension-polyfill
-globalThis.chrome = chromeMock as any;
+globalThis.chrome = chromeMock as unknown as typeof chrome;
 
 // Mock webextension-polyfill
 vi.mock('webextension-polyfill', () => ({

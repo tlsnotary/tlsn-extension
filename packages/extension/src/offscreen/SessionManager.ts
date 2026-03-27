@@ -4,10 +4,25 @@ import type { Method } from '../../../tlsn-wasm-pkg/tlsn_wasm';
 import {
   DomJson,
   Handler,
+  OpenWindowResponse,
   PluginConfig,
   ProveProgressData,
+  WindowMessage,
 } from '@tlsn/plugin-sdk/src/types';
 import { logger } from '@tlsn/common';
+
+/**
+ * Minimal interface for the Chrome runtime API surface used by SessionManager.
+ * Avoids depending on the full `typeof chrome.runtime` which requires exact
+ * callback signatures that conflict with our simplified listeners.
+ */
+interface ChromeRuntimeLike {
+  sendMessage: (message: unknown) => Promise<unknown>;
+  onMessage: {
+    addListener: (listener: (...args: unknown[]) => void) => void;
+    removeListener: (listener: (...args: unknown[]) => void) => void;
+  };
+}
 import {
   validateProvePermission,
   validateOpenWindowPermission,
@@ -43,7 +58,7 @@ export class SessionManager {
 
         try {
           url = new URL(requestOptions.url);
-        } catch (error) {
+        } catch (_error) {
           throw new Error('Invalid URL');
         }
 
@@ -142,7 +157,7 @@ export class SessionManager {
       },
       onRenderPluginUi: (windowId: number, result: DomJson) => {
         const chromeRuntime = (
-          global as unknown as { chrome?: { runtime?: any } }
+          global as unknown as { chrome?: { runtime?: ChromeRuntimeLike } }
         ).chrome?.runtime;
         if (!chromeRuntime?.sendMessage) {
           throw new Error('Chrome runtime not available');
@@ -155,7 +170,7 @@ export class SessionManager {
       },
       onCloseWindow: (windowId: number) => {
         const chromeRuntime = (
-          global as unknown as { chrome?: { runtime?: any } }
+          global as unknown as { chrome?: { runtime?: ChromeRuntimeLike } }
         ).chrome?.runtime;
         if (!chromeRuntime?.sendMessage) {
           throw new Error('Chrome runtime not available');
@@ -174,7 +189,7 @@ export class SessionManager {
         validateOpenWindowPermission(url, this.currentConfig);
 
         const chromeRuntime = (
-          global as unknown as { chrome?: { runtime?: any } }
+          global as unknown as { chrome?: { runtime?: ChromeRuntimeLike } }
         ).chrome?.runtime;
         if (!chromeRuntime?.sendMessage) {
           throw new Error('Chrome runtime not available');
@@ -185,7 +200,7 @@ export class SessionManager {
           width: options?.width,
           height: options?.height,
           showOverlay: options?.showOverlay,
-        });
+        }) as Promise<OpenWindowResponse>;
       },
     });
     this.proveManager = new ProveManager();
@@ -200,8 +215,9 @@ export class SessionManager {
     source = 'js',
   ) {
     if (!this.currentRequestId) return;
-    const chromeRuntime = (global as unknown as { chrome?: { runtime?: any } })
-      .chrome?.runtime;
+    const chromeRuntime = (
+      global as unknown as { chrome?: { runtime?: ChromeRuntimeLike } }
+    ).chrome?.runtime;
     if (chromeRuntime?.sendMessage) {
       chromeRuntime
         .sendMessage({
@@ -224,8 +240,9 @@ export class SessionManager {
   }
 
   async executePlugin(code: string, requestId?: string): Promise<unknown> {
-    const chromeRuntime = (global as unknown as { chrome?: { runtime?: any } })
-      .chrome?.runtime;
+    const chromeRuntime = (
+      global as unknown as { chrome?: { runtime?: ChromeRuntimeLike } }
+    ).chrome?.runtime;
     if (!chromeRuntime?.onMessage) {
       throw new Error('Chrome runtime not available');
     }
@@ -254,13 +271,17 @@ export class SessionManager {
 
     return this.host.executePlugin(code, {
       eventEmitter: {
-        addListener: (listener: (message: any) => void) => {
-          chromeRuntime.onMessage.addListener(listener);
+        addListener: (listener: (message: WindowMessage) => void) => {
+          chromeRuntime.onMessage.addListener(
+            listener as (message: unknown) => void,
+          );
         },
-        removeListener: (listener: (message: any) => void) => {
-          chromeRuntime.onMessage.removeListener(listener);
+        removeListener: (listener: (message: WindowMessage) => void) => {
+          chromeRuntime.onMessage.removeListener(
+            listener as (message: unknown) => void,
+          );
         },
-        emit: (message: any) => {
+        emit: (message: WindowMessage) => {
           chromeRuntime.sendMessage(message);
         },
       },
@@ -270,7 +291,7 @@ export class SessionManager {
   /**
    * Extract plugin config using QuickJS sandbox (more reliable than regex)
    */
-  async extractConfig(code: string): Promise<any> {
-    return this.host.getPluginConfig(code);
+  async extractConfig(code: string): Promise<PluginConfig | null> {
+    return (await this.host.getPluginConfig(code)) ?? null;
   }
 }

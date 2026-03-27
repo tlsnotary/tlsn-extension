@@ -1,4 +1,5 @@
 import * as Comlink from 'comlink';
+import type { Handler } from '@tlsn/plugin-sdk/src/types';
 import initWasm, {
   LoggingLevel,
   LoggingConfig,
@@ -73,9 +74,9 @@ const _originalConsoleDebug = console.debug;
 const _originalConsoleInfo = console.info;
 
 function interceptConsole(
-  originalFn: (...args: any[]) => void,
-): (...args: any[]) => void {
-  return (...args: any[]) => {
+  originalFn: (...args: unknown[]) => void,
+): (...args: unknown[]) => void {
+  return (...args: unknown[]) => {
     originalFn.apply(console, args);
     // Pattern-match against raw args (works even with %c formatting).
     // NOTE: This is a stop-gap until the WASM side exposes a structured
@@ -171,7 +172,7 @@ function createIoChannel(url: string): Promise<IoChannel> {
       }
     };
 
-    ws.onclose = (event) => {
+    ws.onclose = (_event) => {
       closed = true;
       if (readResolver) {
         const resolver = readResolver;
@@ -313,14 +314,27 @@ async function reveal(proverId: string, revealConfig: Reveal): Promise<void> {
  * Computes reveal ranges by parsing transcripts and mapping handlers to byte ranges.
  * Runs entirely in the worker to avoid transferring transcript bytes to the main thread.
  */
+/** A byte range for reveal operations */
+interface RevealRange {
+  start: number;
+  end: number;
+}
+
+/** A byte range paired with handler metadata for the verifier */
+interface RevealRangeWithHandler {
+  start: number;
+  end: number;
+  handler: Handler;
+}
+
 function computeReveal(
   proverId: string,
-  handlers: any[],
+  handlers: Handler[],
 ): {
-  sentRanges: any[];
-  recvRanges: any[];
-  sentRangesWithHandlers: any[];
-  recvRangesWithHandlers: any[];
+  sentRanges: RevealRange[];
+  recvRanges: RevealRange[];
+  sentRangesWithHandlers: RevealRangeWithHandler[];
+  recvRangesWithHandlers: RevealRangeWithHandler[];
 } {
   const prover = provers.get(proverId);
   if (!prover) throw new Error(`Prover not found: ${proverId}`);
@@ -348,9 +362,9 @@ function computeReveal(
   }
 
   const typed = output as {
-    reveal: { sent: any[]; recv: any[] };
-    sent_ranges_with_handlers: any[];
-    recv_ranges_with_handlers: any[];
+    reveal: { sent: RevealRange[]; recv: RevealRange[] };
+    sent_ranges_with_handlers: RevealRangeWithHandler[];
+    recv_ranges_with_handlers: RevealRangeWithHandler[];
   };
 
   return {

@@ -10,7 +10,11 @@ import { step6Validators } from '../utils/validation';
 export const Challenge: React.FC = () => {
   const { complete, updateCode, userCode, isCompleted } = useStepProgress(6);
   const { execute, isExecuting, result, reset: resetExecution } = usePluginExecution();
-  const { validate, validationResults, reset: resetValidation } = useCodeValidation(step6Validators);
+  const {
+    validate,
+    validationResults,
+    reset: resetValidation,
+  } = useCodeValidation(step6Validators);
   const [code, setCode] = useState(userCode);
   const [isResetting, setIsResetting] = useState(false);
 
@@ -24,7 +28,7 @@ export const Challenge: React.FC = () => {
         })
         .catch((err) => console.error('Failed to load Swiss Bank starter:', err));
     }
-  }, []);
+  }, [userCode, updateCode]);
 
   const handleCodeChange = (newCode: string) => {
     setCode(newCode);
@@ -71,9 +75,9 @@ export const Challenge: React.FC = () => {
         </div>
 
         <p className="text-lg text-gray-700 mb-6">
-          So far we&apos;ve focused on the prover. Verification is also extremely important. Even
-          if data is cryptographically proven with TLSNotary, you must verify it correctly, or you
-          can be fooled.
+          So far we&apos;ve focused on the prover. Verification is also extremely important. Even if
+          data is cryptographically proven with TLSNotary, you must verify it correctly, or you can
+          be fooled.
         </p>
 
         <div className="bg-yellow-100 border border-yellow-300 rounded-lg p-6 mb-6">
@@ -133,11 +137,7 @@ export const Challenge: React.FC = () => {
           <Button onClick={handleTestCode} disabled={isExecuting} variant="primary">
             {isExecuting ? 'Testing...' : 'Test Code'}
           </Button>
-          <Button
-            onClick={handleReset}
-            disabled={isResetting || isExecuting}
-            variant="secondary"
-          >
+          <Button onClick={handleReset} disabled={isResetting || isExecuting} variant="secondary">
             {isResetting ? 'Resetting...' : 'Reset Code'}
           </Button>
         </div>

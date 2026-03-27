@@ -83,7 +83,7 @@ function createEventEmitter() {
       if (i >= 0) listeners.splice(i, 1);
     },
     emit: (msg: WindowMessage) => {
-      const msgType = (msg as any).type as string; // eslint-disable-line @typescript-eslint/no-explicit-any
+      const msgType = msg.type;
       // Log events but skip noisy internal re-render bridge messages
       if (msgType !== 'TO_BG_RE_RENDER_PLUGIN_UI') {
         addConsoleEntry(`Event: ${msgType}`, 'event');
@@ -93,18 +93,17 @@ function createEventEmitter() {
   };
 
   // Re-render bridge: converts setState's message into a re-render trigger
-  eventEmitter.addListener(((msg: any) => {
-    // eslint-disable-line @typescript-eslint/no-explicit-any
+  eventEmitter.addListener((msg: WindowMessage) => {
     if (msg.type === 'TO_BG_RE_RENDER_PLUGIN_UI') {
       addConsoleEntry('State changed, scheduling re-render...', 'info');
       setTimeout(() => {
         eventEmitter.emit({
           type: 'RE_RENDER_PLUGIN_UI',
           windowId: msg.windowId || 1,
-        } as WindowMessage);
+        });
       }, 10);
     }
-  }) as EventListener);
+  });
 
   return eventEmitter;
 }
@@ -126,7 +125,7 @@ function createNode(json: DomJson, windowId: number): HTMLElement | Text {
   if (json.options.id) node.id = json.options.id;
   if (json.options.style) {
     Object.entries(json.options.style).forEach(([key, value]) => {
-      (node.style as any)[key] = value; // eslint-disable-line @typescript-eslint/no-explicit-any
+      node.style.setProperty(key, value);
     });
   }
 

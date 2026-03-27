@@ -1,6 +1,29 @@
 declare module '*.png' {
-  const value: any;
+  const value: string;
   export = value;
+}
+
+// Chrome Offscreen API (Chrome 109+, not yet in @types/chrome)
+declare namespace chrome.offscreen {
+  interface CreateDocumentOptions {
+    url: string;
+    reasons: string[];
+    justification: string;
+  }
+  function createDocument(options: CreateDocumentOptions): Promise<void>;
+}
+
+// Chrome runtime.getContexts (Chrome 116+, not yet in @types/chrome)
+declare namespace chrome.runtime {
+  interface ContextFilter {
+    contextTypes?: string[];
+    documentUrls?: string[];
+  }
+  interface ExtensionContext {
+    contextType: string;
+    documentUrl?: string;
+  }
+  function getContexts(filter: ContextFilter): Promise<ExtensionContext[]>;
 }
 
 // URLPattern Web API (available in Chrome 95+)
