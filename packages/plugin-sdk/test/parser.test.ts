@@ -1360,6 +1360,7 @@ describe('Parser', () => {
         const parser = new Parser(
           'HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{"a":1}',
         );
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         expect(() => parser.ranges.body('field', { type: 'unknown' as any })).toThrow(
           'Unknown type',
         );
@@ -1367,7 +1368,7 @@ describe('Parser', () => {
 
       it('returns text range for text type', () => {
         const parser = new Parser('HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nhello');
-        const ranges = parser.ranges.body(undefined, { type: 'text' } as any);
+        const ranges = parser.ranges.body(undefined, { type: 'text' });
         expect(ranges).toHaveLength(1);
       });
     });

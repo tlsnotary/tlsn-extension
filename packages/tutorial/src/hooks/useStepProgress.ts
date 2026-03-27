@@ -1,4 +1,5 @@
 import { useTutorial } from '../context/TutorialContext';
+import { PluginResult } from '../types';
 
 export const useStepProgress = (stepId: number) => {
   const { state, actions } = useTutorial();
@@ -20,7 +21,7 @@ export const useStepProgress = (stepId: number) => {
     actions.updateUserCode(stepId, code);
   };
 
-  const saveResult = (result: any) => {
+  const saveResult = (result: PluginResult) => {
     actions.savePluginResult(stepId, result);
   };
 

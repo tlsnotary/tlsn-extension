@@ -6,6 +6,20 @@ import type {
   Method,
 } from '../../../../tlsn-wasm-pkg/tlsn_wasm';
 import { logger } from '@tlsn/common';
+import type { Handler } from '@tlsn/plugin-sdk/src/types';
+
+/** A byte range used for reveal operations */
+interface RevealRange {
+  start: number;
+  end: number;
+}
+
+/** A byte range paired with its handler for the verifier */
+interface RevealRangeWithHandler {
+  start: number;
+  end: number;
+  handler: Handler;
+}
 
 // Extract worker reference so we can listen for progress messages alongside Comlink.
 const worker = new Worker(new URL('./worker.ts', import.meta.url));
@@ -25,12 +39,12 @@ const workerApi = Comlink.wrap<{
   getTranscript: (proverId: string) => { sent: number[]; recv: number[] };
   computeReveal: (
     proverId: string,
-    handlers: any[],
+    handlers: Handler[],
   ) => {
-    sentRanges: any[];
-    recvRanges: any[];
-    sentRangesWithHandlers: any[];
-    recvRangesWithHandlers: any[];
+    sentRanges: RevealRange[];
+    recvRanges: RevealRange[];
+    sentRangesWithHandlers: RevealRangeWithHandler[];
+    recvRangesWithHandlers: RevealRangeWithHandler[];
   };
   reveal: (proverId: string, revealConfig: Reveal) => Promise<void>;
   freeProver: (proverId: string) => void;
@@ -50,21 +64,26 @@ type ClientMessage =
     }
   | {
       type: 'reveal_config';
-      sent: Array<{ start: number; end: number; handler: any }>;
-      recv: Array<{ start: number; end: number; handler: any }>;
+      sent: Array<{ start: number; end: number; handler: Handler }>;
+      recv: Array<{ start: number; end: number; handler: Handler }>;
     };
 
 /** Server message types (received from server) */
 type ServerMessage =
   | { type: 'session_registered'; sessionId: string }
-  | { type: 'session_completed'; results: any[] }
+  | { type: 'session_completed'; results: unknown[] }
   | { type: 'error'; message: string };
+
+/** Verification response from the server */
+interface VerificationResponse {
+  results: unknown[];
+}
 
 /** Session state tracked per prover */
 interface SessionState {
   sessionId: string;
   webSocket: WebSocket;
-  response: any | null;
+  response: VerificationResponse | null;
   responseReceived: boolean;
 }
 
@@ -209,19 +228,19 @@ export class ProveManager {
 
             default: {
               // Handle legacy format for backward compatibility
-              const legacyData = data as any;
+              const legacyData = data as unknown as Record<string, unknown>;
               if (legacyData.sessionId) {
                 logger.warn(
                   '[ProveManager] Received legacy sessionId format for prover:',
                   proverId,
                 );
                 this.sessions.set(proverId, {
-                  sessionId: legacyData.sessionId,
+                  sessionId: String(legacyData.sessionId),
                   webSocket: ws,
                   response: null,
                   responseReceived: false,
                 });
-                const verifierWsUrl = `${protocol}://${_url.host}${pathname === '/' ? '' : pathname}/verifier?sessionId=${legacyData.sessionId}`;
+                const verifierWsUrl = `${protocol}://${_url.host}${pathname === '/' ? '' : pathname}/verifier?sessionId=${String(legacyData.sessionId)}`;
                 resolve(verifierWsUrl);
               } else if (legacyData.results !== undefined) {
                 logger.warn(
@@ -230,13 +249,17 @@ export class ProveManager {
                 );
                 const session = this.sessions.get(proverId);
                 if (session) {
-                  session.response = legacyData;
+                  session.response = {
+                    results: Array.isArray(legacyData.results)
+                      ? (legacyData.results as unknown[])
+                      : [],
+                  };
                   session.responseReceived = true;
                 }
               } else {
                 logger.warn(
                   '[ProveManager] Unknown message type:',
-                  (data as any).type,
+                  (data as unknown as Record<string, unknown>).type,
                 );
               }
             }
@@ -314,8 +337,8 @@ export class ProveManager {
   async sendRevealConfig(
     proverId: string,
     revealConfig: {
-      sent: Array<{ start: number; end: number; handler: any }>;
-      recv: Array<{ start: number; end: number; handler: any }>;
+      sent: RevealRangeWithHandler[];
+      recv: RevealRangeWithHandler[];
     },
   ) {
     const session = this.sessions.get(proverId);
@@ -385,7 +408,7 @@ export class ProveManager {
    * Compute reveal ranges by parsing transcripts and mapping handlers to byte ranges.
    * Runs in the WASM worker — no transcript bytes transferred to the main thread.
    */
-  async computeReveal(proverId: string, handlers: any[]) {
+  async computeReveal(proverId: string, handlers: Handler[]) {
     return workerApi.computeReveal(proverId, handlers);
   }
 
@@ -406,10 +429,15 @@ export class ProveManager {
    * Get the verification response for a given prover ID.
    * Polls with a hard deadline — throws if the deadline is exceeded.
    */
-  async getResponse(proverId: string, retry = 60): Promise<any | null> {
+  async getResponse(
+    proverId: string,
+    retry = 60,
+  ): Promise<VerificationResponse | null> {
     const deadline = Date.now() + ProveManager.GET_RESPONSE_TIMEOUT_MS;
 
-    const poll = async (remaining: number): Promise<any | null> => {
+    const poll = async (
+      remaining: number,
+    ): Promise<VerificationResponse | null> => {
       const session = this.sessions.get(proverId);
       if (!session) {
         logger.warn('[ProveManager] No session found for proverId:', proverId);

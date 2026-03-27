@@ -11,13 +11,14 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { Host } from '../src/index';
+import type { WindowMessage } from '../src/types';
 
-type Listener = (message: any) => void;
+type Listener = (message: WindowMessage) => void;
 
 function createTestEventEmitter() {
   const listeners: Listener[] = [];
   return {
-    emit: (message: any) => {
+    emit: (message: WindowMessage) => {
       listeners.forEach((l) => l(message));
     },
     addListener: (listener: Listener) => {

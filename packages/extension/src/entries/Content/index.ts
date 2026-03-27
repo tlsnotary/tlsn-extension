@@ -88,7 +88,7 @@ function createNode(json: DomJson, windowId: number): HTMLElement | Text {
 
   if (json.options.style) {
     Object.entries(json.options.style).forEach(([key, value]) => {
-      node.style[key as any] = value;
+      (node.style as unknown as Record<string, string>)[key] = value;
     });
   }
 
@@ -121,57 +121,59 @@ function createNode(json: DomJson, windowId: number): HTMLElement | Text {
 }
 
 // Listen for messages from the extension
-browser.runtime.onMessage.addListener((request, sender, sendResponse: any) => {
-  logger.debug('Content script received message:', request);
+browser.runtime.onMessage.addListener(
+  (request, sender, sendResponse: (response: unknown) => void) => {
+    logger.debug('Content script received message:', request);
 
-  // Forward offscreen logs to page
-  if (request.type === 'OFFSCREEN_LOG') {
-    window.postMessage(
-      {
-        type: 'TLSN_OFFSCREEN_LOG',
-        level: request.level,
-        message: request.message,
-      },
-      window.location.origin,
-    );
-    return; // No response needed
-  }
+    // Forward offscreen logs to page
+    if (request.type === 'OFFSCREEN_LOG') {
+      window.postMessage(
+        {
+          type: 'TLSN_OFFSCREEN_LOG',
+          level: request.level,
+          message: request.message,
+        },
+        window.location.origin,
+      );
+      return; // No response needed
+    }
 
-  // Forward progress events from background to page
-  if (request.type === 'PROVE_PROGRESS') {
-    window.postMessage(
-      {
-        type: 'TLSN_PROVE_PROGRESS',
-        requestId: request.requestId,
-        step: request.step,
-        progress: request.progress,
-        message: request.message,
-        source: request.source,
-      },
-      window.location.origin,
-    );
-    return; // No response needed
-  }
+    // Forward progress events from background to page
+    if (request.type === 'PROVE_PROGRESS') {
+      window.postMessage(
+        {
+          type: 'TLSN_PROVE_PROGRESS',
+          requestId: request.requestId,
+          step: request.step,
+          progress: request.progress,
+          message: request.message,
+          source: request.source,
+        },
+        window.location.origin,
+      );
+      return; // No response needed
+    }
 
-  if (request.type === 'GET_PAGE_INFO') {
-    // Example: Get page information
-    sendResponse({
-      title: document.title,
-      url: window.location.href,
-      domain: window.location.hostname,
-    });
-    return true; // Response sent synchronously but return true for consistency
-  }
+    if (request.type === 'GET_PAGE_INFO') {
+      // Example: Get page information
+      sendResponse({
+        title: document.title,
+        url: window.location.href,
+        domain: window.location.hostname,
+      });
+      return true; // Response sent synchronously but return true for consistency
+    }
 
-  if (request.type === 'RENDER_PLUGIN_UI') {
-    renderPluginUI(request.json, request.windowId);
-    sendResponse({ success: true });
-    return true; // Response sent
-  }
+    if (request.type === 'RENDER_PLUGIN_UI') {
+      renderPluginUI(request.json, request.windowId);
+      sendResponse({ success: true });
+      return true; // Response sent
+    }
 
-  // Unknown message type - no response needed
-  return;
-});
+    // Unknown message type - no response needed
+    return;
+  },
+);
 
 // Send a message to background script when ready
 browser.runtime

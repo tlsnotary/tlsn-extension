@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Host, preprocessPluginCode } from '../src/index';
+import type { WindowMessage } from '../src/types';
 
 // Skip this entire suite in browser environment — these tests run in Node only.
 // Browser-specific tests live in index.browser.test.ts.
@@ -50,9 +51,9 @@ describe.skipIf(typeof window !== 'undefined')('Host', () => {
     try {
       await sandbox.eval('throw new Error("test")');
       expect.fail('Should have thrown an error');
-    } catch (error: any) {
+    } catch (error: unknown) {
       expect(error).toBeInstanceOf(Error);
-      expect(error.message).toBe('test');
+      expect((error as Error).message).toBe('test');
     }
     sandbox.dispose();
   });
@@ -69,9 +70,9 @@ describe.skipIf(typeof window !== 'undefined')('Host', () => {
     try {
       await sandbox.eval('env.add("1", 2)');
       expect.fail('Should have thrown an error');
-    } catch (error: any) {
+    } catch (error: unknown) {
       expect(error).toBeInstanceOf(Error);
-      expect(error.message).toBe('Invalid arguments');
+      expect((error as Error).message).toBe('Invalid arguments');
     }
     sandbox.dispose();
   });
@@ -437,10 +438,10 @@ export function main() { return null; }
   describe('PluginLifecycle', () => {
     // Helper to create event emitter for tests
     function createTestEventEmitter() {
-      type Listener = (message: any) => void;
+      type Listener = (message: WindowMessage) => void;
       const listeners: Listener[] = [];
       return {
-        emit: (message: any) => {
+        emit: (message: WindowMessage) => {
           listeners.forEach((l) => l(message));
         },
         addListener: (listener: Listener) => {

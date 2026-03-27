@@ -18,72 +18,79 @@ const OffscreenApp: React.FC = () => {
     logger.debug('SessionManager initialized in Offscreen');
 
     // Listen for messages from background script
-    browser.runtime.onMessage.addListener((request: any) => {
-      // Example message handling
-      if (request.type === 'PROCESS_DATA') {
-        return Promise.resolve({
-          success: true,
-          data: 'Processed in offscreen',
-        });
-      }
-
-      // Handle config extraction requests (uses QuickJS)
-      if (request.type === 'EXTRACT_CONFIG') {
-        logger.debug('Offscreen extracting config from code');
-
-        if (!sessionManager) {
+    browser.runtime.onMessage.addListener(
+      (request: Record<string, unknown>) => {
+        // Example message handling
+        if (request.type === 'PROCESS_DATA') {
           return Promise.resolve({
-            success: false,
-            error: 'SessionManager not initialized',
+            success: true,
+            data: 'Processed in offscreen',
           });
         }
 
-        return sessionManager
-          .awaitInit()
-          .then((sm) => sm.extractConfig(request.code))
-          .then((config) => {
-            logger.debug('Extracted config:', config);
-            return { success: true, config };
-          })
-          .catch((error) => {
-            logger.error('Config extraction error:', error);
-            return { success: false, error: error.message };
-          });
-      }
+        // Handle config extraction requests (uses QuickJS)
+        if (request.type === 'EXTRACT_CONFIG') {
+          logger.debug('Offscreen extracting config from code');
 
-      // Handle code execution requests
-      if (request.type === 'EXEC_CODE_OFFSCREEN') {
-        logger.debug('Offscreen executing code:', request.code);
-
-        if (!sessionManager) {
-          return Promise.resolve({
-            success: false,
-            error: 'SessionManager not initialized',
-            requestId: request.requestId,
-          });
-        }
-
-        return sessionManager
-          .awaitInit()
-          .then((sm) => sm.executePlugin(request.code, request.requestId))
-          .then((result) => {
-            logger.debug('Plugin execution result:', result);
-            return {
-              success: true,
-              result,
-              requestId: request.requestId,
-            };
-          })
-          .catch((error) => {
-            logger.error('Plugin execution error:', error);
-            return {
+          if (!sessionManager) {
+            return Promise.resolve({
               success: false,
-              error: error.message,
+              error: 'SessionManager not initialized',
+            });
+          }
+
+          return sessionManager
+            .awaitInit()
+            .then((sm) => sm.extractConfig(request.code as string))
+            .then((config) => {
+              logger.debug('Extracted config:', config);
+              return { success: true, config };
+            })
+            .catch((error) => {
+              logger.error('Config extraction error:', error);
+              return { success: false, error: error.message };
+            });
+        }
+
+        // Handle code execution requests
+        if (request.type === 'EXEC_CODE_OFFSCREEN') {
+          logger.debug('Offscreen executing code:', request.code);
+
+          if (!sessionManager) {
+            return Promise.resolve({
+              success: false,
+              error: 'SessionManager not initialized',
               requestId: request.requestId,
-            };
-          });
-      }
-    });
+            });
+          }
+
+          return sessionManager
+            .awaitInit()
+            .then((sm) =>
+              sm.executePlugin(
+                request.code as string,
+                request.requestId as string | undefined,
+              ),
+            )
+            .then((result) => {
+              logger.debug('Plugin execution result:', result);
+              return {
+                success: true,
+                result,
+                requestId: request.requestId,
+              };
+            })
+            .catch((error) => {
+              logger.error('Plugin execution error:', error);
+              return {
+                success: false,
+                error: error.message,
+                requestId: request.requestId,
+              };
+            });
+        }
+      },
+    );
   }, []);
 
   return (

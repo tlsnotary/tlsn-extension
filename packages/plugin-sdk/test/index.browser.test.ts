@@ -326,16 +326,16 @@ describe('QuickJS Browser E2E', () => {
      * simulate it with a setTimeout to avoid synchronous recursion.
      */
     function installReRenderBridge(emitter: ReturnType<typeof createEventEmitter>) {
-      emitter.addListener(((msg: any) => {
+      emitter.addListener((msg: WindowMessage) => {
         if (msg.type === 'TO_BG_RE_RENDER_PLUGIN_UI') {
           setTimeout(() => {
             emitter.emit({
               type: 'RE_RENDER_PLUGIN_UI',
               windowId: msg.windowId,
-            } as WindowMessage);
+            });
           }, 10);
         }
-      }) as (msg: WindowMessage) => void);
+      });
     }
 
     // --- useRequests ---
@@ -842,7 +842,7 @@ describe('QuickJS Browser E2E', () => {
       if (json.options.id) node.id = json.options.id;
       if (json.options.style) {
         Object.entries(json.options.style).forEach(([key, value]) => {
-          (node.style as any)[key] = value;
+          node.style.setProperty(key, value);
         });
       }
 

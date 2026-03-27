@@ -8,7 +8,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 describe('Content Script Client API', () => {
-  let postMessageSpy: any;
+  let postMessageSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     // Mock window.postMessage
@@ -119,13 +119,13 @@ describe('Content Script Client API', () => {
     });
 
     it('should reject non-string URL', async () => {
-      await expect(tlsn.open(null as any)).rejects.toThrow(
+      await expect(tlsn.open(null as unknown as string)).rejects.toThrow(
         'URL must be a non-empty string',
       );
-      await expect(tlsn.open(undefined as any)).rejects.toThrow(
+      await expect(tlsn.open(undefined as unknown as string)).rejects.toThrow(
         'URL must be a non-empty string',
       );
-      await expect(tlsn.open(123 as any)).rejects.toThrow(
+      await expect(tlsn.open(123 as unknown as string)).rejects.toThrow(
         'URL must be a non-empty string',
       );
     });
@@ -242,7 +242,9 @@ describe('Content Script Client API', () => {
       // width, height, showOverlay should be undefined
       expect(pageMessage.payload.width).toBeUndefined();
       expect(pageMessage.payload.height).toBeUndefined();
-      expect((pageMessage.payload as any).showOverlay).toBeUndefined();
+      expect(
+        (pageMessage.payload as Record<string, unknown>).showOverlay,
+      ).toBeUndefined();
     });
   });
 

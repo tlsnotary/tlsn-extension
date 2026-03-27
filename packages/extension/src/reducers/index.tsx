@@ -26,10 +26,13 @@ export const incrementCount = () => ({
 });
 
 // App reducer
-const appReducer = (state = initialAppState, action: any): AppState => {
+const appReducer = (
+  state = initialAppState,
+  action: { type: string; payload?: unknown },
+): AppState => {
   switch (action.type) {
     case SET_MESSAGE:
-      return { ...state, message: action.payload };
+      return { ...state, message: action.payload as string };
     case INCREMENT_COUNT:
       return { ...state, count: state.count + 1 };
     default:

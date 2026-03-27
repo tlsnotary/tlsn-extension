@@ -408,9 +408,13 @@ describe('WindowManager', () => {
       // Second call should be RENDER_PLUGIN_UI (showPluginUI), not SHOW_TLSN_OVERLAY (showOverlay)
       const calls = vi.mocked(browser.tabs.sendMessage).mock.calls;
       expect(calls).toHaveLength(2);
-      expect((calls[0][1] as any).type).toBe('RENDER_PLUGIN_UI');
-      expect((calls[1][1] as any).type).toBe('RENDER_PLUGIN_UI');
-      expect((calls[1][1] as any).json).toEqual(json);
+      expect((calls[0][1] as Record<string, unknown>).type).toBe(
+        'RENDER_PLUGIN_UI',
+      );
+      expect((calls[1][1] as Record<string, unknown>).type).toBe(
+        'RENDER_PLUGIN_UI',
+      );
+      expect((calls[1][1] as Record<string, unknown>).json).toEqual(json);
     });
 
     it('should handle overlay show error gracefully', async () => {
@@ -459,7 +463,7 @@ describe('WindowManager', () => {
       // Mock window 123 still exists, window 456 is closed
       vi.mocked(browser.windows.get).mockImplementation((windowId) => {
         if (windowId === 123) {
-          return Promise.resolve({ id: 123 } as any);
+          return Promise.resolve({ id: 123 } as browser.Windows.Window);
         }
         return Promise.reject(new Error('Window not found'));
       });
@@ -481,7 +485,9 @@ describe('WindowManager', () => {
         showOverlay: false,
       });
 
-      vi.mocked(browser.windows.get).mockResolvedValue({ id: 123 } as any);
+      vi.mocked(browser.windows.get).mockResolvedValue({
+        id: 123,
+      } as browser.Windows.Window);
 
       await expect(
         windowManager.cleanupInvalidWindows(),
@@ -635,12 +641,15 @@ describe('WindowManager', () => {
       const sendMessage = vi.mocked(browser.runtime.sendMessage);
       const callsAfterBoth = sendMessage.mock.calls.filter(
         (call) =>
-          (call[0] as any).type === 'REQUEST_INTERCEPTED' ||
-          (call[0] as any).type === 'REQUESTS_BATCH',
+          (call[0] as Record<string, unknown>).type === 'REQUEST_INTERCEPTED' ||
+          (call[0] as Record<string, unknown>).type === 'REQUESTS_BATCH',
       );
 
       expect(callsAfterBoth).toHaveLength(1);
-      expect((callsAfterBoth[0][0] as any).request.id).toBe('req-1');
+      expect(
+        (callsAfterBoth[0][0] as Record<string, Record<string, unknown>>)
+          .request.id,
+      ).toBe('req-1');
 
       // Advance timer to flush the batch
       await vi.advanceTimersByTimeAsync(REQUEST_BATCH_INTERVAL_MS);
@@ -719,12 +728,15 @@ describe('WindowManager', () => {
       const sendMessage = vi.mocked(browser.runtime.sendMessage);
       const callsAfterBoth = sendMessage.mock.calls.filter(
         (call) =>
-          (call[0] as any).type === 'HEADER_INTERCEPTED' ||
-          (call[0] as any).type === 'HEADERS_BATCH',
+          (call[0] as Record<string, unknown>).type === 'HEADER_INTERCEPTED' ||
+          (call[0] as Record<string, unknown>).type === 'HEADERS_BATCH',
       );
 
       expect(callsAfterBoth).toHaveLength(1);
-      expect((callsAfterBoth[0][0] as any).header.id).toBe('hdr-1');
+      expect(
+        (callsAfterBoth[0][0] as Record<string, Record<string, unknown>>).header
+          .id,
+      ).toBe('hdr-1');
 
       await vi.advanceTimersByTimeAsync(REQUEST_BATCH_INTERVAL_MS);
 
@@ -792,8 +804,8 @@ describe('WindowManager', () => {
       // No REQUEST_INTERCEPTED or REQUESTS_BATCH messages should fire
       const batchCalls = sendMessage.mock.calls.filter(
         (call) =>
-          (call[0] as any).type === 'REQUEST_INTERCEPTED' ||
-          (call[0] as any).type === 'REQUESTS_BATCH',
+          (call[0] as Record<string, unknown>).type === 'REQUEST_INTERCEPTED' ||
+          (call[0] as Record<string, unknown>).type === 'REQUESTS_BATCH',
       );
 
       expect(batchCalls).toHaveLength(0);
@@ -818,8 +830,8 @@ describe('WindowManager', () => {
 
       const batchCalls = sendMessage.mock.calls.filter(
         (call) =>
-          (call[0] as any).type === 'REQUEST_INTERCEPTED' ||
-          (call[0] as any).type === 'REQUESTS_BATCH',
+          (call[0] as Record<string, unknown>).type === 'REQUEST_INTERCEPTED' ||
+          (call[0] as Record<string, unknown>).type === 'REQUESTS_BATCH',
       );
 
       expect(batchCalls).toHaveLength(0);

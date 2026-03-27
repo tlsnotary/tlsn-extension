@@ -22,6 +22,13 @@ export interface ParsedHeader {
   valueRange: Range;
 }
 
+export interface JsonFieldEntry {
+  value: unknown;
+  ranges: Range;
+  keyRange?: Range;
+  valueRange: Range;
+}
+
 export interface ParsedRequest {
   startLine: ParsedValue<string>;
   method: ParsedValue<string>;
@@ -31,7 +38,7 @@ export interface ParsedRequest {
   body?: {
     raw: ParsedValue<Uint8Array>;
     text?: ParsedValue<string>;
-    json?: Record<string, any>;
+    json?: Record<string, JsonFieldEntry>;
   };
 }
 
@@ -44,7 +51,7 @@ export interface ParsedResponse {
   body?: {
     raw: ParsedValue<Uint8Array>;
     text?: ParsedValue<string>;
-    json?: Record<string, any>;
+    json?: Record<string, JsonFieldEntry>;
   };
 }
 
@@ -283,7 +290,7 @@ export class Parser {
       bodyBytes = this.data.slice(startOffset);
     }
 
-    const body: any = {
+    const body: NonNullable<ParsedRequest['body']> = {
       raw: {
         value: bodyBytes,
         ranges: { start: bodyStart, end: bodyEnd },
@@ -364,17 +371,17 @@ export class Parser {
     return { data: combined, originalEnd: offset, firstChunkDataStart };
   }
 
-  private parseJsonWithRanges(text: string, baseOffset: number): any {
+  private parseJsonWithRanges(text: string, baseOffset: number): Record<string, JsonFieldEntry> {
     // Parse JSON and track ranges for each key-value pair (including nested)
-    const json = JSON.parse(text);
-    const result: any = {};
+    const json = JSON.parse(text) as unknown;
+    const result: Record<string, JsonFieldEntry> = {};
 
     if (typeof json === 'object' && json !== null && !Array.isArray(json)) {
       // Convert text to bytes for accurate byte offset calculation
       const textBytes = Buffer.from(text, 'utf8');
 
       // Recursively process all fields
-      this.processJsonObject(json, textBytes, baseOffset, result, []);
+      this.processJsonObject(json as Record<string, unknown>, textBytes, baseOffset, result, []);
     }
 
     return result;
@@ -385,10 +392,10 @@ export class Parser {
    * Stores fields with flat keys like "a.b" for nested paths.
    */
   private processJsonObject(
-    obj: any,
+    obj: Record<string, unknown>,
     textBytes: Buffer,
     baseOffset: number,
-    result: any,
+    result: Record<string, JsonFieldEntry>,
     pathPrefix: PathSegment[],
   ): void {
     for (const key in obj) {
@@ -491,7 +498,7 @@ export class Parser {
             const nestedText = textBytes.slice(valueByteIndex, valueByteEnd).toString('utf8');
             const nestedTextBytes = Buffer.from(nestedText, 'utf8');
             this.processJsonObject(
-              value,
+              value as Record<string, unknown>,
               nestedTextBytes,
               baseOffset + valueByteIndex,
               result,
@@ -550,10 +557,10 @@ export class Parser {
    * Stores elements with keys like "items[0]".
    */
   private processJsonArray(
-    arr: any[],
+    arr: unknown[],
     textBytes: Buffer,
     baseOffset: number,
-    result: any,
+    result: Record<string, JsonFieldEntry>,
     pathPrefix: PathSegment[],
     arrayStartOffset: number,
   ): void {
@@ -591,7 +598,7 @@ export class Parser {
           const nestedText = textBytes.slice(elementByteIndex, elementByteEnd).toString('utf8');
           const nestedTextBytes = Buffer.from(nestedText, 'utf8');
           this.processJsonObject(
-            element,
+            element as Record<string, unknown>,
             nestedTextBytes,
             baseOffset + elementByteIndex,
             result,
@@ -602,7 +609,7 @@ export class Parser {
           const nestedText = textBytes.slice(elementByteIndex, elementByteEnd).toString('utf8');
           const nestedTextBytes = Buffer.from(nestedText, 'utf8');
           this.processJsonArray(
-            element,
+            element as unknown[],
             nestedTextBytes,
             baseOffset + elementByteIndex,
             result,
@@ -658,12 +665,12 @@ export class Parser {
   /**
    * Returns a JSON representation of the parsed HTTP message
    */
-  json(): any {
+  json(): Record<string, unknown> {
     if (!this.parsed) {
       throw new Error('Message not parsed');
     }
 
-    const result: any = {};
+    const result: Record<string, unknown> = {};
 
     if ('method' in this.parsed) {
       // Request
@@ -680,10 +687,11 @@ export class Parser {
     }
 
     // Headers
-    result.headers = {};
+    const headers: Record<string, string> = {};
     for (const [key, header] of Object.entries(this.parsed.headers)) {
-      result.headers[key] = header.value;
+      headers[key] = header.value;
     }
+    result.headers = headers;
 
     // Body
     if (this.parsed.body) {
@@ -695,10 +703,11 @@ export class Parser {
           const firstKey = Object.keys(jsonData)[0];
           if (firstKey && typeof jsonData[firstKey] === 'object' && 'value' in jsonData[firstKey]) {
             // Has range structure - extract values
-            result.body = {};
+            const body: Record<string, unknown> = {};
             for (const [key, value] of Object.entries(jsonData)) {
-              result.body[key] = (value as any).value;
+              body[key] = (value as JsonFieldEntry).value;
             }
+            result.body = body;
           } else {
             // Plain JSON object (from chunked encoding)
             result.body = jsonData;
@@ -829,7 +838,7 @@ export class Parser {
         }
 
         if (options?.hideValue) {
-          return [field.keyRange];
+          return field.keyRange ? [field.keyRange] : [];
         }
 
         return [field.ranges];

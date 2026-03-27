@@ -64,7 +64,7 @@ export interface InterceptedRequest {
        * An ArrayBuffer with a copy of the data.
        * Optional.
        */
-      bytes?: any;
+      bytes?: ArrayBuffer;
 
       /**
        * A string with the file's path and name.

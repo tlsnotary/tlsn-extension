@@ -154,6 +154,7 @@ describe('extractConfig', () => {
 
   it('should return null when code is not a string (catch branch)', async () => {
     // Passing null causes code.match() to throw a TypeError → hits the catch block → returns null
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = await extractConfig(null as any);
     expect(result).toBeNull();
   });

@@ -22,6 +22,17 @@ import {
 } from './types';
 import deepEqual from 'fast-deep-equal';
 
+// Type alias for hook context used throughout the module
+type HookContext = {
+  [functionName: string]: {
+    effects: unknown[][];
+    selectors: unknown[][];
+  };
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyFunction = (...args: any[]) => any;
+
 // Module-level registry to avoid circular references in capability closures
 const executionContextRegistry = new Map<string, ExecutionContext>();
 
@@ -33,14 +44,9 @@ function updateExecutionContext(
     plugin?: string;
     requests?: InterceptedRequest[];
     headers?: InterceptedRequestHeader[];
-    context?: {
-      [functionName: string]: {
-        effects: any[][];
-        selectors: any[][];
-      };
-    };
+    context?: HookContext;
     currentContext?: string;
-    stateStore?: { [key: string]: any };
+    stateStore?: Record<string, unknown>;
   },
 ): void {
   const context = executionContextRegistry.get(uuid);
@@ -74,16 +80,8 @@ function createDomJson(
 }
 
 // Pure function for creating useEffect hook without `this` binding
-function makeUseEffect(
-  uuid: string,
-  context: {
-    [functionName: string]: {
-      effects: any[][];
-      selectors: any[][];
-    };
-  },
-) {
-  return (effect: () => void, deps: any[]) => {
+function makeUseEffect(uuid: string, context: HookContext) {
+  return (effect: () => void, deps: unknown[]) => {
     const executionContext = executionContextRegistry.get(uuid);
     if (!executionContext) {
       throw new Error('Execution context not found');
@@ -104,15 +102,7 @@ function makeUseEffect(
 }
 
 // Pure function for creating useRequests hook without `this` binding
-function makeUseRequests(
-  uuid: string,
-  context: {
-    [functionName: string]: {
-      effects: any[][];
-      selectors: any[][];
-    };
-  },
-) {
+function makeUseRequests(uuid: string, context: HookContext) {
   return (filterFn: (requests: InterceptedRequest[]) => InterceptedRequest[]) => {
     const executionContext = executionContextRegistry.get(uuid);
     if (!executionContext) {
@@ -132,15 +122,7 @@ function makeUseRequests(
 }
 
 // Pure function for creating useHeaders hook without `this` binding
-function makeUseHeaders(
-  uuid: string,
-  context: {
-    [functionName: string]: {
-      effects: any[][];
-      selectors: any[][];
-    };
-  },
-) {
+function makeUseHeaders(uuid: string, context: HookContext) {
   return (filterFn: (headers: InterceptedRequestHeader[]) => InterceptedRequestHeader[]) => {
     const executionContext = executionContextRegistry.get(uuid);
     if (!executionContext) {
@@ -171,12 +153,12 @@ function makeUseHeaders(
 
 function makeUseState(
   uuid: string,
-  stateStore: { [key: string]: any },
+  stateStore: Record<string, unknown>,
   _eventEmitter: {
-    emit: (message: any) => void;
+    emit: (message: WindowMessage) => void;
   },
 ) {
-  return (key: string, defaultValue: any) => {
+  return (key: string, defaultValue: unknown) => {
     const executionContext = executionContextRegistry.get(uuid);
     if (!executionContext) {
       throw new Error('Execution context not found');
@@ -194,12 +176,12 @@ function makeUseState(
 
 function makeSetState(
   uuid: string,
-  stateStore: { [key: string]: any },
+  stateStore: Record<string, unknown>,
   eventEmitter: {
-    emit: (message: any) => void;
+    emit: (message: WindowMessage) => void;
   },
 ) {
-  return (key: string, value: any) => {
+  return (key: string, value: unknown) => {
     const executionContext = executionContextRegistry.get(uuid);
     if (!executionContext) {
       throw new Error('Execution context not found');
@@ -274,9 +256,9 @@ function makeOpenWindow(
     // merged into the execution context in bulk (no replay/re-render needed —
     // the next main() call will see the accumulated data).
     let resolvedWindowId: number | null = null;
-    const pendingMessages: any[] = [];
+    const pendingMessages: WindowMessage[] = [];
 
-    const onMessage = async (message: any) => {
+    const onMessage = async (message: WindowMessage) => {
       // Buffer messages while we don't have a windowId yet.
       // They will be merged into execution context after onOpenWindow resolves.
       if (resolvedWindowId === null) {
@@ -490,6 +472,7 @@ export {
   type Range,
   type ParsedValue,
   type ParsedHeader,
+  type JsonFieldEntry,
   type ParsedRequest,
   type ParsedResponse,
   type HeaderRangeOptions,
@@ -554,7 +537,7 @@ function preprocessPluginCode(code: string): string {
 }
 
 export class Host {
-  private capabilities: Map<string, (...args: any[]) => any> = new Map();
+  private capabilities: Map<string, AnyFunction> = new Map();
   private onProve: (
     requestOptions: {
       url: string;
@@ -570,7 +553,7 @@ export class Host {
       handlers: Handler[];
     },
     onProgress?: (data: ProveProgressData) => void,
-  ) => Promise<any>;
+  ) => Promise<unknown>;
   private onRenderPluginUi: (windowId: number, result: DomJson) => void;
   private onCloseWindow: (windowId: number) => void;
   private onOpenWindow: (
@@ -598,7 +581,7 @@ export class Host {
         handlers: Handler[];
       },
       onProgress?: (data: ProveProgressData) => void,
-    ) => Promise<any>;
+    ) => Promise<unknown>;
     onRenderPluginUi: (windowId: number, result: DomJson) => void;
     onCloseWindow: (windowId: number) => void;
     onOpenWindow: (
@@ -620,12 +603,12 @@ export class Host {
     logger.init(options.logLevel ?? DEFAULT_LOG_LEVEL);
   }
 
-  addCapability(name: string, handler: (...args: any[]) => any): void {
+  addCapability(name: string, handler: AnyFunction): void {
     this.capabilities.set(name, handler);
   }
 
-  async createEvalCode(capabilities?: { [method: string]: (...args: any[]) => any }): Promise<{
-    eval: (code: string) => Promise<any>;
+  async createEvalCode(capabilities?: Record<string, AnyFunction>): Promise<{
+    eval: (code: string) => Promise<unknown>;
     dispose: () => void;
   }> {
     const { runSandboxed } = await loadQuickJs(variant);
@@ -708,19 +691,14 @@ export class Host {
       plugin?: string;
       requests?: InterceptedRequest[];
       headers?: InterceptedRequestHeader[];
-      context?: {
-        [functionName: string]: {
-          effects: any[][];
-          selectors: any[][];
-        };
-      };
+      context?: HookContext;
       currentContext?: string;
     },
   ): void {
     updateExecutionContext(uuid, params);
   }
 
-  async getPluginConfig(code: string): Promise<any> {
+  async getPluginConfig(code: string): Promise<PluginConfig | undefined> {
     const sandbox = await this.createEvalCode();
     try {
       const processedCode = preprocessPluginCode(code);
@@ -744,8 +722,8 @@ const done = env.done;
 ${processedCode};
 `);
 
-      const { config } = exportedCode;
-      return config;
+      const exported = exportedCode as Record<string, unknown> | undefined;
+      return exported?.config as PluginConfig | undefined;
     } finally {
       sandbox.dispose();
     }
@@ -765,16 +743,11 @@ ${processedCode};
   ): Promise<unknown> {
     const uuid = uuidv4();
 
-    const context: {
-      [functionName: string]: {
-        effects: any[][];
-        selectors: any[][];
-      };
-    } = {};
+    const context: HookContext = {};
 
-    const stateStore: { [key: string]: any } = {};
+    const stateStore: Record<string, unknown> = {};
 
-    let doneResolve: (args?: any[]) => void;
+    let doneResolve: (value?: unknown) => void;
     let doneReject: (error: Error) => void;
 
     // Lifecycle tracker prevents sandbox disposal while async callbacks are in-flight.
@@ -911,7 +884,10 @@ ${processedCode};
       useHeaders: makeUseHeaders(uuid, context),
       useState: makeUseState(uuid, stateStore, eventEmitter),
       setState: makeSetState(uuid, stateStore, eventEmitter),
-      prove: async (requestOptions: any, proverOptions: any) => {
+      prove: async (
+        requestOptions: Parameters<typeof onProve>[0],
+        proverOptions: Parameters<typeof onProve>[1],
+      ) => {
         const setProgress = (data: ProveProgressData) => {
           stateStore['_proveProgress'] = data;
           eventEmitter.emit({
@@ -933,7 +909,7 @@ ${processedCode};
           throw err;
         }
       },
-      done: (args?: any[]) => {
+      done: (args?: unknown) => {
         if (lifecycle.isCompleted) return;
         lifecycle.isCompleted = true;
 
@@ -961,10 +937,10 @@ ${processedCode};
       },
     });
 
-    let exportedCode;
+    let exportedCode: Record<string, unknown>;
     try {
       const processedCode = preprocessPluginCode(code);
-      exportedCode = await sandbox.eval(`
+      const evalResult = await sandbox.eval(`
 const div = env.div;
 const button = env.button;
 const input = env.input;
@@ -979,18 +955,21 @@ const closeWindow = env.closeWindow;
 const done = env.done;
 ${processedCode};
 `);
+      exportedCode = (evalResult ?? {}) as Record<string, unknown>;
     } catch (evalError) {
       const error = evalError instanceof Error ? evalError : new Error(String(evalError));
       terminateWithError(new Error(`Plugin evaluation failed: ${error.message}`), sandbox);
       return donePromise;
     }
 
-    const { main: mainFn, ...args } = exportedCode;
+    const { main: rawMainFn, ...args } = exportedCode;
 
-    if (typeof mainFn !== 'function') {
+    if (typeof rawMainFn !== 'function') {
       terminateWithError(new Error('Main function not found in plugin'), sandbox);
       return donePromise;
     }
+
+    const mainFn = rawMainFn as (...args: unknown[]) => DomJson | null;
 
     const callbacks: {
       [callbackName: string]: () => Promise<void>;
@@ -998,7 +977,7 @@ ${processedCode};
 
     for (const key in args) {
       if (typeof args[key] === 'function') {
-        callbacks[key] = args[key];
+        callbacks[key] = args[key] as () => Promise<void>;
       }
     }
 
@@ -1105,7 +1084,10 @@ ${processedCode};
   };
 }
 
-async function waitForWindow(callback: () => Promise<any>, retry = 0): Promise<any | null> {
+async function waitForWindow(
+  callback: () => Promise<number | undefined>,
+  retry = 0,
+): Promise<number | null> {
   const resp = await callback();
 
   if (resp) return resp;

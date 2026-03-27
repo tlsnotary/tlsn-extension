@@ -27,7 +27,12 @@ const testWorkerPath = path.resolve(__dirname, 'tests/browser/prove-worker.js');
  * This is necessary because Vite injects HMR client code (/@vite/client)
  * that references document/window, crashing Web Workers.
  */
-function serveRaw(res: any, filePath: string) {
+function serveRaw(
+  res: {
+    setHeader: (name: string, value: string) => void;
+  } & NodeJS.WritableStream,
+  filePath: string,
+) {
   const ext = path.extname(filePath);
   const contentType =
     ext === '.wasm'
