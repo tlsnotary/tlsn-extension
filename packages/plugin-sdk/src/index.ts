@@ -814,6 +814,12 @@ ${processedCode};
       const finalize = () => {
         executionContextRegistry.delete(uuid);
 
+        // Reject first, before disposing sandbox.
+        // sandbox.dispose() can crash the WASM runtime (e.g. QuickJS
+        // gc_obj_list assertion), which would prevent doneReject from
+        // ever being called if it came after dispose.
+        doneReject(error);
+
         // Dispose sandbox if provided
         if (sandbox) {
           try {
@@ -822,8 +828,6 @@ ${processedCode};
             logger.error('[executePlugin] Error disposing sandbox:', disposeError);
           }
         }
-
-        doneReject(error);
       };
 
       // Defer sandbox disposal until all in-flight callbacks have completed.
