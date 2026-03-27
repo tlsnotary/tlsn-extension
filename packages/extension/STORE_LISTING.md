@@ -1,6 +1,7 @@
 # Chrome Web Store Listing
 
 ## Extension Name
+
 TLSNotary
 
 ## Description
@@ -18,6 +19,7 @@ Have you ever needed to prove that a website displayed certain information? Whet
 
 **Privacy-Preserving Proofs**
 Unlike screenshots or screen recordings that can be easily faked and expose all your data, TLSNotary proofs are:
+
 - Cryptographically verifiable and cannot be forged
 - Selectively disclosed—reveal only the specific data points you choose while keeping everything else private
 - Generated without exposing your login credentials or session tokens to third parties
@@ -126,12 +128,15 @@ Licensed under MIT and Apache 2.0 licenses.
 ## Screenshot Captions
 
 ### Screenshot 1: Plugin UI
+
 **Caption:** "Prove any web data without compromising privacy"
 
 ### Screenshot 2: Permission Popup
+
 **Caption:** "Control exactly what data you reveal in each proof"
 
 ### Screenshot 3: Developer Console
+
 **Caption:** "Build custom plugins with the built-in code editor"
 
 ---

@@ -39,8 +39,7 @@ function convertArrayBuffersToArrays(obj: unknown): unknown {
   if (
     obj instanceof ArrayBuffer ||
     (typeof obj === 'object' &&
-      (obj as { constructor?: { name?: string } }).constructor?.name ===
-        'ArrayBuffer')
+      (obj as { constructor?: { name?: string } }).constructor?.name === 'ArrayBuffer')
   ) {
     return Array.from(new Uint8Array(obj as ArrayBuffer));
   }
@@ -60,9 +59,7 @@ function convertArrayBuffersToArrays(obj: unknown): unknown {
     const converted: Record<string, unknown> = {};
     for (const key in obj as Record<string, unknown>) {
       if (Object.hasOwn(obj, key)) {
-        converted[key] = convertArrayBuffersToArrays(
-          (obj as Record<string, unknown>)[key],
-        );
+        converted[key] = convertArrayBuffersToArrays((obj as Record<string, unknown>)[key]);
       }
     }
     return converted;
@@ -170,19 +167,14 @@ export class WindowManager implements IWindowManager {
   async closeWindow(windowId: number): Promise<void> {
     const window = this.windows.get(windowId);
     if (!window) {
-      logger.warn(
-        `[WindowManager] Attempted to close non-existent window: ${windowId}`,
-      );
+      logger.warn(`[WindowManager] Attempted to close non-existent window: ${windowId}`);
       return;
     }
 
     // Hide overlay before closing
     if (window.overlayVisible) {
       await this.hideOverlay(windowId).catch((error) => {
-        logger.warn(
-          `[WindowManager] Failed to hide overlay for window ${windowId}:`,
-          error,
-        );
+        logger.warn(`[WindowManager] Failed to hide overlay for window ${windowId}:`, error);
       });
     }
 
@@ -197,9 +189,7 @@ export class WindowManager implements IWindowManager {
       windowId,
     });
 
-    logger.debug(
-      `[WindowManager] Window closed: ${window.uuid} (ID: ${window.id})`,
-    );
+    logger.debug(`[WindowManager] Window closed: ${window.uuid} (ID: ${window.id})`);
   }
 
   /**
@@ -284,9 +274,7 @@ export class WindowManager implements IWindowManager {
   addRequest(windowId: number, request: InterceptedRequest): void {
     const window = this.windows.get(windowId);
     if (!window) {
-      logger.error(
-        `[WindowManager] Cannot add request to non-existent window: ${windowId}`,
-      );
+      logger.error(`[WindowManager] Cannot add request to non-existent window: ${windowId}`);
       return;
     }
 
@@ -296,9 +284,7 @@ export class WindowManager implements IWindowManager {
     }
 
     // Convert ArrayBuffers to number arrays for JSON serialization
-    const convertedRequest = convertArrayBuffersToArrays(
-      request,
-    ) as InterceptedRequest;
+    const convertedRequest = convertArrayBuffersToArrays(request) as InterceptedRequest;
 
     window.requests.push(convertedRequest);
 
@@ -307,10 +293,7 @@ export class WindowManager implements IWindowManager {
     // Update overlay if visible
     if (window.overlayVisible) {
       this.updateOverlay(windowId).catch((error) => {
-        logger.warn(
-          `[WindowManager] Failed to update overlay for window ${windowId}:`,
-          error,
-        );
+        logger.warn(`[WindowManager] Failed to update overlay for window ${windowId}:`, error);
       });
     }
 
@@ -341,9 +324,7 @@ export class WindowManager implements IWindowManager {
   addHeader(windowId: number, header: InterceptedRequestHeader): void {
     const window = this.windows.get(windowId);
     if (!window) {
-      logger.error(
-        `[WindowManager] Cannot add header to non-existent window: ${windowId}`,
-      );
+      logger.error(`[WindowManager] Cannot add header to non-existent window: ${windowId}`);
       return;
     }
 
@@ -383,16 +364,10 @@ export class WindowManager implements IWindowManager {
     return window?.headers || [];
   }
 
-  async showPluginUI(
-    windowId: number,
-    json: unknown,
-    retryCount = 0,
-  ): Promise<void> {
+  async showPluginUI(windowId: number, json: unknown, retryCount = 0): Promise<void> {
     const window = this.windows.get(windowId);
     if (!window) {
-      logger.error(
-        `[WindowManager] Cannot show plugin UI for non-existent window: ${windowId}`,
-      );
+      logger.error(`[WindowManager] Cannot show plugin UI for non-existent window: ${windowId}`);
       return;
     }
 
@@ -413,9 +388,7 @@ export class WindowManager implements IWindowManager {
         );
 
         // Wait and retry
-        await new Promise((resolve) =>
-          setTimeout(resolve, OVERLAY_RETRY_DELAY_MS),
-        );
+        await new Promise((resolve) => setTimeout(resolve, OVERLAY_RETRY_DELAY_MS));
 
         // Check if window still exists before retrying
         if (this.windows.has(windowId)) {
@@ -451,9 +424,7 @@ export class WindowManager implements IWindowManager {
   async showOverlay(windowId: number, retryCount = 0): Promise<void> {
     const window = this.windows.get(windowId);
     if (!window) {
-      logger.error(
-        `[WindowManager] Cannot show overlay for non-existent window: ${windowId}`,
-      );
+      logger.error(`[WindowManager] Cannot show overlay for non-existent window: ${windowId}`);
       return;
     }
 
@@ -474,9 +445,7 @@ export class WindowManager implements IWindowManager {
         );
 
         // Wait and retry
-        await new Promise((resolve) =>
-          setTimeout(resolve, OVERLAY_RETRY_DELAY_MS),
-        );
+        await new Promise((resolve) => setTimeout(resolve, OVERLAY_RETRY_DELAY_MS));
 
         // Check if window still exists before retrying
         if (this.windows.has(windowId)) {
@@ -512,9 +481,7 @@ export class WindowManager implements IWindowManager {
   async hideOverlay(windowId: number): Promise<void> {
     const window = this.windows.get(windowId);
     if (!window) {
-      logger.error(
-        `[WindowManager] Cannot hide overlay for non-existent window: ${windowId}`,
-      );
+      logger.error(`[WindowManager] Cannot hide overlay for non-existent window: ${windowId}`);
       return;
     }
 
@@ -526,10 +493,7 @@ export class WindowManager implements IWindowManager {
       window.overlayVisible = false;
       logger.debug(`[WindowManager] Overlay hidden for window ${windowId}`);
     } catch (error) {
-      logger.warn(
-        `[WindowManager] Failed to hide overlay for window ${windowId}:`,
-        error,
-      );
+      logger.warn(`[WindowManager] Failed to hide overlay for window ${windowId}:`, error);
       // Don't throw - window may already be closed
     }
   }
@@ -575,10 +539,7 @@ export class WindowManager implements IWindowManager {
         `[WindowManager] Overlay updated for window ${windowId} with ${window.requests.length} requests`,
       );
     } catch (error) {
-      logger.warn(
-        `[WindowManager] Failed to update overlay for window ${windowId}:`,
-        error,
-      );
+      logger.warn(`[WindowManager] Failed to update overlay for window ${windowId}:`, error);
     }
   }
 
@@ -655,10 +616,7 @@ export class WindowManager implements IWindowManager {
    * Enqueue a header for batched emission.
    * Same leading-edge + trailing-edge pattern as requests.
    */
-  private enqueueHeader(
-    windowId: number,
-    header: InterceptedRequestHeader,
-  ): void {
+  private enqueueHeader(windowId: number, header: InterceptedRequestHeader): void {
     let batch = this.headerBatches.get(windowId);
 
     if (!batch) {
@@ -771,9 +729,7 @@ export class WindowManager implements IWindowManager {
     }
 
     if (cleanedCount > 0) {
-      logger.debug(
-        `[WindowManager] Cleanup complete: ${cleanedCount} window(s) removed`,
-      );
+      logger.debug(`[WindowManager] Cleanup complete: ${cleanedCount} window(s) removed`);
     }
   }
 }

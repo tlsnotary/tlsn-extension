@@ -28,8 +28,7 @@ class SessionClient {
     return new Promise((resolve, reject) => {
       this.ws = new WebSocket(`${verifierUrl}/session`);
       this.ws.onopen = () => resolve();
-      this.ws.onerror = () =>
-        reject(new Error(`Session WebSocket failed: ${verifierUrl}`));
+      this.ws.onerror = () => reject(new Error(`Session WebSocket failed: ${verifierUrl}`));
     });
   }
 
@@ -103,14 +102,7 @@ function log(level, message) {
 // ============================================================================
 
 async function runProve(config) {
-  const {
-    verifierPort,
-    serverName,
-    requestPath,
-    maxSentData,
-    maxRecvData,
-    threads,
-  } = config;
+  const { verifierPort, serverName, requestPath, maxSentData, maxRecvData, threads } = config;
 
   const verifierBase = `ws://127.0.0.1:${verifierPort}`;
 
@@ -169,18 +161,11 @@ async function runProve(config) {
   const transcript = prover.transcript();
   const sent = new Uint8Array(transcript.sent);
   const recv = new Uint8Array(transcript.recv);
-  log(
-    'info',
-    `Transcript: sent=${sent.length} bytes, recv=${recv.length} bytes`,
-  );
+  log('info', `Transcript: sent=${sent.length} bytes, recv=${recv.length} bytes`);
 
   // 7. Build reveal config (reveal everything)
-  const sentRanges = [
-    { start: 0, end: sent.length, handler: { type: 'SENT', part: 'ALL' } },
-  ];
-  const recvRanges = [
-    { start: 0, end: recv.length, handler: { type: 'RECV', part: 'ALL' } },
-  ];
+  const sentRanges = [{ start: 0, end: sent.length, handler: { type: 'SENT', part: 'ALL' } }];
+  const recvRanges = [{ start: 0, end: recv.length, handler: { type: 'RECV', part: 'ALL' } }];
 
   // 8. Send reveal config to verifier via session WebSocket
   session.sendRevealConfig(sentRanges, recvRanges);

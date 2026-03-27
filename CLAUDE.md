@@ -5,6 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ### Monorepo Commands (from root)
+
 - `npm install` - Install all dependencies for all packages and set up workspace links
 - `npm run dev` - Start extension development server on port 3000 (auto-builds dependencies)
 - `npm run build` - Build production extension (auto-builds dependencies first)
@@ -22,6 +23,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run docker:down` - Stop demo Docker services
 
 ### Extension Package Commands
+
 - `npm run build` - Production build with zip creation
 - `npm run build:webpack` - Direct webpack build
 - `npm run dev` - Start webpack dev server with hot reload
@@ -32,12 +34,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run serve:test` - Python HTTP server for integration tests
 
 ### Common Package Commands (`packages/common`)
+
 - `npm run build` - Build TypeScript to dist/
 - `npm run test` - Run Vitest tests
 - `npm run lint` - Run all linters (ESLint, Prettier, TypeScript)
 - `npm run lint:fix` - Auto-fix linting issues
 
 ### Plugin SDK Package Commands
+
 - `npm run build` - Build isomorphic package with Vite + TypeScript declarations
 - `npm run test` - Run Vitest tests
 - `npm run test:coverage` - Generate test coverage
@@ -45,6 +49,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run lint:fix` - Auto-fix linting issues
 
 ### Verifier Server Package Commands
+
 - `cargo run` - Run development server on port 7047
 - `cargo build --release` - Build production binary
 - `cargo test` - Run Rust tests
@@ -63,6 +68,7 @@ The project is organized as a monorepo using npm workspaces with the following p
 
 **Build Dependencies:**
 The extension depends on `@tlsn/common` and `@tlsn/plugin-sdk`. These must be built before the extension:
+
 ```bash
 # From root - builds all dependencies automatically
 npm run dev
@@ -78,10 +84,13 @@ cd packages/extension && npm run dev
 ## Extension Architecture Overview
 
 ### Extension Entry Points
+
 The extension has 5 main entry points defined in `webpack.config.js`:
 
 #### 1. **Background Service Worker** (`src/entries/Background/index.ts`)
+
 Core responsibilities:
+
 - **Multi-Window Management**: Uses `WindowManager` class to track multiple browser windows simultaneously
 - **Session Management**: Uses `SessionManager` class for plugin session lifecycle (imported but not yet integrated)
 - **Request Interception**: Uses `webRequest.onBeforeRequest` API to intercept HTTP requests per window
@@ -92,32 +101,40 @@ Core responsibilities:
 - Uses `webextension-polyfill` for cross-browser compatibility
 
 Key message handlers:
+
 - `PING` → `PONG` (connectivity test)
 - `OPEN_WINDOW` → Creates new managed window with URL validation, request tracking, and optional overlay
 - `TLSN_CONTENT_TO_EXTENSION` → Legacy handler that opens x.com window (backward compatibility)
 - `CONTENT_SCRIPT_READY` → Triggers plugin UI re-render when content script initializes in a managed window
 
 #### 2. **Content Script** (`src/entries/Content/index.ts`)
+
 Injected into all HTTP/HTTPS pages via manifest. Responsibilities:
+
 - **Script Injection**: Injects `content.bundle.js` into page context to expose page-accessible API
 - **Plugin UI Rendering**: Renders plugin UI from DOM JSON into actual DOM elements in container
 - **Message Bridge**: Bridges messages between page scripts and extension background
 - **Lifecycle Notifications**: Notifies background when content script is ready
 
 Message handlers:
+
 - `GET_PAGE_INFO` → Returns page title, URL, domain
 - `RE_RENDER_PLUGIN_UI` → Renders plugin UI from DOM JSON structure into DOM container
 - `HIDE_TLSN_OVERLAY` → Removes plugin UI container and clears state
 
 Window message handler:
+
 - Listens for `TLSN_CONTENT_SCRIPT_MESSAGE` from page scripts
 - Forwards to background via `TLSN_CONTENT_TO_EXTENSION`
 
 On initialization:
+
 - Sends `CONTENT_SCRIPT_READY` message to background to trigger UI re-render for managed windows
 
 #### 3. **Content Module** (`src/entries/Content/content.ts`)
+
 Injected script running in page context (not content script context):
+
 - **Page API**: Exposes `window.tlsn` object to web pages with:
   - `sendMessage(data)`: Legacy method for backward compatibility
   - `open(url, options)`: Opens new managed window with request interception
@@ -125,12 +142,13 @@ Injected script running in page context (not content script context):
 - **Web Accessible Resource**: Listed in manifest's `web_accessible_resources`
 
 Page API usage:
+
 ```javascript
 // Open a new window with request tracking
 await window.tlsn.open('https://x.com', {
   width: 900,
   height: 700,
-  showOverlay: true
+  showOverlay: true,
 });
 
 // Legacy method
@@ -138,7 +156,9 @@ window.tlsn.sendMessage({ action: 'startTLSN' });
 ```
 
 #### 4. **Popup UI** (`src/entries/Popup/index.tsx`)
+
 React-based extension popup:
+
 - **Simple Interface**: "Hello World" boilerplate with test button
 - **Redux Integration**: Connected to Redux store via `react-redux`
 - **Message Sending**: Can send messages to background script
@@ -146,7 +166,9 @@ React-based extension popup:
 - Entry point: `popup.html` (400x300px default size)
 
 #### 5. **DevConsole** (`src/entries/DevConsole/index.tsx`)
+
 Interactive development console for testing TLSN plugins:
+
 - **Code Editor**: CodeMirror with JavaScript syntax highlighting and one-dark theme
 - **Live Execution**: Runs plugin code in QuickJS sandbox via background service worker
 - **Console Output**: Timestamped entries showing execution results, errors, and timing
@@ -155,6 +177,7 @@ Interactive development console for testing TLSN plugins:
 
 **Plugin Structure:**
 Plugins must export:
+
 - `config`: Metadata (`name`, `description`)
 - `main()`: Reactive UI rendering function (called when state changes)
 - `onClick()`: Click handler for proof generation
@@ -163,7 +186,9 @@ Plugins must export:
 - Capabilities: `openWindow()`, `prove()`, `done()`
 
 #### 6. **Offscreen Document** (`src/entries/Offscreen/index.tsx`)
+
 Isolated React component for background processing:
+
 - **Purpose**: Handles DOM operations unavailable in service workers
 - **SessionManager Integration**: Executes plugin code via `SessionManager.executePlugin()`
 - **Message Handling**: Listens for `EXEC_CODE` messages from DevConsole
@@ -173,7 +198,9 @@ Isolated React component for background processing:
 ### Key Classes
 
 #### **WindowManager** (`src/background/WindowManager.ts`)
+
 Centralized management for multiple browser windows:
+
 - **Window Tracking**: Maintains Map of window ID to ManagedWindow objects
 - **Request History**: Each window stores up to 1000 intercepted requests
 - **Overlay Control**: Shows/hides TLSN overlay per window with retry logic
@@ -182,13 +209,16 @@ Centralized management for multiple browser windows:
 - **Auto-cleanup**: Removes invalid windows on periodic intervals
 
 Key methods:
+
 - `registerWindow(config)`: Create new managed window with UUID
 - `addRequest(windowId, request)`: Add intercepted request to window
 - `showOverlay(windowId)`: Display request overlay (with retry)
 - `cleanupInvalidWindows()`: Remove closed windows from tracking
 
 #### **SessionManager** (`src/offscreen/SessionManager.ts`)
+
 Plugin session management with TLSNotary proof generation:
+
 - Uses `@tlsn/plugin-sdk` Host class for sandboxed plugin execution
 - Provides unified `prove()` capability to plugins via QuickJS environment
 - Integrates with `ProveManager` for WASM-based TLS proof generation
@@ -196,6 +226,7 @@ Plugin session management with TLSNotary proof generation:
 
 **Key Capability - Unified prove() API:**
 The SessionManager exposes a single `prove()` function to plugins that handles the entire proof pipeline:
+
 1. Creates prover connection to verifier server
 2. Sends HTTP request through TLS prover
 3. Captures TLS transcript (sent/received bytes)
@@ -205,12 +236,14 @@ The SessionManager exposes a single `prove()` function to plugins that handles t
 
 **Handler System:**
 Plugins control what data is revealed in proofs using Handler objects:
+
 - `type`: `'SENT'` (request data) or `'RECV'` (response data)
 - `part`: `'START_LINE'`, `'PROTOCOL'`, `'METHOD'`, `'REQUEST_TARGET'`, `'STATUS_CODE'`, `'HEADERS'`, `'BODY'`
 - `action`: `'REVEAL'` (plaintext) or `'PEDERSEN'` (hash commitment)
 - `params`: Optional parameters for granular control (e.g., `hideKey`, `hideValue`, `type: 'json'`, `path`)
 
 Example prove() call:
+
 ```javascript
 const proof = await prove(
   { url: 'https://api.x.com/endpoint', method: 'GET', headers: {...} },
@@ -229,7 +262,9 @@ const proof = await prove(
 ```
 
 ### State Management
+
 Redux store located in `src/reducers/index.tsx`:
+
 - **App State Interface**: `{ message: string, count: number }`
 - **Action Creators**:
   - `setMessage(message: string)` - Updates message state
@@ -242,6 +277,7 @@ Redux store located in `src/reducers/index.tsx`:
 ### Message Passing Architecture
 
 **Page → Extension Flow (Window Opening)**:
+
 ```
 Page: window.tlsn.open(url)
   ↓ window.postMessage(TLSN_OPEN_WINDOW)
@@ -253,6 +289,7 @@ Background: WindowManager.registerWindow()
 ```
 
 **Request Interception Flow**:
+
 ```
 Browser: HTTP request in managed window
   ↓ webRequest.onBeforeRequest
@@ -262,6 +299,7 @@ Content Script: Update overlay UI
 ```
 
 **Plugin UI Re-rendering Flow**:
+
 ```
 Content Script: Loads in managed window
   ↓ browser.runtime.sendMessage(CONTENT_SCRIPT_READY)
@@ -273,12 +311,14 @@ Content Script: Renders plugin UI from DOM JSON
 ```
 
 **Multi-Window Management**:
+
 - Each window has unique UUID and separate request history
 - Overlay updates are sent only to the specific window's tab
 - Windows are tracked by both Chrome window ID and tab ID
 - Maximum 10 concurrent managed windows
 
 **Security**:
+
 - Content script validates origin (`event.origin === window.location.origin`)
 - URL validation using `validateUrl()` utility before window creation
 - Request interception limited to managed windows only
@@ -286,6 +326,7 @@ Content Script: Renders plugin UI from DOM JSON
 ### TLSN Overlay Feature
 
 The overlay is a full-screen modal showing intercepted requests:
+
 - **Design**: Dark gradient background (rgba(0,0,0,0.85)) with glassmorphic message box
 - **Content**:
   - Header: "TLSN Plugin In Progress" with gradient text
@@ -298,6 +339,7 @@ The overlay is a full-screen modal showing intercepted requests:
 ### Build Configuration
 
 **Webpack 5 Setup** (`webpack.config.js`):
+
 - **Entry Points**: popup, background, contentScript, content, offscreen
 - **Output**: `build/` directory with `[name].bundle.js` pattern
 - **Loaders**:
@@ -319,6 +361,7 @@ The overlay is a full-screen modal showing intercepted requests:
   - WebSocket transport for HMR
 
 **Production Build** (`utils/build.js`):
+
 - Adds `ZipPlugin` to create `tlsn-extension-{version}.zip` in `zip/` directory
 - Uses package.json version for naming
 - Exits with code 1 on errors or warnings
@@ -326,6 +369,7 @@ The overlay is a full-screen modal showing intercepted requests:
 ### Extension Permissions
 
 Defined in `src/manifest.json`:
+
 - `offscreen` - Create offscreen documents for background processing
 - `webRequest` - Intercept HTTP/HTTPS requests
 - `storage` - Persistent local storage
@@ -340,6 +384,7 @@ Defined in `src/manifest.json`:
 ### TypeScript Configuration
 
 **tsconfig.json**:
+
 - Target: `esnext`
 - Module: `esnext` with Node resolution
 - Strict mode enabled
@@ -349,52 +394,62 @@ Defined in `src/manifest.json`:
 - Types: `chrome` (for Chrome extension APIs)
 
 **Type Declarations**:
+
 - `src/global.d.ts` - Declares PNG module types
 - Uses `@types/chrome`, `@types/webextension-polyfill`, `@types/react`, etc.
 
 ### Styling
 
 **Tailwind CSS**:
+
 - Configuration: `tailwind.config.js`
 - Content: Scans all `src/**/*.{js,jsx,ts,tsx}`
 - Custom theme: Primary color `#243f5f`
 - PostCSS pipeline with `postcss-preset-env`
 
 **SCSS**:
+
 - FontAwesome integration (all icon sets: brands, solid, regular)
 - Custom utility classes: `.button`, `.input`, `.select`, `.textarea`
 - BEM-style modifiers: `.button--primary`
 - Tailwind @apply directives mixed with custom styles
 
 **Popup Dimensions**:
+
 - Default: 480x600px (set in index.scss body styles)
 - Customizable via inline styles or props
 
 ## Development Workflow
 
 1. **Initial Setup** (from repository root):
+
    ```bash
    npm install  # Requires Node.js >= 18
    ```
 
 2. **Development Mode**:
+
    ```bash
    npm run dev  # Starts webpack-dev-server on port 3000
    ```
+
    - Hot module replacement enabled
    - Files written to `packages/extension/build/` directory
    - Load extension in Chrome: `chrome://extensions/` → Developer mode → Load unpacked → Select `build/` folder
 
 3. **Testing Multi-Window Functionality**:
+
    ```javascript
    // From any webpage with extension loaded:
    await window.tlsn.open('https://x.com', { showOverlay: true });
    ```
+
    - Opens new window with request interception
    - Displays overlay showing captured HTTP requests
    - Maximum 10 concurrent windows
 
 4. **Production Build**:
+
    ```bash
    NODE_ENV=production npm run build  # Creates zip in packages/extension/zip/
    ```
@@ -408,16 +463,25 @@ Defined in `src/manifest.json`:
 ## Plugin SDK Package (`packages/plugin-sdk`)
 
 ### Host Class API
+
 The SDK provides a `Host` class for sandboxed plugin execution with capability injection:
 
 ```typescript
 import Host from '@tlsn/plugin-sdk';
 
 const host = new Host({
-  onProve: async (requestOptions, proverOptions) => { /* proof generation */ },
-  onRenderPluginUi: (windowId, domJson) => { /* render UI */ },
-  onCloseWindow: (windowId) => { /* cleanup */ },
-  onOpenWindow: async (url, options) => { /* open window */ },
+  onProve: async (requestOptions, proverOptions) => {
+    /* proof generation */
+  },
+  onRenderPluginUi: (windowId, domJson) => {
+    /* render UI */
+  },
+  onCloseWindow: (windowId) => {
+    /* cleanup */
+  },
+  onOpenWindow: async (url, options) => {
+    /* open window */
+  },
 });
 
 // Execute plugin code
@@ -425,6 +489,7 @@ await host.executePlugin(pluginCode, { eventEmitter });
 ```
 
 **Capabilities injected into plugin environment:**
+
 - `prove(requestOptions, proverOptions)`: Unified TLS proof generation
 - `openWindow(url, options)`: Open managed browser windows
 - `useHeaders(filter)`: Subscribe to intercepted HTTP headers
@@ -437,14 +502,12 @@ await host.executePlugin(pluginCode, { eventEmitter });
 - `done(result)`: Complete plugin execution
 
 **State Management Example:**
+
 ```javascript
 function main() {
   const count = useState('counter', 0);
 
-  return div({}, [
-    div({}, [`Count: ${count}`]),
-    button({ onclick: 'handleClick' }, ['Increment'])
-  ]);
+  return div({}, [div({}, [`Count: ${count}`]), button({ onclick: 'handleClick' }, ['Increment'])]);
 }
 
 async function handleClick() {
@@ -454,6 +517,7 @@ async function handleClick() {
 ```
 
 ### Parser Class
+
 HTTP message parser with byte-level range tracking:
 
 ```typescript
@@ -467,6 +531,7 @@ const ranges = parser.ranges.body('screen_name', { type: 'json', hideKey: true }
 ```
 
 **Features:**
+
 - Parse HTTP requests and responses
 - Handle chunked transfer encoding
 - Extract header ranges with case-insensitive names
@@ -475,10 +540,12 @@ const ranges = parser.ranges.body('screen_name', { type: 'json', hideKey: true }
 - Track byte offsets for TLSNotary selective disclosure
 
 **Limitations:**
+
 - Nested JSON field access (e.g., `"user.profile.name"`) not yet supported
 - Multi-chunk responses map to first chunk's offset only
 
 ### QuickJS Sandboxing
+
 - Uses `@sebastianwessel/quickjs` for secure JavaScript execution
 - Plugins run in isolated WebAssembly environment
 - Network and filesystem access disabled by default
@@ -487,6 +554,7 @@ const ranges = parser.ranges.body('screen_name', { type: 'json', hideKey: true }
 - Force re-render: `main(true)` can be called to force UI re-render even if state hasn't changed (used on content script initialization)
 
 ### Build Configuration
+
 - **Vite**: Builds isomorphic package for Node.js and browser
 - **TypeScript**: Strict mode with full type declarations
 - **Testing**: Vitest with coverage reporting
@@ -497,6 +565,7 @@ const ranges = parser.ranges.body('screen_name', { type: 'json', hideKey: true }
 Rust-based HTTP/WebSocket server for TLSNotary verification:
 
 **Architecture:**
+
 - Built with Axum web framework
 - WebSocket endpoints for prover-verifier communication
 - Session management with UUID-based tracking
@@ -504,12 +573,14 @@ Rust-based HTTP/WebSocket server for TLSNotary verification:
 - Webhook system for external service notifications
 
 **Endpoints:**
+
 - `GET /health` → Health check (returns "ok")
 - `WS /session` → Create new verification session
 - `WS /verifier?sessionId=<id>` → WebSocket verification endpoint
 - `WS /proxy?token=<host>` → WebSocket proxy for TLS connections (compatible with notary.pse.dev)
 
 **Configuration:**
+
 - Default port: `7047`
 - Configurable max sent/received data sizes
 - Request timeout handling
@@ -517,26 +588,29 @@ Rust-based HTTP/WebSocket server for TLSNotary verification:
 - YAML configuration file (`config.yaml`) for webhooks
 
 **Webhook Configuration (`config.yaml`):**
+
 ```yaml
 webhooks:
   # Per-server webhooks
-  "api.x.com":
-    url: "https://your-backend.example.com/webhook/twitter"
+  'api.x.com':
+    url: 'https://your-backend.example.com/webhook/twitter'
     headers:
-      Authorization: "Bearer your-secret-token"
-      X-Source: "tlsn-verifier"
+      Authorization: 'Bearer your-secret-token'
+      X-Source: 'tlsn-verifier'
 
   # Wildcard for unmatched servers
-  "*":
-    url: "https://your-backend.example.com/webhook/default"
+  '*':
+    url: 'https://your-backend.example.com/webhook/default'
 ```
 
 Webhooks receive POST requests with:
+
 - Session info (ID, custom data)
 - Redacted transcripts (only revealed ranges visible)
 - Reveal configuration
 
 **Running the Server:**
+
 ```bash
 cd packages/verifier
 cargo run                    # Development
@@ -545,6 +619,7 @@ cargo test                   # Tests
 ```
 
 **Session Flow:**
+
 1. Extension creates session via `/session` WebSocket
 2. Server returns `sessionId` and waits for verifier connection
 3. Extension connects to `/verifier?sessionId=<id>`
@@ -559,6 +634,7 @@ Shared utilities used by extension and plugin-sdk:
 
 **Logger System:**
 Centralized logging with configurable levels:
+
 ```typescript
 import { logger, LogLevel } from '@tlsn/common';
 
@@ -576,12 +652,14 @@ logger.setLevel(LogLevel.WARN);
 ```
 
 **Log Levels:**
+
 - `DEBUG` (0) - Most verbose, includes all messages
 - `INFO` (1) - Informational messages and above
 - `WARN` (2) - Warnings and errors only
 - `ERROR` (3) - Errors only
 
 **Output Format:**
+
 ```
 [HH:MM:SS] [LEVEL] message
 ```
@@ -591,21 +669,25 @@ logger.setLevel(LogLevel.WARN);
 Docker-based demo environment for testing plugins:
 
 **Files:**
+
 - `src/plugins/*.plugin.ts` - Plugin source files (TypeScript)
 - `public/plugins/*.js` - Built plugin files (generated by `build-plugins.js`)
 - `docker-compose.yml` - Docker services configuration
 - `nginx.conf` - Reverse proxy configuration
 
 **Docker Services:**
+
 1. `verifier` - TLSNotary verifier server (port 7047)
 2. `demo-static` - nginx serving static plugin files
 3. `nginx` - Reverse proxy (port 80)
 
 **Environment Variables (via `.env` files or Docker build args):**
+
 - `VITE_VERIFIER_HOST` - Verifier server host (default: `localhost:7047`)
 - `VITE_SSL` - Use https/wss protocols (default: `false`)
 
 **Usage:**
+
 ```bash
 # Local development with npm
 npm run demo
@@ -620,15 +702,18 @@ VITE_VERIFIER_HOST=verifier.example.com VITE_SSL=true docker compose up --build
 ## Important Implementation Notes
 
 ### Plugin API Changes
+
 The plugin API uses a **unified `prove()` function** instead of separate functions. The old API (`createProver`, `sendRequest`, `transcript`, `reveal`, `getResponse`) has been removed.
 
 **Current API:**
+
 ```javascript
 const proof = await prove(requestOptions, proverOptions);
 ```
 
 **Handler Parameter:**
 Note that the parameter name is `handlers` (plural), not `reveal`:
+
 ```javascript
 proverOptions: {
   verifierUrl: 'http://localhost:7047',
@@ -640,14 +725,18 @@ proverOptions: {
 ```
 
 ### DevConsole Default Template
+
 The default plugin code in `DevConsole/index.tsx` is heavily commented to serve as educational documentation. When modifying, maintain the comprehensive inline comments explaining:
+
 - Each step of the proof generation flow
 - Purpose of each header and parameter
 - What each reveal handler does
 - How React-like hooks work
 
 ### Test Data Sanitization
+
 Parser tests (`packages/plugin-sdk/src/parser.test.ts`) use redacted sensitive data:
+
 - Authentication tokens: `REDACTED_BEARER_TOKEN`, `REDACTED_CSRF_TOKEN_VALUE`
 - Screen names: `test_user` (not real usernames)
 - Cookie values: `REDACTED_GUEST_ID`, `REDACTED_COOKIE_VALUE`
@@ -655,6 +744,7 @@ Parser tests (`packages/plugin-sdk/src/parser.test.ts`) use redacted sensitive d
 ### Known Issues
 
 ⚠️ **Legacy Code Warning**: `src/entries/utils.ts` contains imports from non-existent files:
+
 - `Background/rpc.ts` (removed in refactor)
 - `SidePanel/types.ts` (removed in refactor)
 - Functions: `pushToRedux()`, `openSidePanel()`, `waitForEvent()`
@@ -666,12 +756,14 @@ Parser tests (`packages/plugin-sdk/src/parser.test.ts`) use redacted sensitive d
 Used for WebSocket proxying of TLS connections:
 
 **Build Websockify Docker Image**:
+
 ```bash
 git clone https://github.com/novnc/websockify && cd websockify
 ./docker/build.sh
 ```
 
 **Run Websockify**:
+
 ```bash
 # For x.com (Twitter)
 docker run -it --rm -p 55688:80 novnc/websockify 80 api.x.com:443
@@ -685,6 +777,7 @@ Purpose: Proxies HTTPS connections through WebSocket for browser-based TLS opera
 ## Code Quality
 
 **ESLint Configuration** (`.eslintrc`):
+
 - Extends: `prettier`, `@typescript-eslint/recommended`
 - Parser: `@typescript-eslint/parser`
 - Rules:
@@ -698,6 +791,7 @@ Purpose: Proxies HTTPS connections through WebSocket for browser-based TLS opera
 - Ignores: `node_modules`, `zip`, `build`, `wasm`, `tlsn`, `webpack.config.js`
 
 **Prettier Configuration** (`.prettierrc.json`):
+
 - Single quotes, trailing commas, 2-space indentation
 - Ignore: `.prettierignore` (not in repo, likely default ignores)
 
@@ -710,6 +804,7 @@ This project uses [Conventional Commits](https://www.conventionalcommits.org/). 
 ```
 
 **Types:**
+
 - `feat` - New feature
 - `fix` - Bug fix
 - `docs` - Documentation changes
@@ -719,6 +814,7 @@ This project uses [Conventional Commits](https://www.conventionalcommits.org/). 
 - `chore` - Maintenance tasks, dependency updates
 
 **Scopes** (optional, use package name):
+
 - `extension` - Chrome extension package
 - `plugin-sdk` - Plugin SDK package
 - `common` - Common utilities package
@@ -726,6 +822,7 @@ This project uses [Conventional Commits](https://www.conventionalcommits.org/). 
 - `demo` - Demo package
 
 **Examples:**
+
 ```
 feat(extension): add request interception for managed windows
 fix(plugin-sdk): format long line to satisfy prettier
@@ -734,4 +831,3 @@ docs: update README with new commands
 ```
 
 **Important:** Do not add co-author attributions to commits.
-

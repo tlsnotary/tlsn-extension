@@ -483,8 +483,7 @@ const DevConsole: React.FC = () => {
    */
   useEffect(() => {
     if (consoleOutputRef.current) {
-      consoleOutputRef.current.scrollTop =
-        consoleOutputRef.current.scrollHeight;
+      consoleOutputRef.current.scrollTop = consoleOutputRef.current.scrollHeight;
     }
   }, [consoleEntries]);
 
@@ -494,10 +493,7 @@ const DevConsole: React.FC = () => {
    * @param message - The message to display
    * @param type - Entry type (info, error, success) for styling
    */
-  const addConsoleEntry = (
-    message: string,
-    type: ConsoleEntry['type'] = 'info',
-  ) => {
+  const addConsoleEntry = (message: string, type: ConsoleEntry['type'] = 'info') => {
     const timestamp = new Date().toLocaleTimeString();
     setConsoleEntries((prev) => [...prev, { timestamp, message, type }]);
   };
@@ -529,9 +525,9 @@ const DevConsole: React.FC = () => {
 
     try {
       // Execute code in sandboxed QuickJS environment
-      const result = await (
-        window as unknown as { tlsn: ExtensionAPI }
-      ).tlsn.execCode(codeToExecute);
+      const result = await (window as unknown as { tlsn: ExtensionAPI }).tlsn.execCode(
+        codeToExecute,
+      );
       const executionTime = (performance.now() - startTime).toFixed(2);
 
       addConsoleEntry(`Execution completed in ${executionTime}ms`, 'success');
@@ -539,27 +535,17 @@ const DevConsole: React.FC = () => {
       // Display result if returned (from done() call or explicit return)
       if (result !== undefined) {
         if (typeof result === 'object') {
-          addConsoleEntry(
-            `Result:\n${JSON.stringify(result, null, 2)}`,
-            'success',
-          );
+          addConsoleEntry(`Result:\n${JSON.stringify(result, null, 2)}`, 'success');
         } else {
           addConsoleEntry(`Result: ${result}`, 'success');
         }
       } else {
-        addConsoleEntry(
-          'Code executed successfully (no return value)',
-          'success',
-        );
+        addConsoleEntry('Code executed successfully (no return value)', 'success');
       }
     } catch (error: unknown) {
       const executionTime = (performance.now() - startTime).toFixed(2);
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      addConsoleEntry(
-        `Error after ${executionTime}ms:\n${errorMessage}`,
-        'error',
-      );
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      addConsoleEntry(`Error after ${executionTime}ms:\n${errorMessage}`, 'error');
     }
   };
 

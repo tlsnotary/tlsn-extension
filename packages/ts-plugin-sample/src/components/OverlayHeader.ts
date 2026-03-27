@@ -38,18 +38,15 @@ export function OverlayHeader({ title, onMinimize }: OverlayHeaderProps): DomJso
         display('flex'),
         justifyContent('space-between'),
         alignItems('center'),
-        color('white')
+        color('white'),
       ),
     },
     [
       div(
         {
-          style: inlineStyle(
-            fontWeight('semibold'),
-            fontSize('lg')
-          ),
+          style: inlineStyle(fontWeight('semibold'), fontSize('lg')),
         },
-        [title]
+        [title],
       ),
       button(
         {
@@ -64,12 +61,12 @@ export function OverlayHeader({ title, onMinimize }: OverlayHeaderProps): DomJso
             height('24px'),
             display('flex'),
             alignItems('center'),
-            justifyContent('center')
+            justifyContent('center'),
           ),
           onclick: onMinimize,
         },
-        ['−']
+        ['−'],
       ),
-    ]
+    ],
   );
 }

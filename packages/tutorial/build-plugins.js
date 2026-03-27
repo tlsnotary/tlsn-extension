@@ -21,7 +21,7 @@ if (!existsSync(outputDir)) {
 // Twitter plugin: copy from canonical source (demo/public/plugins/twitter.js)
 const twitterPlugin = readFileSync(
   join(__dirname, '..', 'demo', 'public', 'plugins', 'twitter.js'),
-  'utf-8'
+  'utf-8',
 );
 
 // Swiss Bank Starter (with TODO comment)
@@ -116,7 +116,7 @@ export default { main, onClick, expandUI, minimizeUI, config };
 // Swiss Bank Solution (with CHF handler added)
 const swissbankSolution = swissbankStarter.replace(
   '// TODO: add handler to reveal CHF balance here',
-  `{ type: 'RECV', part: 'ALL', action: 'REVEAL', params: { type: 'regex', regex: '"CHF"\\\\s*:\\\\s*"[^"]+"' } },`
+  `{ type: 'RECV', part: 'ALL', action: 'REVEAL', params: { type: 'regex', regex: '"CHF"\\\\s*:\\\\s*"[^"]+"' } },`,
 );
 
 // Write files

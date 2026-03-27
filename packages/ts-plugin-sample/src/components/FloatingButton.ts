@@ -49,10 +49,10 @@ export function FloatingButton({ onClick, icon = '🔐' }: FloatingButtonProps):
         cursor('pointer'),
         fontSize('2xl'),
         color('white'),
-        transition()
+        transition(),
       ),
       onclick: onClick,
     },
-    [icon]
+    [icon],
   );
 }

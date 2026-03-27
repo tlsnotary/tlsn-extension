@@ -113,9 +113,7 @@ describe('Content Script Client API', () => {
     });
 
     it('should reject empty URL', async () => {
-      await expect(tlsn.open('')).rejects.toThrow(
-        'URL must be a non-empty string',
-      );
+      await expect(tlsn.open('')).rejects.toThrow('URL must be a non-empty string');
     });
 
     it('should reject non-string URL', async () => {
@@ -144,30 +142,21 @@ describe('Content Script Client API', () => {
     });
 
     it('should accept URLs with paths', async () => {
-      await expect(
-        tlsn.open('https://example.com/path/to/page'),
-      ).resolves.not.toThrow();
+      await expect(tlsn.open('https://example.com/path/to/page')).resolves.not.toThrow();
     });
 
     it('should accept URLs with query parameters', async () => {
-      await expect(
-        tlsn.open('https://example.com/search?q=test&lang=en'),
-      ).resolves.not.toThrow();
+      await expect(tlsn.open('https://example.com/search?q=test&lang=en')).resolves.not.toThrow();
     });
 
     it('should accept URLs with fragments', async () => {
-      await expect(
-        tlsn.open('https://example.com/page#section'),
-      ).resolves.not.toThrow();
+      await expect(tlsn.open('https://example.com/page#section')).resolves.not.toThrow();
     });
 
     it('should post message to correct origin', async () => {
       await tlsn.open('https://example.com');
 
-      expect(postMessageSpy).toHaveBeenCalledWith(
-        expect.any(Object),
-        window.location.origin,
-      );
+      expect(postMessageSpy).toHaveBeenCalledWith(expect.any(Object), window.location.origin);
     });
   });
 
@@ -242,9 +231,7 @@ describe('Content Script Client API', () => {
       // width, height, showOverlay should be undefined
       expect(pageMessage.payload.width).toBeUndefined();
       expect(pageMessage.payload.height).toBeUndefined();
-      expect(
-        (pageMessage.payload as Record<string, unknown>).showOverlay,
-      ).toBeUndefined();
+      expect((pageMessage.payload as Record<string, unknown>).showOverlay).toBeUndefined();
     });
   });
 

@@ -105,10 +105,9 @@ describe('WASM Prove Integration', () => {
     expect(result.sentLength).toBeGreaterThan(0);
     expect(result.recvLength).toBeGreaterThan(0);
     expect(result.resultsLength).toBeGreaterThan(0);
-    expect(
-      result.recvStr.includes('software engineer') ||
-        result.recvStr.includes('Anytown'),
-    ).toBe(true);
+    expect(result.recvStr.includes('software engineer') || result.recvStr.includes('Anytown')).toBe(
+      true,
+    );
 
     console.log('[Test] All assertions passed');
   }, 180_000);

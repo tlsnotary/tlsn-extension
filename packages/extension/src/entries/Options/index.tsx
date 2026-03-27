@@ -1,10 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { LogLevel, logLevelToName, logger } from '@tlsn/common';
-import {
-  getStoredLogLevel,
-  setStoredLogLevel,
-} from '../../utils/logLevelStorage';
+import { getStoredLogLevel, setStoredLogLevel } from '../../utils/logLevelStorage';
 import './index.scss';
 
 interface LogLevelOption {
@@ -99,8 +96,7 @@ const Options: React.FC = () => {
         <section className="options__section">
           <h2>Logging</h2>
           <p className="options__section-description">
-            Control the verbosity of console logs. Lower levels include all
-            higher severity logs.
+            Control the verbosity of console logs. Lower levels include all higher severity logs.
           </p>
 
           <div className="options__log-levels">
@@ -108,9 +104,7 @@ const Options: React.FC = () => {
               <label
                 key={option.level}
                 className={`options__radio-label ${
-                  currentLevel === option.level
-                    ? 'options__radio-label--selected'
-                    : ''
+                  currentLevel === option.level ? 'options__radio-label--selected' : ''
                 }`}
               >
                 <input
@@ -125,9 +119,7 @@ const Options: React.FC = () => {
                 <span className="options__radio-custom"></span>
                 <span className="options__radio-text">
                   <span className="options__radio-name">{option.name}</span>
-                  <span className="options__radio-description">
-                    {option.description}
-                  </span>
+                  <span className="options__radio-description">{option.description}</span>
                 </span>
               </label>
             ))}
@@ -135,12 +127,8 @@ const Options: React.FC = () => {
 
           <div className="options__status">
             {saving && <span className="options__saving">Saving...</span>}
-            {saveSuccess && (
-              <span className="options__success">Settings saved!</span>
-            )}
-            <span className="options__current">
-              Current: {logLevelToName(currentLevel)}
-            </span>
+            {saveSuccess && <span className="options__success">Settings saved!</span>}
+            <span className="options__current">Current: {logLevelToName(currentLevel)}</span>
           </div>
         </section>
       </main>

@@ -1,111 +1,111 @@
 name: demo
 
 on:
-    push:
-        branches:
-            - main
-            - staging
-        tags:
-            - "[v]?[0-9]+.[0-9]+.[0-9]+*"
-    pull_request:
+  push:
+    branches:
+      - main
+      - staging
+    tags:
+      - '[v]?[0-9]+.[0-9]+.[0-9]+*'
+  pull_request:
 
 permissions:
-    id-token: write
-    contents: read
-    attestations: write
+  id-token: write
+  contents: read
+  attestations: write
 
 env:
-    CARGO_TERM_COLOR: always
-    CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
-    should_publish: ${{ github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && contains(github.ref, '.')) || github.ref == 'refs/heads/staging' }}
+  CARGO_TERM_COLOR: always
+  CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+  should_publish: ${{ github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && contains(github.ref, '.')) || github.ref == 'refs/heads/staging' }}
 
 jobs:
-    test_verifier:
-        name: test verifier server
-        runs-on: ubuntu-latest
-        steps:
-            - name: Checkout repository
-              uses: actions/checkout@v6
+  test_verifier:
+    name: test verifier server
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
 
-            - name: Setup Rust toolchain
-              uses: actions-rust-lang/setup-rust-toolchain@v1
-              with:
-                  toolchain: stable
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
 
-            - name: Run verifier tests
-              working-directory: packages/verifier
-              run: cargo test
+      - name: Run verifier tests
+        working-directory: packages/verifier
+        run: cargo test
 
-    build_and_publish_demo_verifier_server:
-        name: build and publish demo verifier server image
-        runs-on: ubuntu-latest
-        needs: test_verifier
-        permissions:
-            contents: read
-            packages: write
-        env:
-            CONTAINER_REGISTRY: ghcr.io
-        steps:
-            - name: Checkout repository
-              uses: actions/checkout@v6
+  build_and_publish_demo_verifier_server:
+    name: build and publish demo verifier server image
+    runs-on: ubuntu-latest
+    needs: test_verifier
+    permissions:
+      contents: read
+      packages: write
+    env:
+      CONTAINER_REGISTRY: ghcr.io
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
 
-            - name: Log in to the Container registry
-              uses: docker/login-action@v4
-              with:
-                  registry: ${{ env.CONTAINER_REGISTRY }}
-                  username: ${{ github.actor }}
-                  password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Log in to the Container registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.CONTAINER_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-            - name: Extract metadata (tags, labels) for Docker image
-              id: meta-prover-server
-              uses: docker/metadata-action@v6
-              with:
-                  images: ${{ env.CONTAINER_REGISTRY }}/${{ github.repository }}/demo-verifier-server
+      - name: Extract metadata (tags, labels) for Docker image
+        id: meta-prover-server
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.CONTAINER_REGISTRY }}/${{ github.repository }}/demo-verifier-server
 
-            - name: Build and push Docker image
-              uses: docker/build-push-action@v7
-              with:
-                  context: packages/verifier
-                  push: ${{ env.should_publish == 'true' }}
-                  tags: ${{ steps.meta-prover-server.outputs.tags }}
-                  labels: ${{ steps.meta-prover-server.outputs.labels }}
-                  build-args: |
-                      GIT_HASH=${{ github.sha }}
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v7
+        with:
+          context: packages/verifier
+          push: ${{ env.should_publish == 'true' }}
+          tags: ${{ steps.meta-prover-server.outputs.tags }}
+          labels: ${{ steps.meta-prover-server.outputs.labels }}
+          build-args: |
+            GIT_HASH=${{ github.sha }}
 
-    build_and_publish_demo_frontend:
-        name: build and publish demo frontend image
-        runs-on: ubuntu-latest
-        permissions:
-            contents: read
-            packages: write
-        env:
-            CONTAINER_REGISTRY: ghcr.io
-        steps:
-            - name: Checkout repository
-              uses: actions/checkout@v6
+  build_and_publish_demo_frontend:
+    name: build and publish demo frontend image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      CONTAINER_REGISTRY: ghcr.io
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
 
-            - name: Log in to the Container registry
-              uses: docker/login-action@v4
-              with:
-                  registry: ${{ env.CONTAINER_REGISTRY }}
-                  username: ${{ github.actor }}
-                  password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Log in to the Container registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.CONTAINER_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-            - name: Extract metadata (tags, labels) for Docker image
-              id: meta-verifier-webapp
-              uses: docker/metadata-action@v6
-              with:
-                  images: ${{ env.CONTAINER_REGISTRY }}/${{ github.repository }}/demo-ui
+      - name: Extract metadata (tags, labels) for Docker image
+        id: meta-verifier-webapp
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.CONTAINER_REGISTRY }}/${{ github.repository }}/demo-ui
 
-            - name: Build and push Docker image
-              uses: docker/build-push-action@v7
-              with:
-                  context: packages
-                  file: packages/demo/Dockerfile
-                  push: ${{ env.should_publish == 'true' }}
-                  tags: ${{ steps.meta-verifier-webapp.outputs.tags }}
-                  labels: ${{ steps.meta-verifier-webapp.outputs.labels }}
-                  build-args: |
-                      VITE_VERIFIER_HOST=demo.tlsnotary.org
-                      VITE_SSL=true
-                      GIT_HASH=${{ github.sha }}
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v7
+        with:
+          context: packages
+          file: packages/demo/Dockerfile
+          push: ${{ env.should_publish == 'true' }}
+          tags: ${{ steps.meta-verifier-webapp.outputs.tags }}
+          labels: ${{ steps.meta-verifier-webapp.outputs.labels }}
+          build-args: |
+            VITE_VERIFIER_HOST=demo.tlsnotary.org
+            VITE_SSL=true
+            GIT_HASH=${{ github.sha }}

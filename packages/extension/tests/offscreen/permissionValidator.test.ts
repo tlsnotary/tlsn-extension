@@ -19,13 +19,8 @@ describe('deriveProxyUrl', () => {
   });
 
   it('should preserve port in proxy URL', () => {
-    const result = deriveProxyUrl(
-      'https://verifier.example.com:8080',
-      'api.x.com',
-    );
-    expect(result).toBe(
-      'wss://verifier.example.com:8080/proxy?token=api.x.com',
-    );
+    const result = deriveProxyUrl('https://verifier.example.com:8080', 'api.x.com');
+    expect(result).toBe('wss://verifier.example.com:8080/proxy?token=api.x.com');
   });
 });
 
@@ -35,69 +30,43 @@ describe('matchesPathnamePattern', () => {
   });
 
   it('should not match different pathname', () => {
-    expect(matchesPathnamePattern('/api/v1/users', '/api/v1/posts')).toBe(
-      false,
-    );
+    expect(matchesPathnamePattern('/api/v1/users', '/api/v1/posts')).toBe(false);
   });
 
   it('should match wildcard at end', () => {
-    expect(matchesPathnamePattern('/api/v1/users/123', '/api/v1/users/*')).toBe(
-      true,
-    );
+    expect(matchesPathnamePattern('/api/v1/users/123', '/api/v1/users/*')).toBe(true);
   });
 
   it('should match wildcard in middle', () => {
-    expect(
-      matchesPathnamePattern(
-        '/api/v1/users/123/profile',
-        '/api/v1/users/*/profile',
-      ),
-    ).toBe(true);
+    expect(matchesPathnamePattern('/api/v1/users/123/profile', '/api/v1/users/*/profile')).toBe(
+      true,
+    );
   });
 
   it('should not match wildcard across segments', () => {
     // Single * should only match one segment
-    expect(
-      matchesPathnamePattern('/api/v1/users/123/456', '/api/v1/users/*'),
-    ).toBe(false);
+    expect(matchesPathnamePattern('/api/v1/users/123/456', '/api/v1/users/*')).toBe(false);
   });
 
   it('should match double wildcard across segments', () => {
-    expect(
-      matchesPathnamePattern(
-        '/api/v1/users/123/456/profile',
-        '/api/v1/users/**',
-      ),
-    ).toBe(true);
+    expect(matchesPathnamePattern('/api/v1/users/123/456/profile', '/api/v1/users/**')).toBe(true);
   });
 
   it('should escape regex metacharacters in pattern (issue 5)', () => {
     // Without escaping, a dot in the pattern would match any character
-    expect(matchesPathnamePattern('/api/v1.1/users', '/api/v1.1/users')).toBe(
-      true,
-    );
+    expect(matchesPathnamePattern('/api/v1.1/users', '/api/v1.1/users')).toBe(true);
     // The dot should NOT match arbitrary characters
-    expect(matchesPathnamePattern('/api/v1X1/users', '/api/v1.1/users')).toBe(
-      false,
-    );
+    expect(matchesPathnamePattern('/api/v1X1/users', '/api/v1.1/users')).toBe(false);
   });
 
   it('should escape parentheses in pattern', () => {
-    expect(
-      matchesPathnamePattern('/api/(group)/test', '/api/(group)/test'),
-    ).toBe(true);
-    expect(matchesPathnamePattern('/api/group/test', '/api/(group)/test')).toBe(
-      false,
-    );
+    expect(matchesPathnamePattern('/api/(group)/test', '/api/(group)/test')).toBe(true);
+    expect(matchesPathnamePattern('/api/group/test', '/api/(group)/test')).toBe(false);
   });
 
   it('should escape plus sign in pattern', () => {
-    expect(matchesPathnamePattern('/api/v1+2/test', '/api/v1+2/test')).toBe(
-      true,
-    );
-    expect(matchesPathnamePattern('/api/v12/test', '/api/v1+2/test')).toBe(
-      false,
-    );
+    expect(matchesPathnamePattern('/api/v1+2/test', '/api/v1+2/test')).toBe(true);
+    expect(matchesPathnamePattern('/api/v12/test', '/api/v1+2/test')).toBe(false);
   });
 });
 
@@ -265,11 +234,7 @@ describe('validateOpenWindowPermission', () => {
   const baseConfig: PluginConfig = {
     name: 'Test Plugin',
     description: 'Test',
-    urls: [
-      'https://x.com/*',
-      'https://twitter.com/*',
-      'https://example.com/specific/page',
-    ],
+    urls: ['https://x.com/*', 'https://twitter.com/*', 'https://example.com/specific/page'],
   };
 
   it('should allow matching URL with wildcard', () => {
@@ -280,19 +245,13 @@ describe('validateOpenWindowPermission', () => {
 
   it('should allow exact URL match', () => {
     expect(() =>
-      validateOpenWindowPermission(
-        'https://example.com/specific/page',
-        baseConfig,
-      ),
+      validateOpenWindowPermission('https://example.com/specific/page', baseConfig),
     ).not.toThrow();
   });
 
   it('should deny URL not in permissions', () => {
     expect(() =>
-      validateOpenWindowPermission(
-        'https://malicious.com/phishing',
-        baseConfig,
-      ),
+      validateOpenWindowPermission('https://malicious.com/phishing', baseConfig),
     ).toThrow('Permission denied');
   });
 
@@ -302,21 +261,19 @@ describe('validateOpenWindowPermission', () => {
       description: 'Test',
     };
 
-    expect(() =>
-      validateOpenWindowPermission('https://x.com/test', noPermConfig),
-    ).toThrow('Plugin has no URL permissions defined');
+    expect(() => validateOpenWindowPermission('https://x.com/test', noPermConfig)).toThrow(
+      'Plugin has no URL permissions defined',
+    );
   });
 
   it('should deny URL when config is null', () => {
-    expect(() =>
-      validateOpenWindowPermission('https://x.com/test', null),
-    ).toThrow('Plugin has no URL permissions defined');
+    expect(() => validateOpenWindowPermission('https://x.com/test', null)).toThrow(
+      'Plugin has no URL permissions defined',
+    );
   });
 
   it('should match wildcard at end of URL', () => {
-    expect(() =>
-      validateOpenWindowPermission('https://x.com/', baseConfig),
-    ).not.toThrow();
+    expect(() => validateOpenWindowPermission('https://x.com/', baseConfig)).not.toThrow();
     expect(() =>
       validateOpenWindowPermission('https://x.com/any/path/here', baseConfig),
     ).not.toThrow();

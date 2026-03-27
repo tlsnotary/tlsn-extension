@@ -84,15 +84,12 @@ describe('ProveManager', () => {
 
     // We need a session entry to exercise closeSession path
     // Access private sessions map via any cast
-    (pm as unknown as { sessions: Map<string, unknown> }).sessions.set(
-      'prover-0',
-      {
-        sessionId: 'sess-1',
-        webSocket: { readyState: 3, close: vi.fn() }, // CLOSED
-        response: null,
-        responseReceived: false,
-      },
-    );
+    (pm as unknown as { sessions: Map<string, unknown> }).sessions.set('prover-0', {
+      sessionId: 'sess-1',
+      webSocket: { readyState: 3, close: vi.fn() }, // CLOSED
+      response: null,
+      responseReceived: false,
+    });
 
     await pm.cleanupProver('prover-0');
 
@@ -107,32 +104,23 @@ describe('ProveManager', () => {
   // -----------------------------------------------------------------------
   it('throws on getResponse timeout (#13)', async () => {
     // Set up a session that never receives a response
-    (pm as unknown as { sessions: Map<string, unknown> }).sessions.set(
-      'prover-timeout',
-      {
-        sessionId: 'sess-t',
-        webSocket: { readyState: 1, close: vi.fn() },
-        response: null,
-        responseReceived: false,
-      },
-    );
+    (pm as unknown as { sessions: Map<string, unknown> }).sessions.set('prover-timeout', {
+      sessionId: 'sess-t',
+      webSocket: { readyState: 1, close: vi.fn() },
+      response: null,
+      responseReceived: false,
+    });
 
     // Override the static timeout to 100ms for fast test
-    const original = (
-      ProveManager as unknown as { GET_RESPONSE_TIMEOUT_MS: number }
-    ).GET_RESPONSE_TIMEOUT_MS;
-    (
-      ProveManager as unknown as { GET_RESPONSE_TIMEOUT_MS: number }
-    ).GET_RESPONSE_TIMEOUT_MS = 100;
+    const original = (ProveManager as unknown as { GET_RESPONSE_TIMEOUT_MS: number })
+      .GET_RESPONSE_TIMEOUT_MS;
+    (ProveManager as unknown as { GET_RESPONSE_TIMEOUT_MS: number }).GET_RESPONSE_TIMEOUT_MS = 100;
 
-    await expect(pm.getResponse('prover-timeout', 200)).rejects.toThrow(
-      /timed out/i,
-    );
+    await expect(pm.getResponse('prover-timeout', 200)).rejects.toThrow(/timed out/i);
 
     // Restore
-    (
-      ProveManager as unknown as { GET_RESPONSE_TIMEOUT_MS: number }
-    ).GET_RESPONSE_TIMEOUT_MS = original;
+    (ProveManager as unknown as { GET_RESPONSE_TIMEOUT_MS: number }).GET_RESPONSE_TIMEOUT_MS =
+      original;
   });
 
   // -----------------------------------------------------------------------
@@ -147,26 +135,21 @@ describe('ProveManager', () => {
       }),
     };
 
-    (pm as unknown as { sessions: Map<string, unknown> }).sessions.set(
-      'prover-send',
-      {
-        sessionId: 'sess-s',
-        webSocket: mockWs,
-        response: null,
-        responseReceived: false,
-      },
-    );
+    (pm as unknown as { sessions: Map<string, unknown> }).sessions.set('prover-send', {
+      sessionId: 'sess-s',
+      webSocket: mockWs,
+      response: null,
+      responseReceived: false,
+    });
 
-    await expect(
-      pm.sendRevealConfig('prover-send', { sent: [], recv: [] }),
-    ).rejects.toThrow(
+    await expect(pm.sendRevealConfig('prover-send', { sent: [], recv: [] })).rejects.toThrow(
       /Reveal config send failed.*verifier connection was closed/,
     );
   });
 
   it('sendRevealConfig throws if session not found', async () => {
-    await expect(
-      pm.sendRevealConfig('nonexistent', { sent: [], recv: [] }),
-    ).rejects.toThrow(/Session not found/);
+    await expect(pm.sendRevealConfig('nonexistent', { sent: [], recv: [] })).rejects.toThrow(
+      /Session not found/,
+    );
   });
 });

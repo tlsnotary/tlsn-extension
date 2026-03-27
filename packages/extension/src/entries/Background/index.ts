@@ -2,10 +2,7 @@ import browser from 'webextension-polyfill';
 import { WindowManager } from '../../background/WindowManager';
 import { confirmationManager } from '../../background/ConfirmationManager';
 import type { PluginConfig } from '@tlsn/plugin-sdk/src/types';
-import type {
-  InterceptedRequest,
-  InterceptedRequestHeader,
-} from '../../types/window-manager';
+import type { InterceptedRequest, InterceptedRequestHeader } from '../../types/window-manager';
 import { validateUrl } from '../../utils/url-validator';
 import { logger } from '@tlsn/common';
 import { getStoredLogLevel } from '../../utils/logLevelStorage';
@@ -24,8 +21,7 @@ const windowManager = new WindowManager();
 // Track requestId → tabId for routing progress events back to the originating tab.
 // Entries have a TTL to prevent leaks if the offscreen document crashes before cleanup.
 const PROGRESS_ROUTE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-const progressRoutes: Map<string, { tabId: number; createdAt: number }> =
-  new Map();
+const progressRoutes: Map<string, { tabId: number; createdAt: number }> = new Map();
 
 // Create context menu for Developer Console - only for extension icon
 browser.contextMenus.create({
@@ -105,9 +101,7 @@ browser.webRequest.onBeforeSendHeaders.addListener(
 browser.windows.onRemoved.addListener(async (windowId) => {
   const managedWindow = windowManager.getWindow(windowId);
   if (managedWindow) {
-    logger.debug(
-      `Managed window closed: ${managedWindow.uuid} (ID: ${windowId})`,
-    );
+    logger.debug(`Managed window closed: ${managedWindow.uuid} (ID: ${windowId})`);
     await windowManager.closeWindow(windowId);
   }
 });
@@ -127,9 +121,7 @@ browser.tabs.onUpdated.addListener(async (tabId, changeInfo, _tab) => {
 
   // If overlay should be shown but isn't visible yet, show it now
   if (managedWindow.showOverlayWhenReady && !managedWindow.overlayVisible) {
-    logger.debug(
-      `Tab ${tabId} complete, showing overlay for window ${managedWindow.id}`,
-    );
+    logger.debug(`Tab ${tabId} complete, showing overlay for window ${managedWindow.id}`);
     await windowManager.showOverlay(managedWindow.id);
   }
 });
@@ -154,11 +146,7 @@ browser.runtime.onMessage.addListener(
     }
 
     if (request.type === 'RENDER_PLUGIN_UI') {
-      logger.debug(
-        'RENDER_PLUGIN_UI request received:',
-        request.json,
-        request.windowId,
-      );
+      logger.debug('RENDER_PLUGIN_UI request received:', request.json, request.windowId);
       windowManager.showPluginUI(request.windowId, request.json);
       return; // No response needed
     }
@@ -173,10 +161,7 @@ browser.runtime.onMessage.addListener(
     // Handle plugin confirmation responses from popup
     if (request.type === 'PLUGIN_CONFIRM_RESPONSE') {
       logger.debug('PLUGIN_CONFIRM_RESPONSE received:', request);
-      confirmationManager.handleConfirmationResponse(
-        request.requestId,
-        request.allowed,
-      );
+      confirmationManager.handleConfirmationResponse(request.requestId, request.allowed);
       return; // No response needed
     }
 
@@ -238,10 +223,7 @@ browser.runtime.onMessage.addListener(
             logger.error('Confirmation error:', confirmError);
             return {
               success: false,
-              error:
-                confirmError instanceof Error
-                  ? confirmError.message
-                  : 'Confirmation failed',
+              error: confirmError instanceof Error ? confirmError.message : 'Confirmation failed',
             };
           }
 
@@ -272,8 +254,7 @@ browser.runtime.onMessage.addListener(
           logger.error('Error executing code:', error);
           return {
             success: false,
-            error:
-              error instanceof Error ? error.message : 'Code execution failed',
+            error: error instanceof Error ? error.message : 'Code execution failed',
           };
         } finally {
           // Clean up progress route
@@ -349,12 +330,7 @@ browser.runtime.onMessage.addListener(
           height: request.height || 700,
         })
         .then(async (window) => {
-          if (
-            !window.id ||
-            !window.tabs ||
-            !window.tabs[0] ||
-            !window.tabs[0].id
-          ) {
+          if (!window.id || !window.tabs || !window.tabs[0] || !window.tabs[0].id) {
             throw new Error('Failed to create window or get tab ID');
           }
 
@@ -472,17 +448,13 @@ async function createOffscreenDocument(): Promise<void> {
 }
 
 // Initialize offscreen document
-createOffscreenDocument().catch((err) =>
-  logger.error('Offscreen document error:', err),
-);
+createOffscreenDocument().catch((err) => logger.error('Offscreen document error:', err));
 
 /**
  * Extract plugin config by sending code to offscreen document where QuickJS runs.
  * This is more reliable than regex-based extraction.
  */
-async function extractConfigViaOffscreen(
-  code: string,
-): Promise<PluginConfig | null> {
+async function extractConfigViaOffscreen(code: string): Promise<PluginConfig | null> {
   try {
     // Ensure offscreen document exists
     await createOffscreenDocument();

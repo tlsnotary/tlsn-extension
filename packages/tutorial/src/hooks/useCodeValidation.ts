@@ -18,7 +18,7 @@ export const useCodeValidation = (validators: ValidationRule[]) => {
 
       return allValid;
     },
-    [validators]
+    [validators],
   );
 
   const reset = useCallback(() => {

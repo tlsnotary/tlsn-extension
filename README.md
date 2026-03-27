@@ -73,7 +73,9 @@ tlsn-extension/
 ### Package Details
 
 #### 1. **extension** - Chrome Extension (Manifest V3)
+
 A browser extension that enables TLSNotary functionality with the following key features:
+
 - **Multi-Window Management**: Track multiple browser windows with request interception
 - **Developer Console**: Interactive code editor for writing and testing TLSN plugins
 - **Request Interception**: Capture HTTP/HTTPS requests from managed windows
@@ -81,6 +83,7 @@ A browser extension that enables TLSNotary functionality with the following key 
 - **TLSN Overlay**: Visual display of intercepted requests
 
 **Key Entry Points:**
+
 - `Background`: Service worker for extension logic, window management, and message routing
 - `Content`: Scripts injected into pages for communication and overlay display
 - `DevConsole`: Code editor page accessible via right-click context menu
@@ -88,7 +91,9 @@ A browser extension that enables TLSNotary functionality with the following key 
 - `Offscreen`: Background DOM operations for service worker limitations
 
 #### 2. **plugin-sdk** - Plugin Development SDK
+
 SDK for developing and running TLSN WebAssembly plugins with QuickJS sandboxing:
+
 - Secure JavaScript execution in isolated WebAssembly environment
 - Host capability system for controlled plugin access
 - React-like hooks: `useHeaders()`, `useRequests()`, `useEffect()`, `useState()`, `setState()`
@@ -96,13 +101,17 @@ SDK for developing and running TLSN WebAssembly plugins with QuickJS sandboxing:
 - TypeScript support with full type declarations
 
 #### 3. **common** - Shared Utilities
+
 Centralized logging system used across packages:
+
 - Configurable log levels: `DEBUG`, `INFO`, `WARN`, `ERROR`
 - Timestamped output with level prefixes
 - Singleton pattern for consistent logging across modules
 
 #### 4. **verifier** - Verifier Server
+
 Rust-based HTTP/WebSocket server for TLSNotary verification:
+
 - Health check endpoint (`GET /health`)
 - Session creation endpoint (`WS /session`)
 - WebSocket verification endpoint (`WS /verifier?sessionId=<id>`)
@@ -113,13 +122,16 @@ Rust-based HTTP/WebSocket server for TLSNotary verification:
 - Runs on `localhost:7047` by default
 
 #### 5. **demo** - Demo Server
+
 Docker-based demo environment with:
+
 - Pre-configured example plugins (Twitter, SwissBank)
 - React + Vite frontend with environment-based configuration
 - Docker Compose setup with verifier and nginx
 - Configurable verifier URLs via `.env` files or Docker build args
 
 #### 6. **tlsn-wasm-pkg** - TLSN WebAssembly Package
+
 Pre-built WebAssembly binaries for TLSNotary functionality in the browser.
 
 ## Architecture Overview
@@ -160,6 +172,7 @@ The extension uses a message-passing architecture with five main entry points:
 ### Message Flow
 
 **Opening a Managed Window:**
+
 ```
 Page → window.tlsn.open(url)
   ↓ window.postMessage(TLSN_OPEN_WINDOW)
@@ -171,6 +184,7 @@ Background → WindowManager.registerWindow()
 ```
 
 **Request Interception:**
+
 ```
 Browser → HTTP request in managed window
   ↓ webRequest.onBeforeRequest
@@ -190,12 +204,14 @@ Content Script → Update TLSN overlay UI
 ### Installation
 
 1. Clone the repository:
+
 ```bash
 git clone https://github.com/tlsnotary/tlsn-extension.git
 cd tlsn-extension
 ```
 
 2. Install all dependencies:
+
 ```bash
 npm install
 ```
@@ -207,6 +223,7 @@ This installs dependencies for all packages in the monorepo and automatically se
 ### Running the Extension in Development Mode
 
 1. Start the development server:
+
 ```bash
 npm run dev
 ```
@@ -233,6 +250,7 @@ cargo run
 The server will start on `http://localhost:7047`.
 
 **Verifier API Endpoints:**
+
 - `GET /health` - Health check
 - `WS /session` - Create new verification session
 - `WS /verifier?sessionId=<id>` - WebSocket verification endpoint
@@ -240,19 +258,21 @@ The server will start on `http://localhost:7047`.
 
 **Webhook Configuration:**
 Configure `packages/verifier/config.yaml` to receive POST notifications after successful verifications:
+
 ```yaml
 webhooks:
-  "api.x.com":
-    url: "https://your-backend.example.com/webhook/twitter"
+  'api.x.com':
+    url: 'https://your-backend.example.com/webhook/twitter'
     headers:
-      Authorization: "Bearer your-secret-token"
-  "*":  # Wildcard for unmatched server names
-    url: "https://your-backend.example.com/webhook/default"
+      Authorization: 'Bearer your-secret-token'
+  '*': # Wildcard for unmatched server names
+    url: 'https://your-backend.example.com/webhook/default'
 ```
 
 ### Package-Specific Development
 
 **Extension:**
+
 ```bash
 cd packages/extension
 npm run dev              # Development mode
@@ -264,6 +284,7 @@ npm run lint:fix         # Auto-fix linting issues
 ```
 
 **Plugin SDK:**
+
 ```bash
 cd packages/plugin-sdk
 npm run build            # Build SDK
@@ -275,6 +296,7 @@ npm run lint:fix         # Auto-fix issues
 > **Note:** The plugin-SDK builds automatically when the extension is built, so manual building is usually not necessary.
 
 **Verifier:**
+
 ```bash
 cd packages/verifier
 cargo run                # Development mode
@@ -293,6 +315,7 @@ NODE_ENV=production npm run build
 ```
 
 This automatically:
+
 1. Builds dependencies (`@tlsn/common` and `@tlsn/plugin-sdk`)
 2. Builds the extension with production optimizations
 3. Creates:
@@ -302,6 +325,7 @@ This automatically:
 The zip file is ready for Chrome Web Store submission.
 
 **Alternative build commands:**
+
 - `npm run build:extension` - Build only the extension (assumes dependencies are built)
 - `npm run build:deps` - Build only the dependencies
 
@@ -329,12 +353,14 @@ To test the complete TLSN workflow:
 ### 1. Start the Verifier Server
 
 In a terminal:
+
 ```bash
 cd packages/verifier
 cargo run
 ```
 
 Verify it's running:
+
 ```bash
 curl http://localhost:7047/health
 # Should return: ok
@@ -343,6 +369,7 @@ curl http://localhost:7047/health
 ### 2. Start the Extension in Development Mode
 
 In another terminal:
+
 ```bash
 npm run dev
 ```
@@ -370,6 +397,7 @@ The Developer Console comes with a default X.com profile prover plugin. To test:
    - Execute the proof workflow
 
 **Console Output:**
+
 - Execution status and timing
 - Plugin logs and results
 - Any errors encountered
@@ -377,6 +405,7 @@ The Developer Console comes with a default X.com profile prover plugin. To test:
 ### 5. Verify Request Interception
 
 When a managed window is opened:
+
 1. An overlay appears showing "TLSN Plugin In Progress"
 2. Intercepted requests are listed in real-time
 3. Request count updates as more requests are captured
@@ -389,15 +418,15 @@ You can write custom plugins in the Developer Console editor:
 // Example: Simple plugin that generates a proof
 const config = {
   name: 'My Plugin',
-  description: 'A custom TLSN plugin'
+  description: 'A custom TLSN plugin',
 };
 
 async function onClick() {
   console.log('Starting proof...');
 
   // Wait for specific headers to be intercepted
-  const [header] = useHeaders(headers => {
-    return headers.filter(h => h.url.includes('example.com'));
+  const [header] = useHeaders((headers) => {
+    return headers.filter((h) => h.url.includes('example.com'));
   });
 
   console.log('Captured header:', header);
@@ -409,9 +438,9 @@ async function onClick() {
       url: 'https://example.com/api/endpoint',
       method: 'GET',
       headers: {
-        'Authorization': header.requestHeaders.find(h => h.name === 'Authorization')?.value,
+        Authorization: header.requestHeaders.find((h) => h.name === 'Authorization')?.value,
         'Accept-Encoding': 'identity',
-        'Connection': 'close',
+        Connection: 'close',
       },
     },
     // Prover options
@@ -423,10 +452,14 @@ async function onClick() {
       handlers: [
         { type: 'SENT', part: 'START_LINE', action: 'REVEAL' },
         { type: 'RECV', part: 'START_LINE', action: 'REVEAL' },
-        { type: 'RECV', part: 'BODY', action: 'REVEAL',
-          params: { type: 'json', path: 'username' } }
-      ]
-    }
+        {
+          type: 'RECV',
+          part: 'BODY',
+          action: 'REVEAL',
+          params: { type: 'json', path: 'username' },
+        },
+      ],
+    },
   );
 
   console.log('Proof generated:', proof);
@@ -434,8 +467,8 @@ async function onClick() {
 }
 
 function main() {
-  const [header] = useHeaders(headers => {
-    return headers.filter(h => h.url.includes('example.com'));
+  const [header] = useHeaders((headers) => {
+    return headers.filter((h) => h.url.includes('example.com'));
   });
 
   // Open a managed window on first render
@@ -446,7 +479,7 @@ function main() {
   // Render plugin UI component
   return div({}, [
     div({}, [header ? 'Ready to prove' : 'Waiting for headers...']),
-    header ? button({ onclick: 'onClick' }, ['Generate Proof']) : null
+    header ? button({ onclick: 'onClick' }, ['Generate Proof']) : null,
   ]);
 }
 
@@ -479,6 +512,7 @@ npm run docker:down
 ```
 
 This starts:
+
 - Verifier server on port 7047
 - Demo static files served via nginx on port 80
 
@@ -494,10 +528,12 @@ npm run demo
 ### Environment Variables
 
 The demo uses `.env` files for configuration:
+
 - `.env` - Local development defaults (`localhost:7047`)
 - `.env.production` - Production settings (`verifier.tlsnotary.org`, SSL enabled)
 
 For Docker deployments, override via environment variables:
+
 ```bash
 # Local development (default)
 npm run docker:up
@@ -520,12 +556,14 @@ npm run tutorial
 For WebSocket proxying of TLS connections (optional):
 
 ### Build Websockify Docker Image
+
 ```bash
 git clone https://github.com/novnc/websockify && cd websockify
 ./docker/build.sh
 ```
 
 ### Run Websockify
+
 ```bash
 # For X.com
 docker run -it --rm -p 55688:80 novnc/websockify 80 api.x.com:443
@@ -541,6 +579,7 @@ This proxies HTTPS connections through WebSocket for browser-based TLS operation
 ### Chrome Web Store
 
 1. Create a production build:
+
 ```bash
 NODE_ENV=production npm run build
 ```

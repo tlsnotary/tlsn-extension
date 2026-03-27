@@ -18,10 +18,7 @@ var onClick = async () => {
   setState("isRequestPending", true);
   const cachedCookie = useState("cookie", null);
   const cachedCsrfToken = useState("x-csrf-token", null);
-  const cachedTransactionId = useState(
-    "x-client-transaction-id",
-    null
-  );
+  const cachedTransactionId = useState("x-client-transaction-id", null);
   const cachedAuthorization = useState("authorization", null);
   if (!cachedCookie || !cachedCsrfToken || !cachedAuthorization) {
     setState("isRequestPending", false);
@@ -122,36 +119,23 @@ var main = () => {
   const isRequestPending = useState("isRequestPending", false);
   const cachedCookie = useState("cookie", null);
   const cachedCsrfToken = useState("x-csrf-token", null);
-  const cachedTransactionId = useState(
-    "x-client-transaction-id",
-    null
-  );
+  const cachedTransactionId = useState("x-client-transaction-id", null);
   const cachedAuthorization = useState("authorization", null);
   if (!cachedCookie || !cachedCsrfToken || !cachedAuthorization) {
     const [header] = useHeaders(
-      (headers) => headers.filter(
-        (h) => h.url.includes("https://api.x.com/1.1/account/settings.json")
-      )
+      (headers) => headers.filter((h) => h.url.includes("https://api.x.com/1.1/account/settings.json"))
     );
     if (header) {
-      const cookie = header.requestHeaders.find(
-        (h) => h.name === "Cookie"
-      )?.value;
-      const csrfToken = header.requestHeaders.find(
-        (h) => h.name === "x-csrf-token"
-      )?.value;
+      const cookie = header.requestHeaders.find((h) => h.name === "Cookie")?.value;
+      const csrfToken = header.requestHeaders.find((h) => h.name === "x-csrf-token")?.value;
       const transactionId = header.requestHeaders.find(
         (h) => h.name === "x-client-transaction-id"
       )?.value;
-      const authorization = header.requestHeaders.find(
-        (h) => h.name === "authorization"
-      )?.value;
+      const authorization = header.requestHeaders.find((h) => h.name === "authorization")?.value;
       if (cookie && !cachedCookie) setState("cookie", cookie);
       if (csrfToken && !cachedCsrfToken) setState("x-csrf-token", csrfToken);
-      if (transactionId && !cachedTransactionId)
-        setState("x-client-transaction-id", transactionId);
-      if (authorization && !cachedAuthorization)
-        setState("authorization", authorization);
+      if (transactionId && !cachedTransactionId) setState("x-client-transaction-id", transactionId);
+      if (authorization && !cachedAuthorization) setState("authorization", authorization);
     }
   }
   const isConnected = !!(cachedCookie && cachedCsrfToken && cachedAuthorization);
@@ -213,10 +197,7 @@ var main = () => {
           }
         },
         [
-          div(
-            { style: { fontWeight: "600", fontSize: "16px" } },
-            ["X Profile Prover"]
-          ),
+          div({ style: { fontWeight: "600", fontSize: "16px" } }, ["X Profile Prover"]),
           button(
             {
               style: {
@@ -238,60 +219,55 @@ var main = () => {
           )
         ]
       ),
-      div(
-        { style: { padding: "20px", backgroundColor: "#f8f9fa" } },
-        [
-          div(
-            {
-              style: {
-                marginBottom: "16px",
-                padding: "12px",
-                borderRadius: "6px",
-                backgroundColor: isConnected ? "#d4edda" : "#f8d7da",
-                color: isConnected ? "#155724" : "#721c24",
-                border: `1px solid ${isConnected ? "#c3e6cb" : "#f5c6cb"}`,
-                fontWeight: "500"
-              }
+      div({ style: { padding: "20px", backgroundColor: "#f8f9fa" } }, [
+        div(
+          {
+            style: {
+              marginBottom: "16px",
+              padding: "12px",
+              borderRadius: "6px",
+              backgroundColor: isConnected ? "#d4edda" : "#f8d7da",
+              color: isConnected ? "#155724" : "#721c24",
+              border: `1px solid ${isConnected ? "#c3e6cb" : "#f5c6cb"}`,
+              fontWeight: "500"
+            }
+          },
+          [isConnected ? "\u2713 Profile detected" : "\u26A0 No profile detected"]
+        ),
+        isConnected ? button(
+          {
+            style: {
+              width: "100%",
+              padding: "12px 24px",
+              borderRadius: "6px",
+              border: "none",
+              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+              color: "white",
+              fontWeight: "600",
+              fontSize: "15px",
+              transition: "all 0.2s ease",
+              boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+              opacity: isRequestPending ? "0.5" : "1",
+              cursor: isRequestPending ? "not-allowed" : "pointer"
             },
-            [
-              isConnected ? "\u2713 Profile detected" : "\u26A0 No profile detected"
-            ]
-          ),
-          isConnected ? button(
-            {
-              style: {
-                width: "100%",
-                padding: "12px 24px",
-                borderRadius: "6px",
-                border: "none",
-                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                color: "white",
-                fontWeight: "600",
-                fontSize: "15px",
-                transition: "all 0.2s ease",
-                boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                opacity: isRequestPending ? "0.5" : "1",
-                cursor: isRequestPending ? "not-allowed" : "pointer"
-              },
-              onclick: "onClick"
-            },
-            [isRequestPending ? "Generating Proof..." : "Generate Proof"]
-          ) : div(
-            {
-              style: {
-                textAlign: "center",
-                color: "#666",
-                padding: "12px",
-                backgroundColor: "#fff3cd",
-                borderRadius: "6px",
-                border: "1px solid #ffeaa7"
-              }
-            },
-            ["Please login to x.com to continue"]
-          ),
-          ...proveProgressBar()
-        ]
-      )
+            onclick: "onClick"
+          },
+          [isRequestPending ? "Generating Proof..." : "Generate Proof"]
+        ) : div(
+          {
+            style: {
+              textAlign: "center",
+              color: "#666",
+              padding: "12px",
+              backgroundColor: "#fff3cd",
+              borderRadius: "6px",
+              border: "1px solid #ffeaa7"
+            }
+          },
+          ["Please login to x.com to continue"]
+        ),
+        ...proveProgressBar()
+      ])
     ]
   );
 };

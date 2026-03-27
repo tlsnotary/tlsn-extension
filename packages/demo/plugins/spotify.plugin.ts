@@ -1,9 +1,4 @@
-import type {
-  PluginConfig,
-  RequestPermission,
-  Handler,
-  DomJson,
-} from '@tlsn/plugin-sdk';
+import type { PluginConfig, RequestPermission, Handler, DomJson } from '@tlsn/plugin-sdk';
 
 // Injected at build time via esbuild --define
 declare const __VERIFIER_URL__: string;
@@ -159,9 +154,7 @@ const main = (): DomJson => {
 
   // Only search for auth token if not already cached
   if (!authToken) {
-    const token = useHeaders((h) =>
-      h.filter((x) => x.url.startsWith(`https://${api}`)),
-    )
+    const token = useHeaders((h) => h.filter((x) => x.url.startsWith(`https://${api}`)))
       .flatMap((h) => h.requestHeaders)
       .find((h) => h.name === 'Authorization')?.value;
 
@@ -231,10 +224,7 @@ const main = (): DomJson => {
           },
         },
         [
-          div(
-            { style: { fontWeight: '600', fontSize: '16px' } },
-            ['Spotify Top Artist'],
-          ),
+          div({ style: { fontWeight: '600', fontSize: '16px' } }, ['Spotify Top Artist']),
           button(
             {
               style: {
@@ -256,65 +246,57 @@ const main = (): DomJson => {
           ),
         ],
       ),
-      div(
-        { style: { padding: '20px', backgroundColor: '#f8f9fa' } },
-        [
-          div(
-            {
-              style: {
-                marginBottom: '16px',
-                padding: '12px',
-                borderRadius: '6px',
-                backgroundColor: authToken ? '#d4edda' : '#f8d7da',
-                color: authToken ? '#155724' : '#721c24',
-                border: `1px solid ${authToken ? '#c3e6cb' : '#f5c6cb'}`,
-                fontWeight: '500',
-              },
+      div({ style: { padding: '20px', backgroundColor: '#f8f9fa' } }, [
+        div(
+          {
+            style: {
+              marginBottom: '16px',
+              padding: '12px',
+              borderRadius: '6px',
+              backgroundColor: authToken ? '#d4edda' : '#f8d7da',
+              color: authToken ? '#155724' : '#721c24',
+              border: `1px solid ${authToken ? '#c3e6cb' : '#f5c6cb'}`,
+              fontWeight: '500',
             },
-            [
-              authToken
-                ? '\u2713 Api token detected'
-                : '\u26A0 No API token detected',
-            ],
-          ),
-          authToken
-            ? button(
-                {
-                  style: {
-                    width: '100%',
-                    padding: '12px 24px',
-                    borderRadius: '6px',
-                    border: 'none',
-                    background:
-                      'linear-gradient(135deg, #1DB954 0%, #1AA34A 100%)',
-                    color: 'white',
-                    fontWeight: '600',
-                    fontSize: '15px',
-                    transition: 'all 0.2s ease',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                    opacity: isRequestPending ? '0.5' : '1',
-                    cursor: isRequestPending ? 'not-allowed' : 'pointer',
-                  },
-                  onclick: 'onClick',
+          },
+          [authToken ? '\u2713 Api token detected' : '\u26A0 No API token detected'],
+        ),
+        authToken
+          ? button(
+              {
+                style: {
+                  width: '100%',
+                  padding: '12px 24px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #1DB954 0%, #1AA34A 100%)',
+                  color: 'white',
+                  fontWeight: '600',
+                  fontSize: '15px',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                  opacity: isRequestPending ? '0.5' : '1',
+                  cursor: isRequestPending ? 'not-allowed' : 'pointer',
                 },
-                [isRequestPending ? 'Generating Proof...' : 'Generate Proof'],
-              )
-            : div(
-                {
-                  style: {
-                    textAlign: 'center',
-                    color: '#666',
-                    padding: '12px',
-                    backgroundColor: '#fff3cd',
-                    borderRadius: '6px',
-                    border: '1px solid #ffeaa7',
-                  },
+                onclick: 'onClick',
+              },
+              [isRequestPending ? 'Generating Proof...' : 'Generate Proof'],
+            )
+          : div(
+              {
+                style: {
+                  textAlign: 'center',
+                  color: '#666',
+                  padding: '12px',
+                  backgroundColor: '#fff3cd',
+                  borderRadius: '6px',
+                  border: '1px solid #ffeaa7',
                 },
-                ['Please login to Spotify to continue'],
-              ),
-          ...proveProgressBar(),
-        ],
-      ),
+              },
+              ['Please login to Spotify to continue'],
+            ),
+        ...proveProgressBar(),
+      ]),
     ],
   );
 };

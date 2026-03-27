@@ -3,126 +3,123 @@ import { Plugin, ProgressData } from '../types';
 import { trackViewSource } from '../analytics';
 
 interface PluginResultData {
-    resultHtml: string;
-    debugJson: string;
+  resultHtml: string;
+  debugJson: string;
 }
 
 interface PluginButtonsProps {
-    plugins: Record<string, Plugin>;
-    runningPlugins: Set<string>;
-    pluginResults: Record<string, PluginResultData>;
-    pluginProgress: Record<string, ProgressData>;
-    allChecksPass: boolean;
-    onRunPlugin: (pluginKey: string) => void;
+  plugins: Record<string, Plugin>;
+  runningPlugins: Set<string>;
+  pluginResults: Record<string, PluginResultData>;
+  pluginProgress: Record<string, ProgressData>;
+  allChecksPass: boolean;
+  onRunPlugin: (pluginKey: string) => void;
 }
 
 export function PluginButtons({
-    plugins,
-    runningPlugins,
-    pluginResults,
-    pluginProgress,
-    allChecksPass,
-    onRunPlugin,
+  plugins,
+  runningPlugins,
+  pluginResults,
+  pluginProgress,
+  allChecksPass,
+  onRunPlugin,
 }: PluginButtonsProps) {
-    const [expandedRawData, setExpandedRawData] = useState<Set<string>>(new Set());
+  const [expandedRawData, setExpandedRawData] = useState<Set<string>>(new Set());
 
-    const toggleRawData = (key: string) => {
-        setExpandedRawData((prev) => {
-            const newSet = new Set(prev);
-            if (newSet.has(key)) {
-                newSet.delete(key);
-            } else {
-                newSet.add(key);
-            }
-            return newSet;
-        });
-    };
+  const toggleRawData = (key: string) => {
+    setExpandedRawData((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(key)) {
+        newSet.delete(key);
+      } else {
+        newSet.add(key);
+      }
+      return newSet;
+    });
+  };
 
-    return (
-        <div className="plugin-grid">
-            {Object.entries(plugins).map(([key, plugin]) => {
-                const isRunning = runningPlugins.has(key);
-                const result = pluginResults[key];
-                const progress = pluginProgress[key];
-                const hasResult = !!result;
+  return (
+    <div className="plugin-grid">
+      {Object.entries(plugins).map(([key, plugin]) => {
+        const isRunning = runningPlugins.has(key);
+        const result = pluginResults[key];
+        const progress = pluginProgress[key];
+        const hasResult = !!result;
 
-                return (
-                    <div key={key} className={`plugin-card ${hasResult ? 'plugin-card--completed' : ''}`}>
-                        <div className="plugin-header">
-                            <div className="plugin-logo">{plugin.logo}</div>
-                            <div className="plugin-info">
-                                <h3 className="plugin-name">
-                                    {plugin.name}
-                                    {hasResult && <span className="plugin-badge">✓ Verified</span>}
-                                </h3>
-                                <p className="plugin-description">{plugin.description}</p>
-                            </div>
-                        </div>
+        return (
+          <div key={key} className={`plugin-card ${hasResult ? 'plugin-card--completed' : ''}`}>
+            <div className="plugin-header">
+              <div className="plugin-logo">{plugin.logo}</div>
+              <div className="plugin-info">
+                <h3 className="plugin-name">
+                  {plugin.name}
+                  {hasResult && <span className="plugin-badge">✓ Verified</span>}
+                </h3>
+                <p className="plugin-description">{plugin.description}</p>
+              </div>
+            </div>
 
-                        <div className="plugin-actions">
-                            <button
-                                className="plugin-run-btn"
-                                disabled={!allChecksPass || isRunning}
-                                onClick={() => onRunPlugin(key)}
-                                title={!allChecksPass ? 'Please complete all system checks first' : ''}
-                            >
-                                {isRunning ? (
-                                    <>
-                                        <span className="spinner"></span> Running...
-                                    </>
-                                ) : hasResult ? (
-                                    '↻ Run Again'
-                                ) : (
-                                    '▶ Run Plugin'
-                                )}
-                            </button>
+            <div className="plugin-actions">
+              <button
+                className="plugin-run-btn"
+                disabled={!allChecksPass || isRunning}
+                onClick={() => onRunPlugin(key)}
+                title={!allChecksPass ? 'Please complete all system checks first' : ''}
+              >
+                {isRunning ? (
+                  <>
+                    <span className="spinner"></span> Running...
+                  </>
+                ) : hasResult ? (
+                  '↻ Run Again'
+                ) : (
+                  '▶ Run Plugin'
+                )}
+              </button>
 
-                            <a
-                                href={plugin.file}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="plugin-source-btn"
-                                onClick={() => trackViewSource(plugin.name)}
-                            >
-                                <span>📄 View Source</span>
-                            </a>
-                        </div>
+              <a
+                href={plugin.file}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="plugin-source-btn"
+                onClick={() => trackViewSource(plugin.name)}
+              >
+                <span>📄 View Source</span>
+              </a>
+            </div>
 
-                        {isRunning && progress && (
-                            <div className="plugin-progress">
-                                <div className="plugin-progress-bar">
-                                    <div
-                                        className="plugin-progress-fill"
-                                        style={{ width: `${Math.round(progress.progress * 100)}%` }}
-                                    />
-                                </div>
-                                <div className="plugin-progress-text">{progress.message}</div>
-                            </div>
-                        )}
+            {isRunning && progress && (
+              <div className="plugin-progress">
+                <div className="plugin-progress-bar">
+                  <div
+                    className="plugin-progress-fill"
+                    style={{ width: `${Math.round(progress.progress * 100)}%` }}
+                  />
+                </div>
+                <div className="plugin-progress-text">{progress.message}</div>
+              </div>
+            )}
 
-                        {hasResult && (
-                            <div className="plugin-result">
-                                <div className="plugin-result-header">
-                                    <span className="plugin-result-title">Result</span>
-                                </div>
-                                <div
-                                    className="plugin-result-content"
-                                    dangerouslySetInnerHTML={{ __html: result.resultHtml }}
-                                />
-                                <button
-                                    className="plugin-raw-toggle"
-                                    onClick={() => toggleRawData(key)}
-                                >
-                                    {expandedRawData.has(key) ? '▼ Hide Raw Data' : '▶ Show Raw Data'}
-                                </button>
-                                {expandedRawData.has(key) && (
-                                    <pre className="plugin-raw-data">{result.debugJson}</pre>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                );
-            })}
-        </div>
-    );
+            {hasResult && (
+              <div className="plugin-result">
+                <div className="plugin-result-header">
+                  <span className="plugin-result-title">Result</span>
+                </div>
+                <div
+                  className="plugin-result-content"
+                  dangerouslySetInnerHTML={{ __html: result.resultHtml }}
+                />
+                <button className="plugin-raw-toggle" onClick={() => toggleRawData(key)}>
+                  {expandedRawData.has(key) ? '▼ Hide Raw Data' : '▶ Show Raw Data'}
+                </button>
+                {expandedRawData.has(key) && (
+                  <pre className="plugin-raw-data">{result.debugJson}</pre>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
 }

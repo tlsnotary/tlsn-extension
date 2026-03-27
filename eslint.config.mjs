@@ -1,22 +1,22 @@
-import { defineConfig } from "eslint/config";
-import js from "@eslint/js";
-import tseslint from "typescript-eslint";
-import eslintPluginPrettier from "eslint-plugin-prettier/recommended";
-import reactPlugin from "eslint-plugin-react";
-import reactHooksPlugin from "eslint-plugin-react-hooks";
-import globals from "globals";
+import { defineConfig } from 'eslint/config';
+import js from '@eslint/js';
+import tseslint from 'typescript-eslint';
+import eslintPluginPrettier from 'eslint-plugin-prettier/recommended';
+import reactPlugin from 'eslint-plugin-react';
+import reactHooksPlugin from 'eslint-plugin-react-hooks';
+import globals from 'globals';
 
 export default defineConfig(
   // Global ignores
   {
     ignores: [
-      "**/build/",
-      "**/dist/",
-      "packages/extension/lib/",
-      "packages/extension/webpack.config.js",
-      "packages/demo/",
-      "packages/ts-plugin-sample/",
-      "packages/tlsn-wasm-pkg/",
+      '**/build/',
+      '**/dist/',
+      'packages/extension/lib/',
+      'packages/extension/webpack.config.js',
+      'packages/demo/',
+      'packages/ts-plugin-sample/',
+      'packages/tlsn-wasm-pkg/',
     ],
   },
 
@@ -34,14 +34,14 @@ export default defineConfig(
       },
     },
     rules: {
-      "no-console": "warn",
-      "@typescript-eslint/no-explicit-any": "warn",
-      "@typescript-eslint/no-unused-vars": [
-        "error",
+      'no-console': 'warn',
+      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
         {
-          argsIgnorePattern: "^_",
-          varsIgnorePattern: "^_",
-          caughtErrorsIgnorePattern: "^_",
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
         },
       ],
     },
@@ -49,66 +49,63 @@ export default defineConfig(
 
   // Test file overrides
   {
-    files: ["**/*.test.ts", "**/*.spec.ts"],
+    files: ['**/*.test.ts', '**/*.spec.ts'],
     rules: {
-      "no-console": "off",
+      'no-console': 'off',
     },
   },
 
   // Files where console is intentional (scripts, logger, workers, test infra)
   {
     files: [
-      "packages/common/src/logger/**",
-      "packages/extension/src/offscreen/ProveManager/worker.ts",
-      "packages/extension/tests/browser/globalSetup.ts",
-      "packages/verifier/scripts/**",
-      "packages/tutorial/**",
-      "**/*.js",
-      "**/*.mjs",
+      'packages/common/src/logger/**',
+      'packages/extension/src/offscreen/ProveManager/worker.ts',
+      'packages/extension/tests/browser/globalSetup.ts',
+      'packages/verifier/scripts/**',
+      'packages/tutorial/**',
+      '**/*.js',
+      '**/*.mjs',
     ],
     rules: {
-      "no-console": "off",
+      'no-console': 'off',
     },
   },
 
   // Extension-specific overrides
   {
-    files: ["packages/extension/**/*.{ts,tsx,js,jsx}"],
+    files: ['packages/extension/**/*.{ts,tsx,js,jsx}'],
     languageOptions: {
       globals: {
         ...globals.webextensions,
-        URLPattern: "readonly",
+        URLPattern: 'readonly',
       },
     },
   },
 
   // CJS build scripts
   {
-    files: ["packages/extension/**/*.js"],
+    files: ['packages/extension/**/*.js'],
     rules: {
-      "@typescript-eslint/no-require-imports": "off",
+      '@typescript-eslint/no-require-imports': 'off',
     },
   },
 
   // React overrides (extension + tutorial)
   {
-    files: [
-      "packages/extension/**/*.{tsx,jsx}",
-      "packages/tutorial/src/**/*.{tsx,jsx}",
-    ],
+    files: ['packages/extension/**/*.{tsx,jsx}', 'packages/tutorial/src/**/*.{tsx,jsx}'],
     plugins: {
       react: reactPlugin,
-      "react-hooks": reactHooksPlugin,
+      'react-hooks': reactHooksPlugin,
     },
     settings: {
       react: {
-        version: "detect",
+        version: 'detect',
       },
     },
     rules: {
       ...reactPlugin.configs.recommended.rules,
       ...reactHooksPlugin.configs.recommended.rules,
-      "react/react-in-jsx-scope": "off",
+      'react/react-in-jsx-scope': 'off',
     },
   },
 );

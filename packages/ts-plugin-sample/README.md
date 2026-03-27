@@ -5,6 +5,7 @@ A TypeScript implementation of the X Profile Prover plugin demonstrating how to 
 ## Overview
 
 This package shows how to:
+
 - Write TLSN plugins in TypeScript with full type safety
 - Import types from `@tlsn/plugin-sdk`
 - Compile TypeScript plugins to JavaScript for execution
@@ -122,7 +123,7 @@ import { ProgressBar } from './components';
 function main(): DomJson {
   return div({}, [
     // ... other UI elements ...
-    ...ProgressBar(),  // Shows progress during proof generation
+    ...ProgressBar(), // Shows progress during proof generation
   ]);
 }
 ```
@@ -188,14 +189,14 @@ const config: PluginConfig = {
 ```typescript
 // This will error at compile time:
 const handler: Handler = {
-  type: 'INVALID',  // ❌ Type '"INVALID"' is not assignable to type 'HandlerType'
+  type: 'INVALID', // ❌ Type '"INVALID"' is not assignable to type 'HandlerType'
   part: 'BODY',
   action: 'REVEAL',
 };
 
 // This will pass:
 const handler: Handler = {
-  type: 'RECV',     // ✓ Valid HandlerType
+  type: 'RECV', // ✓ Valid HandlerType
   part: 'BODY',
   action: 'REVEAL',
 };
@@ -206,6 +207,7 @@ const handler: Handler = {
 ### Build Tool: esbuild + Custom Wrapper
 
 The plugin uses **esbuild** with a custom build wrapper:
+
 - **Single file output:** All code bundled into one file
 - **ES Module format:** Standard `export default` statement
 - **No external imports:** All dependencies bundled inline
@@ -218,6 +220,7 @@ The build wrapper (`build-wrapper.cjs`) derives the output filename from `packag
 ### TypeScript Config (`tsconfig.json`)
 
 TypeScript is used for type checking only (`npm run typecheck`):
+
 - **Target:** ES2020 (modern browser features)
 - **Strict:** Full type checking enabled
 - **Global types:** Includes SDK globals for plugin API functions
@@ -246,6 +249,7 @@ After building, the compiled plugin can be loaded in the TLSN extension:
 4. The plugin executes with full type safety verified at compile time
 
 **Output Characteristics:**
+
 - ✅ Single file with `export default` statement
 - ✅ No external imports (all dependencies bundled)
 - ✅ Zero runtime SDK dependency (types are string unions)
@@ -257,6 +261,7 @@ After building, the compiled plugin can be loaded in the TLSN extension:
 See `packages/demo/generated/twitter.js` for the equivalent JavaScript implementation.
 
 **Advantages of TypeScript:**
+
 - Compile-time type checking
 - IDE autocomplete and IntelliSense
 - Catches errors before runtime
@@ -264,6 +269,7 @@ See `packages/demo/generated/twitter.js` for the equivalent JavaScript implement
 - Refactoring safety
 
 **Trade-offs:**
+
 - Requires build step
 - Slightly more verbose (type annotations)
 - Need to maintain type declarations
@@ -292,7 +298,7 @@ requests: [
     host: 'api.x.com',
     // ...
   } satisfies RequestPermission,
-]
+];
 
 // Also good: Full type annotation
 const request: RequestPermission = {

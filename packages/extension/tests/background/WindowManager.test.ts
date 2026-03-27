@@ -12,10 +12,7 @@ import type {
   InterceptedRequest,
   InterceptedRequestHeader,
 } from '../../src/types/window-manager';
-import {
-  REQUEST_BATCH_INTERVAL_MS,
-  REQUEST_BATCH_MAX_SIZE,
-} from '../../src/constants/limits';
+import { REQUEST_BATCH_INTERVAL_MS, REQUEST_BATCH_MAX_SIZE } from '../../src/constants/limits';
 import browser from 'webextension-polyfill';
 
 describe('WindowManager', () => {
@@ -271,11 +268,9 @@ describe('WindowManager', () => {
     });
 
     it('should log error when adding request to non-existent window', () => {
-      const consoleErrorSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => {
-          /* no-op mock */
-        });
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {
+        /* no-op mock */
+      });
 
       const request: InterceptedRequest = {
         id: 'req-1',
@@ -408,20 +403,14 @@ describe('WindowManager', () => {
       // Second call should be RENDER_PLUGIN_UI (showPluginUI), not SHOW_TLSN_OVERLAY (showOverlay)
       const calls = vi.mocked(browser.tabs.sendMessage).mock.calls;
       expect(calls).toHaveLength(2);
-      expect((calls[0][1] as Record<string, unknown>).type).toBe(
-        'RENDER_PLUGIN_UI',
-      );
-      expect((calls[1][1] as Record<string, unknown>).type).toBe(
-        'RENDER_PLUGIN_UI',
-      );
+      expect((calls[0][1] as Record<string, unknown>).type).toBe('RENDER_PLUGIN_UI');
+      expect((calls[1][1] as Record<string, unknown>).type).toBe('RENDER_PLUGIN_UI');
       expect((calls[1][1] as Record<string, unknown>).json).toEqual(json);
     });
 
     it('should handle overlay show error gracefully', async () => {
       // Mock sendMessage to fail for all retry attempts
-      vi.mocked(browser.tabs.sendMessage).mockRejectedValue(
-        new Error('Tab not found'),
-      );
+      vi.mocked(browser.tabs.sendMessage).mockRejectedValue(new Error('Tab not found'));
 
       // Start showOverlay (which will retry with delays)
       const showPromise = windowManager.showOverlay(123);
@@ -435,9 +424,7 @@ describe('WindowManager', () => {
 
     it('should handle overlay hide error gracefully', async () => {
       await windowManager.showOverlay(123);
-      vi.mocked(browser.tabs.sendMessage).mockRejectedValueOnce(
-        new Error('Tab not found'),
-      );
+      vi.mocked(browser.tabs.sendMessage).mockRejectedValueOnce(new Error('Tab not found'));
 
       await expect(windowManager.hideOverlay(123)).resolves.not.toThrow();
     });
@@ -489,17 +476,13 @@ describe('WindowManager', () => {
         id: 123,
       } as browser.Windows.Window);
 
-      await expect(
-        windowManager.cleanupInvalidWindows(),
-      ).resolves.not.toThrow();
+      await expect(windowManager.cleanupInvalidWindows()).resolves.not.toThrow();
 
       expect(windowManager.getWindow(123)).toBeDefined();
     });
 
     it('should handle cleanup with no windows', async () => {
-      await expect(
-        windowManager.cleanupInvalidWindows(),
-      ).resolves.not.toThrow();
+      await expect(windowManager.cleanupInvalidWindows()).resolves.not.toThrow();
     });
   });
 
@@ -646,10 +629,9 @@ describe('WindowManager', () => {
       );
 
       expect(callsAfterBoth).toHaveLength(1);
-      expect(
-        (callsAfterBoth[0][0] as Record<string, Record<string, unknown>>)
-          .request.id,
-      ).toBe('req-1');
+      expect((callsAfterBoth[0][0] as Record<string, Record<string, unknown>>).request.id).toBe(
+        'req-1',
+      );
 
       // Advance timer to flush the batch
       await vi.advanceTimersByTimeAsync(REQUEST_BATCH_INTERVAL_MS);
@@ -733,10 +715,9 @@ describe('WindowManager', () => {
       );
 
       expect(callsAfterBoth).toHaveLength(1);
-      expect(
-        (callsAfterBoth[0][0] as Record<string, Record<string, unknown>>).header
-          .id,
-      ).toBe('hdr-1');
+      expect((callsAfterBoth[0][0] as Record<string, Record<string, unknown>>).header.id).toBe(
+        'hdr-1',
+      );
 
       await vi.advanceTimersByTimeAsync(REQUEST_BATCH_INTERVAL_MS);
 
@@ -820,9 +801,7 @@ describe('WindowManager', () => {
       sendMessage.mockClear();
 
       // Mock window as no longer existing
-      vi.mocked(browser.windows.get).mockRejectedValue(
-        new Error('Window not found'),
-      );
+      vi.mocked(browser.windows.get).mockRejectedValue(new Error('Window not found'));
 
       await windowManager.cleanupInvalidWindows();
 

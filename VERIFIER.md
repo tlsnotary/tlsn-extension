@@ -96,12 +96,15 @@ Browser Extension ──► WebSocket ──► Verifier Proxy ──► TCP/TLS
 **WebSocket** `/proxy?token=<host>`
 
 **Query Parameters:**
+
 - `token` (required) - Target server hostname (e.g., `api.x.com`, `api.github.com`)
 
 **Alternative (legacy):**
+
 - `host` (deprecated) - Same as `token`, supported for backward compatibility
 
 **Protocol:**
+
 - Local development: `ws://localhost:7047/proxy?token=api.x.com`
 - Production: `wss://demo.tlsnotary.org/proxy?token=api.x.com`
 
@@ -114,9 +117,10 @@ const ws = new WebSocket(proxyUrl);
 
 // Send HTTP request bytes through WebSocket
 ws.onopen = () => {
-  const httpRequest = 'GET /1.1/account/settings.json HTTP/1.1\r\n' +
-                      'Host: api.x.com\r\n' +
-                      'Connection: close\r\n\r\n';
+  const httpRequest =
+    'GET /1.1/account/settings.json HTTP/1.1\r\n' +
+    'Host: api.x.com\r\n' +
+    'Connection: close\r\n\r\n';
   ws.send(httpRequest);
 };
 
@@ -129,6 +133,7 @@ ws.onmessage = (event) => {
 ### Proxy Implementation Details
 
 The proxy implementation:
+
 - **Parses hostname and port** from the `token` parameter (defaults to port 443 for HTTPS)
 - **Establishes TCP connection** to the target server
 - **Bidirectional bridge**: WebSocket ↔ TCP
@@ -150,11 +155,13 @@ The proxy implementation:
 Simple endpoint for monitoring and load balancer health checks.
 
 **Response:**
+
 ```
 ok
 ```
 
 **Example:**
+
 ```bash
 curl http://localhost:7047/health
 ```
@@ -168,6 +175,7 @@ curl http://localhost:7047/health
 Creates a new MPC-TLS verification session. The extension connects to this endpoint to initiate the verification protocol.
 
 **WebSocket Message (JSON):**
+
 ```json
 {
   "maxRecvData": 16384,
@@ -180,6 +188,7 @@ Creates a new MPC-TLS verification session. The extension connects to this endpo
 ```
 
 **Parameters:**
+
 - `maxRecvData` (number, optional) - Maximum bytes the prover can receive (default: 16384)
 - `maxSentData` (number, optional) - Maximum bytes the prover can send (default: 4096)
 - `sessionData` (object, optional) - Custom key-value metadata for this session
@@ -188,6 +197,7 @@ Creates a new MPC-TLS verification session. The extension connects to this endpo
   - Example: `{ userId: '123', requestId: 'req_abc', purpose: 'account_verification' }`
 
 **WebSocket Response (JSON):**
+
 ```json
 {
   "sessionId": "550e8400-e29b-41d4-a716-446655440000"
@@ -195,15 +205,18 @@ Creates a new MPC-TLS verification session. The extension connects to this endpo
 ```
 
 **Example (JavaScript):**
+
 ```javascript
 const ws = new WebSocket('ws://localhost:7047/session');
 
 ws.onopen = () => {
-  ws.send(JSON.stringify({
-    maxRecvData: 16384,
-    maxSentData: 4096,
-    sessionData: { userId: 'user_123', purpose: 'twitter_verification' }
-  }));
+  ws.send(
+    JSON.stringify({
+      maxRecvData: 16384,
+      maxSentData: 4096,
+      sessionData: { userId: 'user_123', purpose: 'twitter_verification' },
+    }),
+  );
 };
 
 ws.onmessage = (event) => {
@@ -214,6 +227,7 @@ ws.onmessage = (event) => {
 ```
 
 **Session Lifecycle:**
+
 1. Extension opens WebSocket to `/session`
 2. Extension sends configuration (maxRecvData, maxSentData, sessionData)
 3. Server generates UUID, stores session configuration
@@ -230,6 +244,7 @@ ws.onmessage = (event) => {
 **WebSocket** `/verifier?sessionId=<session-id>`
 
 Connects to an existing session as the verifier party in MPC-TLS. This endpoint:
+
 - Validates the `sessionId` exists
 - Retrieves session configuration (maxRecvData, maxSentData, sessionData)
 - Spawns MPC-TLS verification task
@@ -237,9 +252,11 @@ Connects to an existing session as the verifier party in MPC-TLS. This endpoint:
 - Cleans up session after completion
 
 **Query Parameters:**
+
 - `sessionId` (required) - Session ID from `/session` endpoint
 
 **Error Responses:**
+
 - `404 Not Found` - Session ID doesn't exist or was already used
 - `500 Internal Server Error` - Verification failed
 
@@ -247,6 +264,7 @@ Connects to an existing session as the verifier party in MPC-TLS. This endpoint:
 The verifier receives binary TLS messages from the prover and responds with verification data. Message format is defined by the TLSNotary protocol.
 
 **Example (JavaScript):**
+
 ```javascript
 const sessionId = '550e8400-e29b-41d4-a716-446655440000';
 const ws = new WebSocket(`ws://localhost:7047/verifier?sessionId=${sessionId}`);
@@ -262,6 +280,7 @@ ws.onclose = () => {
 ```
 
 **Implementation Notes:**
+
 - Session configuration (maxRecvData, maxSentData) is passed to the TLSNotary prover configuration
 - The `sessionData` object is passed to the verification task for webhook inclusion
 - Sessions are single-use and automatically removed after the WebSocket closes
@@ -345,26 +364,27 @@ Webhooks are configured in `config.yaml`:
 ```yaml
 webhooks:
   # Per-server webhooks (matched by target hostname)
-  "api.x.com":
-    url: "https://your-backend.example.com/webhook/twitter"
+  'api.x.com':
+    url: 'https://your-backend.example.com/webhook/twitter'
     headers:
-      Authorization: "Bearer your-secret-token"
-      X-Source: "tlsn-verifier"
-      Content-Type: "application/json"
+      Authorization: 'Bearer your-secret-token'
+      X-Source: 'tlsn-verifier'
+      Content-Type: 'application/json'
 
-  "api.github.com":
-    url: "https://your-backend.example.com/webhook/github"
+  'api.github.com':
+    url: 'https://your-backend.example.com/webhook/github'
     headers:
-      Authorization: "Bearer another-token"
+      Authorization: 'Bearer another-token'
 
   # Wildcard: catch-all for any unmatched server
-  "*":
-    url: "https://your-backend.example.com/webhook/default"
+  '*':
+    url: 'https://your-backend.example.com/webhook/default'
     headers:
-      X-Source: "tlsn-verifier"
+      X-Source: 'tlsn-verifier'
 ```
 
 **Matching Logic:**
+
 1. Server extracts target hostname from the HTTP request (e.g., `api.x.com`)
 2. Looks for exact match in webhook configuration
 3. If no exact match, falls back to wildcard `"*"` if configured
@@ -377,6 +397,7 @@ webhooks:
 **Content-Type:** `application/json`
 
 **Payload Structure:**
+
 ```json
 {
   "sessionId": "550e8400-e29b-41d4-a716-446655440000",
@@ -392,12 +413,18 @@ webhooks:
   },
   "revealConfig": [
     { "type": "SENT", "part": "START_LINE", "action": "REVEAL" },
-    { "type": "RECV", "part": "BODY", "action": "REVEAL", "params": { "type": "json", "path": "screen_name" } }
+    {
+      "type": "RECV",
+      "part": "BODY",
+      "action": "REVEAL",
+      "params": { "type": "json", "path": "screen_name" }
+    }
   ]
 }
 ```
 
 **Fields:**
+
 - `sessionId` (string) - UUID of the verification session
 - `sessionData` (object) - Custom metadata passed during session creation
 - `server_name` (string) - Target server hostname (e.g., `api.x.com`)
@@ -433,7 +460,7 @@ app.post('/webhook/twitter', async (req, res) => {
     server: server_name,
     sentData,
     recvData,
-    timestamp: new Date()
+    timestamp: new Date(),
   });
 
   res.status(200).json({ received: true });
@@ -443,6 +470,7 @@ app.post('/webhook/twitter', async (req, res) => {
 ### Fire-and-Forget Behavior
 
 Webhooks are sent **asynchronously** and do **not** block the verification process:
+
 - Sent in a separate `tokio::spawn` task
 - Errors are logged but do not affect the proof result
 - No retry logic (single attempt per proof)
@@ -486,6 +514,7 @@ cargo build --release
 ### Docker Deployment
 
 **Dockerfile:**
+
 ```dockerfile
 FROM rust:1.75 AS builder
 
@@ -514,6 +543,7 @@ CMD ["tlsn-verifier-server"]
 ```
 
 **Build and Run:**
+
 ```bash
 docker build -t tlsn-verifier-server .
 docker run -p 7047:7047 -v $(pwd)/config.yaml:/etc/tlsn-verifier/config.yaml tlsn-verifier-server
@@ -560,6 +590,7 @@ server {
 ```
 
 **Important nginx Settings:**
+
 - `proxy_http_version 1.1` - Required for WebSocket
 - `Upgrade` and `Connection` headers - Required for WebSocket upgrade
 - `proxy_read_timeout 3600s` - Long timeout for slow MPC operations
@@ -574,6 +605,7 @@ server {
 **Location:** `packages/verifier/src/main.rs`
 
 **Default Configuration:**
+
 ```rust
 let addr = SocketAddr::from(([0, 0, 0, 0], 7047));
 ```
@@ -590,6 +622,7 @@ To change the port, modify the `SocketAddr::from()` call or add environment vari
 See [Webhook System](#webhook-system) section for configuration format.
 
 **Loading Logic:**
+
 - Server attempts to load `config.yaml` from current working directory
 - If file not found, webhooks are disabled (no error)
 - Invalid YAML syntax causes server startup failure
@@ -599,11 +632,13 @@ See [Webhook System](#webhook-system) section for configuration format.
 **Current:** Permissive (allows all origins)
 
 **Location:** `packages/verifier/src/main.rs`
+
 ```rust
 .layer(CorsLayer::permissive())
 ```
 
 **Production Recommendation:** Restrict CORS to specific origins:
+
 ```rust
 use tower_http::cors::{CorsLayer, Any};
 use http::Method;
@@ -634,6 +669,7 @@ RUST_LOG=trace cargo run
 ```
 
 **Log Format:**
+
 ```
 2026-01-20T10:30:45.123456Z  INFO tlsn_verifier_server: Server listening on 0.0.0.0:7047
 2026-01-20T10:30:50.234567Z  INFO tlsn_verifier_server: [Session] New session created: 550e8400-e29b-41d4-a716-446655440000
@@ -663,29 +699,36 @@ packages/verifier/
 ### Key Dependencies
 
 **Core TLSNotary:**
+
 - `tlsn` v0.1.0-alpha.14 - TLSNotary protocol implementation
 
 **Web Framework:**
+
 - `axum` 0.7 - HTTP server with WebSocket support
 - `tower-http` - CORS middleware
 - `hyper` - Low-level HTTP library
 
 **WebSocket:**
+
 - `ws_stream_tungstenite` - WebSocket to AsyncRead/AsyncWrite bridge
 - `async-tungstenite` - Async WebSocket implementation
 
 **Serialization:**
+
 - `serde`, `serde_json` - JSON serialization
 - `serde_yaml` - YAML config parsing
 
 **Async Runtime:**
+
 - `tokio` - Async runtime with full features
 - `futures-util` - Async stream utilities
 
 **HTTP Client:**
+
 - `reqwest` - HTTP client for webhooks
 
 **Utilities:**
+
 - `uuid` - Session ID generation
 - `tracing` - Structured logging
 - `eyre` - Error handling
@@ -721,12 +764,14 @@ cargo test test_name
 ### Testing with Extension
 
 1. **Start verifier server:**
+
    ```bash
    cd packages/verifier
    RUST_LOG=debug cargo run
    ```
 
 2. **Build and load extension:**
+
    ```bash
    cd packages/extension
    npm run dev
@@ -773,12 +818,14 @@ websocat ws://localhost:7047/proxy?token=api.x.com
 
 **Issue:** `Address already in use (os error 48)`
 **Solution:** Port 7047 is already bound. Kill existing process:
+
 ```bash
 lsof -ti:7047 | xargs kill -9
 ```
 
 **Issue:** `failed to load config.yaml`
 **Solution:** Create `config.yaml` or run from directory containing it:
+
 ```bash
 cd packages/verifier
 cargo run
@@ -789,6 +836,7 @@ cargo run
 
 **Issue:** Proxy connection timeout
 **Solution:** Check target server is reachable:
+
 ```bash
 nc -zv api.x.com 443
 ```
@@ -810,11 +858,13 @@ const host = new Host({
   onProve: async (requestOptions, proverOptions) => {
     // 1. Create session
     const sessionWs = new WebSocket('ws://localhost:7047/session');
-    sessionWs.send(JSON.stringify({
-      maxRecvData: proverOptions.maxRecvData,
-      maxSentData: proverOptions.maxSentData,
-      sessionData: proverOptions.sessionData
-    }));
+    sessionWs.send(
+      JSON.stringify({
+        maxRecvData: proverOptions.maxRecvData,
+        maxSentData: proverOptions.maxSentData,
+        sessionData: proverOptions.sessionData,
+      }),
+    );
 
     // 2. Receive sessionId
     const { sessionId } = await waitForMessage(sessionWs);
@@ -826,7 +876,7 @@ const host = new Host({
     const proof = await performMpcTls(sessionWs, verifierWs, requestOptions, proverOptions);
 
     return proof;
-  }
+  },
 });
 ```
 
@@ -839,7 +889,9 @@ const proof = await prove(
   {
     url: 'https://api.x.com/1.1/account/settings.json',
     method: 'GET',
-    headers: { /* ... */ }
+    headers: {
+      /* ... */
+    },
   },
   {
     verifierUrl: 'http://localhost:7047',
@@ -848,13 +900,19 @@ const proof = await prove(
     maxSentData: 4096,
     sessionData: { userId: '123', purpose: 'twitter_verification' },
     handlers: [
-      { type: 'RECV', part: 'BODY', action: 'REVEAL', params: { type: 'json', path: 'screen_name' } }
-    ]
-  }
+      {
+        type: 'RECV',
+        part: 'BODY',
+        action: 'REVEAL',
+        params: { type: 'json', path: 'screen_name' },
+      },
+    ],
+  },
 );
 ```
 
 **Verifier processes:**
+
 1. Session creation with sessionData
 2. MPC-TLS verification
 3. Selective disclosure (only `screen_name` revealed)

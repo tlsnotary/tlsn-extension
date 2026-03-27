@@ -8,7 +8,7 @@ declare global {
       execCode: (code: string) => Promise<string>;
       open: (
         url: string,
-        options?: { width?: number; height?: number; showOverlay?: boolean }
+        options?: { width?: number; height?: number; showOverlay?: boolean },
       ) => Promise<void>;
     };
   }

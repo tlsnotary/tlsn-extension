@@ -92,14 +92,10 @@ function createNode(json: DomJson, windowId: number): HTMLElement | Text {
     });
   }
 
-  if (json.options.inputType)
-    (node as HTMLInputElement).type = json.options.inputType;
-  if (json.options.checked !== undefined)
-    (node as HTMLInputElement).checked = json.options.checked;
-  if (json.options.value !== undefined)
-    (node as HTMLInputElement).value = json.options.value;
-  if (json.options.placeholder)
-    (node as HTMLInputElement).placeholder = json.options.placeholder;
+  if (json.options.inputType) (node as HTMLInputElement).type = json.options.inputType;
+  if (json.options.checked !== undefined) (node as HTMLInputElement).checked = json.options.checked;
+  if (json.options.value !== undefined) (node as HTMLInputElement).value = json.options.value;
+  if (json.options.placeholder) (node as HTMLInputElement).placeholder = json.options.placeholder;
   if (json.options.disabled !== undefined)
     (node as HTMLInputElement).disabled = json.options.disabled;
 
@@ -190,10 +186,7 @@ window.addEventListener('message', (event) => {
 
   // Handle TLSN window.tlsn.open() calls
   if (event.data?.type === 'TLSN_OPEN_WINDOW') {
-    logger.debug(
-      '[Content Script] Received TLSN_OPEN_WINDOW request:',
-      event.data.payload,
-    );
+    logger.debug('[Content Script] Received TLSN_OPEN_WINDOW request:', event.data.payload);
 
     // Forward to background script with OPEN_WINDOW type
     browser.runtime
@@ -205,19 +198,13 @@ window.addEventListener('message', (event) => {
         showOverlay: event.data.payload.showOverlay,
       })
       .catch((error) => {
-        logger.error(
-          '[Content Script] Failed to send OPEN_WINDOW message:',
-          error,
-        );
+        logger.error('[Content Script] Failed to send OPEN_WINDOW message:', error);
       });
   }
 
   // Handle code execution requests
   if (event.data?.type === 'TLSN_EXEC_CODE') {
-    logger.debug(
-      '[Content Script] Received TLSN_EXEC_CODE request:',
-      event.data.payload,
-    );
+    logger.debug('[Content Script] Received TLSN_EXEC_CODE request:', event.data.payload);
 
     // Forward to background script
     browser.runtime

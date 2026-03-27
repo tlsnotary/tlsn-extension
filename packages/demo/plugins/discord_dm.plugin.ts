@@ -1,9 +1,4 @@
-import type {
-  PluginConfig,
-  RequestPermission,
-  Handler,
-  DomJson,
-} from '@tlsn/plugin-sdk';
+import type { PluginConfig, RequestPermission, Handler, DomJson } from '@tlsn/plugin-sdk';
 
 // Injected at build time via esbuild --define
 declare const __VERIFIER_URL__: string;
@@ -185,9 +180,7 @@ const main = (): DomJson => {
     );
 
     if (header) {
-      const authorization = header.requestHeaders.find(
-        (h) => h.name === 'Authorization',
-      )?.value;
+      const authorization = header.requestHeaders.find((h) => h.name === 'Authorization')?.value;
 
       if (authorization) setState('authorization', authorization);
     }
@@ -203,9 +196,7 @@ const main = (): DomJson => {
     requests.filter((r) => channelPattern.test(r.url)),
   );
   const lastChannelRequest =
-    channelRequests.length > 0
-      ? channelRequests[channelRequests.length - 1]
-      : null;
+    channelRequests.length > 0 ? channelRequests[channelRequests.length - 1] : null;
 
   if (lastChannelRequest) {
     const match = lastChannelRequest.url.match(channelPattern);
@@ -278,10 +269,7 @@ const main = (): DomJson => {
           },
         },
         [
-          div(
-            { style: { fontWeight: '600', fontSize: '16px' } },
-            ['Discord DM Proof'],
-          ),
+          div({ style: { fontWeight: '600', fontSize: '16px' } }, ['Discord DM Proof']),
           button(
             {
               style: {
@@ -303,102 +291,90 @@ const main = (): DomJson => {
           ),
         ],
       ),
-      div(
-        { style: { padding: '20px', backgroundColor: '#f8f9fa' } },
-        [
-          // Step 1: Login Status
-          div(
-            {
-              style: {
-                marginBottom: '16px',
-                padding: '12px',
-                borderRadius: '6px',
-                backgroundColor: isConnected ? '#d4edda' : '#f8d7da',
-                color: isConnected ? '#155724' : '#721c24',
-                border: `1px solid ${isConnected ? '#c3e6cb' : '#f5c6cb'}`,
-                fontWeight: '500',
-              },
+      div({ style: { padding: '20px', backgroundColor: '#f8f9fa' } }, [
+        // Step 1: Login Status
+        div(
+          {
+            style: {
+              marginBottom: '16px',
+              padding: '12px',
+              borderRadius: '6px',
+              backgroundColor: isConnected ? '#d4edda' : '#f8d7da',
+              color: isConnected ? '#155724' : '#721c24',
+              border: `1px solid ${isConnected ? '#c3e6cb' : '#f5c6cb'}`,
+              fontWeight: '500',
             },
-            [
-              isConnected
-                ? '\u2713 Discord token detected'
-                : '\u26A0 No Discord token detected',
-            ],
-          ),
+          },
+          [isConnected ? '\u2713 Discord token detected' : '\u26A0 No Discord token detected'],
+        ),
 
-          // Step 2+3: Action area
-          !isConnected
+        // Step 2+3: Action area
+        !isConnected
+          ? div(
+              {
+                style: {
+                  textAlign: 'center',
+                  color: '#666',
+                  padding: '12px',
+                  backgroundColor: '#fff3cd',
+                  borderRadius: '6px',
+                  border: '1px solid #ffeaa7',
+                },
+              },
+              ['Please login to Discord to continue'],
+            )
+          : !selectedDMId
             ? div(
                 {
                   style: {
-                    textAlign: 'center',
-                    color: '#666',
                     padding: '12px',
-                    backgroundColor: '#fff3cd',
                     borderRadius: '6px',
+                    backgroundColor: '#fff3cd',
+                    color: '#856404',
                     border: '1px solid #ffeaa7',
+                    fontWeight: '500',
                   },
                 },
-                ['Please login to Discord to continue'],
+                ['Please select a DM conversation in Discord'],
               )
-            : !selectedDMId
-              ? div(
+            : div({}, [
+                div(
                   {
                     style: {
+                      marginBottom: '16px',
                       padding: '12px',
                       borderRadius: '6px',
-                      backgroundColor: '#fff3cd',
-                      color: '#856404',
-                      border: '1px solid #ffeaa7',
+                      backgroundColor: '#d4edda',
+                      color: '#155724',
+                      border: '1px solid #c3e6cb',
                       fontWeight: '500',
                     },
                   },
-                  ['Please select a DM conversation in Discord'],
-                )
-              : div({}, [
-                  div(
-                    {
-                      style: {
-                        marginBottom: '16px',
-                        padding: '12px',
-                        borderRadius: '6px',
-                        backgroundColor: '#d4edda',
-                        color: '#155724',
-                        border: '1px solid #c3e6cb',
-                        fontWeight: '500',
-                      },
+                  [`\u2713 Channel selected: ${selectedDMId}`],
+                ),
+                button(
+                  {
+                    style: {
+                      width: '100%',
+                      padding: '12px 24px',
+                      borderRadius: '6px',
+                      border: 'none',
+                      background: 'linear-gradient(135deg, #5865F2 0%, #4752C4 100%)',
+                      color: 'white',
+                      fontWeight: '600',
+                      fontSize: '15px',
+                      transition: 'all 0.2s ease',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                      opacity: isRequestPending ? '0.5' : '1',
+                      cursor: isRequestPending ? 'not-allowed' : 'pointer',
                     },
-                    [`\u2713 Channel selected: ${selectedDMId}`],
-                  ),
-                  button(
-                    {
-                      style: {
-                        width: '100%',
-                        padding: '12px 24px',
-                        borderRadius: '6px',
-                        border: 'none',
-                        background:
-                          'linear-gradient(135deg, #5865F2 0%, #4752C4 100%)',
-                        color: 'white',
-                        fontWeight: '600',
-                        fontSize: '15px',
-                        transition: 'all 0.2s ease',
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                        opacity: isRequestPending ? '0.5' : '1',
-                        cursor: isRequestPending ? 'not-allowed' : 'pointer',
-                      },
-                      onclick: 'onClick',
-                    },
-                    [
-                      isRequestPending
-                        ? 'Generating Proof...'
-                        : 'Generate Proof',
-                    ],
-                  ),
-                ]),
-          ...proveProgressBar(),
-        ],
-      ),
+                    onclick: 'onClick',
+                  },
+                  [isRequestPending ? 'Generating Proof...' : 'Generate Proof'],
+                ),
+              ]),
+        ...proveProgressBar(),
+      ]),
     ],
   );
 };

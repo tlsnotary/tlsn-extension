@@ -24,9 +24,9 @@ export function LoginPrompt(): DomJson {
         padding('sm'),
         bgColor('yellow-100'),
         borderRadius('sm'),
-        border('1px solid #ffeaa7')
+        border('1px solid #ffeaa7'),
       ),
     },
-    ['Please login to x.com to continue']
+    ['Please login to x.com to continue'],
   );
 }

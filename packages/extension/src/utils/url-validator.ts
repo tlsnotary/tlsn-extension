@@ -13,13 +13,7 @@ const ALLOWED_PROTOCOLS = ['http:', 'https:'];
 /**
  * Dangerous protocols that should be rejected
  */
-const DANGEROUS_PROTOCOLS = [
-  'javascript:',
-  'data:',
-  'file:',
-  'blob:',
-  'about:',
-];
+const DANGEROUS_PROTOCOLS = ['javascript:', 'data:', 'file:', 'blob:', 'about:'];
 
 /**
  * Result of URL validation
