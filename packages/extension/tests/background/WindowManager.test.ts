@@ -23,7 +23,7 @@ describe('WindowManager', () => {
 
   beforeEach(() => {
     windowManager = new WindowManager();
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     vi.useFakeTimers();
   });
 
