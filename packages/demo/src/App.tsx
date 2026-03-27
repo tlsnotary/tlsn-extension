@@ -26,6 +26,7 @@ import './App.css';
 interface PluginResultData {
   resultHtml: string;
   debugJson: string;
+  isError?: boolean;
 }
 
 export function App() {
@@ -228,6 +229,15 @@ export function App() {
         const errorMsg = err instanceof Error ? err.message : String(err);
         trackPluginError(plugin.name, errorMsg);
         addConsoleEntry(`❌ Error: ${errorMsg}`, 'error');
+
+        setPluginResults((prev) => ({
+          ...prev,
+          [pluginKey]: {
+            resultHtml: errorMsg,
+            debugJson: '',
+            isError: true,
+          },
+        }));
       } finally {
         setRunningPlugins((prev) => {
           const newSet = new Set(prev);

@@ -881,7 +881,7 @@ ${processedCode};
         onOpenWindow,
         onCloseWindow,
         lifecycle,
-        (err) => terminateWithError(err, sandbox),
+        (err: Error) => terminateWithError(err, sandbox),
       ),
       useEffect: makeUseEffect(uuid, context),
       useRequests: makeUseRequests(uuid, context),

@@ -831,6 +831,31 @@ body {
   background: linear-gradient(90deg, var(--secondary) 0%, var(--success-light) 100%);
 }
 
+.plugin-card--error {
+  border-color: #ef4444;
+  background: linear-gradient(135deg, #fef2f2 0%, #ffffff 30%);
+}
+
+.plugin-card--error::before {
+  opacity: 1;
+  background: linear-gradient(90deg, #ef4444 0%, #fecaca 100%);
+}
+
+.plugin-badge.plugin-badge--error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.plugin-result--error .plugin-result-title {
+  color: #991b1b;
+}
+
+.plugin-result--error .plugin-result-content {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
 .plugin-header {
   display: flex;
   flex-direction: column;
