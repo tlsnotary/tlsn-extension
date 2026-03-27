@@ -97,7 +97,7 @@ export default defineConfig({
     globals: true,
     browser: {
       enabled: true,
-      provider: playwright,
+      provider: playwright(),
       instances: [
         {
           browser: 'chromium',

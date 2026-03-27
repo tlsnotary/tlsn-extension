@@ -45,7 +45,7 @@ export default defineConfig({
           browser: 'chromium',
         },
       ],
-      provider: playwright,
+      provider: playwright(),
       // Enable headless mode by default
       headless: true,
     },
