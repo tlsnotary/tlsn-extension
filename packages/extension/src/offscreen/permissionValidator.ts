@@ -1,4 +1,4 @@
-import { PluginConfig, RequestPermission } from '@tlsn/plugin-sdk/src/types';
+import type { PluginConfig, RequestPermission } from '@tlsn/plugin-sdk';
 
 /**
  * Derives the default proxy URL from a verifier URL.

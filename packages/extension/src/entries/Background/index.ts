@@ -1,7 +1,7 @@
 import browser from 'webextension-polyfill';
 import { WindowManager } from '../../background/WindowManager';
 import { confirmationManager } from '../../background/ConfirmationManager';
-import type { PluginConfig } from '@tlsn/plugin-sdk/src/types';
+import type { PluginConfig } from '@tlsn/plugin-sdk';
 import type { InterceptedRequest, InterceptedRequestHeader } from '../../types/window-manager';
 import { validateUrl } from '../../utils/url-validator';
 import { logger } from '@tlsn/common';

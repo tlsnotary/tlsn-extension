@@ -1,5 +1,5 @@
 # Build stage for demo
-# Context: packages/
+# Context: repo root
 FROM node:20-alpine AS demo-builder
 
 # Accept build arguments with defaults
@@ -9,12 +9,13 @@ ARG GIT_HASH=local
 
 WORKDIR /app
 
-# Copy demo package files and install dependencies
-COPY demo/package.json ./
+# Copy shared tsconfig and demo package files
+COPY tsconfig.base.json /tsconfig.base.json
+COPY packages/demo/package.json ./
 RUN npm install
 
 # Copy demo source files
-COPY demo/ .
+COPY packages/demo/ .
 
 # Build with environment variables
 ENV VITE_VERIFIER_HOST=${VITE_VERIFIER_HOST}
@@ -31,12 +32,13 @@ ARG GIT_HASH=local
 
 WORKDIR /app
 
-# Copy tutorial package files and install dependencies
-COPY tutorial/package.json ./
+# Copy shared tsconfig and tutorial package files
+COPY tsconfig.base.json /tsconfig.base.json
+COPY packages/tutorial/package.json ./
 RUN npm install
 
 # Copy tutorial source files
-COPY tutorial/ .
+COPY packages/tutorial/ .
 
 # Copy built twitter plugin from demo stage (has correct verifier URLs)
 COPY --from=demo-builder /app/public/plugins/twitter.js /demo/public/plugins/twitter.js

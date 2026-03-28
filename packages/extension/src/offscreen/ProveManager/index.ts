@@ -6,7 +6,7 @@ import type {
   Method,
 } from '../../../../tlsn-wasm-pkg/tlsn_wasm';
 import { logger } from '@tlsn/common';
-import type { Handler } from '@tlsn/plugin-sdk/src/types';
+import type { Handler } from '@tlsn/plugin-sdk';
 
 /** A byte range used for reveal operations */
 interface RevealRange {

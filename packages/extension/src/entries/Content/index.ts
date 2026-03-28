@@ -1,5 +1,5 @@
 import browser from 'webextension-polyfill';
-import { DomJson } from '@tlsn/plugin-sdk/src/types';
+import type { DomJson } from '@tlsn/plugin-sdk';
 import { logger, LogLevel } from '@tlsn/common';
 
 // Initialize logger at DEBUG level for content scripts (no IndexedDB access)

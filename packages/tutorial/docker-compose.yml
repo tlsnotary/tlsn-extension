@@ -11,7 +11,8 @@ services:
 
   tutorial-static:
     build:
-      context: .
+      context: ../..
+      dockerfile: packages/tutorial/Dockerfile
       args:
         VITE_VERIFIER_HOST: ${VITE_VERIFIER_HOST:-localhost:7047}
         VITE_SSL: ${VITE_SSL:-false}
