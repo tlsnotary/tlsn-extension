@@ -1,14 +1,14 @@
 import Host from '@tlsn/plugin-sdk/src';
 import { ProveManager } from './ProveManager';
 import type { Method } from '../../../tlsn-wasm-pkg/tlsn_wasm';
-import {
+import type {
   DomJson,
   Handler,
   OpenWindowResponse,
   PluginConfig,
   ProveProgressData,
   WindowMessage,
-} from '@tlsn/plugin-sdk/src/types';
+} from '@tlsn/plugin-sdk';
 import { logger } from '@tlsn/common';
 
 /**

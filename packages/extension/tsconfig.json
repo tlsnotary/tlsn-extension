@@ -10,12 +10,12 @@
     "forceConsistentCasingInFileNames": true,
     "noFallthroughCasesInSwitch": true,
     "module": "esnext",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "noEmit": false,
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "types": ["chrome", "node"]
   },
-  "types": ["chrome"],
   "include": ["src"],
   "exclude": ["build", "node_modules"]
 }

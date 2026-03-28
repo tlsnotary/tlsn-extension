@@ -238,7 +238,7 @@ class WebSocketIoChannel implements IoChannel {
       throw error;
     }
 
-    this.ws.send(data);
+    this.ws.send(data as Uint8Array<ArrayBuffer>);
   }
 
   async close(): Promise<void> {
