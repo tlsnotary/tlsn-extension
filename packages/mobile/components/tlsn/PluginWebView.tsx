@@ -1,17 +1,20 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import { Platform } from 'react-native';
 import { WebView, WebViewMessageEvent, WebViewNavigation } from 'react-native-webview';
 import type { ShouldStartLoadRequest } from 'react-native-webview/lib/WebViewTypes';
 import CookieManager from '@react-native-cookies/cookies';
 import { buildFingerprintHidingScript } from '../../lib/webviewFingerprint';
 
-// Real mobile Safari user-agent. Google blocks embedded WKWebViews by
-// checking for the absence of "Safari/" in the UA string. The default
-// WKWebView UA omits "Safari/" and "Version/", which is how Google
-// distinguishes it from real Safari. Using the full Safari UA matches
-// the actual iOS TLS/HTTP fingerprint (same WebKit engine).
-// Universal link prevention is handled by onShouldStartLoadWithRequest.
-const SAFARI_USER_AGENT =
-  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
+// Google blocks OAuth in embedded WebViews by detecting platform-specific
+// user-agent markers:
+// - iOS: default WKWebView UA omits "Safari/" and "Version/" — we add them
+// - Android: default WebView UA contains "wv" marker — we remove it
+// Both match real browser UAs for the respective platform's TLS fingerprint.
+const BROWSER_USER_AGENT = Platform.select({
+  ios: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
+  android: 'Mozilla/5.0 (Linux; Android 14; Pixel 8 Build/UQ1A.240205.004) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.6478.122 Mobile Safari/537.36',
+  default: undefined,
+});
 
 /**
  * Intercepted request header matching plugin-sdk's InterceptedRequestHeader type.
@@ -199,7 +202,7 @@ export function PluginWebView({
     <WebView
       ref={webViewRef}
       source={{ uri: url }}
-      userAgent={SAFARI_USER_AGENT}
+      userAgent={BROWSER_USER_AGENT}
       injectedJavaScriptBeforeContentLoaded={injectedJS}
       onMessage={handleMessage}
       onNavigationStateChange={handleNavigationStateChange}
