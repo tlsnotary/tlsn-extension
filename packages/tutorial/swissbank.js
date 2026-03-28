@@ -216,7 +216,6 @@ const main = () => {
                     color: 'white',
                     fontWeight: '600',
                     fontSize: '15px',
-                    cursor: 'pointer',
                     transition: 'all 0.2s ease',
                     boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
                     opacity: isRequestPending ? 0.5 : 1,

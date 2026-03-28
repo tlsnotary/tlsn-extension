@@ -172,7 +172,6 @@ const main = (): DomJson => {
   const isMinimized = useState<boolean>('isMinimized', false);
   const isRequestPending = useState<boolean>('isRequestPending', false);
   const cachedCookie = useState<string | null>('cookie', null);
-  const cachedCsrfToken = useState<string | null>('x-csrf-token', null);
 
   // Only search for credentials if not already cached
   if (!cachedCookie) {

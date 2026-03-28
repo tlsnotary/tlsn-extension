@@ -9,7 +9,9 @@
     "build:plugins": "node build-plugins.js",
     "preview": "vite preview",
     "type-check": "tsc --noEmit",
-    "typecheck:plugins": "tsc --noEmit -p plugins/tsconfig.json"
+    "typecheck:plugins": "tsc --noEmit -p plugins/tsconfig.json",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
   },
   "dependencies": {
     "happy-dom": "20.0.11",
