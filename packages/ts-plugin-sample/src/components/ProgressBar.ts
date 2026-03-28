@@ -25,7 +25,7 @@ import {
 export function ProgressBar(): DomJson[] {
   const progress = useState<{ step: string; progress: number; message: string } | null>(
     '_proveProgress',
-    null
+    null,
   );
 
   if (!progress) return [];
@@ -33,48 +33,45 @@ export function ProgressBar(): DomJson[] {
   const pct = `${Math.round(progress.progress * 100)}%`;
 
   return [
-    div(
-      { style: inlineStyle(marginTop('sm')) },
-      [
-        // Track
-        div(
-          {
-            style: inlineStyle(
-              height('6px'),
-              bgColor('gray-200'),
-              borderRadius('sm'),
-              overflow('hidden')
-            ),
-          },
-          [
-            // Fill
-            div(
-              {
-                style: inlineStyle(
-                  height('100%'),
-                  width(pct),
-                  background('linear-gradient(90deg, #667eea, #764ba2)'),
-                  borderRadius('sm'),
-                  transition('width 0.4s ease')
-                ),
-              },
-              []
-            ),
-          ]
-        ),
-        // Message
-        div(
-          {
-            style: inlineStyle(
-              fontSize('xs'),
-              color('gray-500'),
-              marginTop('1'),
-              textAlign('center')
-            ),
-          },
-          [progress.message]
-        ),
-      ]
-    ),
+    div({ style: inlineStyle(marginTop('sm')) }, [
+      // Track
+      div(
+        {
+          style: inlineStyle(
+            height('6px'),
+            bgColor('gray-200'),
+            borderRadius('sm'),
+            overflow('hidden'),
+          ),
+        },
+        [
+          // Fill
+          div(
+            {
+              style: inlineStyle(
+                height('100%'),
+                width(pct),
+                background('linear-gradient(90deg, #667eea, #764ba2)'),
+                borderRadius('sm'),
+                transition('width 0.4s ease'),
+              ),
+            },
+            [],
+          ),
+        ],
+      ),
+      // Message
+      div(
+        {
+          style: inlineStyle(
+            fontSize('xs'),
+            color('gray-500'),
+            marginTop('1'),
+            textAlign('center'),
+          ),
+        },
+        [progress.message],
+      ),
+    ]),
   ];
 }

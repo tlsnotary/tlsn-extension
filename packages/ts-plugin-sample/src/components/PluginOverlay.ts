@@ -56,7 +56,7 @@ export function PluginOverlay({
         zIndex('999999'),
         fontSize('sm'),
         fontFamily(defaultFontFamily),
-        overflow('hidden')
+        overflow('hidden'),
       ),
     },
     [
@@ -66,24 +66,19 @@ export function PluginOverlay({
       // Content area
       div(
         {
-          style: inlineStyle(
-            padding('lg'),
-            bgColor('gray-100')
-          ),
+          style: inlineStyle(padding('lg'), bgColor('gray-100')),
         },
         [
           // Status indicator
           StatusIndicator({ isConnected }),
 
           // Conditional content: button or login prompt
-          isConnected
-            ? ProveButton({ onClick: onProve, isPending })
-            : LoginPrompt(),
+          isConnected ? ProveButton({ onClick: onProve, isPending }) : LoginPrompt(),
 
           // Progress bar (visible during proof generation)
           ...ProgressBar(),
-        ]
+        ],
       ),
-    ]
+    ],
   );
 }

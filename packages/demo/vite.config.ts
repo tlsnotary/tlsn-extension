@@ -5,19 +5,19 @@ import react from '@vitejs/plugin-react';
 const gitHash = process.env.GIT_HASH || 'local';
 
 export default defineConfig({
-    define: {
-        __GIT_COMMIT_HASH__: JSON.stringify(gitHash),
+  define: {
+    __GIT_COMMIT_HASH__: JSON.stringify(gitHash),
+  },
+  plugins: [react()],
+  build: {
+    outDir: 'dist',
+    sourcemap: true,
+  },
+  server: {
+    port: 3000,
+    open: true,
+    headers: {
+      'Cache-Control': 'no-store',
     },
-    plugins: [react()],
-    build: {
-        outDir: 'dist',
-        sourcemap: true,
-    },
-    server: {
-        port: 3000,
-        open: true,
-        headers: {
-            'Cache-Control': 'no-store',
-        },
-    },
+  },
 });

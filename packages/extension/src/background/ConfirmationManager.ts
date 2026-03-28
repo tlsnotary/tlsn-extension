@@ -75,12 +75,8 @@ export class ConfirmationManager {
         currentWindow.width != null &&
         currentWindow.height != null
       ) {
-        left = Math.round(
-          currentWindow.left + (currentWindow.width - this.POPUP_WIDTH) / 2,
-        );
-        top = Math.round(
-          currentWindow.top + (currentWindow.height - this.POPUP_HEIGHT) / 2,
-        );
+        left = Math.round(currentWindow.left + (currentWindow.width - this.POPUP_WIDTH) / 2);
+        top = Math.round(currentWindow.top + (currentWindow.height - this.POPUP_HEIGHT) / 2);
       }
     } catch {
       // Fall back to default positioning
@@ -139,9 +135,7 @@ export class ConfirmationManager {
   handleConfirmationResponse(requestId: string, allowed: boolean): void {
     const pending = this.pendingConfirmations.get(requestId);
     if (!pending) {
-      logger.warn(
-        `[ConfirmationManager] No pending confirmation found for request: ${requestId}`,
-      );
+      logger.warn(`[ConfirmationManager] No pending confirmation found for request: ${requestId}`);
       return;
     }
 
@@ -220,10 +214,7 @@ export class ConfirmationManager {
 
       // Pass permission arrays as JSON
       if (config.requests && config.requests.length > 0) {
-        params.set(
-          'requests',
-          encodeURIComponent(JSON.stringify(config.requests)),
-        );
+        params.set('requests', encodeURIComponent(JSON.stringify(config.requests)));
       }
 
       if (config.urls && config.urls.length > 0) {

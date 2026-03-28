@@ -50,13 +50,13 @@ export const SwissBankAdvanced: React.FC = () => {
 
     // Validate all 3 challenges
     const challenge1Valid = step5Challenge1Validators.every(
-      (validator) => validator.check({ code, pluginOutput: pluginResult }).valid
+      (validator) => validator.check({ code, pluginOutput: pluginResult }).valid,
     );
     const challenge2Valid = step5Challenge2Validators.every(
-      (validator) => validator.check({ code, pluginOutput: pluginResult }).valid
+      (validator) => validator.check({ code, pluginOutput: pluginResult }).valid,
     );
     const challenge3Valid = step5Challenge3Validators.every(
-      (validator) => validator.check({ code, pluginOutput: pluginResult }).valid
+      (validator) => validator.check({ code, pluginOutput: pluginResult }).valid,
     );
 
     setChallengeResults({

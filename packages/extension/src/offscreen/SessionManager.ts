@@ -23,10 +23,7 @@ interface ChromeRuntimeLike {
     removeListener: (listener: (...args: unknown[]) => void) => void;
   };
 }
-import {
-  validateProvePermission,
-  validateOpenWindowPermission,
-} from './permissionValidator';
+import { validateProvePermission, validateOpenWindowPermission } from './permissionValidator';
 
 export class SessionManager {
   private host: Host;
@@ -63,11 +60,7 @@ export class SessionManager {
         }
 
         // Validate permissions before proceeding
-        validateProvePermission(
-          requestOptions,
-          proverOptions,
-          this.currentConfig,
-        );
+        validateProvePermission(requestOptions, proverOptions, this.currentConfig);
 
         // Build sessionData with defaults + user-provided data
         const sessionData: Record<string, string> = {
@@ -95,38 +88,23 @@ export class SessionManager {
 
           // Send request via ProveManager which handles IoChannel creation in the worker.
           emitBoth('SENDING_REQUEST', 0.3, 'Sending request...');
-          await this.proveManager.sendRequest(
-            proverId,
-            proverOptions.proxyUrl,
-            {
-              url: requestOptions.url,
-              method: requestOptions.method as Method,
-              headers: requestOptions.headers,
-              body: requestOptions.body,
-            },
-          );
+          await this.proveManager.sendRequest(proverId, proverOptions.proxyUrl, {
+            url: requestOptions.url,
+            method: requestOptions.method as Method,
+            headers: requestOptions.headers,
+            body: requestOptions.body,
+          });
 
           // Compute reveal ranges via WASM (parses HTTP transcripts + maps handlers to byte ranges)
           emitBoth('PROCESSING_TRANSCRIPT', 0.5, 'Processing transcript...');
-          const {
-            sentRanges,
-            recvRanges,
-            sentRangesWithHandlers,
-            recvRangesWithHandlers,
-          } = await this.proveManager.computeReveal(
-            proverId,
-            proverOptions.handlers,
-          );
+          const { sentRanges, recvRanges, sentRangesWithHandlers, recvRangesWithHandlers } =
+            await this.proveManager.computeReveal(proverId, proverOptions.handlers);
 
           logger.debug('sentRanges', sentRanges);
           logger.debug('recvRanges', recvRanges);
 
           // Send reveal config (ranges + handlers) to verifier BEFORE calling reveal()
-          emitBoth(
-            'SENDING_REVEAL_CONFIG',
-            0.6,
-            'Configuring selective disclosure...',
-          );
+          emitBoth('SENDING_REVEAL_CONFIG', 0.6, 'Configuring selective disclosure...');
           await this.proveManager.sendRevealConfig(proverId, {
             sent: sentRangesWithHandlers,
             recv: recvRangesWithHandlers,
@@ -140,11 +118,7 @@ export class SessionManager {
           });
 
           // Get structured response from verifier (now includes handler results)
-          emitBoth(
-            'WAITING_FOR_VERIFICATION',
-            0.85,
-            'Waiting for verification...',
-          );
+          emitBoth('WAITING_FOR_VERIFICATION', 0.85, 'Waiting for verification...');
           const response = await this.proveManager.getResponse(proverId);
 
           emitBoth('COMPLETE', 1.0, 'Complete');
@@ -156,9 +130,8 @@ export class SessionManager {
         }
       },
       onRenderPluginUi: (windowId: number, result: DomJson) => {
-        const chromeRuntime = (
-          global as unknown as { chrome?: { runtime?: ChromeRuntimeLike } }
-        ).chrome?.runtime;
+        const chromeRuntime = (global as unknown as { chrome?: { runtime?: ChromeRuntimeLike } })
+          .chrome?.runtime;
         if (!chromeRuntime?.sendMessage) {
           throw new Error('Chrome runtime not available');
         }
@@ -169,9 +142,8 @@ export class SessionManager {
         });
       },
       onCloseWindow: (windowId: number) => {
-        const chromeRuntime = (
-          global as unknown as { chrome?: { runtime?: ChromeRuntimeLike } }
-        ).chrome?.runtime;
+        const chromeRuntime = (global as unknown as { chrome?: { runtime?: ChromeRuntimeLike } })
+          .chrome?.runtime;
         if (!chromeRuntime?.sendMessage) {
           throw new Error('Chrome runtime not available');
         }
@@ -188,9 +160,8 @@ export class SessionManager {
         // Validate permissions before proceeding
         validateOpenWindowPermission(url, this.currentConfig);
 
-        const chromeRuntime = (
-          global as unknown as { chrome?: { runtime?: ChromeRuntimeLike } }
-        ).chrome?.runtime;
+        const chromeRuntime = (global as unknown as { chrome?: { runtime?: ChromeRuntimeLike } })
+          .chrome?.runtime;
         if (!chromeRuntime?.sendMessage) {
           throw new Error('Chrome runtime not available');
         }
@@ -208,16 +179,10 @@ export class SessionManager {
   }
 
   /** Send a progress event to the background script for routing to the page. */
-  private emitProgress(
-    step: string,
-    progress: number,
-    message: string,
-    source = 'js',
-  ) {
+  private emitProgress(step: string, progress: number, message: string, source = 'js') {
     if (!this.currentRequestId) return;
-    const chromeRuntime = (
-      global as unknown as { chrome?: { runtime?: ChromeRuntimeLike } }
-    ).chrome?.runtime;
+    const chromeRuntime = (global as unknown as { chrome?: { runtime?: ChromeRuntimeLike } }).chrome
+      ?.runtime;
     if (chromeRuntime?.sendMessage) {
       chromeRuntime
         .sendMessage({
@@ -228,9 +193,7 @@ export class SessionManager {
           message,
           source,
         })
-        .catch((err: unknown) =>
-          logger.warn('[SessionManager] emitProgress failed:', err),
-        );
+        .catch((err: unknown) => logger.warn('[SessionManager] emitProgress failed:', err));
     }
   }
 
@@ -240,9 +203,8 @@ export class SessionManager {
   }
 
   async executePlugin(code: string, requestId?: string): Promise<unknown> {
-    const chromeRuntime = (
-      global as unknown as { chrome?: { runtime?: ChromeRuntimeLike } }
-    ).chrome?.runtime;
+    const chromeRuntime = (global as unknown as { chrome?: { runtime?: ChromeRuntimeLike } }).chrome
+      ?.runtime;
     if (!chromeRuntime?.onMessage) {
       throw new Error('Chrome runtime not available');
     }
@@ -252,34 +214,22 @@ export class SessionManager {
     this.proveManager.setProgressCallback(
       this.currentRequestId
         ? (data) => {
-            this.emitProgress(
-              data.step,
-              data.progress,
-              data.message,
-              data.source,
-            );
+            this.emitProgress(data.step, data.progress, data.message, data.source);
           }
         : null,
     );
 
     // Extract and store plugin config before execution for permission validation
     this.currentConfig = await this.extractConfig(code);
-    logger.debug(
-      '[SessionManager] Extracted plugin config:',
-      this.currentConfig,
-    );
+    logger.debug('[SessionManager] Extracted plugin config:', this.currentConfig);
 
     return this.host.executePlugin(code, {
       eventEmitter: {
         addListener: (listener: (message: WindowMessage) => void) => {
-          chromeRuntime.onMessage.addListener(
-            listener as (message: unknown) => void,
-          );
+          chromeRuntime.onMessage.addListener(listener as (message: unknown) => void);
         },
         removeListener: (listener: (message: WindowMessage) => void) => {
-          chromeRuntime.onMessage.removeListener(
-            listener as (message: unknown) => void,
-          );
+          chromeRuntime.onMessage.removeListener(listener as (message: unknown) => void);
         },
         emit: (message: WindowMessage) => {
           chromeRuntime.sendMessage(message);

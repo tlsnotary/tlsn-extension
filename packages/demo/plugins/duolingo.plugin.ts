@@ -1,9 +1,4 @@
-import type {
-  PluginConfig,
-  RequestPermission,
-  Handler,
-  DomJson,
-} from '@tlsn/plugin-sdk';
+import type { PluginConfig, RequestPermission, Handler, DomJson } from '@tlsn/plugin-sdk';
 
 // Injected at build time via esbuild --define
 declare const __VERIFIER_URL__: string;
@@ -18,8 +13,7 @@ const ui = 'https://www.duolingo.com/';
 
 const config: PluginConfig = {
   name: 'Duolingo Plugin',
-  description:
-    'This plugin will prove your email and current streak on Duolingo.',
+  description: 'This plugin will prove your email and current streak on Duolingo.',
   requests: [
     {
       method: 'GET',
@@ -155,17 +149,11 @@ const main = (): DomJson => {
   // Only search for auth values if not already cached
   if (!authorization || !userId) {
     const [header] = useHeaders((headers) =>
-      headers.filter((h) =>
-        h.url.includes(`https://${api}/2023-05-23/users`),
-      ),
+      headers.filter((h) => h.url.includes(`https://${api}/2023-05-23/users`)),
     );
 
-    const authValue = header?.requestHeaders.find(
-      (h) => h.name === 'Authorization',
-    )?.value;
-    const traceId = header?.requestHeaders.find(
-      (h) => h.name === 'X-Amzn-Trace-Id',
-    )?.value;
+    const authValue = header?.requestHeaders.find((h) => h.name === 'Authorization')?.value;
+    const traceId = header?.requestHeaders.find((h) => h.name === 'X-Amzn-Trace-Id')?.value;
     const userIdValue = traceId?.split('=')[1];
 
     if (authValue && !authorization) {
@@ -239,10 +227,7 @@ const main = (): DomJson => {
           },
         },
         [
-          div(
-            { style: { fontWeight: '600', fontSize: '16px' } },
-            ['Duolingo Streak'],
-          ),
+          div({ style: { fontWeight: '600', fontSize: '16px' } }, ['Duolingo Streak']),
           button(
             {
               style: {
@@ -264,65 +249,57 @@ const main = (): DomJson => {
           ),
         ],
       ),
-      div(
-        { style: { padding: '20px', backgroundColor: '#f8f9fa' } },
-        [
-          div(
-            {
-              style: {
-                marginBottom: '16px',
-                padding: '12px',
-                borderRadius: '6px',
-                backgroundColor: isConnected ? '#d4edda' : '#f8d7da',
-                color: isConnected ? '#155724' : '#721c24',
-                border: `1px solid ${isConnected ? '#c3e6cb' : '#f5c6cb'}`,
-                fontWeight: '500',
-              },
+      div({ style: { padding: '20px', backgroundColor: '#f8f9fa' } }, [
+        div(
+          {
+            style: {
+              marginBottom: '16px',
+              padding: '12px',
+              borderRadius: '6px',
+              backgroundColor: isConnected ? '#d4edda' : '#f8d7da',
+              color: isConnected ? '#155724' : '#721c24',
+              border: `1px solid ${isConnected ? '#c3e6cb' : '#f5c6cb'}`,
+              fontWeight: '500',
             },
-            [
-              isConnected
-                ? '\u2713 Api token detected'
-                : '\u26A0 No API token detected',
-            ],
-          ),
-          isConnected
-            ? button(
-                {
-                  style: {
-                    width: '100%',
-                    padding: '12px 24px',
-                    borderRadius: '6px',
-                    border: 'none',
-                    background:
-                      'linear-gradient(135deg, #58CC02 0%, #4CAF00 100%)',
-                    color: 'white',
-                    fontWeight: '600',
-                    fontSize: '15px',
-                    cursor: isRequestPending ? 'not-allowed' : 'pointer',
-                    transition: 'all 0.2s ease',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                    opacity: isRequestPending ? '0.5' : '1',
-                  },
-                  onclick: 'onClick',
+          },
+          [isConnected ? '\u2713 Api token detected' : '\u26A0 No API token detected'],
+        ),
+        isConnected
+          ? button(
+              {
+                style: {
+                  width: '100%',
+                  padding: '12px 24px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #58CC02 0%, #4CAF00 100%)',
+                  color: 'white',
+                  fontWeight: '600',
+                  fontSize: '15px',
+                  cursor: isRequestPending ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                  opacity: isRequestPending ? '0.5' : '1',
                 },
-                [isRequestPending ? 'Generating Proof...' : 'Generate Proof'],
-              )
-            : div(
-                {
-                  style: {
-                    textAlign: 'center',
-                    color: '#666',
-                    padding: '12px',
-                    backgroundColor: '#fff3cd',
-                    borderRadius: '6px',
-                    border: '1px solid #ffeaa7',
-                  },
+                onclick: 'onClick',
+              },
+              [isRequestPending ? 'Generating Proof...' : 'Generate Proof'],
+            )
+          : div(
+              {
+                style: {
+                  textAlign: 'center',
+                  color: '#666',
+                  padding: '12px',
+                  backgroundColor: '#fff3cd',
+                  borderRadius: '6px',
+                  border: '1px solid #ffeaa7',
                 },
-                ['Please login to Duolingo to continue'],
-              ),
-          ...proveProgressBar(),
-        ],
-      ),
+              },
+              ['Please login to Duolingo to continue'],
+            ),
+        ...proveProgressBar(),
+      ]),
     ],
   );
 };

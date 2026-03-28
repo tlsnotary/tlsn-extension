@@ -26,11 +26,7 @@ export interface StatusIndicatorProps {
 export function StatusIndicator({ isConnected }: StatusIndicatorProps): DomJson {
   return div(
     {
-      style: inlineStyle(
-        display('flex'),
-        alignItems('center'),
-        marginBottom('md')
-      ),
+      style: inlineStyle(display('flex'), alignItems('center'), marginBottom('md')),
     },
     [
       // Status dot
@@ -41,21 +37,18 @@ export function StatusIndicator({ isConnected }: StatusIndicatorProps): DomJson 
             height('8px'),
             borderRadius('circle'),
             bgColor(isConnected ? '#48bb78' : '#cbd5e0'),
-            marginRight('2')
+            marginRight('2'),
           ),
         },
-        []
+        [],
       ),
       // Status text
       div(
         {
-          style: inlineStyle(
-            fontSize('sm'),
-            color('gray-700')
-          ),
+          style: inlineStyle(fontSize('sm'), color('gray-700')),
         },
-        [isConnected ? 'Connected' : 'Waiting for connection...']
+        [isConnected ? 'Connected' : 'Waiting for connection...'],
       ),
-    ]
+    ],
   );
 }

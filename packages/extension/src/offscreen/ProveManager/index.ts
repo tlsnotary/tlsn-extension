@@ -31,11 +31,7 @@ const workerApi = Comlink.wrap<{
   }) => Promise<void>;
   createProver: (config: ProverConfig) => Promise<string>;
   setupProver: (proverId: string, verifierUrl: string) => Promise<void>;
-  sendRequest: (
-    proverId: string,
-    proxyUrl: string,
-    request: HttpRequest,
-  ) => Promise<void>;
+  sendRequest: (proverId: string, proxyUrl: string, request: HttpRequest) => Promise<void>;
   getTranscript: (proverId: string) => { sent: number[]; recv: number[] };
   computeReveal: (
     proverId: string,
@@ -155,10 +151,7 @@ export class ProveManager {
       const ws = new WebSocket(sessionWsUrl);
 
       ws.onopen = () => {
-        logger.debug(
-          '[ProveManager] Session WebSocket connected for prover:',
-          proverId,
-        );
+        logger.debug('[ProveManager] Session WebSocket connected for prover:', proverId);
 
         const registerMsg: ClientMessage = {
           type: 'register',
@@ -198,14 +191,8 @@ export class ProveManager {
             }
 
             case 'session_completed': {
-              logger.debug(
-                '[ProveManager] Session completed for prover:',
-                proverId,
-              );
-              logger.debug(
-                '[ProveManager] Handler results count:',
-                data.results.length,
-              );
+              logger.debug('[ProveManager] Session completed for prover:', proverId);
+              logger.debug('[ProveManager] Handler results count:', data.results.length);
 
               // Store response in the session state
               const session = this.sessions.get(proverId);
@@ -217,11 +204,7 @@ export class ProveManager {
             }
 
             case 'error': {
-              logger.error(
-                '[ProveManager] Server error for prover:',
-                proverId,
-                data.message,
-              );
+              logger.error('[ProveManager] Server error for prover:', proverId, data.message);
               reject(new Error(data.message));
               break;
             }
@@ -243,10 +226,7 @@ export class ProveManager {
                 const verifierWsUrl = `${protocol}://${_url.host}${pathname === '/' ? '' : pathname}/verifier?sessionId=${String(legacyData.sessionId)}`;
                 resolve(verifierWsUrl);
               } else if (legacyData.results !== undefined) {
-                logger.warn(
-                  '[ProveManager] Received legacy results format for prover:',
-                  proverId,
-                );
+                logger.warn('[ProveManager] Received legacy results format for prover:', proverId);
                 const session = this.sessions.get(proverId);
                 if (session) {
                   session.response = {
@@ -265,27 +245,17 @@ export class ProveManager {
             }
           }
         } catch (error) {
-          logger.error(
-            '[ProveManager] Error parsing WebSocket message:',
-            error,
-          );
+          logger.error('[ProveManager] Error parsing WebSocket message:', error);
         }
       };
 
       ws.onerror = (error) => {
-        logger.error(
-          '[ProveManager] WebSocket error for prover:',
-          proverId,
-          error,
-        );
+        logger.error('[ProveManager] WebSocket error for prover:', proverId, error);
         reject(new Error('WebSocket connection failed'));
       };
 
       ws.onclose = () => {
-        logger.debug(
-          '[ProveManager] Session WebSocket closed for prover:',
-          proverId,
-        );
+        logger.debug('[ProveManager] Session WebSocket closed for prover:', proverId);
       };
     });
   }
@@ -429,15 +399,10 @@ export class ProveManager {
    * Get the verification response for a given prover ID.
    * Polls with a hard deadline — throws if the deadline is exceeded.
    */
-  async getResponse(
-    proverId: string,
-    retry = 60,
-  ): Promise<VerificationResponse | null> {
+  async getResponse(proverId: string, retry = 60): Promise<VerificationResponse | null> {
     const deadline = Date.now() + ProveManager.GET_RESPONSE_TIMEOUT_MS;
 
-    const poll = async (
-      remaining: number,
-    ): Promise<VerificationResponse | null> => {
+    const poll = async (remaining: number): Promise<VerificationResponse | null> => {
       const session = this.sessions.get(proverId);
       if (!session) {
         logger.warn('[ProveManager] No session found for proverId:', proverId);
@@ -474,10 +439,7 @@ export class ProveManager {
   closeSession(proverId: string) {
     const session = this.sessions.get(proverId);
     if (session && session.webSocket.readyState === WebSocket.OPEN) {
-      logger.debug(
-        '[ProveManager] Closing session WebSocket for prover:',
-        proverId,
-      );
+      logger.debug('[ProveManager] Closing session WebSocket for prover:', proverId);
       session.webSocket.close();
     }
   }

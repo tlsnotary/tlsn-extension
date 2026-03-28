@@ -76,7 +76,7 @@ You are reviewing code for the TLSNotary Browser Extension, a Chrome Extension (
 ## Review Style
 
 - Be constructive and specific
-- Explain *why* something is a problem, not just *what*
+- Explain _why_ something is a problem, not just _what_
 - Suggest concrete fixes when possible
 - Distinguish between blocking issues and suggestions
 - Acknowledge good patterns and improvements

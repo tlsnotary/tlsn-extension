@@ -14,7 +14,15 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const watch = process.argv.includes('--watch');
 
-const plugins = ['twitter', 'swissbank', 'spotify', 'duolingo', 'uber', 'discord_dm', 'discord_profile'];
+const plugins = [
+  'twitter',
+  'swissbank',
+  'spotify',
+  'duolingo',
+  'uber',
+  'discord_dm',
+  'discord_profile',
+];
 
 // Build URLs from environment variables (matching .env / .env.production)
 const VERIFIER_HOST = process.env.VITE_VERIFIER_HOST || 'localhost:7047';

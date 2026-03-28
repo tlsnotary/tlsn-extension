@@ -56,7 +56,7 @@ const onClick = async () => {
         },
         // TODO: add handler to reveal CHF balance here
       ],
-    }
+    },
   );
 
   // Step 4: Complete plugin execution and return the proof result
@@ -73,7 +73,7 @@ const minimizeUI = () => {
 };
 const main = () => {
   const [header] = useHeaders((headers) =>
-    headers.filter((header) => header.url.includes(`https://${host}${ui_path}`))
+    headers.filter((header) => header.url.includes(`https://${host}${ui_path}`)),
   );
 
   const hasNecessaryHeader = header?.requestHeaders.some((h) => h.name === 'Cookie');
@@ -109,7 +109,7 @@ const main = () => {
         },
         onclick: 'expandUI',
       },
-      ['🔐']
+      ['🔐'],
     );
   }
 
@@ -153,7 +153,7 @@ const main = () => {
                 fontSize: '16px',
               },
             },
-            ['Swiss Bank Prover']
+            ['Swiss Bank Prover'],
           ),
           button(
             {
@@ -172,9 +172,9 @@ const main = () => {
               },
               onclick: 'minimizeUI',
             },
-            ['−']
+            ['−'],
           ),
-        ]
+        ],
       ),
 
       // Content area
@@ -199,7 +199,7 @@ const main = () => {
                 fontWeight: '500',
               },
             },
-            [hasNecessaryHeader ? '✓ Cookie detected' : '⚠ No Cookie detected']
+            [hasNecessaryHeader ? '✓ Cookie detected' : '⚠ No Cookie detected'],
           ),
 
           // Conditional UI based on whether we have intercepted the headers
@@ -224,7 +224,7 @@ const main = () => {
                   },
                   onclick: 'onClick',
                 },
-                [isRequestPending ? 'Generating Proof...' : 'Generate Proof']
+                [isRequestPending ? 'Generating Proof...' : 'Generate Proof'],
               )
             : // Show login message
               div(
@@ -238,11 +238,11 @@ const main = () => {
                     border: '1px solid #ffeaa7',
                   },
                 },
-                ['Please login to continue']
+                ['Please login to continue'],
               ),
-        ]
+        ],
       ),
-    ]
+    ],
   );
 };
 

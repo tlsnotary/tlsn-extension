@@ -73,9 +73,7 @@ const _originalConsoleLog = console.log;
 const _originalConsoleDebug = console.debug;
 const _originalConsoleInfo = console.info;
 
-function interceptConsole(
-  originalFn: (...args: unknown[]) => void,
-): (...args: unknown[]) => void {
+function interceptConsole(originalFn: (...args: unknown[]) => void): (...args: unknown[]) => void {
   return (...args: unknown[]) => {
     originalFn.apply(console, args);
     // Pattern-match against raw args (works even with %c formatting).
@@ -195,12 +193,7 @@ async function createProver(config: ProverConfig): Promise<string> {
   // Wire up structured progress callback from WASM.
   // This is the preferred path; console interception above is the fallback.
   prover.set_progress_callback(
-    (data: {
-      step: string;
-      progress: number;
-      message: string;
-      source: string;
-    }) => {
+    (data: { step: string; progress: number; message: string; source: string }) => {
       self.postMessage({
         type: 'WASM_PROGRESS',
         step: data.step,
@@ -221,10 +214,7 @@ async function createProver(config: ProverConfig): Promise<string> {
 /** Default timeout for prover setup (30 seconds). */
 const SETUP_TIMEOUT_MS = 30_000;
 
-async function setupProver(
-  proverId: string,
-  verifierUrl: string,
-): Promise<void> {
+async function setupProver(proverId: string, verifierUrl: string): Promise<void> {
   const prover = provers.get(proverId);
   if (!prover) throw new Error(`Prover not found: ${proverId}`);
 
@@ -235,11 +225,7 @@ async function setupProver(
       new Promise<never>((_, reject) =>
         setTimeout(
           () =>
-            reject(
-              new Error(
-                `setupProver timed out after ${SETUP_TIMEOUT_MS}ms for ${proverId}`,
-              ),
-            ),
+            reject(new Error(`setupProver timed out after ${SETUP_TIMEOUT_MS}ms for ${proverId}`)),
           SETUP_TIMEOUT_MS,
         ),
       ),
@@ -272,9 +258,7 @@ async function sendRequest(
         setTimeout(
           () =>
             reject(
-              new Error(
-                `sendRequest timed out after ${SEND_REQUEST_TIMEOUT_MS}ms for ${proverId}`,
-              ),
+              new Error(`sendRequest timed out after ${SEND_REQUEST_TIMEOUT_MS}ms for ${proverId}`),
             ),
           SEND_REQUEST_TIMEOUT_MS,
         ),
@@ -356,9 +340,7 @@ function computeReveal(
     !('sent_ranges_with_handlers' in output) ||
     !('recv_ranges_with_handlers' in output)
   ) {
-    throw new Error(
-      'compute_reveal returned unexpected shape — WASM binding may have changed',
-    );
+    throw new Error('compute_reveal returned unexpected shape — WASM binding may have changed');
   }
 
   const typed = output as {
@@ -426,9 +408,7 @@ export default async function init(config?: {
       await initialize(null, 1);
     } catch (retryError) {
       console.error('[Worker] Retry also failed:', retryError);
-      throw new Error(
-        `Initialize failed: ${error}. Retry with null also failed: ${retryError}`,
-      );
+      throw new Error(`Initialize failed: ${error}. Retry with null also failed: ${retryError}`);
     }
   }
 }

@@ -33,18 +33,14 @@ class ExtensionAPI {
    * });
    * ```
    */
-  async execCode(
-    code: string,
-    options?: { requestId?: string },
-  ): Promise<unknown> {
+  async execCode(code: string, options?: { requestId?: string }): Promise<unknown> {
     if (!code || typeof code !== 'string') {
       throw new Error('Code must be a non-empty string');
     }
 
     return new Promise((resolve, reject) => {
       // Use caller-provided requestId or generate one
-      const requestId =
-        options?.requestId || `exec_${Date.now()}_${Math.random()}`;
+      const requestId = options?.requestId || `exec_${Date.now()}_${Math.random()}`;
       let timeout: ReturnType<typeof setTimeout> | null = null;
 
       // Set up one-time listener for the response

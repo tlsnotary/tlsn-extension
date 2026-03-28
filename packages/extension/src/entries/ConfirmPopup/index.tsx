@@ -110,9 +110,7 @@ const ConfirmPopup: React.FC = () => {
 
       setPluginInfo({
         name: decodeURIComponent(name),
-        description: description
-          ? decodeURIComponent(description)
-          : 'No description provided',
+        description: description ? decodeURIComponent(description) : 'No description provided',
         version: version ? decodeURIComponent(version) : undefined,
         author: author ? decodeURIComponent(author) : undefined,
         requests,
@@ -121,8 +119,7 @@ const ConfirmPopup: React.FC = () => {
     } else {
       setPluginInfo({
         name: 'Unknown Plugin',
-        description:
-          'Plugin configuration could not be extracted. Proceed with caution.',
+        description: 'Plugin configuration could not be extracted. Proceed with caution.',
       });
     }
   }, []);
@@ -162,10 +159,7 @@ const ConfirmPopup: React.FC = () => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         handleDeny();
-      } else if (
-        e.key === 'Enter' &&
-        document.activeElement?.id === 'allow-btn'
-      ) {
+      } else if (e.key === 'Enter' && document.activeElement?.id === 'allow-btn') {
         handleAllow();
       }
     };
@@ -237,10 +231,7 @@ const ConfirmPopup: React.FC = () => {
     return (
       <div className="confirm-popup">
         <div className="confirm-popup__nav-header">
-          <button
-            className="confirm-popup__back-btn"
-            onClick={() => setSourceCode(null)}
-          >
+          <button className="confirm-popup__back-btn" onClick={() => setSourceCode(null)}>
             &larr; Back
           </button>
           <span className="confirm-popup__nav-title">Plugin source</span>
@@ -255,10 +246,7 @@ const ConfirmPopup: React.FC = () => {
     return (
       <div className="confirm-popup">
         <div className="confirm-popup__nav-header">
-          <button
-            className="confirm-popup__back-btn"
-            onClick={() => setShowDetails(false)}
-          >
+          <button className="confirm-popup__back-btn" onClick={() => setShowDetails(false)}>
             &larr; Back
           </button>
           <span className="confirm-popup__nav-title">Plugin details</span>
@@ -278,9 +266,7 @@ const ConfirmPopup: React.FC = () => {
               <ul className="confirm-popup__detail-list">
                 {pluginInfo.requests.map((req, i) => (
                   <li key={i}>
-                    <span className="confirm-popup__detail-method">
-                      {req.method}
-                    </span>
+                    <span className="confirm-popup__detail-method">{req.method}</span>
                     {req.host}
                     {req.pathname}
                   </li>
@@ -298,11 +284,7 @@ const ConfirmPopup: React.FC = () => {
               </ul>
             </div>
           )}
-          <a
-            href="#"
-            className="confirm-popup__link"
-            onClick={handleViewSource}
-          >
+          <a href="#" className="confirm-popup__link" onClick={handleViewSource}>
             View plugin source
           </a>
         </div>
@@ -327,8 +309,7 @@ const ConfirmPopup: React.FC = () => {
             'An unknown plugin wants to run'
           ) : hasRequestDomains ? (
             <>
-              Allow <strong>{senderOrigin || pluginInfo.name}</strong> to access
-              your data on{' '}
+              Allow <strong>{senderOrigin || pluginInfo.name}</strong> to access your data on{' '}
               <strong>{formatDomainsForTitle(requestDomains)}</strong>?
             </>
           ) : (
@@ -345,10 +326,7 @@ const ConfirmPopup: React.FC = () => {
         {isUnknown && (
           <div className="confirm-popup__warning">
             <span className="confirm-popup__warning-icon">!</span>
-            <p>
-              This plugin could not be verified. Only allow it if you trust
-              where it came from.
-            </p>
+            <p>This plugin could not be verified. Only allow it if you trust where it came from.</p>
           </div>
         )}
 

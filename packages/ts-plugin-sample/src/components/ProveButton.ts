@@ -40,10 +40,10 @@ export function ProveButton({ onClick, isPending }: ProveButtonProps): DomJson {
         cursor('pointer'),
         transition(),
         isPending && opacity('0.6'),
-        isPending && cursor('not-allowed')
+        isPending && cursor('not-allowed'),
       ),
       onclick: onClick,
     },
-    [isPending ? 'Generating Proof...' : 'Prove']
+    [isPending ? 'Generating Proof...' : 'Prove'],
   );
 }

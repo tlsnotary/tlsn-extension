@@ -33,7 +33,7 @@ export const step4Validators: ValidationRule[] = [
 
       // Find the CHF result in the results array
       const chfResult = pluginOutput.results?.find(
-        (r) => r.type === 'RECV' && r.value && r.value.includes('CHF')
+        (r) => r.type === 'RECV' && r.value && r.value.includes('CHF'),
       );
 
       if (!chfResult) {
@@ -91,7 +91,7 @@ export const step5Challenge1Validators: ValidationRule[] = [
 
       // Find USD result in the results array
       const usdResult = pluginOutput.results?.find(
-        (r) => r.type === 'RECV' && r.part === 'BODY' && r.value && r.value.includes('USD')
+        (r) => r.type === 'RECV' && r.part === 'BODY' && r.value && r.value.includes('USD'),
       );
 
       if (!usdResult) {
@@ -133,7 +133,7 @@ export const step5Challenge2Validators: ValidationRule[] = [
 
       // Find SENT HEADERS result with Cookie
       const sentHeaderResult = pluginOutput.results?.find(
-        (r) => r.type === 'SENT' && r.part === 'HEADERS' && r.value && /cookie/i.test(r.value)
+        (r) => r.type === 'SENT' && r.part === 'HEADERS' && r.value && /cookie/i.test(r.value),
       );
 
       if (!sentHeaderResult) {
@@ -168,7 +168,7 @@ export const step5Challenge3Validators: ValidationRule[] = [
 
       // Find RECV HEADERS result with Date
       const recvHeaderResult = pluginOutput.results?.find(
-        (r) => r.type === 'RECV' && r.part === 'HEADERS' && r.value && /date/i.test(r.value)
+        (r) => r.type === 'RECV' && r.part === 'HEADERS' && r.value && /date/i.test(r.value),
       );
 
       if (!recvHeaderResult) {

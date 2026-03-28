@@ -109,7 +109,7 @@ async function onClick(): Promise<void> {
           },
         } satisfies Handler,
       ],
-    }
+    },
   );
 
   // Step 4: Complete plugin execution and return the proof result
@@ -150,13 +150,15 @@ function main(): DomJson {
   // Only search for headers if not already cached
   if (!cachedCookie || !cachedCsrfToken || !cachedAuthorization) {
     const [header] = useHeaders((headers) =>
-      headers.filter((h) => h.url.includes('https://api.x.com/1.1/account/settings.json'))
+      headers.filter((h) => h.url.includes('https://api.x.com/1.1/account/settings.json')),
     );
 
     if (header) {
       const cookie = header.requestHeaders.find((h) => h.name === 'Cookie')?.value;
       const csrfToken = header.requestHeaders.find((h) => h.name === 'x-csrf-token')?.value;
-      const transactionId = header.requestHeaders.find((h) => h.name === 'x-client-transaction-id')?.value;
+      const transactionId = header.requestHeaders.find(
+        (h) => h.name === 'x-client-transaction-id',
+      )?.value;
       const authorization = header.requestHeaders.find((h) => h.name === 'authorization')?.value;
 
       if (cookie && !cachedCookie) setState('cookie', cookie);

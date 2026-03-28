@@ -5,6 +5,6 @@ const VERIFIER_HOST = (import.meta as any).env.VITE_VERIFIER_HOST || 'localhost:
 const SSL = (import.meta as any).env.VITE_SSL === 'true';
 
 export const config = {
-    verifierUrl: `${SSL ? 'https' : 'http'}://${VERIFIER_HOST}`,
-    getProxyUrl: (host: string) => `${SSL ? 'wss' : 'ws'}://${VERIFIER_HOST}/proxy?token=${host}`,
+  verifierUrl: `${SSL ? 'https' : 'http'}://${VERIFIER_HOST}`,
+  getProxyUrl: (host: string) => `${SSL ? 'wss' : 'ws'}://${VERIFIER_HOST}/proxy?token=${host}`,
 };

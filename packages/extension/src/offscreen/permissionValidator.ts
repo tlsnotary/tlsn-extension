@@ -5,10 +5,7 @@ import { PluginConfig, RequestPermission } from '@tlsn/plugin-sdk/src/types';
  * https://verifier.example.com -> wss://verifier.example.com/proxy?token={host}
  * http://localhost:7047 -> ws://localhost:7047/proxy?token={host}
  */
-export function deriveProxyUrl(
-  verifierUrl: string,
-  targetHost: string,
-): string {
+export function deriveProxyUrl(verifierUrl: string, targetHost: string): string {
   const url = new URL(verifierUrl);
   const protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
   return `${protocol}//${url.host}/proxy?token=${targetHost}`;
@@ -19,10 +16,7 @@ export function deriveProxyUrl(
  *   * matches a single path segment (no /)
  *  ** matches across multiple segments
  */
-export function matchesPathnamePattern(
-  pathname: string,
-  pattern: string,
-): boolean {
+export function matchesPathnamePattern(pathname: string, pattern: string): boolean {
   const regexPattern = pattern
     .replace(/\*\*/g, '<<<MULTI>>>')
     .replace(/\*/g, '<<<SINGLE>>>')
@@ -71,8 +65,7 @@ export function validateProvePermission(
     if (!verifierMatch) return false;
 
     // Check proxy URL (use derived default if not specified in permission)
-    const expectedProxyUrl =
-      perm.proxyUrl ?? deriveProxyUrl(perm.verifierUrl, url.hostname);
+    const expectedProxyUrl = perm.proxyUrl ?? deriveProxyUrl(perm.verifierUrl, url.hostname);
     const proxyMatch = expectedProxyUrl === proverOptions.proxyUrl;
     if (!proxyMatch) return false;
 
@@ -99,15 +92,11 @@ export function validateProvePermission(
  * Validates that an openWindow() call is allowed by the plugin's permissions.
  * Throws an error if the permission is not granted.
  */
-export function validateOpenWindowPermission(
-  url: string,
-  config: PluginConfig | null,
-): void {
+export function validateOpenWindowPermission(url: string, config: PluginConfig | null): void {
   // If no config or no urls permissions defined, deny by default
   if (!config?.urls || config.urls.length === 0) {
     throw new Error(
-      `Permission denied: Plugin has no URL permissions defined. ` +
-        `Cannot open URL ${url}`,
+      `Permission denied: Plugin has no URL permissions defined. ` + `Cannot open URL ${url}`,
     );
   }
 

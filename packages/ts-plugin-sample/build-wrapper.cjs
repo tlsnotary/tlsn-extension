@@ -22,9 +22,12 @@ console.log('Building with esbuild...');
 console.log(`  VERIFIER_URL: ${VERIFIER_URL}`);
 console.log(`  PROXY_URL: ${PROXY_URL}`);
 console.log(`  outfile: ${outfile}`);
-execSync(`esbuild src/index.ts --bundle --format=esm --outfile=${outfile} --sourcemap --external:@sebastianwessel/quickjs --external:@jitl/quickjs-ng-wasmfile-release-sync --external:uuid --external:fast-deep-equal --define:__VERIFIER_URL__='"${VERIFIER_URL}"' --define:__PROXY_URL__='"${PROXY_URL}"'${watch}`, {
-  stdio: 'inherit'
-});
+execSync(
+  `esbuild src/index.ts --bundle --format=esm --outfile=${outfile} --sourcemap --external:@sebastianwessel/quickjs --external:@jitl/quickjs-ng-wasmfile-release-sync --external:uuid --external:fast-deep-equal --define:__VERIFIER_URL__='"${VERIFIER_URL}"' --define:__PROXY_URL__='"${PROXY_URL}"'${watch}`,
+  {
+    stdio: 'inherit',
+  },
+);
 
 if (!watch) {
   console.log(`✓ Build complete: ${outfile}`);

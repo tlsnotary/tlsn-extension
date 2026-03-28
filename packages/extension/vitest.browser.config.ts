@@ -67,10 +67,7 @@ function tlsnWasmPlugin(): Plugin {
 
         // Serve WASM pkg files raw
         if (url.startsWith(wasmPrefix)) {
-          const filePath = path.join(
-            wasmPkgDir,
-            decodeURIComponent(url.slice(wasmPrefix.length)),
-          );
+          const filePath = path.join(wasmPkgDir, decodeURIComponent(url.slice(wasmPrefix.length)));
           if (fs.existsSync(filePath)) {
             serveRaw(res, filePath);
             return;

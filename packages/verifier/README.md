@@ -52,6 +52,7 @@ The server will start on `0.0.0.0:7047` by default.
 Returns a simple "ok" response to verify the server is running.
 
 **Example:**
+
 ```bash
 curl http://localhost:7047/health
 # Response: ok
@@ -64,6 +65,7 @@ curl http://localhost:7047/health
 Creates a new verification session with specified data limits. Returns a session ID that can be used to connect to the verifier WebSocket.
 
 **Request Body:**
+
 ```json
 {
   "maxRecvData": 16384,
@@ -72,6 +74,7 @@ Creates a new verification session with specified data limits. Returns a session
 ```
 
 **Response:**
+
 ```json
 {
   "sessionId": "550e8400-e29b-41d4-a716-446655440000"
@@ -79,6 +82,7 @@ Creates a new verification session with specified data limits. Returns a session
 ```
 
 **Example:**
+
 ```bash
 curl -X POST http://localhost:7047/session \
   -H "Content-Type: application/json" \
@@ -98,12 +102,15 @@ Establishes a WebSocket connection for TLSNotary verification using a previously
 5. Cleans up and removes the session when connection closes
 
 **Query Parameters:**
+
 - `sessionId` (required): Session ID returned from POST /session
 
 **Error Responses:**
+
 - `404 Not Found`: Session ID does not exist or has already been used
 
 **Example using websocat:**
+
 ```bash
 # First, create a session
 SESSION_ID=$(curl -s -X POST http://localhost:7047/session \
@@ -115,12 +122,13 @@ websocat "ws://localhost:7047/verifier?sessionId=$SESSION_ID"
 ```
 
 **Example using JavaScript:**
+
 ```javascript
 // Create a session first
 const response = await fetch('http://localhost:7047/session', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ maxRecvData: 16384, maxSentData: 4096 })
+  body: JSON.stringify({ maxRecvData: 16384, maxSentData: 4096 }),
 });
 const { sessionId } = await response.json();
 

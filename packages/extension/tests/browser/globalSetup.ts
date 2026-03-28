@@ -36,9 +36,7 @@ async function waitForHealth(url: string, timeoutMs: number): Promise<void> {
     }
     await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
   }
-  throw new Error(
-    `Verifier server did not become healthy at ${url} within ${timeoutMs}ms`,
-  );
+  throw new Error(`Verifier server did not become healthy at ${url} within ${timeoutMs}ms`);
 }
 
 /**
@@ -47,25 +45,18 @@ async function waitForHealth(url: string, timeoutMs: number): Promise<void> {
  * 2. Pre-built binary in target/release or target/debug
  * 3. Falls back to `cargo run`
  */
-function findVerifierBin(
-  verifierDir: string,
-): { cmd: string; args: string[] } | null {
+function findVerifierBin(verifierDir: string): { cmd: string; args: string[] } | null {
   if (process.env.VERIFIER_BIN) {
     const bin = process.env.VERIFIER_BIN;
     if (fs.existsSync(bin)) {
       return { cmd: bin, args: [] };
     }
-    console.warn(
-      `[globalSetup] VERIFIER_BIN=${bin} does not exist, falling back`,
-    );
+    console.warn(`[globalSetup] VERIFIER_BIN=${bin} does not exist, falling back`);
   }
 
   // Check for pre-built binaries.
   // Prefer the binary whose mtime is newer (most likely to include latest code changes).
-  const releaseBin = path.join(
-    verifierDir,
-    'target/release/tlsn-verifier-server',
-  );
+  const releaseBin = path.join(verifierDir, 'target/release/tlsn-verifier-server');
   const debugBin = path.join(verifierDir, 'target/debug/tlsn-verifier-server');
 
   const releaseExists = fs.existsSync(releaseBin);
@@ -74,9 +65,7 @@ function findVerifierBin(
   if (releaseExists && debugExists) {
     const releaseMtime = fs.statSync(releaseBin).mtimeMs;
     const debugMtime = fs.statSync(debugBin).mtimeMs;
-    return debugMtime > releaseMtime
-      ? { cmd: debugBin, args: [] }
-      : { cmd: releaseBin, args: [] };
+    return debugMtime > releaseMtime ? { cmd: debugBin, args: [] } : { cmd: releaseBin, args: [] };
   }
   if (releaseExists) return { cmd: releaseBin, args: [] };
   if (debugExists) return { cmd: debugBin, args: [] };
@@ -100,9 +89,7 @@ export async function setup(): Promise<void> {
 
   const verifierDir = path.resolve(__dirname, '../../../verifier');
 
-  console.log(
-    `[globalSetup] Starting verifier server on port ${VERIFIER_PORT}...`,
-  );
+  console.log(`[globalSetup] Starting verifier server on port ${VERIFIER_PORT}...`);
 
   const bin = findVerifierBin(verifierDir);
 

@@ -125,19 +125,40 @@ The `Host` class is the core runtime for executing plugins. It:
 
 ```typescript
 const sandboxOptions = {
-  allowFetch: false,    // Network disabled for security
-  allowFs: false,       // File system disabled
-  env: {                // Capabilities injected here
-    div: (options, children) => { /* ... */ },
-    button: (options, children) => { /* ... */ },
-    openWindow: (url, options) => { /* ... */ },
-    useEffect: (callback, deps) => { /* ... */ },
-    useRequests: (filter) => { /* ... */ },
-    useHeaders: (filter) => { /* ... */ },
-    useState: (key, defaultValue) => { /* ... */ },
-    setState: (key, value) => { /* ... */ },
-    prove: (request, proverOptions) => { /* ... */ },
-    done: (result) => { /* ... */ },
+  allowFetch: false, // Network disabled for security
+  allowFs: false, // File system disabled
+  env: {
+    // Capabilities injected here
+    div: (options, children) => {
+      /* ... */
+    },
+    button: (options, children) => {
+      /* ... */
+    },
+    openWindow: (url, options) => {
+      /* ... */
+    },
+    useEffect: (callback, deps) => {
+      /* ... */
+    },
+    useRequests: (filter) => {
+      /* ... */
+    },
+    useHeaders: (filter) => {
+      /* ... */
+    },
+    useState: (key, defaultValue) => {
+      /* ... */
+    },
+    setState: (key, value) => {
+      /* ... */
+    },
+    prove: (request, proverOptions) => {
+      /* ... */
+    },
+    done: (result) => {
+      /* ... */
+    },
   },
 };
 ```
@@ -248,6 +269,7 @@ Create UI elements as JSON. These are rendered by the content script.
 Create a div element.
 
 **Parameters:**
+
 - `options` - Object with `style`, `onclick`, and other HTML attributes
 - `children` - Array of child elements or strings
 
@@ -264,11 +286,8 @@ div(
       borderRadius: '8px',
     },
   },
-  [
-    'Hello World',
-    button({ onclick: 'handleClick' }, ['Click Me']),
-  ]
-)
+  ['Hello World', button({ onclick: 'handleClick' }, ['Click Me'])],
+);
 ```
 
 #### `button(options, children)`
@@ -276,6 +295,7 @@ div(
 Create a button element.
 
 **Parameters:**
+
 - `options` - Object with `style`, `onclick`, and other HTML attributes
   - `onclick` - String name of callback function to execute
 - `children` - Array of child elements or strings
@@ -297,8 +317,8 @@ button(
     },
     onclick: 'onClick', // Name of exported callback
   },
-  ['Generate Proof']
-)
+  ['Generate Proof'],
+);
 ```
 
 ---
@@ -310,6 +330,7 @@ button(
 Open a new managed browser window with request interception enabled.
 
 **Parameters:**
+
 - `url` - String URL to open
 - `options` - Optional object:
   - `width` - Window width in pixels (default: 800)
@@ -319,6 +340,7 @@ Open a new managed browser window with request interception enabled.
 **Returns:** Promise<{ windowId: number, uuid: string, tabId: number }>
 
 **Limits:**
+
 - Maximum 10 concurrent managed windows
 - Throws error if limit exceeded
 
@@ -344,10 +366,12 @@ console.log('Window opened:', windowInfo.windowId);
 Run side effects with dependency tracking (similar to React's useEffect).
 
 **Parameters:**
+
 - `effect` - Function to execute
 - `deps` - Array of dependencies (effect runs when dependencies change)
 
 **Behavior:**
+
 - On first render: Always executes
 - On subsequent renders: Executes only if dependencies changed
 - Dependencies compared using deep equality
@@ -377,6 +401,7 @@ function main() {
 Get a state value by key, with optional default value.
 
 **Parameters:**
+
 - `key` - String key to identify the state value
 - `defaultValue` - Optional default value if key doesn't exist
 
@@ -390,10 +415,7 @@ function main() {
   const count = useState('count', 0);
   const username = useState('username', '');
 
-  return div({}, [
-    `Count: ${count}`,
-    `Username: ${username}`,
-  ]);
+  return div({}, [`Count: ${count}`, `Username: ${username}`]);
 }
 ```
 
@@ -402,10 +424,12 @@ function main() {
 Set a state value by key. Triggers a UI re-render when the state changes.
 
 **Parameters:**
+
 - `key` - String key to identify the state value
 - `value` - The new value to set
 
 **Behavior:**
+
 - Updates the state store with the new value
 - Compares new state with previous state using deep equality
 - Only triggers re-render if state actually changed
@@ -450,6 +474,7 @@ export default { main, increment };
 Get filtered intercepted HTTP requests for the current window.
 
 **Parameters:**
+
 - `filterFn` - Function that filters/transforms request array
   - Receives: `InterceptedRequest[]`
   - Returns: Filtered/transformed array
@@ -460,17 +485,19 @@ Get filtered intercepted HTTP requests for the current window.
 
 ```typescript
 interface InterceptedRequest {
-  id: string;          // Chrome request ID
-  url: string;         // Full request URL
-  method: string;      // HTTP method (GET, POST, etc.)
-  timestamp: number;   // Unix timestamp (milliseconds)
-  tabId: number;       // Tab ID where request originated
-  requestBody?: {      // Optional request body data
-    error?: string;    // Error message if body couldn't be read
-    formData?: Record<string, string>;  // Form data (if applicable)
-    raw?: Array<{      // Raw body data
-      bytes?: any;     // ArrayBuffer-like bytes
-      file?: string;   // File path (if uploading)
+  id: string; // Chrome request ID
+  url: string; // Full request URL
+  method: string; // HTTP method (GET, POST, etc.)
+  timestamp: number; // Unix timestamp (milliseconds)
+  tabId: number; // Tab ID where request originated
+  requestBody?: {
+    // Optional request body data
+    error?: string; // Error message if body couldn't be read
+    formData?: Record<string, string>; // Form data (if applicable)
+    raw?: Array<{
+      // Raw body data
+      bytes?: any; // ArrayBuffer-like bytes
+      file?: string; // File path (if uploading)
     }>;
   };
 }
@@ -481,10 +508,7 @@ interface InterceptedRequest {
 ```javascript
 // Get all API requests to x.com
 const [apiRequests] = useRequests((requests) =>
-  requests.filter((req) =>
-    req.url.includes('api.x.com') &&
-    req.method === 'GET'
-  )
+  requests.filter((req) => req.url.includes('api.x.com') && req.method === 'GET'),
 );
 ```
 
@@ -493,6 +517,7 @@ const [apiRequests] = useRequests((requests) =>
 Get filtered intercepted HTTP request headers for the current window.
 
 **Parameters:**
+
 - `filterFn` - Function that filters/transforms header array
   - Receives: `InterceptedRequestHeader[]`
   - Returns: Filtered/transformed array
@@ -503,15 +528,15 @@ Get filtered intercepted HTTP request headers for the current window.
 
 ```typescript
 interface InterceptedRequestHeader {
-  id: string;          // Chrome request ID
-  url: string;         // Full request URL
-  method: string;      // HTTP method
-  timestamp: number;   // Unix timestamp
-  type: string;        // Resource type
-  tabId: number;       // Tab ID
+  id: string; // Chrome request ID
+  url: string; // Full request URL
+  method: string; // HTTP method
+  timestamp: number; // Unix timestamp
+  type: string; // Resource type
+  tabId: number; // Tab ID
   requestHeaders: Array<{
-    name: string;      // Header name (e.g., 'Cookie')
-    value?: string;    // Header value
+    name: string; // Header name (e.g., 'Cookie')
+    value?: string; // Header value
   }>;
 }
 ```
@@ -521,15 +546,13 @@ interface InterceptedRequestHeader {
 ```javascript
 // Find request with authentication headers
 const [authHeader] = useHeaders((headers) =>
-  headers.filter((header) =>
-    header.url.includes('api.x.com/1.1/account/settings.json')
-  )
+  headers.filter((header) => header.url.includes('api.x.com/1.1/account/settings.json')),
 );
 
 // Extract specific headers
 if (authHeader) {
-  const cookie = authHeader.requestHeaders.find(h => h.name === 'Cookie')?.value;
-  const csrfToken = authHeader.requestHeaders.find(h => h.name === 'x-csrf-token')?.value;
+  const cookie = authHeader.requestHeaders.find((h) => h.name === 'Cookie')?.value;
+  const csrfToken = authHeader.requestHeaders.find((h) => h.name === 'x-csrf-token')?.value;
 }
 ```
 
@@ -540,6 +563,7 @@ if (authHeader) {
 #### `prove(requestOptions, proverOptions)`
 
 **The unified API for TLS proof generation.** This single function handles:
+
 1. Creating a prover connection to the verifier
 2. Sending the HTTP request through the TLS prover
 3. Capturing the TLS transcript (sent/received data)
@@ -550,12 +574,14 @@ if (authHeader) {
 **Parameters:**
 
 **`requestOptions`** - Object specifying the HTTP request:
+
 - `url` - String, full request URL (e.g., 'https://api.x.com/1.1/account/settings.json')
 - `method` - String, HTTP method ('GET', 'POST', etc.)
 - `headers` - Object, request headers as key-value pairs
 - `body` - Optional string, request body for POST/PUT requests
 
 **`proverOptions`** - Object specifying proof configuration:
+
 - `verifierUrl` - String, verifier WebSocket URL
   - Local development: `'http://localhost:7047'`
   - Production: `'https://demo.tlsnotary.org'`
@@ -578,41 +604,48 @@ if (authHeader) {
 
 ```typescript
 type Handler = {
-  type: 'SENT' | 'RECV';           // Which direction (request/response)
-  part: 'START_LINE' | 'PROTOCOL' | 'METHOD' | 'REQUEST_TARGET' |
-        'STATUS_CODE' | 'HEADERS' | 'BODY' | 'ALL';
-  action: 'REVEAL' | 'PEDERSEN';   // Reveal plaintext or commit hash
+  type: 'SENT' | 'RECV'; // Which direction (request/response)
+  part:
+    | 'START_LINE'
+    | 'PROTOCOL'
+    | 'METHOD'
+    | 'REQUEST_TARGET'
+    | 'STATUS_CODE'
+    | 'HEADERS'
+    | 'BODY'
+    | 'ALL';
+  action: 'REVEAL' | 'PEDERSEN'; // Reveal plaintext or commit hash
   params?: {
     // For HEADERS:
-    key?: string;                  // Header name to reveal
-    hideKey?: boolean;             // Hide header name, show value only
-    hideValue?: boolean;           // Hide value, show header name only
+    key?: string; // Header name to reveal
+    hideKey?: boolean; // Hide header name, show value only
+    hideValue?: boolean; // Hide value, show header name only
 
     // For BODY with JSON:
     type?: 'json';
-    path?: string;                 // JSON field path - supports nested paths with dot notation
-                                   // Examples: 'screen_name', 'accounts.USD', 'user.profile.name'
+    path?: string; // JSON field path - supports nested paths with dot notation
+    // Examples: 'screen_name', 'accounts.USD', 'user.profile.name'
 
     // For ALL with regex (matches across entire transcript):
     type?: 'regex';
-    regex?: string;                // Regex pattern as string
-    flags?: string;                // Regex flags (e.g., 'g', 'i', 'gi')
+    regex?: string; // Regex pattern as string
+    flags?: string; // Regex flags (e.g., 'g', 'i', 'gi')
   };
 };
 ```
 
 **Handler Part Values:**
 
-| Part | Description | Applicable To |
-|------|-------------|---------------|
-| `START_LINE` | Full first line (e.g., `GET /path HTTP/1.1`) | SENT, RECV |
-| `PROTOCOL` | HTTP version (e.g., `HTTP/1.1`) | SENT, RECV |
-| `METHOD` | HTTP method (e.g., `GET`, `POST`) | SENT only |
-| `REQUEST_TARGET` | Request path (e.g., `/1.1/account/settings.json`) | SENT only |
-| `STATUS_CODE` | Response status (e.g., `200`) | RECV only |
-| `HEADERS` | HTTP headers section | SENT, RECV |
-| `BODY` | HTTP body content | SENT, RECV |
-| `ALL` | Entire transcript (use with regex) | SENT, RECV |
+| Part             | Description                                       | Applicable To |
+| ---------------- | ------------------------------------------------- | ------------- |
+| `START_LINE`     | Full first line (e.g., `GET /path HTTP/1.1`)      | SENT, RECV    |
+| `PROTOCOL`       | HTTP version (e.g., `HTTP/1.1`)                   | SENT, RECV    |
+| `METHOD`         | HTTP method (e.g., `GET`, `POST`)                 | SENT only     |
+| `REQUEST_TARGET` | Request path (e.g., `/1.1/account/settings.json`) | SENT only     |
+| `STATUS_CODE`    | Response status (e.g., `200`)                     | RECV only     |
+| `HEADERS`        | HTTP headers section                              | SENT, RECV    |
+| `BODY`           | HTTP body content                                 | SENT, RECV    |
+| `ALL`            | Entire transcript (use with regex)                | SENT, RECV    |
 
 **Returns:** Promise<ProofResponse> - The generated proof data
 
@@ -623,11 +656,11 @@ The `prove()` function returns a Promise that resolves to an object containing s
 ```typescript
 interface ProofResponse {
   results: Array<{
-    type: 'SENT' | 'RECV';              // Request or response data
-    part: string;                        // Which part (START_LINE, HEADERS, BODY, etc.)
-    action: 'REVEAL' | 'PEDERSEN';       // Reveal or commitment action
-    params?: object;                     // Optional handler parameters
-    value: string;                       // The extracted value
+    type: 'SENT' | 'RECV'; // Request or response data
+    part: string; // Which part (START_LINE, HEADERS, BODY, etc.)
+    action: 'REVEAL' | 'PEDERSEN'; // Reveal or commitment action
+    params?: object; // Optional handler parameters
+    value: string; // The extracted value
   }>;
 }
 ```
@@ -641,29 +674,29 @@ interface ProofResponse {
       type: 'SENT',
       part: 'START_LINE',
       action: 'REVEAL',
-      value: 'GET /1.1/account/settings.json HTTP/1.1'
+      value: 'GET /1.1/account/settings.json HTTP/1.1',
     },
     {
       type: 'RECV',
       part: 'START_LINE',
       action: 'REVEAL',
-      value: 'HTTP/1.1 200 OK'
+      value: 'HTTP/1.1 200 OK',
     },
     {
       type: 'RECV',
       part: 'HEADERS',
       action: 'REVEAL',
       params: { key: 'date' },
-      value: 'Tue, 28 Oct 2025 14:46:24 GMT'
+      value: 'Tue, 28 Oct 2025 14:46:24 GMT',
     },
     {
       type: 'RECV',
       part: 'BODY',
       action: 'REVEAL',
       params: { type: 'json', path: 'screen_name', hideKey: true },
-      value: '0xTsukino'
-    }
-  ]
+      value: '0xTsukino',
+    },
+  ];
 }
 ```
 
@@ -682,12 +715,10 @@ const proof = await prove(requestOptions, {
 });
 
 // Access specific results
-const startLine = proof.results.find(r => r.part === 'START_LINE' && r.type === 'RECV');
+const startLine = proof.results.find((r) => r.part === 'START_LINE' && r.type === 'RECV');
 console.log('Response status:', startLine.value); // "HTTP/1.1 200 OK"
 
-const username = proof.results.find(r =>
-  r.part === 'BODY' && r.params?.path === 'screen_name'
-);
+const username = proof.results.find((r) => r.part === 'BODY' && r.params?.path === 'screen_name');
 console.log('Username:', username.value); // "0xTsukino"
 ```
 
@@ -701,20 +732,20 @@ const proof = await prove(
     url: 'https://api.x.com/1.1/account/settings.json',
     method: 'GET',
     headers: {
-      'Cookie': cookieValue,
-      'authorization': authToken,
+      Cookie: cookieValue,
+      authorization: authToken,
       'x-csrf-token': csrfToken,
-      'Host': 'api.x.com',
+      Host: 'api.x.com',
       'Accept-Encoding': 'identity',
-      'Connection': 'close',
+      Connection: 'close',
     },
   },
   // Prover options - how to generate the proof
   {
     verifierUrl: 'http://localhost:7047',
     proxyUrl: 'ws://localhost:7047/proxy?token=api.x.com',
-    maxRecvData: 16384,  // 16 KB max receive
-    maxSentData: 4096,   // 4 KB max send
+    maxRecvData: 16384, // 16 KB max receive
+    maxSentData: 4096, // 4 KB max send
 
     // handlers - what to include in the proof
     handlers: [
@@ -750,11 +781,11 @@ const proof = await prove(
         params: {
           type: 'json',
           path: 'screen_name',
-          hideKey: true,  // Only reveal "0xTsukino", not the key
+          hideKey: true, // Only reveal "0xTsukino", not the key
         },
       },
     ],
-  }
+  },
 );
 
 // Proof is now generated and returned
@@ -863,9 +894,9 @@ Each update triggers a UI re-render, so your `main()` function can read this sta
 
 ```typescript
 interface ProveProgressData {
-  step: string;      // Machine-readable step identifier (e.g., 'MPC_SETUP', 'HTTP_SENDING')
-  progress: number;  // 0.0 to 1.0
-  message: string;   // Human-readable message (e.g., 'Connecting to verifier...')
+  step: string; // Machine-readable step identifier (e.g., 'MPC_SETUP', 'HTTP_SENDING')
+  progress: number; // 0.0 to 1.0
+  message: string; // Human-readable message (e.g., 'Connecting to verifier...')
 }
 ```
 
@@ -879,10 +910,34 @@ function proveProgressBar() {
   const pct = `${Math.round(progress.progress * 100)}%`;
   return [
     div({ style: { marginTop: '12px' } }, [
-      div({ style: { height: '6px', backgroundColor: '#e5e7eb', borderRadius: '3px', overflow: 'hidden' } }, [
-        div({ style: { height: '100%', width: pct, background: 'linear-gradient(90deg, #667eea, #764ba2)', borderRadius: '3px', transition: 'width 0.4s ease' } }, []),
-      ]),
-      div({ style: { fontSize: '12px', color: '#6b7280', marginTop: '6px', textAlign: 'center' } }, [progress.message]),
+      div(
+        {
+          style: {
+            height: '6px',
+            backgroundColor: '#e5e7eb',
+            borderRadius: '3px',
+            overflow: 'hidden',
+          },
+        },
+        [
+          div(
+            {
+              style: {
+                height: '100%',
+                width: pct,
+                background: 'linear-gradient(90deg, #667eea, #764ba2)',
+                borderRadius: '3px',
+                transition: 'width 0.4s ease',
+              },
+            },
+            [],
+          ),
+        ],
+      ),
+      div(
+        { style: { fontSize: '12px', color: '#6b7280', marginTop: '6px', textAlign: 'center' } },
+        [progress.message],
+      ),
     ]),
   ];
 }
@@ -898,23 +953,23 @@ function main() {
 
 **Progress Steps:**
 
-| Step | Progress | Message |
-| ------ | ---------- | --------- |
-| `CONNECTING` | 0.00 | Connecting... |
-| `VERIFIER_CONNECTING` | 0.05 | Connecting to verifier... |
-| `MPC_SETUP_COMPLETE` | 0.15 | MPC setup complete |
-| `MPC_SETUP` | 0.20 | MPC session established |
-| `SERVER_CONNECTING` | 0.25 | Connecting to server... |
-| `SENDING_REQUEST` | 0.30 | Sending request... |
-| `HTTP_SENDING` | 0.35 | Sending request... |
-| `PROCESSING_TRANSCRIPT` | 0.50 | Processing transcript... |
-| `HTTP_RESPONSE_RECEIVED` | 0.50 | Response received |
-| `SENDING_REVEAL_CONFIG` | 0.60 | Configuring selective disclosure... |
-| `GENERATING_PROOF` | 0.70 | Generating proof... |
-| `PROOF_GENERATING` | 0.70 | Generating proof... |
-| `WAITING_FOR_VERIFICATION` | 0.85 | Waiting for verification... |
-| `PROOF_FINALIZED` | 0.90 | Proof finalized |
-| `COMPLETE` | 1.00 | Complete |
+| Step                       | Progress | Message                             |
+| -------------------------- | -------- | ----------------------------------- |
+| `CONNECTING`               | 0.00     | Connecting...                       |
+| `VERIFIER_CONNECTING`      | 0.05     | Connecting to verifier...           |
+| `MPC_SETUP_COMPLETE`       | 0.15     | MPC setup complete                  |
+| `MPC_SETUP`                | 0.20     | MPC session established             |
+| `SERVER_CONNECTING`        | 0.25     | Connecting to server...             |
+| `SENDING_REQUEST`          | 0.30     | Sending request...                  |
+| `HTTP_SENDING`             | 0.35     | Sending request...                  |
+| `PROCESSING_TRANSCRIPT`    | 0.50     | Processing transcript...            |
+| `HTTP_RESPONSE_RECEIVED`   | 0.50     | Response received                   |
+| `SENDING_REVEAL_CONFIG`    | 0.60     | Configuring selective disclosure... |
+| `GENERATING_PROOF`         | 0.70     | Generating proof...                 |
+| `PROOF_GENERATING`         | 0.70     | Generating proof...                 |
+| `WAITING_FOR_VERIFICATION` | 0.85     | Waiting for verification...         |
+| `PROOF_FINALIZED`          | 0.90     | Proof finalized                     |
+| `COMPLETE`                 | 1.00     | Complete                            |
 
 > **Note:** Progress events come from two sources: JavaScript-side events (emitted between WASM calls in SessionManager) and Rust-side events (captured from WASM tracing output via console interception). The table above shows all possible steps from both sources.
 
@@ -943,9 +998,11 @@ const result = await window.tlsn.execCode(pluginCode, { requestId: 'my-req-123' 
 Complete plugin execution and cleanup.
 
 **Parameters:**
+
 - `args` - Optional data to return to caller
 
 **Effects:**
+
 - Closes associated browser window
 - Disposes QuickJS sandbox
 - Resolves `executePlugin()` promise
@@ -967,6 +1024,7 @@ async function onClick() {
 ## Example: X-Profile Plugin
 
 This example demonstrates a complete plugin that proves a user's X.com (Twitter) profile by:
+
 1. Opening X.com and waiting for user to log in
 2. Detecting the profile API request
 3. Generating a TLS proof with selective reveal (showing profile data but hiding auth headers)
@@ -982,6 +1040,7 @@ See [`packages/demo/public/plugins/twitter.js`](packages/demo/public/plugins/twi
 Plugins run in a **QuickJS WebAssembly sandbox** with strict limitations:
 
 **Disabled Features:**
+
 - ❌ Network access (`fetch`, `XMLHttpRequest`)
 - ❌ File system access
 - ❌ Browser APIs (except through capabilities)
@@ -989,6 +1048,7 @@ Plugins run in a **QuickJS WebAssembly sandbox** with strict limitations:
 - ❌ `eval` / `Function` constructors (controlled by QuickJS)
 
 **Allowed Features:**
+
 - ✅ ES6+ JavaScript syntax
 - ✅ Pure computation
 - ✅ Capabilities registered by host (via `env` object)
@@ -1012,15 +1072,18 @@ const fs = require('fs'); // ReferenceError: require is not defined
 ### Resource Limits
 
 **Window Management:**
+
 - Maximum 10 concurrent managed windows
 - Error thrown if limit exceeded
 
 **Request/Header History:**
+
 - Maximum 1000 requests per window
 - Maximum 1000 headers per window
 - Oldest items removed when limit exceeded (FIFO)
 
 **Prover Limits:**
+
 - `maxSentData`: 4096 bytes (configurable)
 - `maxRecvData`: 16384 bytes (configurable)
 - Configurable per-proof via `prove()` parameters
@@ -1035,14 +1098,19 @@ Every plugin must export an object with at least a `main` function:
 
 ```javascript
 export default {
-  main,              // Required: UI rendering function
-  config: {          // Optional: plugin metadata
+  main, // Required: UI rendering function
+  config: {
+    // Optional: plugin metadata
     name: 'My Plugin',
     description: 'Does something cool',
   },
   // Optional: callback functions (referenced by onclick)
-  myCallback: async () => { /* ... */ },
-  anotherCallback: async () => { /* ... */ },
+  myCallback: async () => {
+    /* ... */
+  },
+  anotherCallback: async () => {
+    /* ... */
+  },
 };
 ```
 
@@ -1053,9 +1121,7 @@ export default {
 ```javascript
 function main() {
   // ✅ Good: Filter in hook, use result
-  const [apiRequests] = useRequests((reqs) =>
-    reqs.filter(r => r.url.includes('api.x.com'))
-  );
+  const [apiRequests] = useRequests((reqs) => reqs.filter((r) => r.url.includes('api.x.com')));
 
   // ❌ Bad: Don't filter outside hooks
   // (won't trigger re-render when requests change)
@@ -1074,7 +1140,7 @@ function main() {
   }
 
   // Access header safely
-  const cookie = header.requestHeaders.find(h => h.name === 'Cookie')?.value;
+  const cookie = header.requestHeaders.find((h) => h.name === 'Cookie')?.value;
 }
 ```
 
@@ -1107,7 +1173,7 @@ handlers: [
       hideKey: true,
     },
   },
-]
+];
 
 // ❌ Bad: Don't reveal sensitive auth headers
 handlers: [
@@ -1117,7 +1183,7 @@ handlers: [
     action: 'REVEAL',
     params: { key: 'Cookie' }, // Exposes session!
   },
-]
+];
 ```
 
 ---
@@ -1125,13 +1191,16 @@ handlers: [
 ## API Reference Summary
 
 ### DOM Construction
+
 - `div(options, children)` - Create div element
 - `button(options, children)` - Create button element
 
 ### Window Management
+
 - `openWindow(url, options?)` - Open managed window
 
 ### Hooks
+
 - `useEffect(effect, deps)` - Side effect with dependencies
 - `useRequests(filterFn)` - Get filtered requests
 - `useHeaders(filterFn)` - Get filtered headers
@@ -1139,9 +1208,11 @@ handlers: [
 - `setState(key, value)` - Set state value and trigger re-render
 
 ### TLS Proof
+
 - `prove(requestOptions, proverOptions)` - **Unified proof generation API**
 
 ### Utilities
+
 - `done(args?)` - Cleanup and exit
 
 ---

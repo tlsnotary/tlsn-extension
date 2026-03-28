@@ -5,6 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ### Development
+
 - `npm install` - Install dependencies
 - `npm run dev` - Start webpack dev server with hot reload on port 3000 (default)
 - `npm run build` - Build extension (uses NODE_ENV from utils/build.js, defaults to production)
@@ -21,10 +22,13 @@ This is a Chrome Extension (Manifest V3) for TLSNotary, enabling secure notariza
 ## Architecture Overview
 
 ### Extension Entry Points
+
 The extension has 5 main entry points defined in `webpack.config.js`:
 
 #### 1. **Background Service Worker** (`src/entries/Background/index.ts`)
+
 Core responsibilities:
+
 - **TLSN Window Management**: Creates popup windows for TLSN operations, tracks window/tab IDs
 - **Request Interception**: Uses `webRequest.onBeforeRequest` API to intercept all HTTP requests from TLSN windows
 - **Request Storage**: Maintains in-memory array of intercepted requests (`tlsnRequests`)
@@ -33,42 +37,54 @@ Core responsibilities:
 - Uses `webextension-polyfill` for cross-browser compatibility
 
 Key message handlers:
+
 - `PING` → `PONG` (connectivity test)
 - `TLSN_CONTENT_TO_EXTENSION` → Opens new popup window, tracks requests
 - `CONTENT_SCRIPT_READY` → Confirms content script loaded
 
 #### 2. **Content Script** (`src/entries/Content/index.ts`)
+
 Injected into all HTTP/HTTPS pages via manifest. Responsibilities:
+
 - **Script Injection**: Injects `content.bundle.js` into page context to expose page-accessible API
 - **TLSN Overlay Management**: Creates/updates full-screen overlay showing intercepted requests
 - **Message Bridge**: Bridges messages between page scripts and extension background
 - **Request Display**: Real-time updates of intercepted requests in overlay UI
 
 Message handlers:
+
 - `GET_PAGE_INFO` → Returns page title, URL, domain
 - `SHOW_TLSN_OVERLAY` → Creates overlay with initial requests
 - `UPDATE_TLSN_REQUESTS` → Updates overlay with new requests
 - `HIDE_TLSN_OVERLAY` → Removes overlay and clears state
 
 Window message handler:
+
 - Listens for `TLSN_CONTENT_SCRIPT_MESSAGE` from page scripts
 - Forwards to background via `TLSN_CONTENT_TO_EXTENSION`
 
 #### 3. **Content Module** (`src/entries/Content/content.ts`)
+
 Injected script running in page context (not content script context):
+
 - **Page API**: Exposes `window.extensionAPI` object to web pages
 - **Message Bridge**: Provides `sendMessage()` method that posts messages via `window.postMessage`
 - **Lifecycle Event**: Dispatches `extension_loaded` custom event when ready
 - **Web Accessible Resource**: Listed in manifest's `web_accessible_resources`
 
 Page API usage:
+
 ```javascript
 window.extensionAPI.sendMessage({ action: 'startTLSN' });
-window.addEventListener('extension_loaded', () => { /* ready */ });
+window.addEventListener('extension_loaded', () => {
+  /* ready */
+});
 ```
 
 #### 4. **Popup UI** (`src/entries/Popup/index.tsx`)
+
 React-based extension popup:
+
 - **Simple Interface**: "Hello World" boilerplate with test button
 - **Redux Integration**: Connected to Redux store via `react-redux`
 - **Message Sending**: Can send messages to background script
@@ -76,14 +92,18 @@ React-based extension popup:
 - Entry point: `popup.html` (400x300px default size)
 
 #### 5. **Offscreen Document** (`src/entries/Offscreen/index.tsx`)
+
 Isolated React component for background processing:
+
 - **Purpose**: Handles DOM operations unavailable in service workers
 - **Message Handling**: Listens for `PROCESS_DATA` messages (example implementation)
 - **Lifecycle**: Created dynamically by background script, reused if exists
 - Entry point: `offscreen.html`
 
 ### State Management
+
 Redux store located in `src/reducers/index.tsx`:
+
 - **App State Interface**: `{ message: string, count: number }`
 - **Action Creators**:
   - `setMessage(message: string)` - Updates message state
@@ -96,6 +116,7 @@ Redux store located in `src/reducers/index.tsx`:
 ### Message Passing Architecture
 
 **Page → Extension Flow**:
+
 ```
 Page (window.postMessage)
   ↓
@@ -105,6 +126,7 @@ Background (browser.runtime.sendMessage)
 ```
 
 **Extension → Page Flow**:
+
 ```
 Background (browser.tabs.sendMessage)
   ↓
@@ -118,6 +140,7 @@ Page DOM manipulation (overlay, etc.)
 ### TLSN Overlay Feature
 
 The overlay is a full-screen modal showing intercepted requests:
+
 - **Design**: Dark gradient background (rgba(0,0,0,0.85)) with glassmorphic message box
 - **Content**:
   - Header: "TLSN Plugin In Progress" with gradient text
@@ -130,6 +153,7 @@ The overlay is a full-screen modal showing intercepted requests:
 ### Build Configuration
 
 **Webpack 5 Setup** (`webpack.config.js`):
+
 - **Entry Points**: popup, background, contentScript, content, offscreen
 - **Output**: `build/` directory with `[name].bundle.js` pattern
 - **Loaders**:
@@ -151,6 +175,7 @@ The overlay is a full-screen modal showing intercepted requests:
   - WebSocket transport for HMR
 
 **Production Build** (`utils/build.js`):
+
 - Adds `ZipPlugin` to create `tlsn-extension-{version}.zip` in `zip/` directory
 - Uses package.json version for naming
 - Exits with code 1 on errors or warnings
@@ -158,6 +183,7 @@ The overlay is a full-screen modal showing intercepted requests:
 ### Extension Permissions
 
 Defined in `src/manifest.json`:
+
 - `offscreen` - Create offscreen documents for background processing
 - `webRequest` - Intercept HTTP/HTTPS requests
 - `storage` - Persistent local storage
@@ -172,6 +198,7 @@ Defined in `src/manifest.json`:
 ### TypeScript Configuration
 
 **tsconfig.json**:
+
 - Target: `esnext`
 - Module: `esnext` with Node resolution
 - Strict mode enabled
@@ -181,38 +208,45 @@ Defined in `src/manifest.json`:
 - Types: `chrome` (for Chrome extension APIs)
 
 **Type Declarations**:
+
 - `src/global.d.ts` - Declares PNG module types
 - Uses `@types/chrome`, `@types/webextension-polyfill`, `@types/react`, etc.
 
 ### Styling
 
 **Tailwind CSS**:
+
 - Configuration: `tailwind.config.js`
 - Content: Scans all `src/**/*.{js,jsx,ts,tsx}`
 - Custom theme: Primary color `#243f5f`
 - PostCSS pipeline with `postcss-preset-env`
 
 **SCSS**:
+
 - FontAwesome integration (all icon sets: brands, solid, regular)
 - Custom utility classes: `.button`, `.input`, `.select`, `.textarea`
 - BEM-style modifiers: `.button--primary`
 - Tailwind @apply directives mixed with custom styles
 
 **Popup Dimensions**:
+
 - Default: 480x600px (set in index.scss body styles)
 - Customizable via inline styles or props
 
 ## Development Workflow
 
 1. **Initial Setup**:
+
    ```bash
    npm install  # Requires Node.js >= 18
    ```
 
 2. **Development Mode**:
+
    ```bash
    npm run dev  # Starts webpack-dev-server on port 3000
    ```
+
    - Hot module replacement enabled
    - Files written to `build/` directory
    - Source maps: `cheap-module-source-map`
@@ -230,9 +264,11 @@ Defined in `src/manifest.json`:
    - All requests in that window are intercepted and displayed in overlay
 
 5. **Production Build**:
+
    ```bash
    NODE_ENV=production npm run build  # Creates build/ and zip/
    ```
+
    - Minified output with Terser
    - No source maps
    - Creates versioned zip file for Chrome Web Store submission
@@ -246,6 +282,7 @@ Defined in `src/manifest.json`:
 ## Known Issues & Legacy Code
 
 ⚠️ **Legacy Code Warning**: `src/entries/utils.ts` contains imports from non-existent files:
+
 - `Background/rpc.ts` (removed in refactor)
 - `SidePanel/types.ts` (removed in refactor)
 - Functions: `pushToRedux()`, `openSidePanel()`, `waitForEvent()`
@@ -257,12 +294,14 @@ Defined in `src/manifest.json`:
 Used for WebSocket proxying of TLS connections:
 
 **Build Websockify Docker Image**:
+
 ```bash
 git clone https://github.com/novnc/websockify && cd websockify
 ./docker/build.sh
 ```
 
 **Run Websockify**:
+
 ```bash
 # For x.com (Twitter)
 docker run -it --rm -p 55688:80 novnc/websockify 80 api.x.com:443
@@ -276,6 +315,7 @@ Purpose: Proxies HTTPS connections through WebSocket for browser-based TLS opera
 ## Code Quality
 
 **ESLint Configuration** (`.eslintrc`):
+
 - Extends: `prettier`, `@typescript-eslint/recommended`
 - Parser: `@typescript-eslint/parser`
 - Rules:
@@ -289,6 +329,7 @@ Purpose: Proxies HTTPS connections through WebSocket for browser-based TLS opera
 - Ignores: `node_modules`, `zip`, `build`, `wasm`, `tlsn`, `webpack.config.js`
 
 **Prettier Configuration** (`.prettierrc.json`):
+
 - Single quotes, trailing commas, 2-space indentation
 - Ignore: `.prettierignore` (not in repo, likely default ignores)
 
@@ -301,6 +342,7 @@ This project uses [Conventional Commits](https://www.conventionalcommits.org/). 
 ```
 
 **Types:**
+
 - `feat` - New feature
 - `fix` - Bug fix
 - `docs` - Documentation changes
@@ -312,6 +354,7 @@ This project uses [Conventional Commits](https://www.conventionalcommits.org/). 
 **Scope:** Use `extension` for this package.
 
 **Examples:**
+
 ```
 feat(extension): add request interception for managed windows
 fix(extension): format callback to satisfy prettier
@@ -323,6 +366,7 @@ refactor(extension): simplify message handling
 ## Publishing
 
 After building:
+
 1. Test extension thoroughly in Chrome
 2. Create production build: `NODE_ENV=production npm run build`
 3. Upload `zip/tlsn-extension-{version}.zip` to Chrome Web Store

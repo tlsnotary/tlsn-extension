@@ -1,0 +1,6 @@
+build
+dist
+coverage
+node_modules
+packages/extension/lib
+packages/tlsn-wasm-pkg

@@ -10,7 +10,7 @@ interface InteractiveQuizProps {
 export const InteractiveQuiz: React.FC<InteractiveQuizProps> = ({ questions, onComplete }) => {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<number[]>(
-    Array(questions.length).fill(-1)
+    Array(questions.length).fill(-1),
   );
   const [showExplanation, setShowExplanation] = useState(false);
 
@@ -19,7 +19,7 @@ export const InteractiveQuiz: React.FC<InteractiveQuizProps> = ({ questions, onC
   const isCorrect = selectedAnswers[currentQuestion] === question.correctAnswer;
   const allAnswered = selectedAnswers.every((answer) => answer !== -1);
   const allCorrect = selectedAnswers.every(
-    (answer, index) => answer === questions[index].correctAnswer
+    (answer, index) => answer === questions[index].correctAnswer,
   );
 
   const handleSelectAnswer = (optionIndex: number) => {

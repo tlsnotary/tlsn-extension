@@ -9,11 +9,11 @@ Adding new plugins to the demo is straightforward. Just update the `plugins.ts` 
 
 export const plugins: Record<string, Plugin> = {
   // ... existing plugins ...
-  
+
   github: {
     name: 'GitHub Profile',
     description: 'Prove your GitHub contributions and profile information',
-    logo: '🐙',  // or use emoji: '💻', '⚡', etc.
+    logo: '🐙', // or use emoji: '💻', '⚡', etc.
     file: '/github.js',
     parseResult: (json) => {
       return json.results[json.results.length - 1].value;
@@ -42,6 +42,7 @@ export const plugins: Record<string, Plugin> = {
 ## Card Display
 
 The plugin will automatically render as a card with:
+
 - Large logo at the top
 - Plugin name as heading
 - Description text below
