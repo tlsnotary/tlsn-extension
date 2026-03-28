@@ -250,4 +250,14 @@ export interface PluginConfig {
    * Empty array or undefined means no openWindow() calls allowed.
    */
   urls?: string[];
+
+  /**
+   * OAuth provider hostnames that require system browser handoff (mobile only).
+   * When the WebView navigates to one of these hosts, the navigation is
+   * intercepted and opened in the system browser instead (SFSafariViewController
+   * on iOS, Chrome Custom Tabs on Android), since OAuth providers like Google
+   * block sign-in from embedded WebViews.
+   * Supports subdomain matching (e.g., "google.com" matches "accounts.google.com").
+   */
+  oauthHosts?: string[];
 }

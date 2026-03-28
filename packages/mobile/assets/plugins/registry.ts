@@ -44,6 +44,7 @@ function toPluginEntry(meta: PluginMetadata): PluginEntry {
         verifierUrl: VERIFIER_URL,
       })),
       urls: meta.pluginConfig.urls,
+      oauthHosts: meta.pluginConfig.oauthHosts,
     },
     getPluginCode: CODE_MAP[meta.id] || (() => ''),
   };

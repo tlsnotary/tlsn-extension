@@ -2,11 +2,16 @@ import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { WebView, WebViewMessageEvent, WebViewNavigation } from 'react-native-webview';
 import type { ShouldStartLoadRequest } from 'react-native-webview/lib/WebViewTypes';
 import CookieManager from '@react-native-cookies/cookies';
+import { buildFingerprintHidingScript } from '../../lib/webviewFingerprint';
 
-// Desktop user-agent prevents iOS from triggering universal links
-// (which would redirect x.com, spotify.com etc. to their native apps).
-const DESKTOP_USER_AGENT =
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+// Real mobile Safari user-agent. Google blocks embedded WKWebViews by
+// checking for the absence of "Safari/" in the UA string. The default
+// WKWebView UA omits "Safari/" and "Version/", which is how Google
+// distinguishes it from real Safari. Using the full Safari UA matches
+// the actual iOS TLS/HTTP fingerprint (same WebKit engine).
+// Universal link prevention is handled by onShouldStartLoadWithRequest.
+const SAFARI_USER_AGENT =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
 
 /**
  * Intercepted request header matching plugin-sdk's InterceptedRequestHeader type.
@@ -107,9 +112,11 @@ export function PluginWebView({
   const webViewRef = useRef<WebView>(null);
   const lastNativeCookie = useRef<string>('');
 
-  // Build the interception script with the target hosts baked in
+  // Build the injected JavaScript: fingerprint hiding first, then header interception.
+  // Fingerprint hiding must run before any page scripts to prevent OAuth providers
+  // from detecting the embedded WebView.
   const injectedJS = useMemo(
-    () => buildInterceptionScript(targetHosts),
+    () => buildFingerprintHidingScript() + '\n' + buildInterceptionScript(targetHosts),
     [targetHosts],
   );
 
@@ -179,15 +186,20 @@ export function PluginWebView({
   }, [url, targetHosts, onHeaderIntercepted]);
 
   // Keep all http(s) navigations inside the WebView; block custom schemes.
-  const handleShouldStartLoad = useCallback((request: ShouldStartLoadRequest) => {
-    return request.url.startsWith('http://') || request.url.startsWith('https://');
-  }, []);
+  // OAuth is handled inline (fingerprint hiding makes the WebView trusted by
+  // OAuth providers), so no system browser handoff is needed.
+  const handleShouldStartLoad = useCallback(
+    (request: ShouldStartLoadRequest) => {
+      return request.url.startsWith('http://') || request.url.startsWith('https://');
+    },
+    [],
+  );
 
   return (
     <WebView
       ref={webViewRef}
       source={{ uri: url }}
-      userAgent={DESKTOP_USER_AGENT}
+      userAgent={SAFARI_USER_AGENT}
       injectedJavaScriptBeforeContentLoaded={injectedJS}
       onMessage={handleMessage}
       onNavigationStateChange={handleNavigationStateChange}
@@ -214,6 +226,12 @@ function buildInterceptionScript(targetHosts: string[]): string {
 
   return `
 (function() {
+  // Log the actual user-agent so we can see what Google receives
+  (window.__tlsnBridge || window.ReactNativeWebView).postMessage(JSON.stringify({
+    type: 'DEBUG',
+    message: '[UA] ' + navigator.userAgent
+  }));
+
   var TARGET_HOSTS = ${hostsJson};
 
   function matchesTarget(url) {
@@ -245,7 +263,7 @@ function buildInterceptionScript(targetHosts: string[]): string {
 
   function sendHeaders(method, url, headers) {
     try {
-      window.ReactNativeWebView.postMessage(JSON.stringify({
+      (window.__tlsnBridge || window.ReactNativeWebView).postMessage(JSON.stringify({
         type: 'HEADER_INTERCEPTED',
         method: method,
         url: url,
@@ -257,7 +275,7 @@ function buildInterceptionScript(targetHosts: string[]): string {
 
   function debugLog(msg) {
     try {
-      window.ReactNativeWebView.postMessage(JSON.stringify({
+      (window.__tlsnBridge || window.ReactNativeWebView).postMessage(JSON.stringify({
         type: 'DEBUG',
         message: msg
       }));

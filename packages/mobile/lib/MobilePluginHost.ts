@@ -107,6 +107,7 @@ export interface PluginConfig {
     proxyUrl?: string;
   }[];
   urls?: string[];
+  oauthHosts?: string[];
 }
 
 export type WindowMessage =

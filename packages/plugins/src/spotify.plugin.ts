@@ -24,6 +24,7 @@ const config: PluginConfig = {
     } satisfies RequestPermission,
   ],
   urls: ['https://developer.spotify.com/*'],
+  oauthHosts: ['accounts.spotify.com', 'accounts.google.com', 'appleid.apple.com'],
 };
 
 // =============================================================================

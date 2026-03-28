@@ -29,6 +29,7 @@ export interface PluginMetadata {
       pathname: string;
     }[];
     urls: string[];
+    oauthHosts?: string[];
   };
 }
 
@@ -97,6 +98,7 @@ export const PLUGIN_REGISTRY: PluginMetadata[] = [
         },
       ],
       urls: ['https://developer.spotify.com/*'],
+      oauthHosts: ['accounts.spotify.com', 'accounts.google.com', 'appleid.apple.com'],
     },
   },
   {

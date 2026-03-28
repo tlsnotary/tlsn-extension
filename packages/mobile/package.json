@@ -10,9 +10,11 @@
     "prebuild": "expo prebuild --clean",
     "prebuild:ios": "expo prebuild --platform ios --clean",
     "build:native": "./modules/tlsn-native/build.sh",
+    "setup:quickjs": "./modules/quickjs-native/setup.sh",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "serve:prover": "node assets/prover/server.js",
-    "postinstall": "ln -sf ../modules/tlsn-native node_modules/tlsn-native || true; ln -sf ../modules/quickjs-native node_modules/quickjs-native || true",
-    "setup:quickjs": "./modules/quickjs-native/setup.sh"
+    "postinstall": "ln -sf ../modules/tlsn-native node_modules/tlsn-native || true; ln -sf ../modules/quickjs-native node_modules/quickjs-native || true"
   },
   "dependencies": {
     "@tlsn/plugins": "*",
@@ -44,7 +46,8 @@
   "devDependencies": {
     "@types/react": "~19.1.0",
     "react-test-renderer": "19.1.0",
-    "typescript": "~5.9.2"
+    "typescript": "~5.9.2",
+    "vitest": "^3.2.4"
   },
   "private": true
 }
