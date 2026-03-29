@@ -14,7 +14,7 @@ export default defineConfig(
       '**/dist/',
       'packages/extension/lib/',
       'packages/extension/webpack.config.js',
-      'packages/demo/',
+      'packages/demo/public/',
       'packages/ts-plugin-sample/',
       'packages/tlsn-wasm-pkg/',
     ],
@@ -62,6 +62,7 @@ export default defineConfig(
       'packages/extension/src/offscreen/ProveManager/worker.ts',
       'packages/extension/tests/browser/globalSetup.ts',
       'packages/verifier/scripts/**',
+      'packages/demo/**',
       'packages/tutorial/**',
       '**/*.js',
       '**/*.mjs',
@@ -90,9 +91,33 @@ export default defineConfig(
     },
   },
 
-  // React overrides (extension + tutorial)
+  // Plugin overrides — sandbox-injected globals
   {
-    files: ['packages/extension/**/*.{tsx,jsx}', 'packages/tutorial/src/**/*.{tsx,jsx}'],
+    files: ['packages/demo/plugins/**/*.ts', 'packages/tutorial/*.js'],
+    languageOptions: {
+      globals: {
+        div: 'readonly',
+        button: 'readonly',
+        input: 'readonly',
+        openWindow: 'readonly',
+        useEffect: 'readonly',
+        useHeaders: 'readonly',
+        useRequests: 'readonly',
+        useState: 'readonly',
+        setState: 'readonly',
+        prove: 'readonly',
+        done: 'readonly',
+      },
+    },
+  },
+
+  // React overrides (extension + tutorial + demo)
+  {
+    files: [
+      'packages/extension/**/*.{tsx,jsx}',
+      'packages/demo/src/**/*.{tsx,jsx}',
+      'packages/tutorial/src/**/*.{tsx,jsx}',
+    ],
     plugins: {
       react: reactPlugin,
       'react-hooks': reactHooksPlugin,
@@ -106,6 +131,7 @@ export default defineConfig(
       ...reactPlugin.configs.recommended.rules,
       ...reactHooksPlugin.configs.recommended.rules,
       'react/react-in-jsx-scope': 'off',
+      'react/no-unescaped-entities': 'off',
     },
   },
 );
