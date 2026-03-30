@@ -247,6 +247,7 @@ browser.runtime.onMessage.addListener(
             type: 'EXEC_CODE_OFFSCREEN',
             code: request.code,
             requestId: request.requestId,
+            sessionData: request.sessionData,
           });
           logger.debug('EXEC_CODE_OFFSCREEN response:', response);
           return response;

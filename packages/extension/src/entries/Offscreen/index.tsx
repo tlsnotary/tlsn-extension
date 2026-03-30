@@ -66,7 +66,11 @@ const OffscreenApp: React.FC = () => {
         return sessionManager
           .awaitInit()
           .then((sm) =>
-            sm.executePlugin(request.code as string, request.requestId as string | undefined),
+            sm.executePlugin(
+              request.code as string,
+              request.requestId as string | undefined,
+              request.sessionData as Record<string, string> | undefined,
+            ),
           )
           .then((result) => {
             logger.debug('Plugin execution result:', result);

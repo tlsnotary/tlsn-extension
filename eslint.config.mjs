@@ -63,6 +63,7 @@ export default defineConfig(
       'packages/extension/tests/browser/globalSetup.ts',
       'packages/verifier/scripts/**',
       'packages/demo/**',
+      'packages/eas-webhook/**',
       'packages/tutorial/**',
       '**/*.js',
       '**/*.mjs',

@@ -6,6 +6,8 @@
  * and injects __VERIFIER_URL__ / __PROXY_URL__ at build time.
  *
  * Pass --watch to enable watch mode (rebuilds on file changes).
+ *
+ * Uses the esbuild JS API (not CLI) for Alpine Linux / musl compatibility.
  */
 import * as esbuild from 'esbuild';
 import * as prettier from 'prettier';

@@ -1,0 +1,27 @@
+{
+  "name": "@tlsn/eas-webhook",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Webhook receiver that creates EAS attestations from TLSNotary verification results",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/server.ts",
+    "create-wallet": "tsx src/create-wallet.ts",
+    "register-schema": "tsx src/register-schema.ts",
+    "start": "node dist/server.js",
+    "lint": "eslint . && prettier --check .",
+    "lint:fix": "eslint . --fix && prettier --write ."
+  },
+  "dependencies": {
+    "@ethereum-attestation-service/eas-sdk": "^2.7.0",
+    "ethers": "^6.13.0",
+    "express": "^4.21.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.0.0",
+    "tsx": "^4.7.0",
+    "typescript": "^6.0.2"
+  }
+}
