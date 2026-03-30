@@ -6,6 +6,7 @@ import type { InterceptedRequest, InterceptedRequestHeader } from '../../types/w
 import { validateUrl } from '../../utils/url-validator';
 import { logger } from '@tlsn/common';
 import { getStoredLogLevel } from '../../utils/logLevelStorage';
+import type { BackgroundMessage } from '../../types/messages';
 
 const chrome = (global as typeof globalThis).chrome;
 
@@ -127,304 +128,301 @@ browser.tabs.onUpdated.addListener(async (tabId, changeInfo, _tab) => {
 });
 
 // Basic message handler
-browser.runtime.onMessage.addListener(
-  (request, sender, sendResponse: (response: unknown) => void) => {
-    logger.debug('Message received:', request.type);
+browser.runtime.onMessage.addListener((msg: unknown, sender: browser.Runtime.MessageSender) => {
+  const request = msg as BackgroundMessage;
+  logger.debug('Message received:', request.type);
 
-    if (request.type === 'CONTENT_SCRIPT_READY') {
-      if (!sender.tab?.windowId) {
-        return;
-      }
-      windowManager.reRenderPluginUI(sender.tab.windowId as number);
-      return; // No response needed
+  if (request.type === 'CONTENT_SCRIPT_READY') {
+    if (!sender.tab?.windowId) {
+      return;
+    }
+    windowManager.reRenderPluginUI(sender.tab.windowId as number);
+    return; // No response needed
+  }
+
+  // Example response
+  if (request.type === 'PING') {
+    return Promise.resolve({ type: 'PONG' });
+  }
+
+  if (request.type === 'RENDER_PLUGIN_UI') {
+    logger.debug('RENDER_PLUGIN_UI request received:', request.json, request.windowId);
+    windowManager.showPluginUI(request.windowId, request.json);
+    return; // No response needed
+  }
+
+  // Handle plugin code request from confirmation popup
+  if (request.type === 'GET_PLUGIN_CODE') {
+    const code = confirmationManager.getPluginCode(request.requestId);
+    return Promise.resolve({ code: code || null });
+  }
+
+  // Handle plugin confirmation responses from popup
+  if (request.type === 'PLUGIN_CONFIRM_RESPONSE') {
+    logger.debug('PLUGIN_CONFIRM_RESPONSE received:', request);
+    confirmationManager.handleConfirmationResponse(request.requestId, request.allowed);
+    return; // No response needed
+  }
+
+  // Route PROVE_PROGRESS from offscreen to the originating tab
+  if (request.type === 'PROVE_PROGRESS') {
+    const route = progressRoutes.get(request.requestId);
+    if (route) {
+      browser.tabs.sendMessage(route.tabId, {
+        type: 'PROVE_PROGRESS',
+        requestId: request.requestId,
+        step: request.step,
+        progress: request.progress,
+        message: request.message,
+        source: request.source,
+      });
+    }
+    return; // No response needed
+  }
+
+  // Handle code execution requests
+  if (request.type === 'EXEC_CODE') {
+    logger.debug('EXEC_CODE request received');
+
+    // Store requestId → tabId mapping for progress routing
+    if (request.requestId && sender.tab?.id) {
+      progressRoutes.set(request.requestId, {
+        tabId: sender.tab.id,
+        createdAt: Date.now(),
+      });
     }
 
-    // Example response
-    if (request.type === 'PING') {
-      sendResponse({ type: 'PONG' });
-      return true;
-    }
-
-    if (request.type === 'RENDER_PLUGIN_UI') {
-      logger.debug('RENDER_PLUGIN_UI request received:', request.json, request.windowId);
-      windowManager.showPluginUI(request.windowId, request.json);
-      return; // No response needed
-    }
-
-    // Handle plugin code request from confirmation popup
-    if (request.type === 'GET_PLUGIN_CODE') {
-      const code = confirmationManager.getPluginCode(request.requestId);
-      sendResponse({ code: code || null });
-      return true;
-    }
-
-    // Handle plugin confirmation responses from popup
-    if (request.type === 'PLUGIN_CONFIRM_RESPONSE') {
-      logger.debug('PLUGIN_CONFIRM_RESPONSE received:', request);
-      confirmationManager.handleConfirmationResponse(request.requestId, request.allowed);
-      return; // No response needed
-    }
-
-    // Route PROVE_PROGRESS from offscreen to the originating tab
-    if (request.type === 'PROVE_PROGRESS') {
-      const route = progressRoutes.get(request.requestId);
-      if (route) {
-        browser.tabs.sendMessage(route.tabId, {
-          type: 'PROVE_PROGRESS',
-          requestId: request.requestId,
-          step: request.step,
-          progress: request.progress,
-          message: request.message,
-          source: request.source,
-        });
-      }
-      return; // No response needed
-    }
-
-    // Handle code execution requests
-    if (request.type === 'EXEC_CODE') {
-      logger.debug('EXEC_CODE request received');
-
-      // Store requestId → tabId mapping for progress routing
-      if (request.requestId && sender.tab?.id) {
-        progressRoutes.set(request.requestId, {
-          tabId: sender.tab.id,
-          createdAt: Date.now(),
-        });
-      }
-
-      // Return a Promise so the polyfill keeps the message channel open
-      // and resolves when the async work completes. This is more reliable
-      // than the sendResponse + return true pattern.
-      return (async () => {
+    // Return a Promise so the polyfill keeps the message channel open
+    // and resolves when the async work completes. This is more reliable
+    // than the sendResponse + return true pattern.
+    return (async () => {
+      try {
+        // Step 1: Extract plugin config for confirmation (via offscreen QuickJS)
+        let pluginConfig: PluginConfig | null = null;
         try {
-          // Step 1: Extract plugin config for confirmation (via offscreen QuickJS)
-          let pluginConfig: PluginConfig | null = null;
-          try {
-            pluginConfig = await extractConfigViaOffscreen(request.code);
-            logger.debug('Extracted plugin config:', pluginConfig);
-          } catch (extractError) {
-            logger.warn('Failed to extract plugin config:', extractError);
-            // Continue with null config - user will see "Unknown Plugin" warning
-          }
+          pluginConfig = await extractConfigViaOffscreen(request.code);
+          logger.debug('Extracted plugin config:', pluginConfig);
+        } catch (extractError) {
+          logger.warn('Failed to extract plugin config:', extractError);
+          // Continue with null config - user will see "Unknown Plugin" warning
+        }
 
-          // Step 2: Request user confirmation
-          const confirmRequestId = `confirm_${Date.now()}_${Math.random()}`;
-          let userAllowed: boolean;
+        // Step 2: Request user confirmation
+        const confirmRequestId = `confirm_${Date.now()}_${Math.random()}`;
+        let userAllowed: boolean;
 
-          try {
-            userAllowed = await confirmationManager.requestConfirmation(
-              pluginConfig,
-              confirmRequestId,
-              sender.tab?.url,
-              request.code,
-            );
-          } catch (confirmError) {
-            logger.error('Confirmation error:', confirmError);
-            return {
-              success: false,
-              error: confirmError instanceof Error ? confirmError.message : 'Confirmation failed',
-            };
-          }
-
-          // Step 3: If user denied, return rejection error
-          if (!userAllowed) {
-            logger.info('User rejected plugin execution');
-            return {
-              success: false,
-              error: 'User rejected plugin execution',
-            };
-          }
-
-          // Step 4: User allowed - proceed with execution
-          logger.info('User allowed plugin execution, proceeding...');
-
-          // Ensure offscreen document exists
-          await createOffscreenDocument();
-
-          // Forward to offscreen document
-          const response = await chrome.runtime.sendMessage({
-            type: 'EXEC_CODE_OFFSCREEN',
-            code: request.code,
-            requestId: request.requestId,
-            sessionData: request.sessionData,
-          });
-          logger.debug('EXEC_CODE_OFFSCREEN response:', response);
-          return response;
-        } catch (error) {
-          logger.error('Error executing code:', error);
+        try {
+          userAllowed = await confirmationManager.requestConfirmation(
+            pluginConfig,
+            confirmRequestId,
+            sender.tab?.url,
+            request.code,
+          );
+        } catch (confirmError) {
+          logger.error('Confirmation error:', confirmError);
           return {
             success: false,
-            error: error instanceof Error ? error.message : 'Code execution failed',
+            error: confirmError instanceof Error ? confirmError.message : 'Confirmation failed',
           };
-        } finally {
-          // Clean up progress route
-          if (request.requestId) {
-            progressRoutes.delete(request.requestId);
-          }
         }
-      })();
+
+        // Step 3: If user denied, return rejection error
+        if (!userAllowed) {
+          logger.info('User rejected plugin execution');
+          return {
+            success: false,
+            error: 'User rejected plugin execution',
+          };
+        }
+
+        // Step 4: User allowed - proceed with execution
+        logger.info('User allowed plugin execution, proceeding...');
+
+        // Ensure offscreen document exists
+        await createOffscreenDocument();
+
+        // Forward to offscreen document
+        const response = await chrome.runtime.sendMessage({
+          type: 'EXEC_CODE_OFFSCREEN',
+          code: request.code,
+          requestId: request.requestId,
+          sessionData: request.sessionData,
+        });
+        logger.debug('EXEC_CODE_OFFSCREEN response:', response);
+        return response;
+      } catch (error) {
+        logger.error('Error executing code:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Code execution failed',
+        };
+      } finally {
+        // Clean up progress route
+        if (request.requestId) {
+          progressRoutes.delete(request.requestId);
+        }
+      }
+    })();
+  }
+
+  // Handle CLOSE_WINDOW requests
+  if (request.type === 'CLOSE_WINDOW') {
+    logger.debug('CLOSE_WINDOW request received:', request.windowId);
+
+    if (!request.windowId) {
+      logger.error('No windowId provided');
+      return Promise.resolve({
+        type: 'WINDOW_ERROR',
+        payload: {
+          error: 'No windowId provided',
+          details: 'windowId is required to close a window',
+        },
+      });
     }
 
-    // Handle CLOSE_WINDOW requests
-    if (request.type === 'CLOSE_WINDOW') {
-      logger.debug('CLOSE_WINDOW request received:', request.windowId);
-
-      if (!request.windowId) {
-        logger.error('No windowId provided');
-        return Promise.resolve({
+    // Close the window using WindowManager
+    return windowManager
+      .closeWindow(request.windowId)
+      .then(() => {
+        logger.debug(`Window ${request.windowId} closed`);
+        return {
+          type: 'WINDOW_CLOSED',
+          payload: {
+            windowId: request.windowId,
+          },
+        };
+      })
+      .catch((error) => {
+        logger.error('Error closing window:', error);
+        return {
           type: 'WINDOW_ERROR',
           payload: {
-            error: 'No windowId provided',
-            details: 'windowId is required to close a window',
+            error: 'Failed to close window',
+            details: String(error),
           },
-        });
-      }
+        };
+      });
+  }
 
-      // Close the window using WindowManager
-      return windowManager
-        .closeWindow(request.windowId)
-        .then(() => {
-          logger.debug(`Window ${request.windowId} closed`);
-          return {
-            type: 'WINDOW_CLOSED',
-            payload: {
-              windowId: request.windowId,
-            },
-          };
-        })
-        .catch((error) => {
-          logger.error('Error closing window:', error);
-          return {
-            type: 'WINDOW_ERROR',
-            payload: {
-              error: 'Failed to close window',
-              details: String(error),
-            },
-          };
-        });
+  // Handle OPEN_WINDOW requests from content scripts
+  if (request.type === 'OPEN_WINDOW') {
+    logger.debug('OPEN_WINDOW request received:', request.url);
+
+    // Validate URL using comprehensive validator
+    const urlValidation = validateUrl(request.url);
+    if (!urlValidation.valid) {
+      logger.error('URL validation failed:', urlValidation.error);
+      return Promise.resolve({
+        type: 'WINDOW_ERROR',
+        payload: {
+          error: 'Invalid URL',
+          details: urlValidation.error || 'URL validation failed',
+        },
+      });
     }
 
-    // Handle OPEN_WINDOW requests from content scripts
-    if (request.type === 'OPEN_WINDOW') {
-      logger.debug('OPEN_WINDOW request received:', request.url);
+    // Calculate position to center on the active browser window, then open
+    const popupWidth = request.width || 900;
+    const popupHeight = request.height || 700;
 
-      // Validate URL using comprehensive validator
-      const urlValidation = validateUrl(request.url);
-      if (!urlValidation.valid) {
-        logger.error('URL validation failed:', urlValidation.error);
-        return Promise.resolve({
-          type: 'WINDOW_ERROR',
-          payload: {
-            error: 'Invalid URL',
-            details: urlValidation.error || 'URL validation failed',
-          },
-        });
-      }
+    return browser.windows
+      .getCurrent()
+      .then((currentWindow) => {
+        let left: number | undefined;
+        let top: number | undefined;
 
-      // Calculate position to center on the active browser window, then open
-      const popupWidth = request.width || 900;
-      const popupHeight = request.height || 700;
+        if (
+          currentWindow.left != null &&
+          currentWindow.top != null &&
+          currentWindow.width != null &&
+          currentWindow.height != null
+        ) {
+          left = Math.round(currentWindow.left + (currentWindow.width - popupWidth) / 2);
+          top = Math.round(currentWindow.top + (currentWindow.height - popupHeight) / 2);
+        }
 
-      return browser.windows
-        .getCurrent()
-        .then((currentWindow) => {
-          let left: number | undefined;
-          let top: number | undefined;
+        return { left, top };
+      })
+      .catch(() => ({
+        left: undefined as number | undefined,
+        top: undefined as number | undefined,
+      }))
+      .then(({ left, top }) =>
+        browser.windows.create({
+          url: request.url,
+          type: 'popup',
+          width: popupWidth,
+          height: popupHeight,
+          left,
+          top,
+        }),
+      )
+      .then(async (window) => {
+        if (!window.id || !window.tabs || !window.tabs[0] || !window.tabs[0].id) {
+          throw new Error('Failed to create window or get tab ID');
+        }
 
-          if (
-            currentWindow.left != null &&
-            currentWindow.top != null &&
-            currentWindow.width != null &&
-            currentWindow.height != null
-          ) {
-            left = Math.round(currentWindow.left + (currentWindow.width - popupWidth) / 2);
-            top = Math.round(currentWindow.top + (currentWindow.height - popupHeight) / 2);
-          }
+        const windowId = window.id;
+        const tabId = window.tabs[0].id;
 
-          return { left, top };
-        })
-        .catch(() => ({
-          left: undefined as number | undefined,
-          top: undefined as number | undefined,
-        }))
-        .then(({ left, top }) =>
-          browser.windows.create({
+        logger.info(`Window created: ${windowId}, Tab: ${tabId}`);
+
+        try {
+          // Register window with WindowManager
+          const managedWindow = await windowManager.registerWindow({
+            id: windowId,
+            tabId: tabId,
             url: request.url,
-            type: 'popup',
-            width: popupWidth,
-            height: popupHeight,
-            left,
-            top,
-          }),
-        )
-        .then(async (window) => {
-          if (!window.id || !window.tabs || !window.tabs[0] || !window.tabs[0].id) {
-            throw new Error('Failed to create window or get tab ID');
-          }
+            showOverlay: request.showOverlay !== false, // Default to true
+          });
 
-          const windowId = window.id;
-          const tabId = window.tabs[0].id;
+          logger.debug(`Window registered: ${managedWindow.uuid}`);
 
-          logger.info(`Window created: ${windowId}, Tab: ${tabId}`);
+          return {
+            type: 'WINDOW_OPENED',
+            payload: {
+              windowId: managedWindow.id,
+              uuid: managedWindow.uuid,
+              tabId: managedWindow.tabId,
+            },
+          };
+        } catch (registrationError) {
+          // Registration failed (e.g., window limit exceeded)
+          // Close the window we just created
+          logger.error('Window registration failed:', registrationError);
+          await browser.windows.remove(windowId).catch(() => {
+            // Ignore errors if window already closed
+          });
 
-          try {
-            // Register window with WindowManager
-            const managedWindow = await windowManager.registerWindow({
-              id: windowId,
-              tabId: tabId,
-              url: request.url,
-              showOverlay: request.showOverlay !== false, // Default to true
-            });
-
-            logger.debug(`Window registered: ${managedWindow.uuid}`);
-
-            return {
-              type: 'WINDOW_OPENED',
-              payload: {
-                windowId: managedWindow.id,
-                uuid: managedWindow.uuid,
-                tabId: managedWindow.tabId,
-              },
-            };
-          } catch (registrationError) {
-            // Registration failed (e.g., window limit exceeded)
-            // Close the window we just created
-            logger.error('Window registration failed:', registrationError);
-            await browser.windows.remove(windowId).catch(() => {
-              // Ignore errors if window already closed
-            });
-
-            return {
-              type: 'WINDOW_ERROR',
-              payload: {
-                error: 'Window registration failed',
-                details: String(registrationError),
-              },
-            };
-          }
-        })
-        .catch((error) => {
-          logger.error('Error creating window:', error);
           return {
             type: 'WINDOW_ERROR',
             payload: {
-              error: 'Failed to create window',
-              details: String(error),
+              error: 'Window registration failed',
+              details: String(registrationError),
             },
           };
-        });
-    }
+        }
+      })
+      .catch((error) => {
+        logger.error('Error creating window:', error);
+        return {
+          type: 'WINDOW_ERROR',
+          payload: {
+            error: 'Failed to create window',
+            details: String(error),
+          },
+        };
+      });
+  }
 
-    if (request.type === 'TO_BG_RE_RENDER_PLUGIN_UI') {
-      windowManager.reRenderPluginUI(request.windowId);
-      return; // No response needed
-    }
+  if (request.type === 'TO_BG_RE_RENDER_PLUGIN_UI') {
+    windowManager.reRenderPluginUI(request.windowId);
+    return; // No response needed
+  }
 
-    // Unknown message type - no response needed
-    return;
-  },
-);
+  // Unknown message type - no response needed
+  return;
+});
 
 // Mutex for offscreen document creation to prevent race conditions
 let offscreenDocumentCreationPromise: Promise<void> | null = null;

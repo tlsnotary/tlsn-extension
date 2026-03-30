@@ -4,6 +4,7 @@ import CodeMirror from '@uiw/react-codemirror';
 import { javascript } from '@codemirror/lang-javascript';
 import { oneDark } from '@codemirror/theme-one-dark';
 import browser from 'webextension-polyfill';
+import type { ExecCodeResponse } from '../../types/messages';
 import './index.scss';
 
 /**
@@ -36,11 +37,11 @@ class ExtensionAPI {
       throw new Error('Code must be a non-empty string');
     }
 
-    const response = await browser.runtime.sendMessage({
+    const response = (await browser.runtime.sendMessage({
       type: 'EXEC_CODE',
       code,
       requestId: `exec_${Date.now()}_${Math.random()}`,
-    });
+    })) as ExecCodeResponse;
 
     if (response.success) {
       return response.result;

@@ -4,6 +4,7 @@ import browser from 'webextension-polyfill';
 import { SessionManager } from '../../offscreen/SessionManager';
 import { logger } from '@tlsn/common';
 import { getStoredLogLevel } from '../../utils/logLevelStorage';
+import type { OffscreenMessage } from '../../types/messages';
 
 const OffscreenApp: React.FC = () => {
   useEffect(() => {
@@ -18,7 +19,8 @@ const OffscreenApp: React.FC = () => {
     logger.debug('SessionManager initialized in Offscreen');
 
     // Listen for messages from background script
-    browser.runtime.onMessage.addListener((request: Record<string, unknown>) => {
+    browser.runtime.onMessage.addListener((msg: unknown) => {
+      const request = msg as OffscreenMessage;
       // Example message handling
       if (request.type === 'PROCESS_DATA') {
         return Promise.resolve({
