@@ -6,6 +6,8 @@
  * (scope stripped if present). Pass --watch for dev mode.
  */
 const { execSync } = require('child_process');
+const { readFileSync, writeFileSync } = require('fs');
+const path = require('path');
 const pkg = require('./package.json');
 
 // Derive output filename from package name, stripping @scope/ if present
@@ -30,5 +32,13 @@ execSync(
 );
 
 if (!watch) {
-  console.log(`✓ Build complete: ${outfile}`);
+  // Format output with Prettier to match project conventions (single quotes, etc.)
+  const prettier = import('prettier');
+  prettier.then(async (p) => {
+    const config = await p.resolveConfig(__dirname);
+    const source = readFileSync(outfile, 'utf-8');
+    const formatted = await p.format(source, { ...config, filepath: path.resolve(outfile) });
+    writeFileSync(outfile, formatted);
+    console.log(`✓ Build complete: ${outfile}`);
+  });
 }

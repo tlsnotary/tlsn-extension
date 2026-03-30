@@ -1,7 +1,5 @@
 var webpack = require('webpack'),
   path = require('path'),
-  fileSystem = require('fs-extra'),
-  env = require('./utils/env'),
   CopyWebpackPlugin = require('copy-webpack-plugin'),
   HtmlWebpackPlugin = require('html-webpack-plugin'),
   TerserPlugin = require('terser-webpack-plugin');
@@ -11,16 +9,7 @@ var NodeProtocolResolvePlugin = require('./utils/NodeProtocolResolvePlugin');
 
 const ASSET_PATH = process.env.ASSET_PATH || '/';
 
-var alias = {};
-
-// load the secrets
-var secretsPath = path.join(__dirname, 'secrets.' + env.NODE_ENV + '.js');
-
 var fileExtensions = ['jpg', 'jpeg', 'png', 'gif', 'eot', 'otf', 'svg', 'ttf', 'woff', 'woff2'];
-
-if (fileSystem.existsSync(secretsPath)) {
-  alias['secrets'] = secretsPath;
-}
 
 const isDevelopment = process.env.NODE_ENV !== 'production';
 
@@ -137,7 +126,6 @@ var options = {
   },
   resolve: {
     alias: {
-      ...alias,
       process: require.resolve('process/browser.js'),
       buffer: require.resolve('buffer/'),
       stream: require.resolve('stream-browserify'),
@@ -271,7 +259,7 @@ var options = {
   },
 };
 
-if (env.NODE_ENV === 'development') {
+if (isDevelopment) {
   options.devtool = 'cheap-module-source-map';
 } else {
   options.optimization = {
