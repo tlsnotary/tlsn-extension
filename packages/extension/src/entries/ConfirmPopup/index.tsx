@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import browser from 'webextension-polyfill';
 import { logger, LogLevel } from '@tlsn/common';
+import type { PluginCodeResponse } from '../../types/messages';
 import './index.scss';
 
 // Initialize logger at DEBUG level for popup (no IndexedDB access)
@@ -174,10 +175,10 @@ const ConfirmPopup: React.FC = () => {
       if (!requestId) return;
 
       try {
-        const response = await browser.runtime.sendMessage({
+        const response = (await browser.runtime.sendMessage({
           type: 'GET_PLUGIN_CODE',
           requestId,
-        });
+        })) as PluginCodeResponse;
 
         if (response?.code) {
           setSourceCode(response.code);

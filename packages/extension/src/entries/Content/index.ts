@@ -1,5 +1,6 @@
 import browser from 'webextension-polyfill';
 import type { DomJson } from '@tlsn/plugin-sdk';
+import type { ContentMessage, ExecCodeResponse } from '../../types/messages';
 import { logger, LogLevel } from '@tlsn/common';
 
 // Initialize logger at DEBUG level for content scripts (no IndexedDB access)
@@ -117,59 +118,55 @@ function createNode(json: DomJson, windowId: number): HTMLElement | Text {
 }
 
 // Listen for messages from the extension
-browser.runtime.onMessage.addListener(
-  (request, sender, sendResponse: (response: unknown) => void) => {
-    logger.debug('Content script received message:', request);
+browser.runtime.onMessage.addListener((msg: unknown) => {
+  const request = msg as ContentMessage;
+  logger.debug('Content script received message:', request);
 
-    // Forward offscreen logs to page
-    if (request.type === 'OFFSCREEN_LOG') {
-      window.postMessage(
-        {
-          type: 'TLSN_OFFSCREEN_LOG',
-          level: request.level,
-          message: request.message,
-        },
-        window.location.origin,
-      );
-      return; // No response needed
-    }
+  // Forward offscreen logs to page
+  if (request.type === 'OFFSCREEN_LOG') {
+    window.postMessage(
+      {
+        type: 'TLSN_OFFSCREEN_LOG',
+        level: request.level,
+        message: request.message,
+      },
+      window.location.origin,
+    );
+    return; // No response needed
+  }
 
-    // Forward progress events from background to page
-    if (request.type === 'PROVE_PROGRESS') {
-      window.postMessage(
-        {
-          type: 'TLSN_PROVE_PROGRESS',
-          requestId: request.requestId,
-          step: request.step,
-          progress: request.progress,
-          message: request.message,
-          source: request.source,
-        },
-        window.location.origin,
-      );
-      return; // No response needed
-    }
+  // Forward progress events from background to page
+  if (request.type === 'PROVE_PROGRESS') {
+    window.postMessage(
+      {
+        type: 'TLSN_PROVE_PROGRESS',
+        requestId: request.requestId,
+        step: request.step,
+        progress: request.progress,
+        message: request.message,
+        source: request.source,
+      },
+      window.location.origin,
+    );
+    return; // No response needed
+  }
 
-    if (request.type === 'GET_PAGE_INFO') {
-      // Example: Get page information
-      sendResponse({
-        title: document.title,
-        url: window.location.href,
-        domain: window.location.hostname,
-      });
-      return true; // Response sent synchronously but return true for consistency
-    }
+  if (request.type === 'GET_PAGE_INFO') {
+    return Promise.resolve({
+      title: document.title,
+      url: window.location.href,
+      domain: window.location.hostname,
+    });
+  }
 
-    if (request.type === 'RENDER_PLUGIN_UI') {
-      renderPluginUI(request.json, request.windowId);
-      sendResponse({ success: true });
-      return true; // Response sent
-    }
+  if (request.type === 'RENDER_PLUGIN_UI') {
+    renderPluginUI(request.json, request.windowId);
+    return Promise.resolve({ success: true });
+  }
 
-    // Unknown message type - no response needed
-    return;
-  },
-);
+  // Unknown message type - no response needed
+  return;
+});
 
 // Send a message to background script when ready
 browser.runtime
@@ -214,7 +211,8 @@ window.addEventListener('message', (event) => {
         requestId: event.data.payload.requestId,
         sessionData: event.data.payload.sessionData,
       })
-      .then((response) => {
+      .then((msg) => {
+        const response = msg as ExecCodeResponse;
         logger.debug('[Content Script] EXEC_CODE response:', response);
 
         // Check if background returned success or error
