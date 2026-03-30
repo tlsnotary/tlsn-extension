@@ -3,6 +3,11 @@ declare module '*.png' {
   export = value;
 }
 
+declare module '*.scss' {}
+declare module '*.css' {}
+
+declare const global: typeof globalThis;
+
 // Chrome Offscreen API (Chrome 109+, not yet in @types/chrome)
 declare namespace chrome.offscreen {
   interface CreateDocumentOptions {

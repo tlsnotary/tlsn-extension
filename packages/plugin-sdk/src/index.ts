@@ -1177,6 +1177,7 @@ export type {
   OpenWindowResponse,
   WindowMessage,
   ExecutionContext,
+  ProveProgressData,
 } from './types';
 
 // Export Plugin API types

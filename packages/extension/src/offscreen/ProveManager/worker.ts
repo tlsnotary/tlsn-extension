@@ -137,7 +137,7 @@ function createIoChannel(url: string): Promise<IoChannel> {
         async write(data: Uint8Array): Promise<void> {
           if (closed) throw new Error('WebSocket is closed');
           if (error) throw error;
-          ws.send(data);
+          ws.send(data as Uint8Array<ArrayBuffer>);
         },
         async close(): Promise<void> {
           if (!closed) {
