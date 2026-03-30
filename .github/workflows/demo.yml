@@ -109,3 +109,36 @@ jobs:
             VITE_VERIFIER_HOST=demo.tlsnotary.org
             VITE_SSL=true
             GIT_HASH=${{ github.sha }}
+
+  build_and_publish_eas_webhook:
+    name: build and publish eas webhook image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      CONTAINER_REGISTRY: ghcr.io
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.CONTAINER_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker image
+        id: meta-eas-webhook
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.CONTAINER_REGISTRY }}/${{ github.repository }}/eas-webhook
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v7
+        with:
+          context: packages/eas-webhook
+          push: ${{ env.should_publish == 'true' }}
+          tags: ${{ steps.meta-eas-webhook.outputs.tags }}
+          labels: ${{ steps.meta-eas-webhook.outputs.labels }}
