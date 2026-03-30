@@ -8,6 +8,8 @@
  * Pass --watch to enable watch mode (rebuilds on file changes).
  */
 import * as esbuild from 'esbuild';
+import * as prettier from 'prettier';
+import { readFileSync, writeFileSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -50,12 +52,18 @@ const ctx = await esbuild.context({
   },
   plugins: [
     {
-      name: 'log-rebuild',
+      name: 'prettier-format',
       setup(build) {
-        build.onEnd((result) => {
-          if (result.errors.length === 0) {
-            console.log(`✓ All plugins built successfully`);
+        build.onEnd(async (result) => {
+          if (result.errors.length > 0) return;
+          const config = await prettier.resolveConfig(__dirname);
+          for (const name of plugins) {
+            const file = path.resolve(__dirname, `public/plugins/${name}.js`);
+            const source = readFileSync(file, 'utf-8');
+            const formatted = await prettier.format(source, { ...config, filepath: file });
+            writeFileSync(file, formatted);
           }
+          console.log(`✓ All plugins built and formatted`);
         });
       },
     },
