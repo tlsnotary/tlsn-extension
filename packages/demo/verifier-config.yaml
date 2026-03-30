@@ -1,0 +1,3 @@
+webhooks:
+  "api.spotify.com":
+    url: "http://eas-webhook:3001/webhook"

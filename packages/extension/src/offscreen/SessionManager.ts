@@ -31,6 +31,7 @@ export class SessionManager {
   private initPromise: Promise<void>;
   private currentConfig: PluginConfig | null = null;
   private currentRequestId: string | null = null;
+  private currentSessionData: Record<string, string> | null = null;
 
   constructor() {
     this.host = new Host({
@@ -62,8 +63,9 @@ export class SessionManager {
         // Validate permissions before proceeding
         validateProvePermission(requestOptions, proverOptions, this.currentConfig);
 
-        // Build sessionData with defaults + user-provided data
+        // Build sessionData with defaults + execCode-level data + plugin-provided data
         const sessionData: Record<string, string> = {
+          ...this.currentSessionData,
           ...proverOptions.sessionData,
         };
 
@@ -202,15 +204,20 @@ export class SessionManager {
     return this;
   }
 
-  async executePlugin(code: string, requestId?: string): Promise<unknown> {
+  async executePlugin(
+    code: string,
+    requestId?: string,
+    sessionData?: Record<string, string>,
+  ): Promise<unknown> {
     const chromeRuntime = (global as unknown as { chrome?: { runtime?: ChromeRuntimeLike } }).chrome
       ?.runtime;
     if (!chromeRuntime?.onMessage) {
       throw new Error('Chrome runtime not available');
     }
 
-    // Store requestId and wire up WASM progress callback
+    // Store requestId, sessionData, and wire up WASM progress callback
     this.currentRequestId = requestId || null;
+    this.currentSessionData = sessionData || null;
     this.proveManager.setProgressCallback(
       this.currentRequestId
         ? (data) => {
@@ -223,19 +230,24 @@ export class SessionManager {
     this.currentConfig = await this.extractConfig(code);
     logger.debug('[SessionManager] Extracted plugin config:', this.currentConfig);
 
-    return this.host.executePlugin(code, {
-      eventEmitter: {
-        addListener: (listener: (message: WindowMessage) => void) => {
-          chromeRuntime.onMessage.addListener(listener as (message: unknown) => void);
+    try {
+      return await this.host.executePlugin(code, {
+        eventEmitter: {
+          addListener: (listener: (message: WindowMessage) => void) => {
+            chromeRuntime.onMessage.addListener(listener as (message: unknown) => void);
+          },
+          removeListener: (listener: (message: WindowMessage) => void) => {
+            chromeRuntime.onMessage.removeListener(listener as (message: unknown) => void);
+          },
+          emit: (message: WindowMessage) => {
+            chromeRuntime.sendMessage(message);
+          },
         },
-        removeListener: (listener: (message: WindowMessage) => void) => {
-          chromeRuntime.onMessage.removeListener(listener as (message: unknown) => void);
-        },
-        emit: (message: WindowMessage) => {
-          chromeRuntime.sendMessage(message);
-        },
-      },
-    });
+      });
+    } finally {
+      this.currentSessionData = null;
+      this.currentRequestId = null;
+    }
   }
 
   /**

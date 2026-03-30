@@ -33,7 +33,10 @@ class ExtensionAPI {
    * });
    * ```
    */
-  async execCode(code: string, options?: { requestId?: string }): Promise<unknown> {
+  async execCode(
+    code: string,
+    options?: { requestId?: string; sessionData?: Record<string, string> },
+  ): Promise<unknown> {
     if (!code || typeof code !== 'string') {
       throw new Error('Code must be a non-empty string');
     }
@@ -72,6 +75,7 @@ class ExtensionAPI {
           payload: {
             code,
             requestId,
+            sessionData: options?.sessionData,
           },
         },
         window.location.origin,

@@ -7,9 +7,24 @@ services:
       dockerfile: Dockerfile
     ports:
       - '7047:7047'
+    volumes:
+      - ./verifier-config.yaml:/app/config.yaml:ro
     environment:
       - RUST_LOG=info
       - GIT_HASH=${GIT_HASH:-dev}
+    restart: unless-stopped
+
+  eas-webhook:
+    build:
+      context: ../eas-webhook
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - PRIVATE_KEY=${PRIVATE_KEY}
+      - EAS_SCHEMA_UID=${EAS_SCHEMA_UID}
+      - VERIFIER_URL=${VERIFIER_URL:-https://demo.tlsnotary.org}
+      - PORT=3001
     restart: unless-stopped
 
   demo-static:
@@ -31,4 +46,5 @@ services:
     depends_on:
       - verifier
       - demo-static
+      - eas-webhook
     restart: unless-stopped

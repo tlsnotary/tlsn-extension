@@ -212,6 +212,7 @@ window.addEventListener('message', (event) => {
         type: 'EXEC_CODE',
         code: event.data.payload.code,
         requestId: event.data.payload.requestId,
+        sessionData: event.data.payload.sessionData,
       })
       .then((response) => {
         logger.debug('[Content Script] EXEC_CODE response:', response);

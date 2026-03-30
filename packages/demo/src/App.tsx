@@ -7,6 +7,7 @@ import { CollapsibleSection } from './components/CollapsibleSection';
 import { HowItWorks } from './components/HowItWorks';
 import { WhyPlugins } from './components/WhyPlugins';
 import { BuildYourOwn } from './components/BuildYourOwn';
+import { OnchainDemo } from './components/OnchainDemo';
 import { plugins } from './plugins';
 import { checkBrowserCompatibility, checkExtension, checkVerifier, formatTimestamp } from './utils';
 import { ConsoleEntry, CheckStatus, PluginResult as PluginResultType, ProgressData } from './types';
@@ -351,6 +352,8 @@ export function App() {
           onRunPlugin={handleRunPlugin}
         />
       </div>
+
+      <OnchainDemo allChecksPass={allChecksPass} addConsoleEntry={addConsoleEntry} />
 
       <WhyPlugins />
 
