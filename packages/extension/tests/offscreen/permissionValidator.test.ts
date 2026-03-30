@@ -5,7 +5,7 @@ import {
   validateProvePermission,
   validateOpenWindowPermission,
 } from '../../src/offscreen/permissionValidator';
-import { PluginConfig } from '@tlsn/plugin-sdk/src/types';
+import type { PluginConfig } from '@tlsn/plugin-sdk';
 
 describe('deriveProxyUrl', () => {
   it('should derive wss proxy URL from https verifier', () => {

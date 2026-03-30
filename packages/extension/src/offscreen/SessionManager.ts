@@ -1,4 +1,4 @@
-import Host from '@tlsn/plugin-sdk/src';
+import Host from '@tlsn/plugin-sdk';
 import { ProveManager } from './ProveManager';
 import type { Method } from '../../../tlsn-wasm-pkg/tlsn_wasm';
 import type {

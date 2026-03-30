@@ -1,5 +1,5 @@
 import * as Comlink from 'comlink';
-import type { Handler } from '@tlsn/plugin-sdk/src/types';
+import type { Handler } from '@tlsn/plugin-sdk';
 import initWasm, {
   LoggingLevel,
   LoggingConfig,

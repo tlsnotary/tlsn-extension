@@ -42,7 +42,7 @@ describe('onClick error propagation (#1)', () => {
     // The connection is: makeOpenWindow(..., (err) => terminateWithError(err, sandbox))
 
     // Import Host
-    const { Host } = await import('./index');
+    const { Host } = await import('../src/index');
 
     const _host = new Host({
       onProve: vi.fn(),

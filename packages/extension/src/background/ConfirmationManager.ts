@@ -1,6 +1,6 @@
 import browser from 'webextension-polyfill';
 import { logger } from '@tlsn/common';
-import { PluginConfig } from '@tlsn/plugin-sdk/src/types';
+import type { PluginConfig } from '@tlsn/plugin-sdk';
 
 interface PendingConfirmation {
   requestId: string;
