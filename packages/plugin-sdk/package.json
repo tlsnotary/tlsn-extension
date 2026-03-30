@@ -18,7 +18,7 @@
   "scripts": {
     "build": "vite build",
     "test": "vitest --config vitest.config.ts",
-    "test:coverage": "vitest run --workspace vitest.all.config.ts --coverage",
+    "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
     "test:browser": "vitest --config vitest.browser.config.ts",
     "test:browser:ui": "vitest --config vitest.browser.config.ts --ui",

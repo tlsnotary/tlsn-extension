@@ -774,6 +774,22 @@ docker run -it --rm -p 55688:80 novnc/websockify 80 api.twitter.com:443
 
 Purpose: Proxies HTTPS connections through WebSocket for browser-based TLS operations.
 
+## Test Coverage
+
+Coverage reports can be generated per package using Vitest:
+
+```bash
+# Extension (uses v8 provider)
+cd packages/extension && npm run test:coverage
+
+# Plugin SDK (uses istanbul provider)
+cd packages/plugin-sdk && npm run test:coverage
+```
+
+Both produce `text` (terminal table), `json`, and `html` reports in the package's `coverage/` directory. Open `coverage/index.html` for a detailed file-by-file breakdown.
+
+There are no enforced coverage thresholds. Use coverage reports to identify gaps when working on a module — especially before refactoring or adding features to under-tested code.
+
 ## Code Quality
 
 **ESLint Configuration** (`.eslintrc`):
