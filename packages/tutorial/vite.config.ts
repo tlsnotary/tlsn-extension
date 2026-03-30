@@ -18,14 +18,13 @@ export default defineConfig({
     sourcemap: false,
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom'],
-          codemirror: [
-            'codemirror',
-            '@codemirror/lang-javascript',
-            '@codemirror/state',
-            '@codemirror/view',
-          ],
+        manualChunks(id) {
+          if (id.includes('node_modules/react-dom') || id.includes('node_modules/react/')) {
+            return 'vendor';
+          }
+          if (id.includes('node_modules/codemirror') || id.includes('node_modules/@codemirror/')) {
+            return 'codemirror';
+          }
         },
       },
     },
