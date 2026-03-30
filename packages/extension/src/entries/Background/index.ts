@@ -321,14 +321,42 @@ browser.runtime.onMessage.addListener(
         });
       }
 
-      // Open a new window with the requested URL
+      // Calculate position to center on the active browser window, then open
+      const popupWidth = request.width || 900;
+      const popupHeight = request.height || 700;
+
       return browser.windows
-        .create({
-          url: request.url,
-          type: 'popup',
-          width: request.width || 900,
-          height: request.height || 700,
+        .getCurrent()
+        .then((currentWindow) => {
+          let left: number | undefined;
+          let top: number | undefined;
+
+          if (
+            currentWindow.left != null &&
+            currentWindow.top != null &&
+            currentWindow.width != null &&
+            currentWindow.height != null
+          ) {
+            left = Math.round(currentWindow.left + (currentWindow.width - popupWidth) / 2);
+            top = Math.round(currentWindow.top + (currentWindow.height - popupHeight) / 2);
+          }
+
+          return { left, top };
         })
+        .catch(() => ({
+          left: undefined as number | undefined,
+          top: undefined as number | undefined,
+        }))
+        .then(({ left, top }) =>
+          browser.windows.create({
+            url: request.url,
+            type: 'popup',
+            width: popupWidth,
+            height: popupHeight,
+            left,
+            top,
+          }),
+        )
         .then(async (window) => {
           if (!window.id || !window.tabs || !window.tabs[0] || !window.tabs[0].id) {
             throw new Error('Failed to create window or get tab ID');
