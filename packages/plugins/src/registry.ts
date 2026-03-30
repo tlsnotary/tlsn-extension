@@ -131,7 +131,7 @@ export const PLUGIN_REGISTRY: PluginMetadata[] = [
     logo: '\uD83D\uDE97', // 🚗
     resultLabel: 'Profile',
     accentColor: '#000000',
-    platforms: ['demo'],
+    platforms: ['demo', 'mobile'],
     pluginConfig: {
       name: 'Uber Profile Prover',
       description:
@@ -153,7 +153,7 @@ export const PLUGIN_REGISTRY: PluginMetadata[] = [
     logo: '\u2709\uFE0F', // ✉️
     resultLabel: 'Message',
     accentColor: '#5865F2',
-    platforms: ['demo'],
+    platforms: ['demo', 'mobile'],
     pluginConfig: {
       name: 'Discord DM Plugin',
       description: 'This plugin will prove your Discord direct messages.',
@@ -174,7 +174,7 @@ export const PLUGIN_REGISTRY: PluginMetadata[] = [
     logo: '\uD83D\uDCAC', // 💬
     resultLabel: 'Username',
     accentColor: '#5865F2',
-    platforms: ['demo'],
+    platforms: ['demo', 'mobile'],
     pluginConfig: {
       name: 'Discord Profile Plugin',
       description: 'This plugin will prove your Discord username and ID.',
