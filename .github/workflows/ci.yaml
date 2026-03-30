@@ -124,7 +124,7 @@ jobs:
       - name: 💨 Publish to chrome store
         uses: browser-actions/release-chrome-extension@latest # https://github.com/browser-actions/release-chrome-extension/tree/latest/
         with:
-          extension-id: 'gmffafnhddcekoffnikeijhpnlgmomhl'
+          extension-id: 'gnoglgpcamodhflknhmafmjdahcejcgg'
           extension-path: ./dist/${{ env.EXTENSION_ZIP }}
           oauth-client-id: ${{ secrets.OAUTH_CLIENT_ID }}
           oauth-client-secret: ${{ secrets.OAUTH_CLIENT_SECRET }}
