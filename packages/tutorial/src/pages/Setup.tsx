@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { Button } from '../components/shared/Button';
 import { StatusBadge } from '../components/shared/StatusBadge';
 import { useStepProgress } from '../hooks/useStepProgress';
@@ -9,8 +9,9 @@ export const Setup: React.FC = () => {
   const { complete, isCompleted } = useStepProgress(1);
   const [checkResult, setCheckResult] = useState<CheckResult | null>(null);
   const [isChecking, setIsChecking] = useState(false);
+  const initialCheckRef = useRef<Promise<void> | null>(null);
 
-  const performChecks = React.useCallback(async () => {
+  async function runChecks() {
     setIsChecking(true);
     const result = await performSystemChecks();
     setCheckResult(result);
@@ -19,11 +20,12 @@ export const Setup: React.FC = () => {
     if (result.browserCompatible && result.extensionReady && result.verifierReady) {
       complete();
     }
-  }, [complete]);
+  }
 
-  useEffect(() => {
-    performChecks();
-  }, [performChecks]);
+  // Run checks once on first render
+  if (initialCheckRef.current == null) {
+    initialCheckRef.current = runChecks();
+  }
 
   const checks = checkResult ? getSystemCheckStatus(checkResult) : [];
   const allPassed =
@@ -100,7 +102,7 @@ export const Setup: React.FC = () => {
         </div>
 
         <div className="flex gap-4">
-          <Button onClick={performChecks} disabled={isChecking} variant="secondary">
+          <Button onClick={runChecks} disabled={isChecking} variant="secondary">
             {isChecking ? 'Checking...' : 'Recheck'}
           </Button>
 

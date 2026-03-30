@@ -19,12 +19,15 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
   const initialValueRef = useRef(value);
   const readOnlyRef = useRef(readOnly);
-  readOnlyRef.current = readOnly;
   const heightRef = useRef(height);
-  heightRef.current = height;
+
+  useEffect(() => {
+    onChangeRef.current = onChange;
+    readOnlyRef.current = readOnly;
+    heightRef.current = height;
+  });
 
   useEffect(() => {
     if (!editorRef.current) return;
