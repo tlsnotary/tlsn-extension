@@ -160,6 +160,7 @@ var options = {
       'node:buffer': require.resolve('buffer/'),
       'node:crypto': path.resolve(__dirname, './src/node-crypto-mock.js'),
       'node:events': require.resolve('events/'),
+      'node:url': path.resolve(__dirname, './src/node-url-mock.js'),
     }),
     isDevelopment && new ReactRefreshWebpackPlugin(),
     new CleanWebpackPlugin({ verbose: false }),
