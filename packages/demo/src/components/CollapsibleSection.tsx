@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 interface CollapsibleSectionProps {
   title: string;
@@ -13,17 +13,12 @@ export function CollapsibleSection({
   expanded,
   children,
 }: CollapsibleSectionProps) {
-  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
-
-  useEffect(() => {
-    if (expanded !== undefined) {
-      setIsExpanded(expanded);
-    }
-  }, [expanded]);
+  const [localExpanded, setLocalExpanded] = useState(defaultExpanded);
+  const isExpanded = expanded !== undefined ? expanded : localExpanded;
 
   return (
     <div className="collapsible-section">
-      <button className="collapsible-header" onClick={() => setIsExpanded(!isExpanded)}>
+      <button className="collapsible-header" onClick={() => setLocalExpanded(!isExpanded)}>
         <span className="collapsible-icon">{isExpanded ? '▼' : '▶'}</span>
         <span className="collapsible-title">{title}</span>
       </button>

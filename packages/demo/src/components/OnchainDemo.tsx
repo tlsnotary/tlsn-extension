@@ -25,13 +25,34 @@ function truncateAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
+function loadSavedWallet(): {
+  address: string | null;
+  signature: string | null;
+  message: string | null;
+} {
+  try {
+    const saved = localStorage.getItem('tlsn_onchain_wallet');
+    if (saved) {
+      const { address, signature, message } = JSON.parse(saved);
+      if (address && signature && message) {
+        return { address, signature, message };
+      }
+    }
+  } catch {
+    // ignore corrupt localStorage
+  }
+  return { address: null, signature: null, message: null };
+}
+
+const savedWallet = loadSavedWallet();
+
 export function OnchainDemo({ allChecksPass, addConsoleEntry }: Props) {
   const [attesterAddress, setAttesterAddress] = useState<string | null>(null);
   const [schemaUid, setSchemaUid] = useState<string | null>(null);
   const [serviceAvailable, setServiceAvailable] = useState<boolean | null>(null);
-  const [walletAddress, setWalletAddress] = useState<string | null>(null);
-  const [walletSignature, setWalletSignature] = useState<string | null>(null);
-  const [signMessage, setSignMessage] = useState<string | null>(null);
+  const [walletAddress, setWalletAddress] = useState<string | null>(savedWallet.address);
+  const [walletSignature, setWalletSignature] = useState<string | null>(savedWallet.signature);
+  const [signMessage, setSignMessage] = useState<string | null>(savedWallet.message);
   const [phase, setPhase] = useState<Phase>('idle');
   const [attestation, setAttestation] = useState<AttestationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -49,23 +70,6 @@ export function OnchainDemo({ allChecksPass, addConsoleEntry }: Props) {
         setServiceAvailable(!!data.attesterAddress && !!data.schemaUid);
       })
       .catch(() => setServiceAvailable(false));
-  }, []);
-
-  // Restore wallet state from localStorage on mount
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('tlsn_onchain_wallet');
-      if (saved) {
-        const { address, signature, message } = JSON.parse(saved);
-        if (address && signature && message) {
-          setWalletAddress(address);
-          setWalletSignature(signature);
-          setSignMessage(message);
-        }
-      }
-    } catch {
-      // ignore corrupt localStorage
-    }
   }, []);
 
   const disconnectWallet = useCallback(() => {

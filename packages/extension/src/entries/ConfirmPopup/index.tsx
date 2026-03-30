@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import browser from 'webextension-polyfill';
 import { logger, LogLevel } from '@tlsn/common';
@@ -54,76 +54,79 @@ function formatDomainsForTitle(domains: string[]): string {
   return `${domains.slice(0, 3).join(', ')} +${domains.length - 3} more`;
 }
 
+function parseUrlParams(): {
+  pluginInfo: PluginInfo | null;
+  requestId: string;
+  senderOrigin: string | null;
+  error: string | null;
+} {
+  const params = new URLSearchParams(window.location.search);
+  const name = params.get('name');
+  const description = params.get('description');
+  const version = params.get('version');
+  const author = params.get('author');
+  const requestsParam = params.get('requests');
+  const urlsParam = params.get('urls');
+  const senderOriginParam = params.get('senderOrigin');
+  const reqId = params.get('requestId');
+
+  if (!reqId) {
+    return { pluginInfo: null, requestId: '', senderOrigin: null, error: 'Missing request ID' };
+  }
+
+  let senderOrigin: string | null = null;
+  if (senderOriginParam) {
+    try {
+      const url = new URL(decodeURIComponent(senderOriginParam));
+      senderOrigin = url.hostname;
+    } catch {
+      senderOrigin = decodeURIComponent(senderOriginParam);
+    }
+  }
+
+  let pluginInfo: PluginInfo;
+  if (name) {
+    let requests: RequestPermission[] | undefined;
+    let urls: string[] | undefined;
+
+    try {
+      if (requestsParam) {
+        requests = JSON.parse(decodeURIComponent(requestsParam));
+      }
+    } catch (e) {
+      logger.warn('Failed to parse requests param:', e);
+    }
+
+    try {
+      if (urlsParam) {
+        urls = JSON.parse(decodeURIComponent(urlsParam));
+      }
+    } catch (e) {
+      logger.warn('Failed to parse urls param:', e);
+    }
+
+    pluginInfo = {
+      name: decodeURIComponent(name),
+      description: description ? decodeURIComponent(description) : 'No description provided',
+      version: version ? decodeURIComponent(version) : undefined,
+      author: author ? decodeURIComponent(author) : undefined,
+      requests,
+      urls,
+    };
+  } else {
+    pluginInfo = {
+      name: 'Unknown Plugin',
+      description: 'Plugin configuration could not be extracted. Proceed with caution.',
+    };
+  }
+
+  return { pluginInfo, requestId: reqId, senderOrigin, error: null };
+}
+
 const ConfirmPopup: React.FC = () => {
-  const [pluginInfo, setPluginInfo] = useState<PluginInfo | null>(null);
-  const [requestId, setRequestId] = useState<string>('');
-  const [senderOrigin, setSenderOrigin] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { pluginInfo, requestId, senderOrigin, error } = useState(parseUrlParams)[0];
   const [sourceCode, setSourceCode] = useState<string | null>(null);
   const [showDetails, setShowDetails] = useState(false);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const name = params.get('name');
-    const description = params.get('description');
-    const version = params.get('version');
-    const author = params.get('author');
-    const requestsParam = params.get('requests');
-    const urlsParam = params.get('urls');
-    const senderOriginParam = params.get('senderOrigin');
-    const reqId = params.get('requestId');
-
-    if (!reqId) {
-      setError('Missing request ID');
-      return;
-    }
-
-    setRequestId(reqId);
-
-    if (senderOriginParam) {
-      try {
-        const url = new URL(decodeURIComponent(senderOriginParam));
-        setSenderOrigin(url.hostname);
-      } catch {
-        setSenderOrigin(decodeURIComponent(senderOriginParam));
-      }
-    }
-
-    if (name) {
-      let requests: RequestPermission[] | undefined;
-      let urls: string[] | undefined;
-
-      try {
-        if (requestsParam) {
-          requests = JSON.parse(decodeURIComponent(requestsParam));
-        }
-      } catch (e) {
-        logger.warn('Failed to parse requests param:', e);
-      }
-
-      try {
-        if (urlsParam) {
-          urls = JSON.parse(decodeURIComponent(urlsParam));
-        }
-      } catch (e) {
-        logger.warn('Failed to parse urls param:', e);
-      }
-
-      setPluginInfo({
-        name: decodeURIComponent(name),
-        description: description ? decodeURIComponent(description) : 'No description provided',
-        version: version ? decodeURIComponent(version) : undefined,
-        author: author ? decodeURIComponent(author) : undefined,
-        requests,
-        urls,
-      });
-    } else {
-      setPluginInfo({
-        name: 'Unknown Plugin',
-        description: 'Plugin configuration could not be extracted. Proceed with caution.',
-      });
-    }
-  }, []);
 
   const handleAllow = useCallback(async () => {
     if (!requestId) return;
