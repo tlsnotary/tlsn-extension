@@ -5,6 +5,7 @@ import { trackViewSource } from '../analytics';
 interface PluginResultData {
   resultHtml: string;
   debugJson: string;
+  isError?: boolean;
 }
 
 interface PluginButtonsProps {
@@ -47,13 +48,19 @@ export function PluginButtons({
         const hasResult = !!result;
 
         return (
-          <div key={key} className={`plugin-card ${hasResult ? 'plugin-card--completed' : ''}`}>
+          <div
+            key={key}
+            className={`plugin-card ${hasResult && !result.isError ? 'plugin-card--completed' : ''} ${result?.isError ? 'plugin-card--error' : ''}`}
+          >
             <div className="plugin-header">
               <div className="plugin-logo">{plugin.logo}</div>
               <div className="plugin-info">
                 <h3 className="plugin-name">
                   {plugin.name}
-                  {hasResult && <span className="plugin-badge">✓ Verified</span>}
+                  {hasResult && !result.isError && <span className="plugin-badge">✓ Verified</span>}
+                  {result?.isError && (
+                    <span className="plugin-badge plugin-badge--error">&#x2717; Failed</span>
+                  )}
                 </h3>
                 <p className="plugin-description">{plugin.description}</p>
               </div>
@@ -101,9 +108,9 @@ export function PluginButtons({
             )}
 
             {hasResult && (
-              <div className="plugin-result">
+              <div className={`plugin-result ${result.isError ? 'plugin-result--error' : ''}`}>
                 <div className="plugin-result-header">
-                  <span className="plugin-result-title">Result</span>
+                  <span className="plugin-result-title">{result.isError ? 'Error' : 'Result'}</span>
                 </div>
                 <div
                   className="plugin-result-content"
