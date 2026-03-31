@@ -67,11 +67,9 @@ Based on the API research, determine:
 7. **Handlers**: Which JSON fields to reveal (displayName, score, etc.)
 8. **Theme color**: A brand-appropriate color for the plugin UI
 
-### Step 3: Create the plugin files
+### Step 3: Create the plugin file
 
-You need to create/modify exactly 3 files:
-
-#### 3a. Plugin source: `packages/demo/plugins/{name}.plugin.ts`
+Create a TypeScript plugin file (e.g., `{name}.plugin.ts`):
 
 Use this template, adapting it to the target service:
 
@@ -227,40 +225,17 @@ const main = (): DomJson => {
 export default { main, onClick, expandUI, minimizeUI, config };
 ```
 
-#### 3b. Register in build script: `packages/demo/build-plugins.js`
-
-Add the plugin name to the `plugins` array on line 17:
-
-```javascript
-const plugins = ['twitter', ..., '{plugin_name}'];
-```
-
-#### 3c. Register in demo UI: `packages/demo/src/plugins.ts`
-
-Add an entry to the `plugins` object:
-
-```typescript
-{plugin_name}: {
-    name: '{Display Name}',
-    description: '{Description for demo page}',
-    logo: '{emoji}',
-    file: '/plugins/{plugin_name}.js',
-    parseResult: (json) => {
-        return json.results[json.results.length - 1].value;
-    },
-},
-```
-
 ### Step 4: Build and verify
 
+Build the plugin with esbuild:
+
 ```bash
-cd packages/demo && node build-plugins.js
+npx esbuild {plugin_name}.plugin.ts --bundle --format=esm --outfile={plugin_name}.js \
+  --define:__VERIFIER_URL__='"http://localhost:7047"' \
+  --define:__PROXY_URL__='"ws://localhost:7047/proxy?token="'
 ```
 
-Check the built output exists:
-```bash
-ls -la packages/demo/public/plugins/{plugin_name}.js
-```
+Test it in the extension's DevConsole (right-click → "Developer Console") by pasting the built JS.
 
 ### Step 5: Review for personal information
 
@@ -378,6 +353,6 @@ Connection: 'close',             // Clean TLS session termination
 ## Reference
 
 - Full plugin SDK docs: `PLUGIN.md` in repo root
-- Existing plugins: `packages/demo/plugins/*.plugin.ts`
+- Example plugins: `packages/demo/plugins/*.plugin.ts`
 - Plugin SDK types: `packages/plugin-sdk/src/types.ts`
-- Build system: `packages/demo/build-plugins.js`
+- Plugin SDK globals (available in sandbox): `packages/plugin-sdk/src/globals.ts`
