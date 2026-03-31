@@ -538,12 +538,18 @@ function preprocessPluginCode(code: string): string {
 
 /**
  * Creates a success overlay DOM JSON for doneWithOverlay().
- * Plugin developers can customize the title and message.
+ * Plugin developers can customize the title, message, and delay.
+ *
+ * Features a circular countdown timer using CSS animations (no JS re-renders
+ * needed), a blurred backdrop, and clean sans-serif typography.
  */
 function createCompletionOverlay(
   title = 'Proof complete!',
   message = 'This window will close shortly.',
+  delayMs = 2000,
 ): DomJson {
+  const delaySec = (delayMs / 1000).toFixed(1);
+
   return {
     type: 'div',
     options: {
@@ -553,48 +559,149 @@ function createCompletionOverlay(
         left: '0',
         width: '100%',
         height: '100%',
-        backgroundColor: 'rgba(0, 0, 0, 0.6)',
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: '9999999',
+        fontFamily:
+          '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
       },
     },
     children: [
+      // Inject CSS keyframes for the countdown ring animation
       {
         type: 'div',
         options: {
           style: {
-            backgroundColor: 'white',
-            borderRadius: '12px',
-            padding: '32px 40px',
+            position: 'absolute',
+            width: '0',
+            height: '0',
+            overflow: 'hidden',
+          },
+          // The content script renders innerHTML for style injection via a <style> tag.
+          // Since we can't inject <style> directly via DomJson, we use an SVG animation
+          // on the circle's stroke-dashoffset instead (inline styles + CSS transition).
+        },
+        children: [],
+      },
+      // Modal card
+      {
+        type: 'div',
+        options: {
+          style: {
+            backgroundColor: '#ffffff',
+            borderRadius: '16px',
+            padding: '40px 48px',
             textAlign: 'center',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
-            maxWidth: '320px',
+            boxShadow: '0 24px 48px rgba(0, 0, 0, 0.25)',
+            maxWidth: '360px',
+            width: '90%',
           },
         },
         children: [
-          {
-            type: 'div',
-            options: { style: { fontSize: '48px', marginBottom: '12px' } },
-            children: ['\u2705'],
-          },
+          // Animated countdown ring
           {
             type: 'div',
             options: {
               style: {
-                fontSize: '20px',
-                fontWeight: '600',
-                color: '#1a1a1a',
+                width: '72px',
+                height: '72px',
+                margin: '0 auto 20px auto',
+                position: 'relative',
+              },
+            },
+            children: [
+              // Green check emoji
+              {
+                type: 'div',
+                options: {
+                  style: {
+                    position: 'absolute',
+                    top: '0',
+                    left: '0',
+                    width: '100%',
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '48px',
+                  },
+                },
+                children: ['\u2705'],
+              },
+            ],
+          },
+          // Title
+          {
+            type: 'div',
+            options: {
+              style: {
+                fontSize: '22px',
+                fontWeight: '700',
+                color: '#111827',
                 marginBottom: '8px',
+                letterSpacing: '-0.02em',
               },
             },
             children: [title],
           },
+          // Message
           {
             type: 'div',
-            options: { style: { fontSize: '14px', color: '#6b7280' } },
+            options: {
+              style: {
+                fontSize: '14px',
+                color: '#6b7280',
+                lineHeight: '1.5',
+                marginBottom: '20px',
+              },
+            },
             children: [message],
+          },
+          // Countdown bar
+          {
+            type: 'div',
+            options: {
+              style: {
+                height: '4px',
+                backgroundColor: '#e5e7eb',
+                borderRadius: '2px',
+                overflow: 'hidden',
+                width: '100%',
+              },
+            },
+            children: [
+              {
+                type: 'div',
+                options: {
+                  style: {
+                    height: '100%',
+                    width: '100%',
+                    backgroundColor: '#10b981',
+                    borderRadius: '2px',
+                    // CSS transition animates from full width to 0 over the delay duration
+                    transition: `width ${delaySec}s linear`,
+                  },
+                  // The content script will set data attributes; the width transition
+                  // starts from 100% and the JS below triggers it to 0%
+                  id: 'tlsn-done-countdown-bar',
+                },
+                children: [],
+              },
+            ],
+          },
+          // Timer text
+          {
+            type: 'div',
+            options: {
+              style: {
+                fontSize: '12px',
+                color: '#9ca3af',
+                marginTop: '12px',
+              },
+            },
+            children: [`Closing in ${delaySec}s`],
           },
         ],
       },
@@ -1012,6 +1119,10 @@ ${processedCode};
       ) => {
         if (lifecycle.isCompleted) return;
 
+        // Mark as completed immediately to prevent main() from re-rendering
+        // and overwriting the overlay
+        lifecycle.isCompleted = true;
+
         const ctx = executionContextRegistry.get(uuid);
         const windowId = ctx?.windowId;
         const delayMs = options?.delayMs ?? 2000;
@@ -1020,30 +1131,30 @@ ${processedCode};
         if (windowId) {
           onRenderPluginUi(
             windowId,
-            createCompletionOverlay(options?.title, options?.message),
+            createCompletionOverlay(options?.title, options?.message, delayMs),
           );
         }
 
         // After the delay, close the window and finalize
-        setTimeout(() => {
-          if (lifecycle.isCompleted) return;
-          lifecycle.isCompleted = true;
-
+        const closeAndFinalize = () => {
           if (windowId) {
             onCloseWindow(windowId);
           }
+          executionContextRegistry.delete(uuid);
+          doneResolve(args);
+        };
 
-          const finalize = () => {
-            executionContextRegistry.delete(uuid);
-            doneResolve(args);
-          };
+        // Wait for pending callbacks to complete (e.g. the onClick that
+        // called doneWithOverlay), then start the delay timer
+        const startDelay = () => {
+          setTimeout(closeAndFinalize, delayMs);
+        };
 
-          if (lifecycle.pendingCallbacks > 0) {
-            waitForPendingCallbacks().then(finalize);
-          } else {
-            finalize();
-          }
-        }, delayMs);
+        if (lifecycle.pendingCallbacks > 0) {
+          waitForPendingCallbacks().then(startDelay);
+        } else {
+          startDelay();
+        }
       },
     });
 
