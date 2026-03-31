@@ -947,7 +947,7 @@ describe('QuickJS Browser E2E', () => {
 
         const donePromise = host.executePlugin(
           `
-          export async function main() {
+          export function main() {
             const cachedAuth = useState('auth', null);
             const hdrs = useHeaders(h =>
               h.filter(hdr => hdr.requestHeaders.some(rh => rh.name === 'Authorization'))
@@ -964,10 +964,10 @@ describe('QuickJS Browser E2E', () => {
               return button({ onclick: 'handleProve' }, ['Prove with auth']);
             }
 
-            await openWindow('https://example.com', { width: 400, height: 300 });
+            openWindow('https://example.com', { width: 400, height: 300 });
             return div({}, ['Waiting for auth header...']);
           }
-          export async function handleProve() {
+          export function handleProve() {
             const auth = useState('auth', null);
             done(auth);
           }
