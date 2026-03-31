@@ -33,10 +33,7 @@ const plugins = [
   'discord_profile',
 ];
 for (const plugin of plugins) {
-  fs.copyFileSync(
-    path.join(sourceDir, `${plugin}.js`),
-    path.join(targetDir, `${plugin}.js`),
-  );
+  fs.copyFileSync(path.join(sourceDir, `${plugin}.js`), path.join(targetDir, `${plugin}.js`));
   console.log(`  Copied ${plugin}.js`);
 }
 
