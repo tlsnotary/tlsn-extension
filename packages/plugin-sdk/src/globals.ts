@@ -107,6 +107,23 @@ export type ProveFunction = (
 export type DoneFunction = (result?: unknown) => void;
 
 /**
+ * Complete plugin execution with a success overlay shown before the window closes.
+ * The overlay is displayed for `delayMs` milliseconds (default 2000), then done() is called.
+ * Plugin developers can customize the overlay text or use the defaults.
+ */
+export type DoneWithOverlayFunction = (
+  result?: unknown,
+  options?: {
+    /** Overlay heading (default: "Proof complete!") */
+    title?: string;
+    /** Overlay subtext (default: "This window will close shortly.") */
+    message?: string;
+    /** Milliseconds to show overlay before closing (default: 2000) */
+    delayMs?: number;
+  },
+) => void;
+
+/**
  * Complete Plugin API surface available in the QuickJS sandbox
  */
 export interface PluginAPI {
@@ -121,6 +138,7 @@ export interface PluginAPI {
   setState: SetStateFunction;
   prove: ProveFunction;
   done: DoneFunction;
+  doneWithOverlay: DoneWithOverlayFunction;
 }
 
 /**
@@ -140,6 +158,7 @@ declare global {
   const setState: SetStateFunction;
   const prove: ProveFunction;
   const done: DoneFunction;
+  const doneWithOverlay: DoneWithOverlayFunction;
 }
 
 export {};

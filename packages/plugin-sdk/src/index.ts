@@ -536,6 +536,72 @@ function preprocessPluginCode(code: string): string {
   return code;
 }
 
+/**
+ * Creates a success overlay DOM JSON for doneWithOverlay().
+ * Plugin developers can customize the title and message.
+ */
+function createCompletionOverlay(
+  title = 'Proof complete!',
+  message = 'This window will close shortly.',
+): DomJson {
+  return {
+    type: 'div',
+    options: {
+      style: {
+        position: 'fixed',
+        top: '0',
+        left: '0',
+        width: '100%',
+        height: '100%',
+        backgroundColor: 'rgba(0, 0, 0, 0.6)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: '9999999',
+      },
+    },
+    children: [
+      {
+        type: 'div',
+        options: {
+          style: {
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '32px 40px',
+            textAlign: 'center',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
+            maxWidth: '320px',
+          },
+        },
+        children: [
+          {
+            type: 'div',
+            options: { style: { fontSize: '48px', marginBottom: '12px' } },
+            children: ['\u2705'],
+          },
+          {
+            type: 'div',
+            options: {
+              style: {
+                fontSize: '20px',
+                fontWeight: '600',
+                color: '#1a1a1a',
+                marginBottom: '8px',
+              },
+            },
+            children: [title],
+          },
+          {
+            type: 'div',
+            options: { style: { fontSize: '14px', color: '#6b7280' } },
+            children: [message],
+          },
+        ],
+      },
+    ],
+  };
+}
+
 export class Host {
   private capabilities: Map<string, AnyFunction> = new Map();
   private onProve: (
@@ -719,6 +785,7 @@ const reveal = env.reveal;
 const getResponse = env.getResponse;
 const closeWindow = env.closeWindow;
 const done = env.done;
+const doneWithOverlay = env.doneWithOverlay;
 ${processedCode};
 `);
 
@@ -939,6 +1006,45 @@ ${processedCode};
           finalize();
         }
       },
+      doneWithOverlay: (
+        args?: unknown,
+        options?: { title?: string; message?: string; delayMs?: number },
+      ) => {
+        if (lifecycle.isCompleted) return;
+
+        const ctx = executionContextRegistry.get(uuid);
+        const windowId = ctx?.windowId;
+        const delayMs = options?.delayMs ?? 2000;
+
+        // Show the completion overlay
+        if (windowId) {
+          onRenderPluginUi(
+            windowId,
+            createCompletionOverlay(options?.title, options?.message),
+          );
+        }
+
+        // After the delay, close the window and finalize
+        setTimeout(() => {
+          if (lifecycle.isCompleted) return;
+          lifecycle.isCompleted = true;
+
+          if (windowId) {
+            onCloseWindow(windowId);
+          }
+
+          const finalize = () => {
+            executionContextRegistry.delete(uuid);
+            doneResolve(args);
+          };
+
+          if (lifecycle.pendingCallbacks > 0) {
+            waitForPendingCallbacks().then(finalize);
+          } else {
+            finalize();
+          }
+        }, delayMs);
+      },
     });
 
     let exportedCode: Record<string, unknown>;
@@ -957,6 +1063,7 @@ const setState = env.setState;
 const prove = env.prove;
 const closeWindow = env.closeWindow;
 const done = env.done;
+const doneWithOverlay = env.doneWithOverlay;
 ${processedCode};
 `);
       exportedCode = (evalResult ?? {}) as Record<string, unknown>;

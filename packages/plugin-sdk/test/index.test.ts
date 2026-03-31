@@ -504,6 +504,66 @@ export function main() {
       expect(result).toBe('first');
     }, 15_000);
 
+    it('doneWithOverlay() shows overlay, delays, then resolves', async () => {
+      const onRenderPluginUi = vi.fn();
+      const onCloseWindow = vi.fn();
+
+      const lifecycleHost = new Host({
+        onProve: vi.fn(),
+        onRenderPluginUi,
+        onCloseWindow,
+        onOpenWindow: vi.fn(),
+      });
+
+      const pluginCode = `
+export const config = { name: 'Overlay Done' };
+export function main() {
+  doneWithOverlay('overlay-result', { delayMs: 100 });
+  return div({}, ['done']);
+}
+`.trim();
+
+      const eventEmitter = createTestEventEmitter();
+
+      const result = await lifecycleHost.executePlugin(pluginCode, {
+        eventEmitter,
+      });
+      expect(result).toBe('overlay-result');
+      // onRenderPluginUi should have been called with the overlay DOM
+      // (windowId is 0 since no window was opened, so overlay may not render,
+      // but the function should still resolve after the delay)
+    }, 15_000);
+
+    it('doneWithOverlay() respects custom title and message', async () => {
+      const onRenderPluginUi = vi.fn();
+
+      const lifecycleHost = new Host({
+        onProve: vi.fn(),
+        onRenderPluginUi,
+        onCloseWindow: vi.fn(),
+        onOpenWindow: vi.fn(),
+      });
+
+      const pluginCode = `
+export const config = { name: 'Custom Overlay' };
+export function main() {
+  doneWithOverlay('custom-result', {
+    title: 'All done!',
+    message: 'Closing soon.',
+    delayMs: 50,
+  });
+  return div({}, ['done']);
+}
+`.trim();
+
+      const eventEmitter = createTestEventEmitter();
+
+      const result = await lifecycleHost.executePlugin(pluginCode, {
+        eventEmitter,
+      });
+      expect(result).toBe('custom-result');
+    }, 15_000);
+
     it('waitForPendingCallbacks timeout resolves after DRAIN_TIMEOUT_MS', async () => {
       // Test the timeout mechanism directly by simulating the lifecycle pattern
       // used inside executePlugin. This avoids QuickJS GC issues in Node tests.

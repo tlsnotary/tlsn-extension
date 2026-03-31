@@ -96,7 +96,7 @@ const onClick = async (): Promise<void> => {
   );
 
   setState('isRequestPending', false);
-  done(JSON.stringify(resp));
+  doneWithOverlay(JSON.stringify(resp));
 };
 
 const expandUI = (): void => {
