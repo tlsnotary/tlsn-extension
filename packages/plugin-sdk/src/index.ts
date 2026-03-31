@@ -538,18 +538,12 @@ function preprocessPluginCode(code: string): string {
 
 /**
  * Creates a success overlay DOM JSON for doneWithOverlay().
- * Plugin developers can customize the title, message, and delay.
- *
- * Features a circular countdown timer using CSS animations (no JS re-renders
- * needed), a blurred backdrop, and clean sans-serif typography.
+ * Plugin developers can customize the title and message.
  */
 function createCompletionOverlay(
   title = 'Proof complete!',
   message = 'This window will close shortly.',
-  delayMs = 2000,
 ): DomJson {
-  const delaySec = (delayMs / 1000).toFixed(1);
-
   return {
     type: 'div',
     options: {
@@ -569,22 +563,6 @@ function createCompletionOverlay(
       },
     },
     children: [
-      // Inject CSS keyframes for the countdown ring animation
-      {
-        type: 'div',
-        options: {
-          style: {
-            position: 'absolute',
-            width: '0',
-            height: '0',
-            overflow: 'hidden',
-          },
-          // The content script renders innerHTML for style injection via a <style> tag.
-          // Since we can't inject <style> directly via DomJson, we use an SVG animation
-          // on the circle's stroke-dashoffset instead (inline styles + CSS transition).
-        },
-        children: [],
-      },
       // Modal card
       {
         type: 'div',
@@ -600,7 +578,7 @@ function createCompletionOverlay(
           },
         },
         children: [
-          // Animated countdown ring
+          // Green check emoji
           {
             type: 'div',
             options: {
@@ -608,29 +586,13 @@ function createCompletionOverlay(
                 width: '72px',
                 height: '72px',
                 margin: '0 auto 20px auto',
-                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '48px',
               },
             },
-            children: [
-              // Green check emoji
-              {
-                type: 'div',
-                options: {
-                  style: {
-                    position: 'absolute',
-                    top: '0',
-                    left: '0',
-                    width: '100%',
-                    height: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '48px',
-                  },
-                },
-                children: ['\u2705'],
-              },
-            ],
+            children: ['\u2705'],
           },
           // Title
           {
@@ -654,54 +616,9 @@ function createCompletionOverlay(
                 fontSize: '14px',
                 color: '#6b7280',
                 lineHeight: '1.5',
-                marginBottom: '20px',
               },
             },
             children: [message],
-          },
-          // Countdown bar
-          {
-            type: 'div',
-            options: {
-              style: {
-                height: '4px',
-                backgroundColor: '#e5e7eb',
-                borderRadius: '2px',
-                overflow: 'hidden',
-                width: '100%',
-              },
-            },
-            children: [
-              {
-                type: 'div',
-                options: {
-                  style: {
-                    height: '100%',
-                    width: '100%',
-                    backgroundColor: '#10b981',
-                    borderRadius: '2px',
-                    // CSS transition animates from full width to 0 over the delay duration
-                    transition: `width ${delaySec}s linear`,
-                  },
-                  // The content script will set data attributes; the width transition
-                  // starts from 100% and the JS below triggers it to 0%
-                  id: 'tlsn-done-countdown-bar',
-                },
-                children: [],
-              },
-            ],
-          },
-          // Timer text
-          {
-            type: 'div',
-            options: {
-              style: {
-                fontSize: '12px',
-                color: '#9ca3af',
-                marginTop: '12px',
-              },
-            },
-            children: [`Closing in ${delaySec}s`],
           },
         ],
       },
@@ -1125,21 +1042,30 @@ ${processedCode};
 
         const ctx = executionContextRegistry.get(uuid);
         const windowId = ctx?.windowId;
+
+        // If there's no window, behave like done() — no overlay or delay needed
+        if (!windowId) {
+          const finalize = () => {
+            executionContextRegistry.delete(uuid);
+            doneResolve(args);
+          };
+
+          if (lifecycle.pendingCallbacks > 0) {
+            waitForPendingCallbacks().then(finalize);
+          } else {
+            finalize();
+          }
+          return;
+        }
+
         const delayMs = options?.delayMs ?? 2000;
 
         // Show the completion overlay
-        if (windowId) {
-          onRenderPluginUi(
-            windowId,
-            createCompletionOverlay(options?.title, options?.message, delayMs),
-          );
-        }
+        onRenderPluginUi(windowId, createCompletionOverlay(options?.title, options?.message));
 
         // After the delay, close the window and finalize
         const closeAndFinalize = () => {
-          if (windowId) {
-            onCloseWindow(windowId);
-          }
+          onCloseWindow(windowId);
           executionContextRegistry.delete(uuid);
           doneResolve(args);
         };

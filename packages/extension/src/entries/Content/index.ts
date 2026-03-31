@@ -27,16 +27,6 @@ function renderPluginUI(json: DomJson, windowId: number) {
 
   container.innerHTML = '';
   container.appendChild(createNode(json, windowId));
-
-  // Trigger the countdown bar animation (CSS transition from 100% → 0% width).
-  // requestAnimationFrame ensures the browser has painted the initial 100% width
-  // before transitioning to 0%.
-  requestAnimationFrame(() => {
-    const bar = document.getElementById('tlsn-done-countdown-bar');
-    if (bar) {
-      bar.style.width = '0%';
-    }
-  });
 }
 
 const ALLOWED_ELEMENT_TYPES = new Set([

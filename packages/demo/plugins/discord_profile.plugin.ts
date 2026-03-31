@@ -90,7 +90,7 @@ const onClick = async (): Promise<void> => {
     },
   );
 
-  doneWithOverlay(JSON.stringify(resp));
+  done(JSON.stringify(resp));
 };
 
 const expandUI = (): void => {

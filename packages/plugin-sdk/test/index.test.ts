@@ -529,18 +529,20 @@ export function main() {
         eventEmitter,
       });
       expect(result).toBe('overlay-result');
-      // onRenderPluginUi should have been called with the overlay DOM
-      // (windowId is 0 since no window was opened, so overlay may not render,
-      // but the function should still resolve after the delay)
+      // No window was opened (windowId is 0), so doneWithOverlay falls back
+      // to done()-like behavior — no overlay rendered, no window closed
+      expect(onRenderPluginUi).not.toHaveBeenCalled();
+      expect(onCloseWindow).not.toHaveBeenCalled();
     }, 15_000);
 
     it('doneWithOverlay() respects custom title and message', async () => {
       const onRenderPluginUi = vi.fn();
+      const onCloseWindow = vi.fn();
 
       const lifecycleHost = new Host({
         onProve: vi.fn(),
         onRenderPluginUi,
-        onCloseWindow: vi.fn(),
+        onCloseWindow,
         onOpenWindow: vi.fn(),
       });
 
@@ -562,7 +564,13 @@ export function main() {
         eventEmitter,
       });
       expect(result).toBe('custom-result');
+      // No window opened, so no overlay or close
+      expect(onRenderPluginUi).not.toHaveBeenCalled();
+      expect(onCloseWindow).not.toHaveBeenCalled();
     }, 15_000);
+
+    // Full doneWithOverlay() with window test is in index.browser.test.ts
+    // (requires Playwright to pump the QuickJS async event loop for openWindow)
 
     it('waitForPendingCallbacks timeout resolves after DRAIN_TIMEOUT_MS', async () => {
       // Test the timeout mechanism directly by simulating the lifecycle pattern
