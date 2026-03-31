@@ -160,53 +160,17 @@ export function PluginScreen({
           params: h.params,
         })) as NativeHandler[];
 
-        console.log('[PluginScreen] prove() request:', requestOptions.method, requestOptions.url);
-        console.log('[PluginScreen] prove() handlers:', JSON.stringify(nativeHandlers, null, 2));
-
-        let nativeResult;
-        try {
-          nativeResult = await proverRef.current.prove({
-            url: requestOptions.url,
-            method: requestOptions.method,
-            headers: requestOptions.headers,
-            proverOptions: {
-              verifierUrl: proverOptions.verifierUrl,
-              maxSentData: proverOptions.maxSentData ?? 4096,
-              maxRecvData: proverOptions.maxRecvData ?? 16384,
-              handlers: nativeHandlers,
-            },
-          });
-        } catch (proveError) {
-          // Log the request details so we can debug handler/response mismatches
-          console.error('[PluginScreen] prove() FAILED:', proveError);
-          console.log('[PluginScreen] prove() request URL:', requestOptions.url);
-          console.log('[PluginScreen] prove() request headers:', JSON.stringify(requestOptions.headers));
-
-          // Retry without handlers to see the raw response
-          console.log('[PluginScreen] Retrying without handlers to inspect response...');
-          try {
-            const debugResult = await proverRef.current.prove({
-              url: requestOptions.url,
-              method: requestOptions.method,
-              headers: requestOptions.headers,
-              proverOptions: {
-                verifierUrl: proverOptions.verifierUrl,
-                maxSentData: proverOptions.maxSentData ?? 4096,
-                maxRecvData: proverOptions.maxRecvData ?? 16384,
-                handlers: [],
-              },
-            });
-            console.log('[PluginScreen] DEBUG response status:', debugResult.status);
-            console.log('[PluginScreen] DEBUG response body:', JSON.stringify(debugResult.body));
-          } catch (debugError) {
-            console.error('[PluginScreen] DEBUG retry also failed:', debugError);
-          }
-
-          throw proveError;
-        }
-
-        console.log('[PluginScreen] prove() native result status:', nativeResult.status);
-        console.log('[PluginScreen] prove() native result body:', JSON.stringify(nativeResult.body));
+        const nativeResult = await proverRef.current.prove({
+          url: requestOptions.url,
+          method: requestOptions.method,
+          headers: requestOptions.headers,
+          proverOptions: {
+            verifierUrl: proverOptions.verifierUrl,
+            maxSentData: proverOptions.maxSentData ?? 4096,
+            maxRecvData: proverOptions.maxRecvData ?? 16384,
+            handlers: nativeHandlers,
+          },
+        });
 
         // Transform native result into extension-compatible format
         return buildHandlerResults(proverOptions.handlers || [], nativeResult);

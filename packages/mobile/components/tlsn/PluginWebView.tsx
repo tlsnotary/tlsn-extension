@@ -3,7 +3,6 @@ import { Platform } from 'react-native';
 import { WebView, WebViewMessageEvent, WebViewNavigation } from 'react-native-webview';
 import type { ShouldStartLoadRequest } from 'react-native-webview/lib/WebViewTypes';
 import CookieManager from '@react-native-cookies/cookies';
-import { buildFingerprintHidingScript } from '../../lib/webviewFingerprint';
 
 // Google blocks OAuth in embedded WebViews by detecting platform-specific
 // user-agent markers:
@@ -115,11 +114,9 @@ export function PluginWebView({
   const webViewRef = useRef<WebView>(null);
   const lastNativeCookie = useRef<string>('');
 
-  // Build the injected JavaScript: fingerprint hiding first, then header interception.
-  // Fingerprint hiding must run before any page scripts to prevent OAuth providers
-  // from detecting the embedded WebView.
+  // Build the interception script with the target hosts baked in
   const injectedJS = useMemo(
-    () => buildFingerprintHidingScript() + '\n' + buildInterceptionScript(targetHosts),
+    () => buildInterceptionScript(targetHosts),
     [targetHosts],
   );
 
@@ -229,12 +226,6 @@ function buildInterceptionScript(targetHosts: string[]): string {
 
   return `
 (function() {
-  // Log the actual user-agent so we can see what Google receives
-  (window.__tlsnBridge || window.ReactNativeWebView).postMessage(JSON.stringify({
-    type: 'DEBUG',
-    message: '[UA] ' + navigator.userAgent
-  }));
-
   var TARGET_HOSTS = ${hostsJson};
 
   function matchesTarget(url) {
@@ -266,7 +257,7 @@ function buildInterceptionScript(targetHosts: string[]): string {
 
   function sendHeaders(method, url, headers) {
     try {
-      (window.__tlsnBridge || window.ReactNativeWebView).postMessage(JSON.stringify({
+      window.ReactNativeWebView.postMessage(JSON.stringify({
         type: 'HEADER_INTERCEPTED',
         method: method,
         url: url,
@@ -278,7 +269,7 @@ function buildInterceptionScript(targetHosts: string[]): string {
 
   function debugLog(msg) {
     try {
-      (window.__tlsnBridge || window.ReactNativeWebView).postMessage(JSON.stringify({
+      window.ReactNativeWebView.postMessage(JSON.stringify({
         type: 'DEBUG',
         message: msg
       }));
