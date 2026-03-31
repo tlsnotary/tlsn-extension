@@ -47,8 +47,8 @@ RUN apt-get update && apt-get install -y \
 # Copy binary from builder
 COPY --from=builder /app/target/release/tlsn-verifier-server /app/tlsn-verifier-server
 
-# Copy config if exists
-COPY config.yaml /app/config.yaml
+# Copy production config as default
+COPY config-prod.yaml /app/config.yaml
 
 EXPOSE 7047
 

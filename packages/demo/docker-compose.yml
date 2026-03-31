@@ -19,7 +19,7 @@ services:
       context: ../eas-webhook
       dockerfile: Dockerfile
     ports:
-      - "3001:3001"
+      - '3001:3001'
     environment:
       - PRIVATE_KEY=${PRIVATE_KEY}
       - EAS_SCHEMA_UID=${EAS_SCHEMA_UID}

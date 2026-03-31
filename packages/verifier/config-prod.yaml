@@ -1,0 +1,3 @@
+webhooks:
+  'api.spotify.com':
+    url: 'http://pse-tlsnotary-demo-webhook:3001/webhook'
