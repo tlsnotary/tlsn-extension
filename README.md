@@ -536,6 +536,34 @@ docker run -it --rm -p 55688:80 novnc/websockify 80 api.twitter.com:443
 
 This proxies HTTPS connections through WebSocket for browser-based TLS operations.
 
+## Building Plugins with Claude Code
+
+This repo includes a [Claude Code](https://claude.ai/claude-code) slash command that scaffolds TLSNotary plugins interactively. It guides you through API discovery, auth interception strategy, and generates a complete plugin file.
+
+### Install
+
+```bash
+# Add the TLSNotary marketplace
+/plugin marketplace add tlsnotary/tlsn-extension
+
+# Install the create-plugin command
+/plugin install tlsn-create-plugin@tlsnotary
+```
+
+### Usage
+
+```bash
+/create-plugin Garmin Connect badges
+/create-plugin Reddit karma score
+/create-plugin GitHub contribution count
+```
+
+The command will:
+1. Research the target service's API endpoints
+2. Plan the auth interception strategy
+3. Generate a complete plugin `.ts` file with UI, proof handlers, and progress bar
+4. Show you how to build and test it
+
 ## Publishing
 
 ### Chrome Web Store
