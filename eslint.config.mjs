@@ -64,6 +64,7 @@ export default defineConfig(
       'packages/verifier/scripts/**',
       'packages/demo/**',
       'packages/eas-webhook/**',
+      'packages/mobile/**',
       'packages/tutorial/**',
       '**/*.js',
       '**/*.mjs',
@@ -84,9 +85,9 @@ export default defineConfig(
     },
   },
 
-  // CJS build scripts
+  // CJS build scripts and Metro/React Native (require() needed for static assets)
   {
-    files: ['packages/extension/**/*.js'],
+    files: ['packages/extension/**/*.js', 'packages/mobile/**/*.{js,ts,tsx}'],
     rules: {
       '@typescript-eslint/no-require-imports': 'off',
     },
@@ -94,7 +95,11 @@ export default defineConfig(
 
   // Plugin overrides — sandbox-injected globals
   {
-    files: ['packages/demo/plugins/**/*.ts', 'packages/tutorial/*.js'],
+    files: [
+      'packages/demo/plugins/**/*.ts',
+      'packages/plugins/src/**/*.ts',
+      'packages/tutorial/*.js',
+    ],
     languageOptions: {
       globals: {
         div: 'readonly',
@@ -108,6 +113,7 @@ export default defineConfig(
         setState: 'readonly',
         prove: 'readonly',
         done: 'readonly',
+        doneWithOverlay: 'readonly',
       },
     },
   },
@@ -117,6 +123,7 @@ export default defineConfig(
     files: [
       'packages/extension/**/*.{tsx,jsx}',
       'packages/demo/src/**/*.{tsx,jsx}',
+      'packages/mobile/**/*.{tsx,jsx}',
       'packages/tutorial/src/**/*.{tsx,jsx}',
     ],
     plugins: {

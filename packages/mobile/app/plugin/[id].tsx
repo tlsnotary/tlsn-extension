@@ -1,12 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Alert,
-  ScrollView,
-  TouchableOpacity,
-} from 'react-native';
+import { View, Text, StyleSheet, Alert, ScrollView, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { PluginScreen } from '@/components/tlsn';
 import { getPluginById } from '../../assets/plugins/registry';
@@ -21,10 +14,7 @@ function parseResults(raw: string): { value: string }[] {
       return json.results;
     }
     if (json.body !== undefined) {
-      const body =
-        typeof json.body === 'string'
-          ? json.body
-          : JSON.stringify(json.body, null, 2);
+      const body = typeof json.body === 'string' ? json.body : JSON.stringify(json.body, null, 2);
       return [{ value: body }];
     }
     return [];
@@ -50,11 +40,7 @@ function extractProvenData(raw: string): string | null {
       }
       if (r.body !== undefined) {
         lines.push('');
-        lines.push(
-          typeof r.body === 'string'
-            ? r.body
-            : JSON.stringify(r.body, null, 2),
-        );
+        lines.push(typeof r.body === 'string' ? r.body : JSON.stringify(r.body, null, 2));
       }
       return lines.join('\n');
     }
@@ -107,10 +93,7 @@ export default function PluginRunnerScreen() {
         }}
       />
       {result ? (
-        <ScrollView
-          style={styles.resultScroll}
-          contentContainerStyle={styles.resultContent}
-        >
+        <ScrollView style={styles.resultScroll} contentContainerStyle={styles.resultContent}>
           {/* Success header */}
           <View style={[styles.successBanner, { backgroundColor: accent }]}>
             <Text style={styles.bannerLogo}>{plugin.logo}</Text>
@@ -124,9 +107,7 @@ export default function PluginRunnerScreen() {
 
           {/* Key result */}
           <View style={styles.keyResultCard}>
-            <Text style={[styles.keyLabel, { color: accent }]}>
-              {plugin.resultLabel}
-            </Text>
+            <Text style={[styles.keyLabel, { color: accent }]}>{plugin.resultLabel}</Text>
             <Text style={styles.keyValue}>{keyValue}</Text>
           </View>
 
@@ -151,9 +132,7 @@ export default function PluginRunnerScreen() {
                 onPress={() => setProvenExpanded((v) => !v)}
               >
                 <Text style={styles.rawToggleText}>
-                  {provenExpanded
-                    ? '\u25BC  Hide Proven Data'
-                    : '\u25B6  Show Proven Data'}
+                  {provenExpanded ? '\u25BC  Hide Proven Data' : '\u25B6  Show Proven Data'}
                 </Text>
               </TouchableOpacity>
 
@@ -196,9 +175,7 @@ export default function PluginRunnerScreen() {
           pluginCode={plugin.getPluginCode()}
           pluginConfig={plugin.pluginConfig}
           onComplete={(res) => {
-            setResult(
-              typeof res === 'string' ? res : JSON.stringify(res, null, 2),
-            );
+            setResult(typeof res === 'string' ? res : JSON.stringify(res, null, 2));
           }}
           onError={(err) => {
             Alert.alert('Plugin Error', err.message);

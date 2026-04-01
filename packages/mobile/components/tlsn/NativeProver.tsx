@@ -1,4 +1,11 @@
-import React, { useEffect, useState, useImperativeHandle, forwardRef, useCallback, useRef } from 'react';
+import React, {
+  useEffect,
+  useState,
+  useImperativeHandle,
+  forwardRef,
+  useCallback,
+  useRef,
+} from 'react';
 import { Platform } from 'react-native';
 
 // Type definitions (will be replaced with actual module import after prebuild)
@@ -15,9 +22,9 @@ export type HandlerPart = 'StartLine' | 'Headers' | 'Body' | 'All';
 export type HandlerAction = 'Reveal';
 
 export interface HandlerParams {
-  key?: string;        // For HEADERS: specific header key
+  key?: string; // For HEADERS: specific header key
   contentType?: string; // For BODY: "json" for JSON parsing
-  path?: string;       // For BODY with JSON: JSON path like "items.0.name"
+  path?: string; // For BODY with JSON: JSON path like "items.0.name"
 }
 
 export interface Handler {
@@ -87,7 +94,7 @@ function getNativeModule() {
 
 function NativeProverComponent(
   { onReady, onError }: NativeProverProps,
-  ref: React.ForwardedRef<NativeProverHandle>
+  ref: React.ForwardedRef<NativeProverHandle>,
 ) {
   const [isReady, setIsReady] = useState(false);
   const initAttempted = useRef(false);
@@ -100,7 +107,9 @@ function NativeProverComponent(
       try {
         const module = getNativeModule();
         if (!module) {
-          console.log('[NativeProver] Native module not available, likely running on web or not prebuilt');
+          console.log(
+            '[NativeProver] Native module not available, likely running on web or not prebuilt',
+          );
           onError?.('Native module not available');
           return;
         }
@@ -125,51 +134,63 @@ function NativeProverComponent(
     initializeModule();
   }, [onReady, onError]);
 
-  const prove = useCallback(async (params: NativeProveParams): Promise<ProveResult> => {
-    const module = getNativeModule();
-    if (!module || !isReady) {
-      throw new Error('Native prover not ready');
-    }
+  const prove = useCallback(
+    async (params: NativeProveParams): Promise<ProveResult> => {
+      const module = getNativeModule();
+      if (!module || !isReady) {
+        throw new Error('Native prover not ready');
+      }
 
-    console.log('[NativeProver] Starting proof generation...');
-    console.log('[NativeProver] URL:', params.url);
+      console.log('[NativeProver] Starting proof generation...');
+      console.log('[NativeProver] URL:', params.url);
 
-    const request: ProveRequest = {
-      url: params.url,
-      method: params.method,
-      headers: params.headers,
-    };
+      const request: ProveRequest = {
+        url: params.url,
+        method: params.method,
+        headers: params.headers,
+      };
 
-    const options: ProverOptions = {
-      verifierUrl: params.proverOptions.verifierUrl,
-      maxSentData: params.proverOptions.maxSentData,
-      maxRecvData: params.proverOptions.maxRecvData,
-      handlers: params.proverOptions.handlers || [],
-    };
+      const options: ProverOptions = {
+        verifierUrl: params.proverOptions.verifierUrl,
+        maxSentData: params.proverOptions.maxSentData,
+        maxRecvData: params.proverOptions.maxRecvData,
+        handlers: params.proverOptions.handlers || [],
+      };
 
-    console.log('[NativeProver] Handlers being passed to native:', JSON.stringify(options.handlers, null, 2));
-    console.log('[NativeProver] Full options:', JSON.stringify(options, null, 2));
+      console.log(
+        '[NativeProver] Handlers being passed to native:',
+        JSON.stringify(options.handlers, null, 2),
+      );
+      console.log('[NativeProver] Full options:', JSON.stringify(options, null, 2));
 
-    try {
-      const result = await module.prove(request, options);
-      console.log('[NativeProver] Proof generation complete');
-      console.log('[NativeProver] Transcript:', JSON.stringify(result.transcript));
-      console.log('[NativeProver] Debug info:', JSON.stringify((result as any).debug));
-      return result;
-    } catch (e) {
-      console.error('[NativeProver] Proof generation failed:', e);
-      throw e;
-    }
-  }, [isReady]);
+      try {
+        const result = await module.prove(request, options);
+        console.log('[NativeProver] Proof generation complete');
+        console.log('[NativeProver] Transcript:', JSON.stringify(result.transcript));
+        console.log('[NativeProver] Debug info:', JSON.stringify((result as any).debug));
+        return result;
+      } catch (e) {
+        console.error('[NativeProver] Proof generation failed:', e);
+        throw e;
+      }
+    },
+    [isReady],
+  );
 
-  useImperativeHandle(ref, () => ({
-    prove,
-    isReady,
-  }), [prove, isReady]);
+  useImperativeHandle(
+    ref,
+    () => ({
+      prove,
+      isReady,
+    }),
+    [prove, isReady],
+  );
 
   // This component has no UI
   return null;
 }
 
-export const NativeProver = forwardRef<NativeProverHandle, NativeProverProps>(NativeProverComponent);
+export const NativeProver = forwardRef<NativeProverHandle, NativeProverProps>(
+  NativeProverComponent,
+);
 NativeProver.displayName = 'NativeProver';

@@ -29,9 +29,8 @@ export default function AboutScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>This App</Text>
           <Text style={styles.text}>
-            This is a mobile proof-of-concept demonstrating TLSNotary.
-            Use plugins to generate cryptographic proofs of web data
-            while keeping sensitive information private.
+            This is a mobile proof-of-concept demonstrating TLSNotary. Use plugins to generate
+            cryptographic proofs of web data while keeping sensitive information private.
           </Text>
         </View>
 
@@ -43,9 +42,7 @@ export default function AboutScreen() {
         </TouchableOpacity>
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            Built with TLSNotary WASM + React Native
-          </Text>
+          <Text style={styles.footerText}>Built with TLSNotary + React Native</Text>
         </View>
       </View>
     </ScrollView>

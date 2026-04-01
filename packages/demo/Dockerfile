@@ -18,8 +18,9 @@ COPY packages/plugins/package.json packages/plugins/package.json
 COPY packages/plugin-sdk/package.json packages/plugin-sdk/package.json
 COPY packages/common/package.json packages/common/package.json
 
-# Install all workspace dependencies
-RUN npm ci --workspace=@tlsnotary/demo --workspace=@tlsn/plugins --workspace=@tlsn/plugin-sdk --workspace=@tlsn/common --include-workspace-root
+# Install dependencies (npm install instead of npm ci — the lockfile references
+# all monorepo workspaces but only a subset is present in the Docker context)
+RUN npm install --workspace=@tlsnotary/demo --workspace=@tlsn/plugins --workspace=@tlsn/plugin-sdk --workspace=@tlsn/common --include-workspace-root
 
 # Copy source for packages the demo depends on
 COPY packages/common/ packages/common/

@@ -88,10 +88,7 @@ function parsePx(value: string): number | string {
 /**
  * Parse a shorthand padding/margin value like '12px 16px' into individual properties.
  */
-function parseShorthand(
-  value: string,
-  prefix: 'padding' | 'margin',
-): Partial<RNStyle> {
+function parseShorthand(value: string, prefix: 'padding' | 'margin'): Partial<RNStyle> {
   const parts = value
     .trim()
     .split(/\s+/)
@@ -130,9 +127,7 @@ function parseShorthand(
  */
 function parseBoxShadow(value: string): Partial<RNStyle> {
   // Simple parser: extract color and numeric values
-  const colorMatch = value.match(
-    /rgba?\([^)]+\)|#[0-9a-fA-F]{3,8}|\b[a-z]+\b$/,
-  );
+  const colorMatch = value.match(/rgba?\([^)]+\)|#[0-9a-fA-F]{3,8}|\b[a-z]+\b$/);
   const nums = value.match(/-?\d+(\.\d+)?/g);
 
   if (!nums || nums.length < 3) return {};
@@ -185,15 +180,7 @@ function parseBorder(value: string): Partial<RNStyle> {
     } else if (
       part.startsWith('#') ||
       part.startsWith('rgb') ||
-      [
-        'transparent',
-        'black',
-        'white',
-        'red',
-        'blue',
-        'green',
-        'gray',
-      ].includes(part)
+      ['transparent', 'black', 'white', 'red', 'blue', 'green', 'gray'].includes(part)
     ) {
       result.borderColor = part;
     }
@@ -206,9 +193,7 @@ function parseBorder(value: string): Partial<RNStyle> {
 /**
  * Convert a CSS style object from plugin DOM JSON to a React Native compatible style object.
  */
-export function cssToRN(
-  cssStyle: Record<string, string> | undefined,
-): Partial<RNStyle> {
+export function cssToRN(cssStyle: Record<string, string> | undefined): Partial<RNStyle> {
   if (!cssStyle) return {};
 
   const rnStyle: Record<string, any> = {};
@@ -299,11 +284,7 @@ export function cssToRN(
     }
 
     // Handle percentage widths/heights
-    if (
-      (key === 'width' || key === 'height') &&
-      typeof value === 'string' &&
-      value.endsWith('%')
-    ) {
+    if ((key === 'width' || key === 'height') && typeof value === 'string' && value.endsWith('%')) {
       rnStyle[key] = value;
       continue;
     }

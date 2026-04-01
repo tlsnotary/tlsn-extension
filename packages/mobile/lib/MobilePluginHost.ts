@@ -81,7 +81,15 @@ export interface PluginHandler {
 /** Mobile native handler format (PascalCase) */
 export interface NativeHandler {
   handlerType: 'Sent' | 'Recv';
-  part: 'StartLine' | 'Protocol' | 'Method' | 'RequestTarget' | 'StatusCode' | 'Headers' | 'Body' | 'All';
+  part:
+    | 'StartLine'
+    | 'Protocol'
+    | 'Method'
+    | 'RequestTarget'
+    | 'StatusCode'
+    | 'Headers'
+    | 'Body'
+    | 'All';
   action: 'Reveal' | 'Pedersen';
   params?: {
     key?: string;
@@ -195,10 +203,7 @@ export function translateHandlers(handlers: PluginHandler[]): NativeHandler[] {
 
 const contextRegistry = new Map<string, ExecutionContext>();
 
-function updateContext(
-  uuid: string,
-  updates: Partial<ExecutionContext>,
-): void {
+function updateContext(uuid: string, updates: Partial<ExecutionContext>): void {
   const ctx = contextRegistry.get(uuid);
   if (!ctx) throw new Error('Execution context not found: ' + uuid);
   contextRegistry.set(uuid, { ...ctx, ...updates });
@@ -294,10 +299,7 @@ function makeUseHeaders(
   };
 }
 
-function makeUseState(
-  uuid: string,
-  stateStore: Record<string, unknown>,
-) {
+function makeUseState(uuid: string, stateStore: Record<string, unknown>) {
   return (key: string, defaultValue: unknown) => {
     if (stateStore[key] === undefined && defaultValue !== undefined) {
       stateStore[key] = defaultValue;
@@ -341,14 +343,23 @@ interface MobilePluginHostOptions {
    */
   onProve: (
     requestOptions: { url: string; method: string; headers: Record<string, string>; body?: string },
-    proverOptions: { verifierUrl: string; proxyUrl: string; maxRecvData?: number; maxSentData?: number; handlers: PluginHandler[] },
+    proverOptions: {
+      verifierUrl: string;
+      proxyUrl: string;
+      maxRecvData?: number;
+      maxSentData?: number;
+      handlers: PluginHandler[];
+    },
   ) => Promise<unknown>;
 
   /** Called when the plugin renders UI (DomJson) */
   onRenderPluginUi: (windowId: number, domJson: DomJson) => void;
 
   /** Called when the plugin calls openWindow(url, options) */
-  onOpenWindow: (url: string, options?: { width?: number; height?: number; showOverlay?: boolean }) => Promise<{ windowId: number; uuid: string; tabId: number }>;
+  onOpenWindow: (
+    url: string,
+    options?: { width?: number; height?: number; showOverlay?: boolean },
+  ) => Promise<{ windowId: number; uuid: string; tabId: number }>;
 
   /** Called when the plugin calls done() or closes a window */
   onCloseWindow: (windowId: number) => void;
@@ -482,6 +493,14 @@ export class MobilePluginHost {
         contextRegistry.delete(uuid);
         doneResolve(result);
       },
+      doneWithOverlay: (result?: unknown) => {
+        if (isCompleted) return;
+        isCompleted = true;
+        const ctx = contextRegistry.get(uuid);
+        if (ctx?.windowId) onCloseWindow(ctx.windowId);
+        contextRegistry.delete(uuid);
+        doneResolve(result);
+      },
     };
 
     // Evaluate the plugin code.
@@ -524,7 +543,11 @@ export class MobilePluginHost {
         const selectors = hookContext['main']?.selectors;
         const lastStateStore = contextRegistry.get(uuid)?.stateStore;
 
-        if (!force && deepEqual(lastSelectors, selectors) && deepEqual(lastStateStore, stateStore)) {
+        if (
+          !force &&
+          deepEqual(lastSelectors, selectors) &&
+          deepEqual(lastStateStore, stateStore)
+        ) {
           result = null as unknown as DomJson;
         }
 
@@ -553,13 +576,11 @@ export class MobilePluginHost {
             onRenderPluginUi(ctx.windowId, lastJson);
           } else {
             // Queue render for when window opens
-            waitForWindow(() => contextRegistry.get(uuid)?.windowId).then(
-              (windowId) => {
-                if (windowId && lastJson) {
-                  onRenderPluginUi(windowId, lastJson);
-                }
-              },
-            );
+            waitForWindow(() => contextRegistry.get(uuid)?.windowId).then((windowId) => {
+              if (windowId && lastJson) {
+                onRenderPluginUi(windowId, lastJson);
+              }
+            });
           }
         }
 
@@ -615,11 +636,7 @@ export class MobilePluginHost {
   /**
    * Dispatch a plugin UI button click.
    */
-  emitPluginAction(
-    eventEmitter: EventEmitter,
-    windowId: number,
-    onclick: string,
-  ): void {
+  emitPluginAction(eventEmitter: EventEmitter, windowId: number, onclick: string): void {
     eventEmitter.emit({
       type: 'PLUGIN_UI_CLICK',
       onclick,
@@ -660,7 +677,6 @@ function evaluatePluginCode(
     ${transformedCode}
   `;
 
-  // eslint-disable-next-line no-new-func
   const fn = new Function('__capabilities__', wrappedCode);
   return fn(capabilities);
 }
@@ -669,10 +685,7 @@ function evaluatePluginCode(
 // Utilities
 // ============================================================================
 
-async function waitForWindow(
-  getter: () => number | undefined,
-  retry = 0,
-): Promise<number | null> {
+async function waitForWindow(getter: () => number | undefined, retry = 0): Promise<number | null> {
   const value = getter();
   if (value) return value;
   if (retry < 100) {

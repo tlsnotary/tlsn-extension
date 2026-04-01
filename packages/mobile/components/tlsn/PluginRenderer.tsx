@@ -49,7 +49,11 @@ function renderNode(
 ): React.ReactNode {
   // String nodes → Text
   if (typeof node === 'string') {
-    return <Text key={key} style={styles.text}>{node}</Text>;
+    return (
+      <Text key={key} style={styles.text}>
+        {node}
+      </Text>
+    );
   }
 
   const { type, options, children } = node;
@@ -79,11 +83,12 @@ function renderNode(
   }
 
   // div → View (or TouchableOpacity if it has an onclick handler)
-  const content = hasStringChildren && children.every((c) => typeof c === 'string') ? (
-    <Text style={extractTextStyle(rnStyle)}>{renderTextChildren(children)}</Text>
-  ) : (
-    renderedChildren
-  );
+  const content =
+    hasStringChildren && children.every((c) => typeof c === 'string') ? (
+      <Text style={extractTextStyle(rnStyle)}>{renderTextChildren(children)}</Text>
+    ) : (
+      renderedChildren
+    );
 
   if (options.onclick) {
     return (
@@ -109,9 +114,7 @@ function renderNode(
  * Concatenate string children for a Text node.
  */
 function renderTextChildren(children: DomJson[]): string {
-  return children
-    .filter((c): c is string => typeof c === 'string')
-    .join('');
+  return children.filter((c): c is string => typeof c === 'string').join('');
 }
 
 /**

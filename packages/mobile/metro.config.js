@@ -16,9 +16,12 @@ config.resolver.nodeModulesPaths = [
   path.resolve(monorepoRoot, 'node_modules'),
 ];
 
-// 3. Force resolving these packages from mobile's node_modules
+// 3. Enable package.json "exports" field resolution
+config.resolver.unstable_enablePackageExports = true;
+
+// 4. Force resolving these packages from mobile's node_modules
 config.resolver.extraNodeModules = {
-  'react': path.resolve(projectRoot, 'node_modules/react'),
+  react: path.resolve(projectRoot, 'node_modules/react'),
   'react-native': path.resolve(projectRoot, 'node_modules/react-native'),
 };
 

@@ -11,24 +11,18 @@ describe('isOAuthUrl', () => {
   });
 
   it('returns true when hostname is a subdomain of an oauthHost entry', () => {
-    expect(
-      isOAuthUrl('https://accounts.google.com/signin', ['google.com']),
-    ).toBe(true);
+    expect(isOAuthUrl('https://accounts.google.com/signin', ['google.com'])).toBe(true);
   });
 
   it('does not match parent domain when oauthHost is a subdomain', () => {
     // oauthHosts says "accounts.google.com", URL is "google.com" — should NOT match
-    expect(
-      isOAuthUrl('https://google.com/', ['accounts.google.com']),
-    ).toBe(false);
+    expect(isOAuthUrl('https://google.com/', ['accounts.google.com'])).toBe(false);
   });
 
   it('returns false when URL does not match any oauthHost', () => {
-    expect(
-      isOAuthUrl('https://developer.spotify.com/dashboard', [
-        'accounts.google.com',
-      ]),
-    ).toBe(false);
+    expect(isOAuthUrl('https://developer.spotify.com/dashboard', ['accounts.google.com'])).toBe(
+      false,
+    );
   });
 
   it('returns false for empty oauthHosts array', () => {
@@ -40,15 +34,11 @@ describe('isOAuthUrl', () => {
   });
 
   it('returns false for non-http scheme', () => {
-    expect(
-      isOAuthUrl('ftp://accounts.google.com/', ['accounts.google.com']),
-    ).toBe(false);
+    expect(isOAuthUrl('ftp://accounts.google.com/', ['accounts.google.com'])).toBe(false);
   });
 
   it('handles case-insensitive hostname matching', () => {
-    expect(
-      isOAuthUrl('https://Accounts.Google.Com/auth', ['accounts.google.com']),
-    ).toBe(true);
+    expect(isOAuthUrl('https://Accounts.Google.Com/auth', ['accounts.google.com'])).toBe(true);
   });
 
   it('matches against multiple hosts in the list', () => {
@@ -60,9 +50,7 @@ describe('isOAuthUrl', () => {
 
   it('does not match partial hostname overlaps', () => {
     // "evil-google.com" should NOT match oauthHost "google.com"
-    expect(
-      isOAuthUrl('https://evil-google.com/phish', ['google.com']),
-    ).toBe(false);
+    expect(isOAuthUrl('https://evil-google.com/phish', ['google.com'])).toBe(false);
   });
 });
 
@@ -82,12 +70,7 @@ describe('shouldHandOffToSystemBrowser', () => {
 
   it('returns false when oauthHosts is empty', () => {
     expect(
-      shouldHandOffToSystemBrowser(
-        'https://accounts.google.com/o/oauth2/auth',
-        true,
-        [],
-        false,
-      ),
+      shouldHandOffToSystemBrowser('https://accounts.google.com/o/oauth2/auth', true, [], false),
     ).toBe(false);
   });
 
@@ -115,12 +98,7 @@ describe('shouldHandOffToSystemBrowser', () => {
 
   it('returns false for non-OAuth URL', () => {
     expect(
-      shouldHandOffToSystemBrowser(
-        'https://developer.spotify.com/',
-        true,
-        oauthHosts,
-        false,
-      ),
+      shouldHandOffToSystemBrowser('https://developer.spotify.com/', true, oauthHosts, false),
     ).toBe(false);
   });
 

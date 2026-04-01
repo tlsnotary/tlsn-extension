@@ -3,7 +3,10 @@ import { requireNativeModule } from 'expo-modules-core';
 // Declare the module interface
 interface TlsnNativeModuleInterface {
   initialize(): void;
-  prove(request: Record<string, unknown>, options: Record<string, unknown>): Promise<Record<string, unknown>>;
+  prove(
+    request: Record<string, unknown>,
+    options: Record<string, unknown>,
+  ): Promise<Record<string, unknown>>;
   isAvailable(): boolean;
 }
 

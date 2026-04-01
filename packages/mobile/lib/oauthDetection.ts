@@ -29,10 +29,7 @@ export function isOAuthUrl(url: string, oauthHosts: string[]): boolean {
 
   return oauthHosts.some((host) => {
     const normalizedHost = host.toLowerCase();
-    return (
-      hostname === normalizedHost ||
-      hostname.endsWith('.' + normalizedHost)
-    );
+    return hostname === normalizedHost || hostname.endsWith('.' + normalizedHost);
   });
 }
 

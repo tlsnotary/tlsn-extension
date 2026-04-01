@@ -18,10 +18,17 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const target =
-  process.argv.find((a) => a.startsWith('--target='))?.split('=')[1] || 'all';
+const target = process.argv.find((a) => a.startsWith('--target='))?.split('=')[1] || 'all';
 
-const plugins = ['twitter', 'swissbank', 'spotify', 'duolingo', 'uber', 'discord_dm', 'discord_profile'];
+const plugins = [
+  'twitter',
+  'swissbank',
+  'spotify',
+  'duolingo',
+  'uber',
+  'discord_dm',
+  'discord_profile',
+];
 
 // Demo configuration
 const VERIFIER_HOST = process.env.VITE_VERIFIER_HOST || 'localhost:7047';
@@ -30,8 +37,7 @@ const DEMO_VERIFIER_URL = `${SSL ? 'https' : 'http'}://${VERIFIER_HOST}`;
 const DEMO_PROXY_URL = `${SSL ? 'wss' : 'ws'}://${VERIFIER_HOST}/proxy?token=`;
 
 // Mobile configuration
-const MOBILE_VERIFIER_URL =
-  process.env.MOBILE_VERIFIER_URL || 'http://localhost:7047';
+const MOBILE_VERIFIER_URL = process.env.MOBILE_VERIFIER_URL || 'http://localhost:7047';
 
 fs.mkdirSync(path.resolve(__dirname, 'dist/demo'), { recursive: true });
 fs.mkdirSync(path.resolve(__dirname, 'dist/mobile'), { recursive: true });
@@ -67,13 +73,15 @@ if (target === 'all' || target === 'mobile') {
   for (const plugin of plugins) {
     const entry = path.resolve(__dirname, `src/${plugin}.plugin.ts`);
     const tmpfile = path.resolve(__dirname, `dist/mobile/${plugin}.tmp.js`);
-    const outfile = path.resolve(__dirname, `dist/mobile/${plugin}.ts`);
+    const outfile = path.resolve(__dirname, `dist/mobile/${plugin}.js`);
 
-    // Bundle with esbuild (produces ESM JS)
+    // Bundle with esbuild — target ES2016 so async/await is transpiled
+    // for the native QuickJS engine which doesn't support async functions.
     await esbuild.build({
       entryPoints: [entry],
       bundle: true,
       format: 'esm',
+      target: 'es2016',
       outfile: tmpfile,
       define: {
         __VERIFIER_URL__: JSON.stringify(MOBILE_VERIFIER_URL),
@@ -92,10 +100,7 @@ if (target === 'all' || target === 'mobile') {
     let code = fs.readFileSync(tmpfile, 'utf-8');
 
     // Replace `export {\n  xxx as default\n};\n` with `return xxx;`
-    code = code.replace(
-      /export\s*\{\s*(\w+)\s+as\s+default\s*\}\s*;?\s*$/,
-      'return $1;',
-    );
+    code = code.replace(/export\s*\{\s*(\w+)\s+as\s+default\s*\}\s*;?\s*$/, 'return $1;');
 
     const constName = plugin.toUpperCase() + '_PLUGIN_CODE';
 
@@ -106,7 +111,7 @@ if (target === 'all' || target === 'mobile') {
     fs.writeFileSync(outfile, moduleCode);
     fs.unlinkSync(tmpfile);
 
-    console.log(`  OK ${plugin}.ts`);
+    console.log(`  OK ${plugin}.js`);
   }
 }
 

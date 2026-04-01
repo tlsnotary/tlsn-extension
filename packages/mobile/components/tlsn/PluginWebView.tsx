@@ -11,7 +11,8 @@ import CookieManager from '@react-native-cookies/cookies';
 // Both match real browser UAs for the respective platform's TLS fingerprint.
 const BROWSER_USER_AGENT = Platform.select({
   ios: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
-  android: 'Mozilla/5.0 (Linux; Android 14; Pixel 8 Build/UQ1A.240205.004) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.6478.122 Mobile Safari/537.36',
+  android:
+    'Mozilla/5.0 (Linux; Android 14; Pixel 8 Build/UQ1A.240205.004) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.6478.122 Mobile Safari/537.36',
   default: undefined,
 });
 
@@ -78,7 +79,12 @@ async function readNativeCookies(
 
     if (allCookies.size > 0) {
       const cookieString = Array.from(allCookies.values()).join('; ');
-      console.log('[PluginWebView] Native cookies:', allCookies.size, 'cookies from', Array.from(urlsToCheck).join(', '));
+      console.log(
+        '[PluginWebView] Native cookies:',
+        allCookies.size,
+        'cookies from',
+        Array.from(urlsToCheck).join(', '),
+      );
       // Emit with the first target host URL so plugin filters match
       const emitUrl = `https://${targetHosts[0]}`;
       const header: InterceptedRequestHeader = {
@@ -115,10 +121,7 @@ export function PluginWebView({
   const lastNativeCookie = useRef<string>('');
 
   // Build the interception script with the target hosts baked in
-  const injectedJS = useMemo(
-    () => buildInterceptionScript(targetHosts),
-    [targetHosts],
-  );
+  const injectedJS = useMemo(() => buildInterceptionScript(targetHosts), [targetHosts]);
 
   const handleMessage = useCallback(
     (event: WebViewMessageEvent) => {
@@ -188,12 +191,9 @@ export function PluginWebView({
   // Keep all http(s) navigations inside the WebView; block custom schemes.
   // OAuth is handled inline (fingerprint hiding makes the WebView trusted by
   // OAuth providers), so no system browser handoff is needed.
-  const handleShouldStartLoad = useCallback(
-    (request: ShouldStartLoadRequest) => {
-      return request.url.startsWith('http://') || request.url.startsWith('https://');
-    },
-    [],
-  );
+  const handleShouldStartLoad = useCallback((request: ShouldStartLoadRequest) => {
+    return request.url.startsWith('http://') || request.url.startsWith('https://');
+  }, []);
 
   return (
     <WebView

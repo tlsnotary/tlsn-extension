@@ -97,15 +97,10 @@ interface PluginScreenProps {
  * - Plugin UI rendering via PluginRenderer
  * - Event emitter bridging all components
  */
-export function PluginScreen({
-  pluginCode,
-  pluginConfig,
-  onComplete,
-  onError,
-}: PluginScreenProps) {
+export function PluginScreen({ pluginCode, pluginConfig, onComplete, onError }: PluginScreenProps) {
   const [domJson, setDomJson] = useState<DomJson | null>(null);
   const [webViewUrl, setWebViewUrl] = useState<string | null>(null);
-  const [windowId, setWindowId] = useState<number>(0);
+  const [_windowId, setWindowId] = useState<number>(0);
   const [proverReady, setProverReady] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -138,11 +133,12 @@ export function PluginScreen({
         }
       },
     };
-    eventEmitterRef.current = emitter;
+    eventEmitterRef.current = emitter; // eslint-disable-line react-hooks/refs
     return emitter;
   }, []);
 
   // Create host
+  /* eslint-disable react-hooks/refs */
   const host = useMemo(() => {
     const h = new MobilePluginHost({
       onProve: async (requestOptions, proverOptions) => {
@@ -151,14 +147,14 @@ export function PluginScreen({
         }
 
         // Translate handlers from plugin format to native format
-        const nativeHandlers: NativeHandler[] = translateHandlers(
-          proverOptions.handlers || [],
-        ).map((h) => ({
-          handlerType: h.handlerType,
-          part: h.part,
-          action: h.action,
-          params: h.params,
-        })) as NativeHandler[];
+        const nativeHandlers: NativeHandler[] = translateHandlers(proverOptions.handlers || []).map(
+          (h) => ({
+            handlerType: h.handlerType,
+            part: h.part,
+            action: h.action,
+            params: h.params,
+          }),
+        ) as NativeHandler[];
 
         const nativeResult = await proverRef.current.prove({
           url: requestOptions.url,
@@ -197,6 +193,7 @@ export function PluginScreen({
     hostRef.current = h;
     return h;
   }, []);
+  /* eslint-enable react-hooks/refs */
 
   // Handle header interception from WebView
   const handleHeaderIntercepted = useCallback(
@@ -206,7 +203,12 @@ export function PluginScreen({
       if (eventEmitterRef.current && wId) {
         host.emitHeaderIntercepted(eventEmitterRef.current, wId, header);
       } else {
-        console.warn('[PluginScreen] Skipping header: emitter=', !!eventEmitterRef.current, 'wId=', wId);
+        console.warn(
+          '[PluginScreen] Skipping header: emitter=',
+          !!eventEmitterRef.current,
+          'wId=',
+          wId,
+        );
       }
     },
     [host],

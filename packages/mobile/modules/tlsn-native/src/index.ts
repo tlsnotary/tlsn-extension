@@ -1,4 +1,4 @@
-import { NativeModulesProxy, EventEmitter, Subscription } from 'expo-modules-core';
+import { Platform } from 'react-native';
 
 // Import the native module
 import TlsnNativeModule from './TlsnNativeModule';
@@ -21,9 +21,9 @@ export type HandlerPart = 'StartLine' | 'Headers' | 'Body' | 'All';
 export type HandlerAction = 'Reveal';
 
 export interface HandlerParams {
-  key?: string;        // For HEADERS: specific header key
+  key?: string; // For HEADERS: specific header key
   contentType?: string; // For BODY: "json" for JSON parsing
-  path?: string;       // For BODY with JSON: JSON path like "items.0.name"
+  path?: string; // For BODY with JSON: JSON path like "items.0.name"
 }
 
 export interface Handler {
@@ -67,11 +67,8 @@ export function initialize(): void {
  * @param options - Prover options including verifier and proxy URLs
  * @returns Promise resolving to the proof result
  */
-export async function prove(
-  request: ProveRequest,
-  options: ProverOptions
-): Promise<ProveResult> {
-  const isAndroid = require('react-native').Platform.OS === 'android';
+export async function prove(request: ProveRequest, options: ProverOptions): Promise<ProveResult> {
+  const isAndroid = Platform.OS === 'android';
 
   // On Android emulator, localhost refers to the emulator itself.
   // Rewrite to 10.0.2.2 which routes to the host machine.
@@ -87,7 +84,10 @@ export async function prove(
   // Android's Expo Kotlin bridge can't auto-convert nested JS objects,
   // so we serialize to JSON strings and parse on the native side.
   if (isAndroid) {
-    return TlsnNativeModule.prove(JSON.stringify(request), JSON.stringify(options)) as unknown as Promise<ProveResult>;
+    return TlsnNativeModule.prove(
+      JSON.stringify(request),
+      JSON.stringify(options),
+    ) as unknown as Promise<ProveResult>;
   }
   return TlsnNativeModule.prove(request, options) as unknown as Promise<ProveResult>;
 }

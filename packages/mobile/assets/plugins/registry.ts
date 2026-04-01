@@ -1,7 +1,4 @@
-import {
-  getPluginsForPlatform,
-  type PluginMetadata,
-} from '@tlsn/plugins';
+import { getPluginsForPlatform, type PluginMetadata } from '@tlsn/plugins';
 import type { PluginConfig } from '../../lib/MobilePluginHost';
 
 export interface PluginEntry {
@@ -21,13 +18,14 @@ export interface PluginEntry {
 // These reference the auto-generated string exports from @tlsn/plugins/mobile/*.
 // Run `npm run build:plugins` to generate these files.
 const CODE_MAP: Record<string, () => string> = {
-  twitter: () => require('@tlsn/plugins/mobile/twitter').TWITTER_PLUGIN_CODE,
-  swissbank: () => require('@tlsn/plugins/mobile/swissbank').SWISSBANK_PLUGIN_CODE,
-  spotify: () => require('@tlsn/plugins/mobile/spotify').SPOTIFY_PLUGIN_CODE,
-  duolingo: () => require('@tlsn/plugins/mobile/duolingo').DUOLINGO_PLUGIN_CODE,
-  uber: () => require('@tlsn/plugins/mobile/uber').UBER_PLUGIN_CODE,
-  discord_dm: () => require('@tlsn/plugins/mobile/discord_dm').DISCORD_DM_PLUGIN_CODE,
-  discord_profile: () => require('@tlsn/plugins/mobile/discord_profile').DISCORD_PROFILE_PLUGIN_CODE,
+  twitter: () => require('@tlsn/plugins/dist/mobile/twitter').TWITTER_PLUGIN_CODE,
+  swissbank: () => require('@tlsn/plugins/dist/mobile/swissbank').SWISSBANK_PLUGIN_CODE,
+  spotify: () => require('@tlsn/plugins/dist/mobile/spotify').SPOTIFY_PLUGIN_CODE,
+  duolingo: () => require('@tlsn/plugins/dist/mobile/duolingo').DUOLINGO_PLUGIN_CODE,
+  uber: () => require('@tlsn/plugins/dist/mobile/uber').UBER_PLUGIN_CODE,
+  discord_dm: () => require('@tlsn/plugins/dist/mobile/discord_dm').DISCORD_DM_PLUGIN_CODE,
+  discord_profile: () =>
+    require('@tlsn/plugins/dist/mobile/discord_profile').DISCORD_PROFILE_PLUGIN_CODE,
 };
 
 const VERIFIER_URL = 'http://localhost:7047';
@@ -54,8 +52,7 @@ function toPluginEntry(meta: PluginMetadata): PluginEntry {
   };
 }
 
-export const PLUGIN_REGISTRY: PluginEntry[] =
-  getPluginsForPlatform('mobile').map(toPluginEntry);
+export const PLUGIN_REGISTRY: PluginEntry[] = getPluginsForPlatform('mobile').map(toPluginEntry);
 
 export function getPluginById(id: string): PluginEntry | undefined {
   return PLUGIN_REGISTRY.find((p) => p.id === id);

@@ -37,8 +37,7 @@ export const PLUGIN_REGISTRY: PluginMetadata[] = [
   {
     id: 'twitter',
     name: 'Twitter Profile',
-    description:
-      'Prove your Twitter profile information with cryptographic verification',
+    description: 'Prove your Twitter profile information with cryptographic verification',
     logo: '\uD835\uDD4F', // 𝕏
     resultLabel: 'Screen Name',
     accentColor: '#667eea',
@@ -81,8 +80,7 @@ export const PLUGIN_REGISTRY: PluginMetadata[] = [
   {
     id: 'spotify',
     name: 'Spotify',
-    description:
-      'Prove your Spotify listening history and music preferences',
+    description: 'Prove your Spotify listening history and music preferences',
     logo: '\uD83C\uDFB5', // 🎵
     resultLabel: 'Top Artist',
     accentColor: '#1DB954',
@@ -104,16 +102,14 @@ export const PLUGIN_REGISTRY: PluginMetadata[] = [
   {
     id: 'duolingo',
     name: 'Duolingo',
-    description:
-      'Prove your Duolingo language learning progress and achievements',
+    description: 'Prove your Duolingo language learning progress and achievements',
     logo: '\uD83E\uDD89', // 🦉
     resultLabel: 'Longest Streak',
     accentColor: '#58CC02',
     platforms: ['demo', 'mobile'],
     pluginConfig: {
       name: 'Duolingo Plugin',
-      description:
-        'This plugin will prove your email and current streak on Duolingo.',
+      description: 'This plugin will prove your email and current streak on Duolingo.',
       requests: [
         {
           method: 'GET',
@@ -134,8 +130,7 @@ export const PLUGIN_REGISTRY: PluginMetadata[] = [
     platforms: ['demo', 'mobile'],
     pluginConfig: {
       name: 'Uber Profile Prover',
-      description:
-        'This plugin will prove your Uber rider profile via GraphQL.',
+      description: 'This plugin will prove your Uber rider profile via GraphQL.',
       requests: [
         {
           method: 'POST',
@@ -194,8 +189,6 @@ export function getPluginById(id: string): PluginMetadata | undefined {
   return PLUGIN_REGISTRY.find((p) => p.id === id);
 }
 
-export function getPluginsForPlatform(
-  platform: 'demo' | 'mobile',
-): PluginMetadata[] {
+export function getPluginsForPlatform(platform: 'demo' | 'mobile'): PluginMetadata[] {
   return PLUGIN_REGISTRY.filter((p) => p.platforms.includes(platform));
 }

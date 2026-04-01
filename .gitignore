@@ -12,3 +12,6 @@ zip
 .claude
 coverage
 packages/verifier/target/
+# Mobile native module build artifacts (symlinks created by postinstall)
+packages/mobile/modules/quickjs-native/quickjs-native
+packages/mobile/modules/tlsn-native/tlsn-native
