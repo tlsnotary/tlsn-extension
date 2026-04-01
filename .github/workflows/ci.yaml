@@ -82,11 +82,9 @@ jobs:
         run: npm run build:deps
 
       - name: Install Playwright Chromium
-        working-directory: packages/extension
         run: npx playwright install --with-deps chromium
 
-      - name: Run browser integration test
-        working-directory: packages/extension
+      - name: Run browser tests
         run: npm run test:browser
 
   release:

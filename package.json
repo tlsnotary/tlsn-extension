@@ -20,6 +20,7 @@
     "lint": "npm run build:deps && npm run lint --workspaces --if-present",
     "lint:fix": "npm run build:deps && npm run lint:fix --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
+    "test:browser": "npm run test:browser --workspaces --if-present",
     "clean": "rm -rf packages/*/node_modules packages/*/dist packages/*/build node_modules",
     "build:wasm": "sh packages/tlsn-wasm/build.sh v0.1.0-alpha.14 --no-logging",
     "demo": "npm run dev --workspace=@tlsnotary/demo",
