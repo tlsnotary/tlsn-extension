@@ -504,6 +504,74 @@ export function main() {
       expect(result).toBe('first');
     }, 15_000);
 
+    it('doneWithOverlay() shows overlay, delays, then resolves', async () => {
+      const onRenderPluginUi = vi.fn();
+      const onCloseWindow = vi.fn();
+
+      const lifecycleHost = new Host({
+        onProve: vi.fn(),
+        onRenderPluginUi,
+        onCloseWindow,
+        onOpenWindow: vi.fn(),
+      });
+
+      const pluginCode = `
+export const config = { name: 'Overlay Done' };
+export function main() {
+  doneWithOverlay('overlay-result', { delayMs: 100 });
+  return div({}, ['done']);
+}
+`.trim();
+
+      const eventEmitter = createTestEventEmitter();
+
+      const result = await lifecycleHost.executePlugin(pluginCode, {
+        eventEmitter,
+      });
+      expect(result).toBe('overlay-result');
+      // No window was opened (windowId is 0), so doneWithOverlay falls back
+      // to done()-like behavior — no overlay rendered, no window closed
+      expect(onRenderPluginUi).not.toHaveBeenCalled();
+      expect(onCloseWindow).not.toHaveBeenCalled();
+    }, 15_000);
+
+    it('doneWithOverlay() respects custom title and message', async () => {
+      const onRenderPluginUi = vi.fn();
+      const onCloseWindow = vi.fn();
+
+      const lifecycleHost = new Host({
+        onProve: vi.fn(),
+        onRenderPluginUi,
+        onCloseWindow,
+        onOpenWindow: vi.fn(),
+      });
+
+      const pluginCode = `
+export const config = { name: 'Custom Overlay' };
+export function main() {
+  doneWithOverlay('custom-result', {
+    title: 'All done!',
+    message: 'Closing soon.',
+    delayMs: 50,
+  });
+  return div({}, ['done']);
+}
+`.trim();
+
+      const eventEmitter = createTestEventEmitter();
+
+      const result = await lifecycleHost.executePlugin(pluginCode, {
+        eventEmitter,
+      });
+      expect(result).toBe('custom-result');
+      // No window opened, so no overlay or close
+      expect(onRenderPluginUi).not.toHaveBeenCalled();
+      expect(onCloseWindow).not.toHaveBeenCalled();
+    }, 15_000);
+
+    // Full doneWithOverlay() with window test is in index.browser.test.ts
+    // (requires Playwright to pump the QuickJS async event loop for openWindow)
+
     it('waitForPendingCallbacks timeout resolves after DRAIN_TIMEOUT_MS', async () => {
       // Test the timeout mechanism directly by simulating the lifecycle pattern
       // used inside executePlugin. This avoids QuickJS GC issues in Node tests.

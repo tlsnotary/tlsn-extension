@@ -947,7 +947,7 @@ describe('QuickJS Browser E2E', () => {
 
         const donePromise = host.executePlugin(
           `
-          export async function main() {
+          export function main() {
             const cachedAuth = useState('auth', null);
             const hdrs = useHeaders(h =>
               h.filter(hdr => hdr.requestHeaders.some(rh => rh.name === 'Authorization'))
@@ -964,10 +964,10 @@ describe('QuickJS Browser E2E', () => {
               return button({ onclick: 'handleProve' }, ['Prove with auth']);
             }
 
-            await openWindow('https://example.com', { width: 400, height: 300 });
+            openWindow('https://example.com', { width: 400, height: 300 });
             return div({}, ['Waiting for auth header...']);
           }
-          export async function handleProve() {
+          export function handleProve() {
             const auth = useState('auth', null);
             done(auth);
           }
@@ -1562,6 +1562,90 @@ describe('QuickJS Browser E2E', () => {
         // Cleanup
         document.body.removeChild(container);
       }, 15000);
+    });
+
+    describe('doneWithOverlay', () => {
+      it('should render overlay, delay, then close window and resolve', async () => {
+        const onRenderSpy = vi.fn();
+        const onCloseSpy = vi.fn();
+        const host = new Host({
+          onProve: vi.fn().mockResolvedValue({ proof: 'mock' }),
+          onRenderPluginUi: onRenderSpy,
+          onCloseWindow: onCloseSpy,
+          onOpenWindow: vi.fn().mockResolvedValue({
+            type: 'WINDOW_OPENED',
+            payload: { windowId: 1, uuid: 'test-uuid', tabId: 1 },
+          }),
+        });
+        const emitter = createEventEmitter();
+
+        const donePromise = host.executePlugin(
+          `
+          export function main() {
+            openWindow('https://example.com', { width: 400, height: 300 });
+            return button({ onclick: 'handleClick' }, ['Prove']);
+          }
+          export async function handleClick() {
+            const result = await prove(
+              { url: 'https://example.com', method: 'GET', headers: {} },
+              { verifierUrl: 'http://localhost:7047', proxyUrl: 'ws://localhost:55688', handlers: [] }
+            );
+            doneWithOverlay(result, {
+              title: 'Custom Title',
+              message: 'Custom Message',
+              delayMs: 100,
+            });
+          }
+        `,
+          { eventEmitter: emitter },
+        );
+
+        await new Promise((r) => setTimeout(r, 200));
+
+        emitter.emit({
+          type: 'PLUGIN_UI_CLICK',
+          onclick: 'handleClick',
+          windowId: 1,
+        } as unknown as WindowMessage);
+
+        const result = await donePromise;
+        expect(result).toEqual({ proof: 'mock' });
+
+        // Verify the overlay was rendered with custom title
+        const overlayCall = onRenderSpy.mock.calls.find((call: unknown[]) => {
+          const json = call[1] as DomJson;
+          return typeof json === 'object' && JSON.stringify(json).includes('Custom Title');
+        });
+        expect(overlayCall).toBeDefined();
+        expect(onCloseSpy).toHaveBeenCalledWith(1);
+      });
+
+      it('should fall back to done() behavior when no window is open', async () => {
+        const onRenderSpy = vi.fn();
+        const onCloseSpy = vi.fn();
+        const host = new Host({
+          onProve: vi.fn(),
+          onRenderPluginUi: onRenderSpy,
+          onCloseWindow: onCloseSpy,
+          onOpenWindow: vi.fn(),
+        });
+        const emitter = createEventEmitter();
+
+        const result = await host.executePlugin(
+          `
+          export function main() {
+            doneWithOverlay('no-window-result', { delayMs: 50 });
+            return div({}, ['done']);
+          }
+        `,
+          { eventEmitter: emitter },
+        );
+
+        expect(result).toBe('no-window-result');
+        // No overlay rendered and no window closed when there's no windowId
+        expect(onRenderSpy).not.toHaveBeenCalled();
+        expect(onCloseSpy).not.toHaveBeenCalled();
+      });
     });
   });
 });

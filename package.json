@@ -21,6 +21,7 @@
     "lint": "npm run build:deps && npm run lint --workspaces --if-present",
     "lint:fix": "npm run build:deps && npm run lint:fix --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
+    "test:browser": "npm run test:browser --workspaces --if-present",
     "clean": "rm -rf packages/*/node_modules packages/*/dist packages/*/build node_modules",
     "build:wasm": "sh packages/tlsn-wasm/build.sh v0.1.0-alpha.14 --no-logging",
     "demo": "npm run dev --workspace=@tlsnotary/demo",
@@ -37,12 +38,12 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.5",
     "eslint-plugin-react": "^7.37.5",
-    "eslint-plugin-react-hooks": "^5.2.0",
-    "globals": "^16.5.0",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "globals": "^17.4.0",
     "serve": "^14.2.4",
     "typescript": "^6.0.2",
     "typescript-eslint": "^8.57.2",
-    "vite": "^7.1.7"
+    "vite": "^8.0.3"
   },
   "overrides": {
     "typescript": "^6.0.2"
