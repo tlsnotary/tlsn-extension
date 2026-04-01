@@ -135,7 +135,7 @@ export const SwissBankAdvanced: React.FC = () => {
                 Add a handler to reveal the USD balance from the nested <code>accounts.USD</code>{' '}
                 field.
               </p>
-              <div className="text-xs text-gray-600 bg-gray-100 p-2 rounded">
+              <div className="text-xs text-gray-600 bg-gray-100 p-2 rounded-sm">
                 <code>
                   &#123; type: &apos;RECV&apos;, part: &apos;BODY&apos;, action: &apos;REVEAL&apos;,
                   params: &#123; type: &apos;json&apos;, path: &apos;accounts.USD&apos; &#125;
@@ -163,7 +163,7 @@ export const SwissBankAdvanced: React.FC = () => {
               <p className="text-sm text-gray-700 mb-2">
                 Add a SENT handler to reveal the Cookie header from the request.
               </p>
-              <div className="text-xs text-gray-600 bg-gray-100 p-2 rounded">
+              <div className="text-xs text-gray-600 bg-gray-100 p-2 rounded-sm">
                 <code>
                   &#123; type: &apos;SENT&apos;, part: &apos;HEADERS&apos;, action:
                   &apos;REVEAL&apos;, params: &#123; key: &apos;cookie&apos; &#125; &#125;
@@ -188,7 +188,7 @@ export const SwissBankAdvanced: React.FC = () => {
               <p className="text-sm text-gray-700 mb-2">
                 Add a RECV handler to reveal the Date header from the response.
               </p>
-              <div className="text-xs text-gray-600 bg-gray-100 p-2 rounded">
+              <div className="text-xs text-gray-600 bg-gray-100 p-2 rounded-sm">
                 <code>
                   &#123; type: &apos;RECV&apos;, part: &apos;HEADERS&apos;, action:
                   &apos;REVEAL&apos;, params: &#123; key: &apos;date&apos; &#125; &#125;
@@ -208,7 +208,7 @@ export const SwissBankAdvanced: React.FC = () => {
                 Before targeting specific fields or headers, reveal everything to see what&apos;s
                 available:
               </p>
-              <div className="bg-white p-2 rounded space-y-1">
+              <div className="bg-white p-2 rounded-sm space-y-1">
                 <p className="text-xs font-mono">
                   &#123; type: &apos;RECV&apos;, part: &apos;BODY&apos;, action: &apos;REVEAL&apos;
                   &#125; // See all response body
@@ -230,7 +230,7 @@ export const SwissBankAdvanced: React.FC = () => {
               <p className="text-xs text-gray-700 mb-2">
                 Use dot notation to access nested fields in JSON objects:
               </p>
-              <div className="bg-gray-50 p-2 rounded">
+              <div className="bg-gray-50 p-2 rounded-sm">
                 <p className="text-xs font-mono">
                   params: &#123; type: &apos;json&apos;, path: &apos;parent.child&apos; &#125;
                 </p>
@@ -243,7 +243,7 @@ export const SwissBankAdvanced: React.FC = () => {
               <p className="text-xs text-gray-700 mb-2">
                 Use <code>params.key</code> to precisely target a header (case-insensitive):
               </p>
-              <div className="bg-gray-50 p-2 rounded">
+              <div className="bg-gray-50 p-2 rounded-sm">
                 <p className="text-xs font-mono">
                   params: &#123; key: &apos;header-name&apos; &#125;
                 </p>

@@ -97,11 +97,11 @@ export const SwissBankBasic: React.FC = () => {
               Login with:
               <ul className="list-disc list-inside ml-6">
                 <li>
-                  Username: <code className="bg-gray-200 px-2 py-1 rounded">tkstanczak</code>
+                  Username: <code className="bg-gray-200 px-2 py-1 rounded-sm">tkstanczak</code>
                 </li>
                 <li>
                   Password:{' '}
-                  <code className="bg-gray-200 px-2 py-1 rounded">
+                  <code className="bg-gray-200 px-2 py-1 rounded-sm">
                     TLSNotary is my favorite project
                   </code>
                 </li>
@@ -116,7 +116,7 @@ export const SwissBankBasic: React.FC = () => {
           <p className="text-gray-700 mb-2">
             Find the TODO comment in the code and add this handler:
           </p>
-          <pre className="bg-white p-3 rounded border border-blue-300 overflow-x-auto text-sm">
+          <pre className="bg-white p-3 rounded-sm border border-blue-300 overflow-x-auto text-sm">
             {`{ type: 'RECV', part: 'ALL', action: 'REVEAL',
   params: { type: 'regex', regex: '"CHF"\\\\s*:\\\\s*"[^"]+"' } }`}
           </pre>
