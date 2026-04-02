@@ -26,13 +26,13 @@ async function waitForHealth(url: string, timeoutMs: number): Promise<void> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     try {
-      const resp = await fetch(url);
+      const resp = await fetch(url, { signal: AbortSignal.timeout(3000) });
       if (resp.ok) {
         const text = await resp.text();
         if (text === 'ok') return;
       }
     } catch {
-      // Server not ready yet
+      // Server not ready yet, or request timed out
     }
     await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
   }
@@ -76,7 +76,7 @@ function findVerifierBin(verifierDir: string): { cmd: string; args: string[] } |
 export async function setup(): Promise<void> {
   // Check if the server is already running (handles double-invocation by Vitest)
   try {
-    const resp = await fetch(HEALTH_URL);
+    const resp = await fetch(HEALTH_URL, { signal: AbortSignal.timeout(3000) });
     if (resp.ok && (await resp.text()) === 'ok') {
       console.log(
         `[globalSetup] Verifier already running on port ${VERIFIER_PORT}, skipping start`,
