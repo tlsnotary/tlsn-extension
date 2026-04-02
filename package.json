@@ -29,7 +29,10 @@
     "docker:up": "cd packages/demo && docker compose up --build -d",
     "docker:down": "cd packages/demo && docker compose down",
     "mobile": "npm run start --workspace=@tlsn/mobile",
-    "mobile:ios": "npm run ios --workspace=@tlsn/mobile"
+    "mobile:ios": "npm run ios --workspace=@tlsn/mobile",
+    "mobile:android": "npm run android --workspace=@tlsn/mobile",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
@@ -47,5 +50,10 @@
   },
   "overrides": {
     "typescript": "^6.0.2"
+  },
+  "dependencies": {
+    "expo": "~54.0.33",
+    "react": "19.1.0",
+    "react-native": "0.81.5"
   }
 }
