@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, PanResponder, Animated } from 'react-native';
 import { PluginWebView, InterceptedRequestHeader } from './PluginWebView';
 import { PluginRenderer, DomJson } from './PluginRenderer';
 import { NativeProver, NativeProverHandle, Handler as NativeHandler } from './NativeProver';
@@ -249,6 +249,27 @@ export function PluginScreen({ pluginCode, pluginConfig, onComplete, onError }: 
       });
   }, [proverReady, pluginCode, eventEmitter, host, onComplete, onError]);
 
+  // Draggable plugin UI overlay — drag starts only after a 5px move threshold
+  // so taps on buttons inside the plugin UI still work normally.
+  const pan = useRef(new Animated.ValueXY()).current;
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gestureState) =>
+        Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5,
+      onPanResponderGrant: () => {
+        pan.setOffset({ x: (pan.x as any)._value, y: (pan.y as any)._value });
+        pan.setValue({ x: 0, y: 0 });
+      },
+      onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], {
+        useNativeDriver: false,
+      }),
+      onPanResponderRelease: () => {
+        pan.flattenOffset();
+      },
+    }),
+  ).current;
+
   return (
     <View style={styles.container}>
       {/* Native TLSN prover (headless) */}
@@ -275,11 +296,14 @@ export function PluginScreen({ pluginCode, pluginConfig, onComplete, onError }: 
         </View>
       )}
 
-      {/* Plugin UI overlay */}
+      {/* Plugin UI overlay (draggable) */}
       {domJson && (
-        <View style={styles.pluginUiContainer}>
+        <Animated.View
+          style={[styles.pluginUiContainer, { transform: pan.getTranslateTransform() }]}
+          {...panResponder.panHandlers}
+        >
           <PluginRenderer domJson={domJson} onPluginAction={handlePluginAction} />
-        </View>
+        </Animated.View>
       )}
 
       {/* Loading state */}

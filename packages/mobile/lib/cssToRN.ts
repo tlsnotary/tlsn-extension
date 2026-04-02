@@ -230,7 +230,11 @@ export function cssToRN(cssStyle: Record<string, string> | undefined): Partial<R
 
     // Handle border shorthand
     if (key === 'border') {
-      Object.assign(rnStyle, parseBorder(value));
+      if (value === 'none' || value === '0') {
+        rnStyle.borderWidth = 0;
+      } else {
+        Object.assign(rnStyle, parseBorder(value));
+      }
       continue;
     }
 
@@ -240,14 +244,46 @@ export function cssToRN(cssStyle: Record<string, string> | undefined): Partial<R
       continue;
     }
 
-    // Handle borderRadius: '50%' → large number
-    if (key === 'borderRadius' && value === '50%') {
-      rnStyle.borderRadius = 9999;
+    // Handle borderRadius shorthand
+    if (key === 'borderRadius') {
+      if (value === '50%') {
+        rnStyle.borderRadius = 9999;
+        continue;
+      }
+      // Handle multi-value shorthand: '8px 8px 0 0' → individual corners
+      const parts = value.trim().split(/\s+/);
+      if (parts.length >= 2) {
+        const vals = parts.map((p) => (p === '0' ? 0 : parsePx(p)));
+        if (parts.length === 2) {
+          // top-left+bottom-right, top-right+bottom-left
+          rnStyle.borderTopLeftRadius = vals[0];
+          rnStyle.borderBottomRightRadius = vals[0];
+          rnStyle.borderTopRightRadius = vals[1];
+          rnStyle.borderBottomLeftRadius = vals[1];
+        } else if (parts.length === 3) {
+          rnStyle.borderTopLeftRadius = vals[0];
+          rnStyle.borderTopRightRadius = vals[1];
+          rnStyle.borderBottomLeftRadius = vals[1];
+          rnStyle.borderBottomRightRadius = vals[2];
+        } else {
+          rnStyle.borderTopLeftRadius = vals[0];
+          rnStyle.borderTopRightRadius = vals[1];
+          rnStyle.borderBottomRightRadius = vals[2];
+          rnStyle.borderBottomLeftRadius = vals[3];
+        }
+        continue;
+      }
+      // Single value
+      rnStyle.borderRadius = parsePx(value);
       continue;
     }
 
-    // Handle display: 'flex' → default in RN, skip
+    // Handle display: 'flex' → default in RN, but web defaults to row while RN
+    // defaults to column, so explicitly set flexDirection: 'row' to match web.
     if (key === 'display' && value === 'flex') {
+      if (!cssStyle.flexDirection) {
+        rnStyle.flexDirection = 'row';
+      }
       continue;
     }
 
