@@ -24,23 +24,6 @@ const windowManager = new WindowManager();
 const PROGRESS_ROUTE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const progressRoutes: Map<string, { tabId: number; createdAt: number }> = new Map();
 
-// Create context menu for Developer Console - only for extension icon
-browser.contextMenus.create({
-  id: 'developer-console',
-  title: 'Developer Console',
-  contexts: ['action'],
-});
-
-// Handle context menu clicks
-browser.contextMenus.onClicked.addListener((info, _tab) => {
-  if (info.menuItemId === 'developer-console') {
-    // Open Developer Console
-    browser.tabs.create({
-      url: browser.runtime.getURL('devConsole.html'),
-    });
-  }
-});
-
 // Handle extension install/update
 browser.runtime.onInstalled.addListener((details) => {
   logger.info('Extension installed/updated:', details.reason);

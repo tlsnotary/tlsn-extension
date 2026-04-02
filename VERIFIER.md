@@ -778,10 +778,11 @@ cargo test test_name
    # Load extension in Chrome from packages/extension/build/
    ```
 
-3. **Open DevConsole:**
-   - Right-click extension icon → "Developer Console"
-   - Paste plugin code
-   - Click "Execute"
+3. **Run a plugin:**
+   Use the demo or tutorial page to load and execute plugin code:
+   ```bash
+   npm run demo   # http://localhost:8080
+   ```
 
 4. **Check verifier logs:**
    ```

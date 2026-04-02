@@ -33,5 +33,5 @@
     }
   ],
   "host_permissions": ["<all_urls>"],
-  "permissions": ["offscreen", "webRequest", "activeTab", "tabs", "windows", "contextMenus"]
+  "permissions": ["offscreen", "webRequest", "activeTab", "tabs", "windows"]
 }
