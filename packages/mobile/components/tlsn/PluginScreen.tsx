@@ -251,24 +251,30 @@ export function PluginScreen({ pluginCode, pluginConfig, onComplete, onError }: 
 
   // Draggable plugin UI overlay — drag starts only after a 5px move threshold
   // so taps on buttons inside the plugin UI still work normally.
-  const pan = useRef(new Animated.ValueXY()).current;
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_, gestureState) =>
-        Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5,
-      onPanResponderGrant: () => {
-        pan.setOffset({ x: (pan.x as any)._value, y: (pan.y as any)._value });
-        pan.setValue({ x: 0, y: 0 });
-      },
-      onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], {
-        useNativeDriver: false,
+  // Uses useMemo (not useRef) because these values are read during render.
+  const pan = useMemo(() => new Animated.ValueXY(), []);
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => false,
+        onMoveShouldSetPanResponder: (_, gestureState) =>
+          Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5,
+        onPanResponderGrant: () => {
+          pan.setOffset({
+            x: (pan.x as unknown as { _value: number })._value,
+            y: (pan.y as unknown as { _value: number })._value,
+          });
+          pan.setValue({ x: 0, y: 0 });
+        },
+        onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], {
+          useNativeDriver: false,
+        }),
+        onPanResponderRelease: () => {
+          pan.flattenOffset();
+        },
       }),
-      onPanResponderRelease: () => {
-        pan.flattenOffset();
-      },
-    }),
-  ).current;
+    [pan],
+  );
 
   return (
     <View style={styles.container}>

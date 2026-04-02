@@ -2,7 +2,7 @@
 
 React Native/Expo mobile app for iOS and Android with native TLSNotary proof generation.
 
-The app features a plugin gallery where users can select from available plugins (Swiss Bank, Spotify, Duolingo), log in via an embedded WebView, and generate cryptographic proofs of API responses using MPC-TLS.
+The app features a plugin gallery where users can select from available plugins (Twitter, Swiss Bank, Spotify, Duolingo, Uber, Discord), log in via an embedded WebView, and generate cryptographic proofs of API responses using MPC-TLS.
 
 ## Prerequisites
 
@@ -10,24 +10,24 @@ You need to install these manually — the build script handles the rest automat
 
 ### Required for all platforms
 
-| Tool | Install | Notes |
-|------|---------|-------|
-| **Node.js >= 18** | [nodejs.org](https://nodejs.org) | Needed for JS build pipeline |
-| **Rust** | `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \| sh` | Needed to compile the native TLS prover |
+| Tool              | Install                                                           | Notes                                   |
+| ----------------- | ----------------------------------------------------------------- | --------------------------------------- |
+| **Node.js >= 18** | [nodejs.org](https://nodejs.org)                                  | Needed for JS build pipeline            |
+| **Rust**          | `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \| sh` | Needed to compile the native TLS prover |
 
 ### iOS only
 
-| Tool | Install | Notes |
-|------|---------|-------|
-| **Xcode** | Mac App Store | Includes iOS simulator |
+| Tool          | Install                      | Notes                               |
+| ------------- | ---------------------------- | ----------------------------------- |
+| **Xcode**     | Mac App Store                | Includes iOS simulator              |
 | **CocoaPods** | `sudo gem install cocoapods` | Expo may install this automatically |
 
 ### Android only
 
-| Tool | Install | Notes |
-|------|---------|-------|
-| **Android Studio** | [developer.android.com](https://developer.android.com/studio) | Includes SDK, emulator, and NDK |
-| **Android NDK** | Android Studio → SDK Manager → SDK Tools → NDK | Required for native C/Rust compilation |
+| Tool               | Install                                                       | Notes                                  |
+| ------------------ | ------------------------------------------------------------- | -------------------------------------- |
+| **Android Studio** | [developer.android.com](https://developer.android.com/studio) | Includes SDK, emulator, JDK, and NDK   |
+| **Android NDK**    | Android Studio → SDK Manager → SDK Tools → NDK                | Required for native C/Rust compilation |
 
 ### Auto-installed by `build.sh`
 
@@ -46,8 +46,11 @@ The build script auto-detects `ANDROID_HOME` from common install locations (`~/L
 
 ```bash
 export ANDROID_HOME="$HOME/Library/Android/sdk"
+export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
 export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
 ```
+
+`JAVA_HOME` points to the JDK bundled with Android Studio — Gradle needs it to compile the Android app.
 
 Then reload: `source ~/.zshrc`.
 
@@ -62,24 +65,28 @@ npm install
 ### One command to build & run
 
 **iOS:**
+
 ```bash
 cd packages/mobile
 ./build.sh ios
 ```
 
 **Android:**
+
 ```bash
 cd packages/mobile
 ./build.sh android
 ```
 
 Or from the repo root:
+
 ```bash
 npm run mobile:ios      # Build deps + launch iOS
 npm run mobile:android  # Build deps + launch Android
 ```
 
 The build script automatically:
+
 1. Auto-detects `ANDROID_HOME` (Android only)
 2. Builds JS dependencies (`@tlsn/common` → `@tlsn/plugin-sdk` → `@tlsn/plugins`)
 3. Downloads QuickJS C sources (if not already present)
@@ -134,12 +141,14 @@ npm install (root)
 The pre-built XCFramework (iOS) and .so (Android) are committed in `modules/tlsn-native/`. You only need to rebuild if you change `packages/tlsn-mobile` Rust code. The build script auto-installs the required Rust targets and `cargo-ndk`.
 
 **Rebuild:**
+
 ```bash
 ./build.sh --native              # Both platforms
 ./build.sh ios --rebuild-native  # iOS only, then launch
 ```
 
 Or directly:
+
 ```bash
 cd packages/tlsn-mobile
 ./build-ios.sh      # → modules/tlsn-native/ios/
@@ -179,10 +188,7 @@ packages/mobile/
 │   └── _layout.tsx             # Root stack layout
 ├── assets/
 │   └── plugins/
-│       ├── registry.ts         # Plugin registry (Swiss Bank, Spotify, Duolingo)
-│       ├── swissbankPluginCode.ts
-│       ├── spotifyPluginCode.ts
-│       └── duolingoPluginCode.ts
+│       └── registry.ts         # Plugin registry (loads code from @tlsn/plugins)
 ├── components/
 │   └── tlsn/
 │       ├── NativeProver.tsx    # Native prover bridge (iOS + Android)
@@ -226,6 +232,7 @@ If you see `"async functions are unsupported"` errors, rebuild the plugins: `npm
 ### Native Bridge
 
 The Rust prover (`packages/tlsn-mobile`) is compiled to:
+
 - **iOS**: Static library (`.a`) packaged as XCFramework, bridged via Swift/UniFFI
 - **Android**: Shared library (`.so`), bridged via Kotlin/UniFFI
 
@@ -236,29 +243,41 @@ On Android, the Expo Kotlin bridge cannot auto-convert nested JS objects, so par
 ### Viewing Native Logs
 
 **iOS:**
+
 - Xcode Console: Open `ios/TLSNMobile.xcworkspace`, run app, view Debug Console
 - Terminal: `xcrun simctl spawn booted log stream | grep -i tlsn`
 
 **Android:**
+
 - Android Studio Logcat: Filter by `TlsnNative`
 - Terminal: `adb logcat | grep -i tlsn`
 
 ## Troubleshooting
 
 ### "async functions are unsupported"
+
 Hermes cannot execute `async/await` in dynamically evaluated code. Plugins must be compiled with `target: 'es2016'`. Rebuild: `npm run build:plugins` from the repo root.
 
+### "Unable to locate a Java Runtime" (Android)
+
+Gradle needs a JDK. Android Studio ships one — set `JAVA_HOME` to point to it. See [Environment Setup](#environment-setup).
+
 ### "ANDROID_HOME not set and could not auto-detect Android SDK"
+
 The build script checks common locations (`~/Library/Android/sdk`, `~/Android/Sdk`). If your SDK is elsewhere, set `ANDROID_HOME` manually. See [Environment Setup](#environment-setup).
 
 ### Expo Go errors / native module not found
+
 The app uses native modules (`tlsn-native`, `quickjs-native`, `@react-native-cookies/cookies`) that are **not** available in Expo Go. Always use `expo run:android` or `expo run:ios` — never `expo start --android`.
 
 ### Metro "Unable to resolve" plugin imports
+
 Ensure plugins are built: `npm run build:plugins`. The mobile plugin files live in `packages/plugins/dist/mobile/`.
 
 ### MPC-TLS hangs or times out (Android)
+
 The Android emulator clock drifts. Sync it before proving:
+
 ```bash
 adb shell cmd alarm set-time $(( $(date +%s) * 1000 ))
 ```
