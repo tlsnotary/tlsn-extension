@@ -83,7 +83,13 @@ describe('cssToRN', () => {
     expect(result.elevation).toBeGreaterThan(0);
   });
 
-  it('skips display flex (default in RN)', () => {
-    expect(cssToRN({ display: 'flex' })).toEqual({});
+  it('maps display flex to flexDirection row (web default)', () => {
+    expect(cssToRN({ display: 'flex' })).toEqual({ flexDirection: 'row' });
+  });
+
+  it('does not override explicit flexDirection when display flex', () => {
+    expect(cssToRN({ display: 'flex', flexDirection: 'column' })).toEqual({
+      flexDirection: 'column',
+    });
   });
 });
