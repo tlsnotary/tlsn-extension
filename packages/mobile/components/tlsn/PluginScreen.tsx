@@ -2,7 +2,12 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, StyleSheet, ActivityIndicator, PanResponder, Animated } from 'react-native';
 import { PluginWebView, InterceptedRequestHeader } from './PluginWebView';
 import { PluginRenderer, DomJson } from './PluginRenderer';
-import { NativeProver, NativeProverHandle, Handler as NativeHandler } from './NativeProver';
+import {
+  NativeProver,
+  NativeProverHandle,
+  Handler as NativeHandler,
+  ProveProgress,
+} from './NativeProver';
 import {
   MobilePluginHost,
   PluginConfig,
@@ -225,6 +230,14 @@ export function PluginScreen({ pluginCode, pluginConfig, onComplete, onError }: 
     [host],
   );
 
+  // Forward native prover progress events to plugin state
+  const handleProveProgress = useCallback(
+    (progress: ProveProgress) => {
+      host.setProveProgress(progress);
+    },
+    [host],
+  );
+
   // Start plugin execution when prover is ready
   useEffect(() => {
     if (!proverReady || isRunning) return;
@@ -289,6 +302,7 @@ export function PluginScreen({ pluginCode, pluginConfig, onComplete, onError }: 
           console.error('[PluginScreen] Native prover error:', err);
           setError(`Prover error: ${err}`);
         }}
+        onProgress={handleProveProgress}
       />
 
       {/* WebView for login/header interception */}

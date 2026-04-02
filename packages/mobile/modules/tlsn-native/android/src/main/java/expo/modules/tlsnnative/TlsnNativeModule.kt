@@ -11,6 +11,7 @@ import uniffi.tlsn_mobile.HandlerType
 import uniffi.tlsn_mobile.HandlerPart
 import uniffi.tlsn_mobile.HandlerAction
 import uniffi.tlsn_mobile.HandlerParams
+import uniffi.tlsn_mobile.ProgressCallback
 import uniffi.tlsn_mobile.initialize as rustInitialize
 import uniffi.tlsn_mobile.prove as rustProve
 import org.json.JSONObject
@@ -39,6 +40,9 @@ private fun jsonToNative(value: Any?): Any? = when (value) {
 class TlsnNativeModule : Module() {
     override fun definition() = ModuleDefinition {
         Name("TlsnNative")
+
+        // Declare events that can be sent to JS
+        Events("onProveProgress")
 
         Function("initialize") {
             rustInitialize()
@@ -150,8 +154,19 @@ class TlsnNativeModule : Module() {
                         handlers = handlers
                     )
 
-                    // Call the prove function
-                    val result = rustProve(request, options)
+                    // Create progress callback that emits Expo events
+                    val progressCallback = object : ProgressCallback {
+                        override fun onProgress(step: String, progress: Double, message: String) {
+                            this@TlsnNativeModule.sendEvent("onProveProgress", mapOf(
+                                "step" to step,
+                                "progress" to progress,
+                                "message" to message
+                            ))
+                        }
+                    }
+
+                    // Call the prove function with progress callback
+                    val result = rustProve(request, options, progressCallback)
 
                     // Convert response headers
                     val responseHeaders = result.response.headers.map { header ->

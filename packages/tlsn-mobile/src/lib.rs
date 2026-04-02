@@ -233,6 +233,22 @@ impl HttpRequest {
 }
 
 // ---------------------------------------------------------------------------
+// Progress callback
+// ---------------------------------------------------------------------------
+
+/// Callback interface for receiving proof progress updates.
+///
+/// Implement this on the Swift/Kotlin side to receive real-time progress
+/// from the Rust prover. Each call includes:
+/// - `step`: machine-readable step name (e.g. "MPC_SETUP")
+/// - `progress`: 0.0–1.0 fraction
+/// - `message`: human-readable description
+#[uniffi::export(callback_interface)]
+pub trait ProgressCallback: Send + Sync {
+    fn on_progress(&self, step: String, progress: f64, message: String);
+}
+
+// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
@@ -247,7 +263,7 @@ pub fn initialize() -> Result<(), TlsnError> {
     Ok(())
 }
 
-/// High-level prove function.
+/// High-level prove function with progress reporting.
 ///
 /// Handles the entire proof flow:
 /// 1. Register session with verifier
@@ -257,9 +273,13 @@ pub fn initialize() -> Result<(), TlsnError> {
 /// 5. Generate and finalize proof
 /// 6. Send reveal config to verifier session
 #[uniffi::export]
-pub fn prove(request: HttpRequest, options: ProverOptions) -> Result<ProofResult, TlsnError> {
+pub fn prove(
+    request: HttpRequest,
+    options: ProverOptions,
+    progress: Option<Box<dyn ProgressCallback>>,
+) -> Result<ProofResult, TlsnError> {
     let rt = tokio::runtime::Runtime::new()
         .map_err(|e| TlsnError::InitializationFailed(e.to_string()))?;
 
-    rt.block_on(prover::prove_async(request, options))
+    rt.block_on(prover::prove_async(request, options, progress.as_deref()))
 }

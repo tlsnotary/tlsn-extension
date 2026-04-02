@@ -51,6 +51,12 @@ interface ProveResult {
   handlersReceived?: number;
 }
 
+export interface ProveProgress {
+  step: string;
+  progress: number;
+  message: string;
+}
+
 export interface NativeProveParams {
   url: string;
   method: string;
@@ -71,6 +77,7 @@ export interface NativeProverHandle {
 interface NativeProverProps {
   onReady?: () => void;
   onError?: (error: string) => void;
+  onProgress?: (progress: ProveProgress) => void;
 }
 
 // Lazy load the native module to avoid errors during metro bundling
@@ -78,6 +85,7 @@ let TlsnNative: {
   initialize: () => void;
   prove: (request: ProveRequest, options: ProverOptions) => Promise<ProveResult>;
   isAvailable: () => boolean;
+  addProgressListener: (callback: (event: ProveProgress) => void) => { remove: () => void };
 } | null = null;
 
 function getNativeModule() {
@@ -93,11 +101,13 @@ function getNativeModule() {
 }
 
 function NativeProverComponent(
-  { onReady, onError }: NativeProverProps,
+  { onReady, onError, onProgress }: NativeProverProps,
   ref: React.ForwardedRef<NativeProverHandle>,
 ) {
   const [isReady, setIsReady] = useState(false);
   const initAttempted = useRef(false);
+  const onProgressRef = useRef(onProgress);
+  onProgressRef.current = onProgress; // eslint-disable-line react-hooks/refs
 
   useEffect(() => {
     if (initAttempted.current) return;
@@ -133,6 +143,21 @@ function NativeProverComponent(
 
     initializeModule();
   }, [onReady, onError]);
+
+  // Subscribe to native progress events
+  useEffect(() => {
+    const module = getNativeModule();
+    if (!module) return;
+
+    const subscription = module.addProgressListener((event: ProveProgress) => {
+      console.log(
+        `[NativeProver] Progress: ${event.step} ${Math.round(event.progress * 100)}% - ${event.message}`,
+      );
+      onProgressRef.current?.(event);
+    });
+
+    return () => subscription.remove();
+  }, []);
 
   const prove = useCallback(
     async (params: NativeProveParams): Promise<ProveResult> => {

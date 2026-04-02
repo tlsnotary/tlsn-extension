@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import { EventEmitter, type Subscription } from 'expo-modules-core';
 
 // Import the native module
 import TlsnNativeModule from './TlsnNativeModule';
@@ -52,6 +53,14 @@ export interface ProveResult {
   handlersReceived?: number;
 }
 
+export interface ProveProgress {
+  step: string;
+  progress: number;
+  message: string;
+}
+
+const emitter = new EventEmitter(TlsnNativeModule);
+
 /**
  * Initialize the TLSN library.
  * Call this once at app startup.
@@ -90,6 +99,16 @@ export async function prove(request: ProveRequest, options: ProverOptions): Prom
     ) as unknown as Promise<ProveResult>;
   }
   return TlsnNativeModule.prove(request, options) as unknown as Promise<ProveResult>;
+}
+
+/**
+ * Subscribe to proof progress events from the native prover.
+ *
+ * @param callback - Called with progress data at each proof step
+ * @returns Subscription that can be removed when no longer needed
+ */
+export function addProgressListener(callback: (event: ProveProgress) => void): Subscription {
+  return emitter.addListener('onProveProgress', callback);
 }
 
 /**
