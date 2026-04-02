@@ -152,4 +152,73 @@ describe('ProveManager', () => {
       /Session not found/,
     );
   });
+
+  // -----------------------------------------------------------------------
+  // Per-prover progress callbacks (concurrency fix)
+  // -----------------------------------------------------------------------
+  describe('Per-prover progress callbacks', () => {
+    it('routes WASM progress to the correct prover callback', async () => {
+      await pm.init();
+
+      const callsA: string[] = [];
+      const callsB: string[] = [];
+
+      pm.setProgressCallbackForProver('prover-A', (data) => callsA.push(data.message));
+      pm.setProgressCallbackForProver('prover-B', (data) => callsB.push(data.message));
+
+      // Simulate WASM_PROGRESS worker message — broadcasts to all callbacks
+      const listener = mockAddEventListener.mock.calls[0][1];
+      listener({
+        data: { type: 'WASM_PROGRESS', step: 'TEST', progress: 0.5, message: 'half done' },
+      });
+
+      expect(callsA).toEqual(['half done']);
+      expect(callsB).toEqual(['half done']);
+    });
+
+    it('does not fire callback after prover is cleaned up', async () => {
+      await pm.init();
+
+      const calls: string[] = [];
+      pm.setProgressCallbackForProver('prover-X', (data) => calls.push(data.message));
+
+      // Simulate cleanup (removes callback)
+      (pm as unknown as { sessions: Map<string, unknown> }).sessions.set('prover-X', {
+        sessionId: 'sess-x',
+        webSocket: { readyState: 3, close: vi.fn() },
+        response: null,
+        responseReceived: false,
+      });
+      await pm.cleanupProver('prover-X');
+
+      // Fire progress after cleanup
+      const listener = mockAddEventListener.mock.calls[0][1];
+      listener({
+        data: { type: 'WASM_PROGRESS', step: 'TEST', progress: 1, message: 'late' },
+      });
+
+      expect(calls).toEqual([]);
+    });
+
+    it('isolates callbacks — removing one does not affect the other', async () => {
+      await pm.init();
+
+      const callsA: string[] = [];
+      const callsB: string[] = [];
+
+      pm.setProgressCallbackForProver('prover-A', (data) => callsA.push(data.message));
+      pm.setProgressCallbackForProver('prover-B', (data) => callsB.push(data.message));
+
+      // Remove A's callback
+      pm.setProgressCallbackForProver('prover-A', null);
+
+      const listener = mockAddEventListener.mock.calls[0][1];
+      listener({
+        data: { type: 'WASM_PROGRESS', step: 'TEST', progress: 1, message: 'msg' },
+      });
+
+      expect(callsA).toEqual([]);
+      expect(callsB).toEqual(['msg']);
+    });
+  });
 });
