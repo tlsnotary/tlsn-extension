@@ -26,15 +26,64 @@ interface ChromeRuntimeLike {
 import { validateProvePermission, validateOpenWindowPermission } from './permissionValidator';
 
 export class SessionManager {
-  private host: Host;
+  /** Shared Host instance — only used for config extraction (stateless). */
+  private configHost: Host;
   private proveManager: ProveManager;
   private initPromise: Promise<void>;
-  private currentConfig: PluginConfig | null = null;
-  private currentRequestId: string | null = null;
-  private currentSessionData: Record<string, string> | null = null;
 
   constructor() {
-    this.host = new Host({
+    // Lightweight Host for config extraction only (no execution-scoped state)
+    this.configHost = new Host({
+      onProve: async () => {
+        throw new Error('Config host should not be used for proving');
+      },
+      onRenderPluginUi: () => {},
+      onCloseWindow: () => {},
+      onOpenWindow: async () => {
+        throw new Error('Config host should not be used for opening windows');
+      },
+    });
+    this.proveManager = new ProveManager();
+    this.initPromise = this.proveManager.init();
+  }
+
+  private static getChromeRuntime(): ChromeRuntimeLike {
+    const chromeRuntime = (global as unknown as { chrome?: { runtime?: ChromeRuntimeLike } }).chrome
+      ?.runtime;
+    if (!chromeRuntime?.sendMessage) {
+      throw new Error('Chrome runtime not available');
+    }
+    return chromeRuntime;
+  }
+
+  /**
+   * Create a per-execution Host with callbacks that close over execution-scoped
+   * state (config, requestId, sessionData). This prevents concurrent plugin
+   * executions from contaminating each other's permission validation.
+   */
+  private createExecutionHost(
+    pluginConfig: PluginConfig | null,
+    requestId: string | null,
+    execSessionData: Record<string, string> | null,
+  ): Host {
+    const proveManager = this.proveManager;
+
+    const emitProgress = (step: string, progress: number, message: string, source = 'js') => {
+      if (!requestId) return;
+      const chromeRuntime = SessionManager.getChromeRuntime();
+      chromeRuntime
+        .sendMessage({
+          type: 'PROVE_PROGRESS',
+          requestId,
+          step,
+          progress,
+          message,
+          source,
+        })
+        .catch((err: unknown) => logger.warn('[SessionManager] emitProgress failed:', err));
+    };
+
+    return new Host({
       onProve: async (
         requestOptions: {
           url: string;
@@ -60,24 +109,24 @@ export class SessionManager {
           throw new Error('Invalid URL');
         }
 
-        // Validate permissions before proceeding
-        validateProvePermission(requestOptions, proverOptions, this.currentConfig);
+        // Validate permissions using this execution's config (not shared state)
+        validateProvePermission(requestOptions, proverOptions, pluginConfig);
 
         // Build sessionData with defaults + execCode-level data + plugin-provided data
         const sessionData: Record<string, string> = {
-          ...this.currentSessionData,
+          ...execSessionData,
           ...proverOptions.sessionData,
         };
 
         // Helper: emit to both the page (via background) and the plugin UI
         const emitBoth = (step: string, progress: number, message: string) => {
-          this.emitProgress(step, progress, message);
+          emitProgress(step, progress, message);
           onProgress?.({ step, progress, message });
         };
 
         emitBoth('CONNECTING', 0.0, 'Connecting to verifier...');
 
-        const proverId = await this.proveManager.createProver(
+        const proverId = await proveManager.createProver(
           url.hostname,
           proverOptions.verifierUrl,
           proverOptions.maxRecvData,
@@ -85,12 +134,19 @@ export class SessionManager {
           sessionData,
         );
 
+        // Register per-prover WASM progress callback
+        if (requestId) {
+          proveManager.setProgressCallbackForProver(proverId, (data) => {
+            emitProgress(data.step, data.progress, data.message, data.source);
+          });
+        }
+
         try {
           emitBoth('MPC_SETUP', 0.15, 'MPC session established');
 
           // Send request via ProveManager which handles IoChannel creation in the worker.
           emitBoth('SENDING_REQUEST', 0.3, 'Sending request...');
-          await this.proveManager.sendRequest(proverId, proverOptions.proxyUrl, {
+          await proveManager.sendRequest(proverId, proverOptions.proxyUrl, {
             url: requestOptions.url,
             method: requestOptions.method as Method,
             headers: requestOptions.headers,
@@ -100,43 +156,39 @@ export class SessionManager {
           // Compute reveal ranges via WASM (parses HTTP transcripts + maps handlers to byte ranges)
           emitBoth('PROCESSING_TRANSCRIPT', 0.5, 'Processing transcript...');
           const { sentRanges, recvRanges, sentRangesWithHandlers, recvRangesWithHandlers } =
-            await this.proveManager.computeReveal(proverId, proverOptions.handlers);
+            await proveManager.computeReveal(proverId, proverOptions.handlers);
 
           logger.debug('sentRanges', sentRanges);
           logger.debug('recvRanges', recvRanges);
 
           // Send reveal config (ranges + handlers) to verifier BEFORE calling reveal()
           emitBoth('SENDING_REVEAL_CONFIG', 0.6, 'Configuring selective disclosure...');
-          await this.proveManager.sendRevealConfig(proverId, {
+          await proveManager.sendRevealConfig(proverId, {
             sent: sentRangesWithHandlers,
             recv: recvRangesWithHandlers,
           });
 
           // Reveal the ranges
           emitBoth('GENERATING_PROOF', 0.7, 'Generating proof...');
-          await this.proveManager.reveal(proverId, {
+          await proveManager.reveal(proverId, {
             sent: sentRanges,
             recv: recvRanges,
           });
 
           // Get structured response from verifier (now includes handler results)
           emitBoth('WAITING_FOR_VERIFICATION', 0.85, 'Waiting for verification...');
-          const response = await this.proveManager.getResponse(proverId);
+          const response = await proveManager.getResponse(proverId);
 
           emitBoth('COMPLETE', 1.0, 'Complete');
 
           return response;
         } finally {
           // Always clean up prover resources to prevent memory leaks
-          await this.proveManager.cleanupProver(proverId);
+          await proveManager.cleanupProver(proverId);
         }
       },
       onRenderPluginUi: (windowId: number, result: DomJson) => {
-        const chromeRuntime = (global as unknown as { chrome?: { runtime?: ChromeRuntimeLike } })
-          .chrome?.runtime;
-        if (!chromeRuntime?.sendMessage) {
-          throw new Error('Chrome runtime not available');
-        }
+        const chromeRuntime = SessionManager.getChromeRuntime();
         chromeRuntime.sendMessage({
           type: 'RENDER_PLUGIN_UI',
           json: result,
@@ -144,11 +196,7 @@ export class SessionManager {
         });
       },
       onCloseWindow: (windowId: number) => {
-        const chromeRuntime = (global as unknown as { chrome?: { runtime?: ChromeRuntimeLike } })
-          .chrome?.runtime;
-        if (!chromeRuntime?.sendMessage) {
-          throw new Error('Chrome runtime not available');
-        }
+        const chromeRuntime = SessionManager.getChromeRuntime();
         logger.debug('onCloseWindow', windowId);
         return chromeRuntime.sendMessage({
           type: 'CLOSE_WINDOW',
@@ -159,14 +207,10 @@ export class SessionManager {
         url: string,
         options?: { width?: number; height?: number; showOverlay?: boolean },
       ) => {
-        // Validate permissions before proceeding
-        validateOpenWindowPermission(url, this.currentConfig);
+        // Validate permissions using this execution's config (not shared state)
+        validateOpenWindowPermission(url, pluginConfig);
 
-        const chromeRuntime = (global as unknown as { chrome?: { runtime?: ChromeRuntimeLike } })
-          .chrome?.runtime;
-        if (!chromeRuntime?.sendMessage) {
-          throw new Error('Chrome runtime not available');
-        }
+        const chromeRuntime = SessionManager.getChromeRuntime();
         return chromeRuntime.sendMessage({
           type: 'OPEN_WINDOW',
           url,
@@ -176,27 +220,6 @@ export class SessionManager {
         }) as Promise<OpenWindowResponse>;
       },
     });
-    this.proveManager = new ProveManager();
-    this.initPromise = this.proveManager.init();
-  }
-
-  /** Send a progress event to the background script for routing to the page. */
-  private emitProgress(step: string, progress: number, message: string, source = 'js') {
-    if (!this.currentRequestId) return;
-    const chromeRuntime = (global as unknown as { chrome?: { runtime?: ChromeRuntimeLike } }).chrome
-      ?.runtime;
-    if (chromeRuntime?.sendMessage) {
-      chromeRuntime
-        .sendMessage({
-          type: 'PROVE_PROGRESS',
-          requestId: this.currentRequestId,
-          step,
-          progress,
-          message,
-          source,
-        })
-        .catch((err: unknown) => logger.warn('[SessionManager] emitProgress failed:', err));
-    }
   }
 
   async awaitInit(): Promise<SessionManager> {
@@ -209,51 +232,60 @@ export class SessionManager {
     requestId?: string,
     sessionData?: Record<string, string>,
   ): Promise<unknown> {
-    const chromeRuntime = (global as unknown as { chrome?: { runtime?: ChromeRuntimeLike } }).chrome
-      ?.runtime;
-    if (!chromeRuntime?.onMessage) {
+    const chromeRuntime = SessionManager.getChromeRuntime();
+    if (!chromeRuntime.onMessage) {
       throw new Error('Chrome runtime not available');
     }
 
-    // Store requestId, sessionData, and wire up WASM progress callback
-    this.currentRequestId = requestId || null;
-    this.currentSessionData = sessionData || null;
-    this.proveManager.setProgressCallback(
-      this.currentRequestId
-        ? (data) => {
-            this.emitProgress(data.step, data.progress, data.message, data.source);
-          }
-        : null,
-    );
+    const execRequestId = requestId || null;
 
-    // Extract and store plugin config before execution for permission validation
-    this.currentConfig = await this.extractConfig(code);
-    logger.debug('[SessionManager] Extracted plugin config:', this.currentConfig);
+    // Extract plugin config for permission validation (scoped to this execution)
+    const pluginConfig = await this.extractConfig(code);
+    logger.debug('[SessionManager] Extracted plugin config:', pluginConfig);
 
-    try {
-      return await this.host.executePlugin(code, {
-        eventEmitter: {
-          addListener: (listener: (message: WindowMessage) => void) => {
-            chromeRuntime.onMessage.addListener(listener as (message: unknown) => void);
-          },
-          removeListener: (listener: (message: WindowMessage) => void) => {
-            chromeRuntime.onMessage.removeListener(listener as (message: unknown) => void);
-          },
-          emit: (message: WindowMessage) => {
-            chromeRuntime.sendMessage(message);
-          },
+    // Create a per-execution Host with callbacks that close over this execution's state
+    const host = this.createExecutionHost(pluginConfig, execRequestId, sessionData || null);
+
+    // Wrap the plugin's event listener so it does NOT return a Promise to
+    // Chrome's messaging API. The plugin listener (makeOpenWindow's onMessage)
+    // is async, so it always returns a Promise. If added directly to
+    // chrome.runtime.onMessage, Chrome may use its Promise<undefined> as the
+    // response to unrelated messages (e.g. EXTRACT_CONFIG), racing with the
+    // offscreen's main listener that returns the actual result.
+    const listenerWrappers = new Map<
+      (message: WindowMessage) => void,
+      (message: unknown) => void
+    >();
+
+    return host.executePlugin(code, {
+      eventEmitter: {
+        addListener: (listener: (message: WindowMessage) => void) => {
+          const wrapper = (message: unknown) => {
+            // Fire-and-forget: don't return the Promise so Chrome doesn't
+            // treat it as a messaging response.
+            listener(message as WindowMessage);
+          };
+          listenerWrappers.set(listener, wrapper);
+          chromeRuntime.onMessage.addListener(wrapper);
         },
-      });
-    } finally {
-      this.currentSessionData = null;
-      this.currentRequestId = null;
-    }
+        removeListener: (listener: (message: WindowMessage) => void) => {
+          const wrapper = listenerWrappers.get(listener);
+          if (wrapper) {
+            chromeRuntime.onMessage.removeListener(wrapper);
+            listenerWrappers.delete(listener);
+          }
+        },
+        emit: (message: WindowMessage) => {
+          chromeRuntime.sendMessage(message);
+        },
+      },
+    });
   }
 
   /**
    * Extract plugin config using QuickJS sandbox (more reliable than regex)
    */
   async extractConfig(code: string): Promise<PluginConfig | null> {
-    return (await this.host.getPluginConfig(code)) ?? null;
+    return (await this.configHost.getPluginConfig(code)) ?? null;
   }
 }
