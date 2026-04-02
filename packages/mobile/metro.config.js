@@ -25,11 +25,9 @@ config.resolver.extraNodeModules = {
   'react-native': path.resolve(projectRoot, 'node_modules/react-native'),
 };
 
-// 4. Block certain packages from being hoisted from the monorepo root
-config.resolver.blockList = [
-  // Block react and react-native from monorepo root
-  new RegExp(`^${monorepoRoot}/node_modules/react/.*$`),
-  new RegExp(`^${monorepoRoot}/node_modules/react-native/.*$`),
-];
+// 4. Block the root copy of react to avoid duplicate React instances.
+// Note: react-native is NOT blocked because it only exists at the root
+// and is symlinked into the local node_modules via postinstall.
+config.resolver.blockList = [new RegExp(`^${monorepoRoot}/node_modules/react/.*$`)];
 
 module.exports = config;

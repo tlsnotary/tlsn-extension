@@ -16,7 +16,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "serve:prover": "node assets/prover/server.js",
-    "postinstall": "ln -sf ../modules/tlsn-native node_modules/tlsn-native || true; ln -sf ../modules/quickjs-native node_modules/quickjs-native || true"
+    "postinstall": "ln -sf ../modules/tlsn-native node_modules/tlsn-native || true; ln -sf ../modules/quickjs-native node_modules/quickjs-native || true; ln -sf ../../../node_modules/react-native node_modules/react-native || true"
   },
   "dependencies": {
     "@tlsn/plugins": "*",
