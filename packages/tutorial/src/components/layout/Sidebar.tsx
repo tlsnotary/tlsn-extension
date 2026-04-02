@@ -38,7 +38,7 @@ export const Sidebar: React.FC = () => {
                     disabled={isLocked}
                     className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
                       isCurrent
-                        ? 'bg-gradient-to-r from-[#667eea] to-[#764ba2] text-white'
+                        ? 'bg-linear-to-r from-gradient-start to-gradient-end text-white'
                         : isCompleted
                           ? 'bg-green-100 text-green-800 hover:bg-green-200'
                           : isLocked
