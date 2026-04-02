@@ -2,13 +2,7 @@
 /* eslint-disable */
 export const __wbg_prover_free: (a: number, b: number) => void;
 export const __wbg_verifier_free: (a: number, b: number) => void;
-export const compute_reveal: (
-  a: number,
-  b: number,
-  c: number,
-  d: number,
-  e: any,
-) => [number, number, number];
+export const compute_reveal: (a: number, b: number, c: number, d: number, e: any) => [number, number, number];
 export const initialize: (a: number, b: number) => any;
 export const prover_new: (a: any) => [number, number, number];
 export const prover_reveal: (a: number, b: any) => any;
@@ -26,43 +20,13 @@ export const spawner_run: (a: number, b: number, c: number) => any;
 export const startSpawner: () => any;
 export const web_spawn_recover_spawner: (a: number) => number;
 export const web_spawn_start_worker: (a: number) => void;
-export const ring_core_0_17_14__bn_mul_mont: (
-  a: number,
-  b: number,
-  c: number,
-  d: number,
-  e: number,
-  f: number,
-) => void;
-export const wasm_bindgen_57db2e356bef66d7___closure__destroy___dyn_core_a0678809250066c8___ops__function__FnMut__wasm_bindgen_57db2e356bef66d7___JsValue____Output_______: (
-  a: number,
-  b: number,
-) => void;
-export const wasm_bindgen_57db2e356bef66d7___closure__destroy___dyn_core_a0678809250066c8___ops__function__FnMut__wasm_bindgen_57db2e356bef66d7___JsValue____Output___core_a0678809250066c8___result__Result_____wasm_bindgen_57db2e356bef66d7___JsError___: (
-  a: number,
-  b: number,
-) => void;
-export const wasm_bindgen_57db2e356bef66d7___convert__closures_____invoke___wasm_bindgen_57db2e356bef66d7___JsValue__core_a0678809250066c8___result__Result_____wasm_bindgen_57db2e356bef66d7___JsError___true_: (
-  a: number,
-  b: number,
-  c: any,
-) => [number, number];
-export const wasm_bindgen_57db2e356bef66d7___convert__closures_____invoke___js_sys_510074268f57822e___Function_fn_wasm_bindgen_57db2e356bef66d7___JsValue_____wasm_bindgen_57db2e356bef66d7___sys__Undefined___js_sys_510074268f57822e___Function_fn_wasm_bindgen_57db2e356bef66d7___JsValue_____wasm_bindgen_57db2e356bef66d7___sys__Undefined_______true_: (
-  a: number,
-  b: number,
-  c: any,
-  d: any,
-) => void;
-export const wasm_bindgen_57db2e356bef66d7___convert__closures_____invoke___wasm_bindgen_57db2e356bef66d7___JsValue______true_: (
-  a: number,
-  b: number,
-  c: any,
-) => void;
-export const wasm_bindgen_57db2e356bef66d7___convert__closures_____invoke___web_sys_bc2fb9f0f68233a4___features__gen_MessageEvent__MessageEvent______true_: (
-  a: number,
-  b: number,
-  c: any,
-) => void;
+export const ring_core_0_17_14__bn_mul_mont: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
+export const wasm_bindgen_be5bb63e37a358e___closure__destroy___dyn_core_2b7419d43886a840___ops__function__FnMut__wasm_bindgen_be5bb63e37a358e___JsValue____Output_______: (a: number, b: number) => void;
+export const wasm_bindgen_be5bb63e37a358e___closure__destroy___dyn_core_2b7419d43886a840___ops__function__FnMut__wasm_bindgen_be5bb63e37a358e___JsValue____Output___core_2b7419d43886a840___result__Result_____wasm_bindgen_be5bb63e37a358e___JsError___: (a: number, b: number) => void;
+export const wasm_bindgen_be5bb63e37a358e___convert__closures_____invoke___wasm_bindgen_be5bb63e37a358e___JsValue__core_2b7419d43886a840___result__Result_____wasm_bindgen_be5bb63e37a358e___JsError___true_: (a: number, b: number, c: any) => [number, number];
+export const wasm_bindgen_be5bb63e37a358e___convert__closures_____invoke___js_sys_e6089382e1a6f1c6___Function_fn_wasm_bindgen_be5bb63e37a358e___JsValue_____wasm_bindgen_be5bb63e37a358e___sys__Undefined___js_sys_e6089382e1a6f1c6___Function_fn_wasm_bindgen_be5bb63e37a358e___JsValue_____wasm_bindgen_be5bb63e37a358e___sys__Undefined_______true_: (a: number, b: number, c: any, d: any) => void;
+export const wasm_bindgen_be5bb63e37a358e___convert__closures_____invoke___wasm_bindgen_be5bb63e37a358e___JsValue______true_: (a: number, b: number, c: any) => void;
+export const wasm_bindgen_be5bb63e37a358e___convert__closures_____invoke___web_sys_8ba583b92831bfc___features__gen_MessageEvent__MessageEvent______true_: (a: number, b: number, c: any) => void;
 export const memory: WebAssembly.Memory;
 export const __wbindgen_malloc: (a: number, b: number) => number;
 export const __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
