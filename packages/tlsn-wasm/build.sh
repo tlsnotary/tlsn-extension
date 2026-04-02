@@ -104,7 +104,8 @@ if [ -f /etc/NIXOS ] || [ -d /nix/store ]; then
     done
 fi
 
-cargo update
+# Use the upstream Cargo.lock as-is — running `cargo update` can pull
+# incompatible dependency versions (e.g. web-sys breaking web-spawn).
 ./build.sh
 cd ../../
 
