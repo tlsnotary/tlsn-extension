@@ -27,7 +27,7 @@ const chromeMock = {
   windows: {
     create: vi.fn(),
     get: vi.fn(),
-    remove: vi.fn(),
+    remove: vi.fn().mockResolvedValue(undefined),
     update: vi.fn(),
     onRemoved: {
       addListener: vi.fn(),
