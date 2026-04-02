@@ -1304,7 +1304,16 @@ describe('QuickJS Browser E2E', () => {
 
         await new Promise((r) => setTimeout(r, 200));
 
-        // Close the window — listener should be removed
+        // Attach rejection handler BEFORE emitting WINDOW_CLOSED to prevent
+        // unhandled rejection (the emit synchronously rejects the promise).
+        let rejected2 = false;
+        let rejectError2: Error | null = null;
+        donePromise2.catch((err: Error) => {
+          rejected2 = true;
+          rejectError2 = err;
+        });
+
+        // Close the window — listener should be removed, plugin terminates
         emitter2.emit({ type: 'WINDOW_CLOSED', windowId: 1 } as WindowMessage);
         await new Promise((r) => setTimeout(r, 50));
 
@@ -1323,19 +1332,9 @@ describe('QuickJS Browser E2E', () => {
 
         await new Promise((r) => setTimeout(r, 100));
 
-        // donePromise2 should never resolve because no requests were received
-        // before WINDOW_CLOSED, and requests after close are ignored.
-        // We verify by checking it's still pending after the timeout.
-        let resolved = false;
-        donePromise2
-          .then(() => {
-            resolved = true;
-          })
-
-          .catch(() => {});
-        await new Promise((r) => setTimeout(r, 100));
-
-        expect(resolved).toBe(false);
+        // donePromise2 should have rejected with "Window closed by user"
+        expect(rejected2).toBe(true);
+        expect(rejectError2?.message).toContain('Window closed by user');
 
         // Cleanup: emit WINDOW_CLOSED on original emitter too
         void donePromise;
