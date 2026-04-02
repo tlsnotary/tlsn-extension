@@ -46,7 +46,9 @@ export class ConfirmationManager {
     senderOrigin?: string,
     pluginCode?: string,
   ): Promise<boolean> {
-    // Check if there's already a pending confirmation
+    // Check if there's already a pending confirmation.
+    // Claim the slot synchronously (before any await) to prevent concurrent
+    // requestConfirmation calls from both passing the guard.
     if (this.pendingConfirmations.size > 0) {
       logger.warn(
         '[ConfirmationManager] Another confirmation is already pending, rejecting new request',
@@ -54,75 +56,90 @@ export class ConfirmationManager {
       throw new Error('Another plugin confirmation is already in progress');
     }
 
-    // Store plugin code in memory so the popup can request it
-    if (pluginCode) {
-      this.pluginCodeStore.set(requestId, pluginCode);
-    }
-
-    // Build URL with plugin info as query params
-    const popupUrl = this.buildPopupUrl(config, requestId, senderOrigin);
-
-    // Calculate position to center on the active browser window
-    let left: number | undefined;
-    let top: number | undefined;
+    // Reserve the slot immediately with a placeholder so concurrent calls
+    // see size > 0 even before the popup window is created.
+    const placeholder: PendingConfirmation = {
+      requestId,
+      resolve: () => {},
+      reject: () => {},
+    };
+    this.pendingConfirmations.set(requestId, placeholder);
 
     try {
-      const currentWindow = await browser.windows.getCurrent();
-
-      if (
-        currentWindow.left != null &&
-        currentWindow.top != null &&
-        currentWindow.width != null &&
-        currentWindow.height != null
-      ) {
-        left = Math.round(currentWindow.left + (currentWindow.width - this.POPUP_WIDTH) / 2);
-        top = Math.round(currentWindow.top + (currentWindow.height - this.POPUP_HEIGHT) / 2);
+      // Store plugin code in memory so the popup can request it
+      if (pluginCode) {
+        this.pluginCodeStore.set(requestId, pluginCode);
       }
-    } catch {
-      // Fall back to default positioning
-    }
 
-    // Create the confirmation popup window
-    const window = await browser.windows.create({
-      url: popupUrl,
-      type: 'popup',
-      width: this.POPUP_WIDTH,
-      height: this.POPUP_HEIGHT,
-      left,
-      top,
-      focused: true,
-    });
+      // Build URL with plugin info as query params
+      const popupUrl = this.buildPopupUrl(config, requestId, senderOrigin);
 
-    if (!window.id) {
-      throw new Error('Failed to create confirmation popup window');
-    }
+      // Calculate position to center on the active browser window
+      let left: number | undefined;
+      let top: number | undefined;
 
-    this.currentPopupWindowId = window.id;
+      try {
+        const currentWindow = await browser.windows.getCurrent();
 
-    return new Promise<boolean>((resolve, reject) => {
-      // Set up timeout
-      const timeoutId = setTimeout(() => {
-        const pending = this.pendingConfirmations.get(requestId);
-        if (pending) {
-          logger.debug('[ConfirmationManager] Confirmation timed out');
-          this.cleanup(requestId);
-          resolve(false); // Treat timeout as denial
+        if (
+          currentWindow.left != null &&
+          currentWindow.top != null &&
+          currentWindow.width != null &&
+          currentWindow.height != null
+        ) {
+          left = Math.round(currentWindow.left + (currentWindow.width - this.POPUP_WIDTH) / 2);
+          top = Math.round(currentWindow.top + (currentWindow.height - this.POPUP_HEIGHT) / 2);
         }
-      }, this.CONFIRMATION_TIMEOUT_MS);
+      } catch {
+        // Fall back to default positioning
+      }
 
-      // Store pending confirmation
-      this.pendingConfirmations.set(requestId, {
-        requestId,
-        resolve,
-        reject,
-        windowId: window.id!,
-        timeoutId,
+      // Create the confirmation popup window
+      const window = await browser.windows.create({
+        url: popupUrl,
+        type: 'popup',
+        width: this.POPUP_WIDTH,
+        height: this.POPUP_HEIGHT,
+        left,
+        top,
+        focused: true,
       });
 
-      logger.debug(
-        `[ConfirmationManager] Confirmation popup opened: ${window.id} for request: ${requestId}`,
-      );
-    });
+      if (!window.id) {
+        throw new Error('Failed to create confirmation popup window');
+      }
+
+      this.currentPopupWindowId = window.id;
+
+      return new Promise<boolean>((resolve, reject) => {
+        // Set up timeout
+        const timeoutId = setTimeout(() => {
+          const pending = this.pendingConfirmations.get(requestId);
+          if (pending) {
+            logger.debug('[ConfirmationManager] Confirmation timed out');
+            this.cleanup(requestId);
+            resolve(false); // Treat timeout as denial
+          }
+        }, this.CONFIRMATION_TIMEOUT_MS);
+
+        // Replace placeholder with real confirmation state
+        this.pendingConfirmations.set(requestId, {
+          requestId,
+          resolve,
+          reject,
+          windowId: window.id!,
+          timeoutId,
+        });
+
+        logger.debug(
+          `[ConfirmationManager] Confirmation popup opened: ${window.id} for request: ${requestId}`,
+        );
+      });
+    } catch (error) {
+      // Clean up placeholder on failure so subsequent requests aren't blocked
+      this.cleanup(requestId);
+      throw error;
+    }
   }
 
   /**
