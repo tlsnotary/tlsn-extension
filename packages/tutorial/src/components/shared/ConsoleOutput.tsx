@@ -29,7 +29,7 @@ export const ConsoleOutput: React.FC<ConsoleOutputProps> = ({ result }) => {
       </div>
 
       {result.error && (
-        <div className="error mt-2 p-2 bg-red-900/20 rounded">
+        <div className="error mt-2 p-2 bg-red-900/20 rounded-sm">
           <strong>Error:</strong> {result.error}
         </div>
       )}

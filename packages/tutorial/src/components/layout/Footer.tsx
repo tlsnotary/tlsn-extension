@@ -14,7 +14,8 @@ export const Footer: React.FC = () => {
           >
             TLSNotary
           </a>{' '}
-          | Git Hash: <code className="bg-gray-700 px-2 py-1 rounded text-xs">{__GIT_HASH__}</code>
+          | Git Hash:{' '}
+          <code className="bg-gray-700 px-2 py-1 rounded-sm text-xs">{__GIT_HASH__}</code>
         </p>
       </div>
     </footer>

@@ -54,7 +54,7 @@ export const Setup: React.FC = () => {
                   <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700">
                     <li>
                       Navigate to the extension directory and build it:
-                      <pre className="mt-2 bg-gray-800 text-white p-3 rounded overflow-x-auto">
+                      <pre className="mt-2 bg-gray-800 text-white p-3 rounded-sm overflow-x-auto">
                         cd packages/extension{'\n'}
                         npm install{'\n'}
                         npm run build
@@ -62,13 +62,13 @@ export const Setup: React.FC = () => {
                     </li>
                     <li>
                       Open Chrome and go to{' '}
-                      <code className="bg-gray-200 px-2 py-1 rounded">chrome://extensions/</code>
+                      <code className="bg-gray-200 px-2 py-1 rounded-sm">chrome://extensions/</code>
                     </li>
                     <li>Enable "Developer mode" (toggle in top right)</li>
                     <li>Click "Load unpacked"</li>
                     <li>
                       Select the{' '}
-                      <code className="bg-gray-200 px-2 py-1 rounded">
+                      <code className="bg-gray-200 px-2 py-1 rounded-sm">
                         packages/extension/build/
                       </code>{' '}
                       folder
@@ -80,7 +80,7 @@ export const Setup: React.FC = () => {
               {check.status === 'error' && check.name === 'Verifier Server' && (
                 <div className="mt-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
                   <p className="font-medium text-gray-800 mb-2">Start the Verifier Server:</p>
-                  <pre className="bg-gray-800 text-white p-3 rounded overflow-x-auto">
+                  <pre className="bg-gray-800 text-white p-3 rounded-sm overflow-x-auto">
                     cd packages/verifier{'\n'}
                     cargo run --release
                   </pre>

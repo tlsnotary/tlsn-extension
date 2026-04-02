@@ -21,7 +21,7 @@ export const Button: React.FC<ButtonProps> = ({
     'px-6 py-3 rounded-lg font-semibold text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed';
 
   const variantClasses = {
-    primary: 'bg-gradient-to-r from-[#667eea] to-[#764ba2] hover:shadow-lg',
+    primary: 'bg-linear-to-r from-gradient-start to-gradient-end hover:shadow-lg',
     secondary: 'bg-gray-600 hover:bg-gray-700',
     success: 'bg-green-600 hover:bg-green-700',
     danger: 'bg-red-600 hover:bg-red-700',

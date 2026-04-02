@@ -37,7 +37,7 @@ export const HintSystem: React.FC<HintSystemProps> = ({
       <h4 className="font-bold text-blue-900 mb-3">Need Help?</h4>
 
       {hints.slice(0, revealedHints).map((hint, index) => (
-        <div key={index} className="mb-3 p-3 bg-white rounded border border-blue-200">
+        <div key={index} className="mb-3 p-3 bg-white rounded-sm border border-blue-200">
           <div className="font-medium text-blue-800 mb-1">Hint {index + 1}:</div>
           <div className="text-gray-700">{hint}</div>
         </div>
@@ -58,9 +58,9 @@ export const HintSystem: React.FC<HintSystemProps> = ({
       </div>
 
       {showSolution && solution && (
-        <div className="mt-4 p-4 bg-yellow-50 border border-yellow-300 rounded">
+        <div className="mt-4 p-4 bg-yellow-50 border border-yellow-300 rounded-sm">
           <div className="font-bold text-yellow-900 mb-2">Solution:</div>
-          <pre className="text-sm bg-white p-3 rounded border border-yellow-200 overflow-x-auto whitespace-pre-wrap">
+          <pre className="text-sm bg-white p-3 rounded-sm border border-yellow-200 overflow-x-auto whitespace-pre-wrap">
             {solution}
           </pre>
         </div>
