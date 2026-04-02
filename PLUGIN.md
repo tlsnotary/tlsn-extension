@@ -202,7 +202,7 @@ Manages multiple browser windows and request interception. Features:
 ```
 ┌───────────────────────────────────────────────────────────┐
 │  1. User Triggers Plugin Execution                        │
-│     (e.g., from Developer Console)                        │
+│     (e.g., from a web page using window.tlsn.execCode())  │
 └────────────────────┬──────────────────────────────────────┘
                      │
                      ▼

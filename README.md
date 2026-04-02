@@ -32,7 +32,6 @@ tlsn-extension/
 │   │   │   ├── entries/
 │   │   │   │   ├── Background/     # Service worker for extension logic
 │   │   │   │   ├── Content/        # Content scripts injected into pages
-│   │   │   │   ├── DevConsole/     # Developer Console with code editor
 │   │   │   │   ├── Popup/          # Extension popup UI (optional)
 │   │   │   │   └── Offscreen/      # Offscreen document for DOM operations
 │   │   │   ├── manifest.json
@@ -77,7 +76,6 @@ tlsn-extension/
 A browser extension that enables TLSNotary functionality with the following key features:
 
 - **Multi-Window Management**: Track multiple browser windows with request interception
-- **Developer Console**: Interactive code editor for writing and testing TLSN plugins
 - **Request Interception**: Capture HTTP/HTTPS requests from managed windows
 - **Plugin Execution**: Run sandboxed JavaScript plugins using QuickJS
 - **TLSN Overlay**: Visual display of intercepted requests
@@ -86,7 +84,6 @@ A browser extension that enables TLSNotary functionality with the following key 
 
 - `Background`: Service worker for extension logic, window management, and message routing
 - `Content`: Scripts injected into pages for communication and overlay display
-- `DevConsole`: Code editor page accessible via right-click context menu
 - `Popup`: Optional extension popup UI
 - `Offscreen`: Background DOM operations for service worker limitations
 
@@ -154,10 +151,10 @@ The extension uses a message-passing architecture with five main entry points:
 │         ├─► Session Management (SessionManager)              │
 │         └─► Message Routing                                  │
 │                                                               │
-│  ┌──────────────┐      ┌──────────────┐                      │
-│  │ DevConsole   │      │   Offscreen  │                      │
-│  │  (Editor)    │      │  (Background)│                      │
-│  └──────────────┘      └──────────────┘                      │
+│  ┌──────────────┐                                            │
+│  │   Offscreen  │                                            │
+│  │  (Background)│                                            │
+│  └──────────────┘                                            │
 └─────────────────────────────────────────────────────────────┘
                           │
                           ▼
@@ -376,119 +373,32 @@ npm run dev
 
 Load the extension in Chrome (see [Getting Started](#getting-started)).
 
-### 3. Open the Developer Console
+### 3. Run a Test Plugin
 
-1. Right-click anywhere on any web page
-2. Select "Developer Console" from the context menu
-3. A new tab will open with the code editor
+Use the demo or tutorial packages to test plugins:
 
-### 4. Run a Test Plugin
-
-The Developer Console comes with a default X.com profile prover plugin. To test:
+```bash
+# Serve demo page
+npm run demo
+# Open http://localhost:8080 in your browser
+```
 
 1. Ensure the verifier is running on `localhost:7047`
-2. Review the default code in the editor (or modify as needed)
-3. Click "▶️ Run Code" button
-4. The plugin will:
-   - Open a new window to X.com
+2. Select a plugin from the demo page
+3. The plugin will:
+   - Open a new window to the target site
    - Intercept requests
    - Create a prover connection to the verifier
    - Display a UI overlay showing progress
    - Execute the proof workflow
 
-**Console Output:**
-
-- Execution status and timing
-- Plugin logs and results
-- Any errors encountered
-
-### 5. Verify Request Interception
+### 4. Verify Request Interception
 
 When a managed window is opened:
 
 1. An overlay appears showing "TLSN Plugin In Progress"
 2. Intercepted requests are listed in real-time
 3. Request count updates as more requests are captured
-
-### Testing Different Plugins
-
-You can write custom plugins in the Developer Console editor:
-
-```javascript
-// Example: Simple plugin that generates a proof
-const config = {
-  name: 'My Plugin',
-  description: 'A custom TLSN plugin',
-};
-
-async function onClick() {
-  console.log('Starting proof...');
-
-  // Wait for specific headers to be intercepted
-  const [header] = useHeaders((headers) => {
-    return headers.filter((h) => h.url.includes('example.com'));
-  });
-
-  console.log('Captured header:', header);
-
-  // Generate proof using unified prove() API
-  const proof = await prove(
-    // Request options
-    {
-      url: 'https://example.com/api/endpoint',
-      method: 'GET',
-      headers: {
-        Authorization: header.requestHeaders.find((h) => h.name === 'Authorization')?.value,
-        'Accept-Encoding': 'identity',
-        Connection: 'close',
-      },
-    },
-    // Prover options
-    {
-      verifierUrl: 'http://localhost:7047',
-      proxyUrl: 'wss://notary.pse.dev/proxy?token=example.com',
-      maxRecvData: 16384,
-      maxSentData: 4096,
-      handlers: [
-        { type: 'SENT', part: 'START_LINE', action: 'REVEAL' },
-        { type: 'RECV', part: 'START_LINE', action: 'REVEAL' },
-        {
-          type: 'RECV',
-          part: 'BODY',
-          action: 'REVEAL',
-          params: { type: 'json', path: 'username' },
-        },
-      ],
-    },
-  );
-
-  console.log('Proof generated:', proof);
-  done(JSON.stringify(proof));
-}
-
-function main() {
-  const [header] = useHeaders((headers) => {
-    return headers.filter((h) => h.url.includes('example.com'));
-  });
-
-  // Open a managed window on first render
-  useEffect(() => {
-    openWindow('https://example.com');
-  }, []);
-
-  // Render plugin UI component
-  return div({}, [
-    div({}, [header ? 'Ready to prove' : 'Waiting for headers...']),
-    header ? button({ onclick: 'onClick' }, ['Generate Proof']) : null,
-  ]);
-}
-
-export default {
-  main,
-  onClick,
-  config,
-};
-```
 
 ### Testing Tips
 

@@ -165,33 +165,13 @@ React-based extension popup:
 - **Styling**: Uses Tailwind CSS with custom button/input classes
 - Entry point: `popup.html` (400x300px default size)
 
-#### 5. **DevConsole** (`src/entries/DevConsole/index.tsx`)
-
-Interactive development console for testing TLSN plugins:
-
-- **Code Editor**: CodeMirror with JavaScript syntax highlighting and one-dark theme
-- **Live Execution**: Runs plugin code in QuickJS sandbox via background service worker
-- **Console Output**: Timestamped entries showing execution results, errors, and timing
-- **ExtensionAPI**: Exposes `window.tlsn.execCode()` method for plugin execution
-- Access: Right-click context menu → "Developer Console"
-
-**Plugin Structure:**
-Plugins must export:
-
-- `config`: Metadata (`name`, `description`)
-- `main()`: Reactive UI rendering function (called when state changes)
-- `onClick()`: Click handler for proof generation
-- React-like hooks: `useHeaders()`, `useEffect()`, `useRequests()`
-- UI components: `div()`, `button()` returning DOM JSON
-- Capabilities: `openWindow()`, `prove()`, `done()`
-
-#### 6. **Offscreen Document** (`src/entries/Offscreen/index.tsx`)
+#### 5. **Offscreen Document** (`src/entries/Offscreen/index.tsx`)
 
 Isolated React component for background processing:
 
 - **Purpose**: Handles DOM operations unavailable in service workers
 - **SessionManager Integration**: Executes plugin code via `SessionManager.executePlugin()`
-- **Message Handling**: Listens for `EXEC_CODE` messages from DevConsole
+- **Message Handling**: Listens for `EXEC_CODE` messages from background script
 - **Lifecycle**: Created dynamically by background script, reused if exists
 - Entry point: `offscreen.html`
 
@@ -723,15 +703,6 @@ proverOptions: {
   handlers: [/* handler objects */]  // NOT 'reveal'
 }
 ```
-
-### DevConsole Default Template
-
-The default plugin code in `DevConsole/index.tsx` is heavily commented to serve as educational documentation. When modifying, maintain the comprehensive inline comments explaining:
-
-- Each step of the proof generation flow
-- Purpose of each header and parameter
-- What each reveal handler does
-- How React-like hooks work
 
 ### Test Data Sanitization
 
