@@ -376,7 +376,7 @@ pub(crate) async fn info_handler() -> impl IntoResponse {
     axum::Json(InfoResponse {
         version: env!("CARGO_PKG_VERSION"),
         git_hash,
-        tlsn_version: "0.1.0-alpha.14",
+        tlsn_version: "0.1.0-alpha.15-pre",
     })
 }
 

@@ -28,6 +28,66 @@ function renderPluginUI(json: DomJson, windowId: number) {
 
   container.innerHTML = '';
   container.appendChild(createNode(json, windowId));
+  makeDraggable(container);
+}
+
+function makeDraggable(container: HTMLElement) {
+  const root = container.firstElementChild as HTMLElement | null;
+
+  if (!root || root.style.position !== 'fixed') return;
+
+  // Use the first child div as the drag handle (the header bar)
+  const handle = root.firstElementChild as HTMLElement | null;
+
+  if (!handle) return;
+
+  handle.style.cursor = 'grab';
+
+  let offsetX = 0;
+  let offsetY = 0;
+  let dragging = false;
+
+  const onMouseDown = (e: MouseEvent) => {
+    // Only drag on primary button, ignore clicks on buttons inside the handle
+    if (e.button !== 0 || (e.target as HTMLElement).closest('button')) return;
+
+    dragging = true;
+    handle.style.cursor = 'grabbing';
+
+    // Convert bottom/right positioning to top/left
+    const rect = root.getBoundingClientRect();
+
+    root.style.top = rect.top + 'px';
+    root.style.left = rect.left + 'px';
+    root.style.bottom = 'auto';
+    root.style.right = 'auto';
+
+    offsetX = e.clientX - rect.left;
+    offsetY = e.clientY - rect.top;
+
+    e.preventDefault();
+  };
+
+  const onMouseMove = (e: MouseEvent) => {
+    if (!dragging) return;
+
+    const x = Math.max(0, Math.min(e.clientX - offsetX, window.innerWidth - root.offsetWidth));
+    const y = Math.max(0, Math.min(e.clientY - offsetY, window.innerHeight - root.offsetHeight));
+
+    root.style.left = x + 'px';
+    root.style.top = y + 'px';
+  };
+
+  const onMouseUp = () => {
+    if (!dragging) return;
+
+    dragging = false;
+    handle.style.cursor = 'grab';
+  };
+
+  handle.addEventListener('mousedown', onMouseDown);
+  document.addEventListener('mousemove', onMouseMove);
+  document.addEventListener('mouseup', onMouseUp);
 }
 
 const ALLOWED_ELEMENT_TYPES = new Set([

@@ -2,7 +2,7 @@
   "name": "tlsn-wasm",
   "type": "module",
   "description": "A core WebAssembly package for TLSNotary.",
-  "version": "0.1.0-alpha.14",
+  "version": "0.1.0-alpha.15-pre",
   "license": "MIT OR Apache-2.0",
   "repository": {
     "type": "git",

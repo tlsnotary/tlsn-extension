@@ -7,17 +7,33 @@ ARG VITE_VERIFIER_HOST=localhost:7047
 ARG VITE_SSL=false
 ARG GIT_HASH=local
 
-WORKDIR /app
+WORKDIR /monorepo
 
-# Copy shared tsconfig and demo package files
-COPY tsconfig.base.json /tsconfig.base.json
-COPY packages/demo/package.json ./
-RUN npm install
+# Copy root package files for workspace resolution
+COPY package.json package-lock.json tsconfig.base.json ./
 
-# Copy demo source files
-COPY packages/demo/ .
+# Copy package.json files for workspace packages the demo needs
+COPY packages/demo/package.json packages/demo/package.json
+COPY packages/plugins/package.json packages/plugins/package.json
+COPY packages/plugin-sdk/package.json packages/plugin-sdk/package.json
+COPY packages/common/package.json packages/common/package.json
 
-# Build with environment variables
+# Install dependencies (npm install instead of npm ci — the lockfile references
+# all monorepo workspaces but only a subset is present in the Docker context)
+RUN npm install --workspace=@tlsnotary/demo --workspace=@tlsn/plugins --workspace=@tlsn/plugin-sdk --workspace=@tlsn/common --include-workspace-root
+
+# Copy source for packages the demo depends on
+COPY packages/common/ packages/common/
+COPY packages/plugin-sdk/ packages/plugin-sdk/
+COPY packages/plugins/ packages/plugins/
+COPY packages/demo/ packages/demo/
+
+# Build dependency chain: common → plugin-sdk → plugins → demo
+RUN npm run build --workspace=@tlsn/common
+RUN npm run build --workspace=@tlsn/plugin-sdk
+RUN npm run build --workspace=@tlsn/plugins
+
+WORKDIR /monorepo/packages/demo
 ENV VITE_VERIFIER_HOST=${VITE_VERIFIER_HOST}
 ENV VITE_SSL=${VITE_SSL}
 ENV GIT_HASH=${GIT_HASH}
@@ -41,7 +57,7 @@ RUN npm install
 COPY packages/tutorial/ .
 
 # Copy built twitter plugin from demo stage (has correct verifier URLs)
-COPY --from=demo-builder /app/public/plugins/twitter.js /demo/public/plugins/twitter.js
+COPY --from=demo-builder /monorepo/packages/demo/public/plugins/twitter.js /demo/public/plugins/twitter.js
 
 # Build tutorial with /tutorial/ base path and verifier config
 ENV VITE_BASE_PATH=/tutorial/
@@ -54,7 +70,7 @@ RUN npm run build
 FROM nginx:alpine
 
 # Copy demo build output
-COPY --from=demo-builder /app/dist /usr/share/nginx/html
+COPY --from=demo-builder /monorepo/packages/demo/dist /usr/share/nginx/html
 
 # Copy tutorial build output
 COPY --from=tutorial-builder /app/dist /usr/share/nginx/html/tutorial/
