@@ -34,7 +34,8 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "./plugins/exclude-x86_64"
     ],
     "experiments": {
       "typedRoutes": true
