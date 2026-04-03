@@ -1,0 +1,12 @@
+{
+  "name": "tlsn-create-plugin",
+  "description": "Create TLSNotary plugins that prove data from web services using MPC-TLS",
+  "version": "1.0.0",
+  "author": {
+    "name": "TLSNotary"
+  },
+  "homepage": "https://github.com/tlsnotary/tlsn-extension",
+  "repository": "https://github.com/tlsnotary/tlsn-extension",
+  "license": "MIT",
+  "keywords": ["tlsnotary", "tlsn", "plugin", "proof", "attestation", "mpc-tls"]
+}

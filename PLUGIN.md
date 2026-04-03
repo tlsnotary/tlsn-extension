@@ -2,6 +2,8 @@
 
 This document describes the architecture, capabilities, and development guide for TLSN Extension plugins.
 
+> **Quick Start with AI:** Use the Claude Code command `/create-plugin <service description>` to interactively build a new plugin. See `.claude/commands/create-plugin.md` for details.
+
 ## Table of Contents
 
 1. [Overview](#overview)

@@ -9,7 +9,8 @@ build
 packages/tlsn-wasm/tlsn/
 zip
 .vscode
-.claude
+.claude/*
+!.claude/commands/
 coverage
 packages/verifier/target/
 # Mobile native module build artifacts (symlinks created by postinstall)

@@ -1,0 +1,22 @@
+{
+  "name": "tlsnotary",
+  "owner": {
+    "name": "TLSNotary",
+    "email": "contact@tlsnotary.org"
+  },
+  "metadata": {
+    "description": "Claude Code tools for building TLSNotary plugins"
+  },
+  "plugins": [
+    {
+      "name": "tlsn-create-plugin",
+      "source": ".",
+      "description": "Create TLSNotary plugins that prove data from web services using MPC-TLS",
+      "version": "1.0.0",
+      "author": {
+        "name": "TLSNotary"
+      },
+      "category": "development"
+    }
+  ]
+}
