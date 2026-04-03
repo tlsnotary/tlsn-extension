@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "TLSN Mobile",
-    "slug": "tlsn-mobile",
+    "slug": "tlsnotary-mobile-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -15,7 +15,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "org.tlsnotary.mobile"
+      "bundleIdentifier": "org.tlsnotary.mobile",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -35,6 +38,11 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "5df89b8e-8bc5-4d47-be73-340ffe7df3b4"
+      }
     },
     "assetBundlePatterns": [
       "assets/**/*"
