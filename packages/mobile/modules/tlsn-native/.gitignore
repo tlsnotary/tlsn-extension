@@ -1,0 +1,5 @@
+# iOS artifacts — built locally with build-ios.sh (~148MB xcframework)
+ios/TlsnMobile.xcframework/
+ios/lib/
+ios/tlsn_mobile.swift
+ios/include/
