@@ -5,6 +5,7 @@ var webpack = require('webpack'),
   TerserPlugin = require('terser-webpack-plugin');
 var { CleanWebpackPlugin } = require('clean-webpack-plugin');
 var ReactRefreshWebpackPlugin = require('@pmmmwh/react-refresh-webpack-plugin');
+var ReactRefreshTypeScript = require('react-refresh-typescript');
 var NodeProtocolResolvePlugin = require('./utils/NodeProtocolResolvePlugin');
 
 const ASSET_PATH = process.env.ASSET_PATH || '/';
@@ -102,23 +103,18 @@ var options = {
             options: {
               transpileOnly: isDevelopment,
               compiler: require.resolve('typescript'),
+              ...(isDevelopment && {
+                getCustomTransformers: () => ({
+                  before: [ReactRefreshTypeScript()],
+                }),
+              }),
             },
           },
         ],
       },
       {
         test: /\.(js|jsx)$/,
-        use: [
-          {
-            loader: 'source-map-loader',
-          },
-          {
-            loader: require.resolve('babel-loader'),
-            options: {
-              plugins: [isDevelopment && require.resolve('react-refresh/babel')].filter(Boolean),
-            },
-          },
-        ],
+        use: [{ loader: 'source-map-loader' }],
         exclude: /node_modules/,
       },
     ],
