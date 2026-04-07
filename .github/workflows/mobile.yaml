@@ -68,6 +68,9 @@ jobs:
           toolchain: stable
           target: aarch64-linux-android
 
+      - name: Install cargo-binstall
+        uses: cargo-bins/cargo-binstall@main
+
       - name: Install cargo-ndk
         run: cargo binstall -y cargo-ndk
 
