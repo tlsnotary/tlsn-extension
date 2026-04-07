@@ -44,7 +44,6 @@ class ExtensionAPI {
     return new Promise((resolve, reject) => {
       // Use caller-provided requestId or generate one
       const requestId = options?.requestId || `exec_${Date.now()}_${Math.random()}`;
-      let timeout: ReturnType<typeof setTimeout> | null = null;
 
       // Set up one-time listener for the response
       const handleMessage = (event: MessageEvent) => {
@@ -52,9 +51,6 @@ class ExtensionAPI {
         if (event.data?.type !== 'TLSN_EXEC_CODE_RESPONSE') return;
         if (event.data?.requestId !== requestId) return;
 
-        if (timeout) {
-          clearTimeout(timeout);
-        }
         // Remove listener
         window.removeEventListener('message', handleMessage);
 
@@ -80,15 +76,6 @@ class ExtensionAPI {
         },
         window.location.origin,
       );
-
-      // Add timeout
-      timeout = setTimeout(
-        () => {
-          window.removeEventListener('message', handleMessage);
-          reject(new Error('Code execution timeout'));
-        },
-        15 * 60 * 1000,
-      ); // 15 minute timeout
     });
   }
 }
