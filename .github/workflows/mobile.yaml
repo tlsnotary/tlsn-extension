@@ -46,6 +46,8 @@ jobs:
     runs-on: ubuntu-latest
     # Skip on fork PRs (no access to secrets)
     if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'workflow_dispatch'
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -100,13 +102,18 @@ jobs:
         working-directory: packages/mobile
         run: ./build.sh android --skip-deps --no-run
 
+      # EAS APK build (optional — requires EXPO_TOKEN secret)
+      - name: Install EAS CLI
+        if: env.EXPO_TOKEN != ''
+        run: npm install -g eas-cli
+
       - name: Build Android APK (EAS local)
+        if: env.EXPO_TOKEN != ''
         working-directory: packages/mobile
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: npx eas build --platform android --profile ci-android --local --non-interactive --output ./build/tlsn-mobile.apk
+        run: eas build --platform android --profile ci-android --local --non-interactive --output ./build/tlsn-mobile.apk
 
       - name: Upload APK artifact
+        if: env.EXPO_TOKEN != ''
         uses: actions/upload-artifact@v7
         with:
           name: android-apk
@@ -117,6 +124,8 @@ jobs:
     runs-on: macos-26
     # Skip on fork PRs (no access to secrets)
     if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'workflow_dispatch'
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -159,13 +168,18 @@ jobs:
         working-directory: packages/mobile
         run: ./build.sh ios --skip-deps --no-run
 
+      # EAS app build (optional — requires EXPO_TOKEN secret)
+      - name: Install EAS CLI
+        if: env.EXPO_TOKEN != ''
+        run: npm install -g eas-cli
+
       - name: Build iOS simulator app (EAS local)
+        if: env.EXPO_TOKEN != ''
         working-directory: packages/mobile
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: npx eas build --platform ios --profile ci-ios --local --non-interactive --output ./build/tlsn-mobile-sim.app
+        run: eas build --platform ios --profile ci-ios --local --non-interactive --output ./build/tlsn-mobile-sim.app
 
       - name: Upload iOS artifact
+        if: env.EXPO_TOKEN != ''
         uses: actions/upload-artifact@v7
         with:
           name: ios-simulator-app
