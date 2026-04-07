@@ -51,7 +51,7 @@ for arg in "$@"; do
     --no-run)         NO_RUN=true ;;
     --clean)          CLEAN=true ;;
     --help|-h)
-      sed -n '3,/^##*$/p' "$0" | head -n -1
+      sed -n '/^# Usage:/,/^#####/p' "$0" | grep -v '^#####' | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *) echo "Unknown argument: $arg"; exit 1 ;;
@@ -134,15 +134,16 @@ if [ "$DEPS_ONLY" = true ]; then
 fi
 
 ########################################
-# 2. QuickJS native sources
+# 2. QuickJS native sources (vendored)
 ########################################
 if [ "$SKIP_NATIVE_CHECK" = false ]; then
   if [ ! -f "$QUICKJS_DIR/quickjs.c" ]; then
-    step "Setting up QuickJS native sources"
-    "$SCRIPT_DIR/modules/quickjs-native/setup.sh"
-    ok "QuickJS sources installed"
+    fail "QuickJS C sources missing from ios/quickjs/"
+    hint "These should be vendored in git. To re-vendor, run:"
+    hint "  cd modules/quickjs-native && ./setup.sh"
+    exit 1
   else
-    skip "QuickJS sources already present"
+    skip "QuickJS sources present (vendored)"
   fi
 else
   skip "QuickJS native check (--skip-native-check)"
@@ -185,7 +186,11 @@ if needs_native_build; then
 
     if ! command -v cargo-ndk &>/dev/null; then
       step "Installing cargo-ndk (required for Android cross-compilation)"
-      cargo install cargo-ndk
+      if command -v cargo-binstall &>/dev/null; then
+        cargo binstall -y cargo-ndk
+      else
+        cargo install cargo-ndk
+      fi
       ok "cargo-ndk installed"
     fi
   elif [ "$PLATFORM" = "ios" ]; then

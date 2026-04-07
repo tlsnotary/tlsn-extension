@@ -1,8 +1,7 @@
 cmake_minimum_required(VERSION 3.22.1)
 project(quickjs-native)
 
-# QuickJS C source files
-# These must be copied here by running: ./setup.sh
+# QuickJS C source files (vendored — see ../../QUICKJS_VERSION)
 # Use file(GLOB ...) to pick up whichever files exist, since the file set
 # changed between QuickJS versions (libbf.c → dtoa.c, etc.)
 file(GLOB QUICKJS_C_SOURCES "*.c")

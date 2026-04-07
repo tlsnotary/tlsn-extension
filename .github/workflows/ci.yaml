@@ -87,19 +87,7 @@ jobs:
       - name: Run browser tests
         run: npm run test:browser
 
-  mobile-check:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          toolchain: stable
-
-      - name: Cargo check tlsn-mobile
-        run: cargo check --manifest-path packages/tlsn-mobile/Cargo.toml
+  # mobile-check moved to .github/workflows/mobile.yaml
 
   release:
     if: github.event_name == 'release'
