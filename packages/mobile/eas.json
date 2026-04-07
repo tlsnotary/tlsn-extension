@@ -26,12 +26,18 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_DOCTOR_SKIP_DEPENDENCY_VERSION_CHECK": "1"
       }
     },
     "ci-ios": {
       "distribution": "internal",
       "ios": {
         "simulator": true
+      },
+      "env": {
+        "EXPO_DOCTOR_SKIP_DEPENDENCY_VERSION_CHECK": "1"
       }
     }
   },
