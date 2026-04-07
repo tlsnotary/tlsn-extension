@@ -1,0 +1,41 @@
+{
+  "cli": {
+    "version": ">= 16.0.0"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "development-simulator": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "simulator": true,
+        "buildConfiguration": "Debug"
+      },
+      "env": {
+        "EX_DEV_CLIENT_NETWORK_INSPECTOR": "false"
+      }
+    },
+    "preview": {
+      "distribution": "internal"
+    },
+    "production": {},
+    "ci-android": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "ci-ios": {
+      "distribution": "internal",
+      "ios": {
+        "simulator": true
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

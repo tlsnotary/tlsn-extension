@@ -17,6 +17,16 @@ cargo run --bin uniffi-bindgen -- generate \
     --language kotlin \
     --out-dir target/kotlin
 
+echo "Stripping debug symbols..."
+STRIP_TOOL=$(find "${ANDROID_NDK_HOME:-${ANDROID_HOME}/ndk/"$(ls "${ANDROID_HOME}/ndk/" 2>/dev/null | sort -V | tail -1)"}" \
+    -name "llvm-strip" -path "*/aarch64-linux-android/*" 2>/dev/null | head -1)
+if [ -n "$STRIP_TOOL" ]; then
+    "$STRIP_TOOL" target/aarch64-linux-android/release/libtlsn_mobile.so
+    echo "  Stripped with $STRIP_TOOL"
+else
+    echo "  Warning: llvm-strip not found, skipping strip"
+fi
+
 echo "Copying to Expo module..."
 EXPO_MODULE_DIR="../mobile/modules/tlsn-native"
 

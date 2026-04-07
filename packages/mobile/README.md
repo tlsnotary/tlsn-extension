@@ -35,8 +35,9 @@ You do **not** need to install these manually — the build script detects and i
 
 - **Rust cross-compilation targets** (`aarch64-linux-android`, `aarch64-apple-ios`, etc.)
 - **`cargo-ndk`** (Android Rust cross-compiler wrapper)
-- **QuickJS C sources** (downloaded and patched for iOS/Android)
 - **tlsn repository** (cloned from GitHub if not present, updated if `sdk-core` crate is missing)
+
+QuickJS C sources are vendored in `modules/quickjs-native/` (see `QUICKJS_VERSION` for provenance).
 
 ## Environment Setup
 
@@ -64,49 +65,36 @@ npm install
 
 ### One command to build & run
 
-**iOS:**
-
-```bash
-cd packages/mobile
-./build.sh ios
-```
-
-**Android:**
-
-```bash
-cd packages/mobile
-./build.sh android
-```
-
-Or from the repo root:
+From the repo root:
 
 ```bash
 npm run mobile:ios      # Build deps + launch iOS
 npm run mobile:android  # Build deps + launch Android
 ```
 
+Or from `packages/mobile/` with the full build pipeline (JS deps + native libs + app):
+
+```bash
+./build.sh ios      # Build everything + launch iOS
+./build.sh android  # Build everything + launch Android
+```
+
 The build script automatically:
 
 1. Auto-detects `ANDROID_HOME` (Android only)
 2. Builds JS dependencies (`@tlsn/common` → `@tlsn/plugin-sdk` → `@tlsn/plugins`)
-3. Downloads QuickJS C sources (if not already present)
+3. Verifies vendored QuickJS C sources are present
 4. Installs missing Rust targets and `cargo-ndk` (if native library needs building)
 5. Clones/updates the tlsn repository (if `sdk-core` crate is missing)
 6. Builds the native TLSN library from Rust (if `.xcframework`/`.so` not present)
 7. Runs `expo run:ios` or `expo run:android`
 
-### Build script options
+Run `./build.sh --help` for all options. Commonly used:
 
-```
-./build.sh ios                # Build & run iOS (default)
-./build.sh android            # Build & run Android
-./build.sh --deps-only        # Build JS dependencies only
-./build.sh --native           # Rebuild Rust native libraries only
-./build.sh ios --skip-deps    # Skip JS builds (if already built)
-./build.sh ios --clean        # Clean Expo prebuild before building
-./build.sh ios --no-run       # Build everything but don't launch
-./build.sh ios --rebuild-native  # Force Rust rebuild even if artifacts exist
-```
+- `--no-run` — build everything but don't launch the app
+- `--skip-deps` — skip JS dependency builds (if already built)
+- `--rebuild-native` — force Rust rebuild even if artifacts exist
+- `--clean` — clean Expo prebuild before building
 
 ## Running the Verifier
 
@@ -137,7 +125,7 @@ npm install (root)
         ├─ dist/demo/     → JS for browser extension
         └─ dist/mobile/   → TS for Hermes (es2016 target, no async/await)
   │
-  ├─ QuickJS C sources   (downloaded from GitHub, patched for ObjC)
+  ├─ QuickJS C sources   (vendored in git, patched for ObjC)
   └─ TLSN native library (Rust → XCFramework/iOS or .so/Android via UniFFI)
   │
   └─ expo run:ios / expo run:android
@@ -145,7 +133,7 @@ npm install (root)
 
 ## Rebuilding Native Libraries
 
-The pre-built XCFramework (iOS) and .so (Android) are committed in `modules/tlsn-native/`. You only need to rebuild if you change `packages/tlsn-mobile` Rust code. The build script auto-installs the required Rust targets and `cargo-ndk`.
+The XCFramework (iOS) and .so (Android) are built from source by `build.sh` and are not committed to git. You only need to rebuild if you change `packages/tlsn-mobile` Rust code. The build script auto-installs the required Rust targets and `cargo-ndk`.
 
 **Rebuild:**
 
@@ -210,9 +198,10 @@ packages/mobile/
     │   ├── android/            # Kotlin bridge + JNI libs
     │   └── src/index.ts        # TypeScript interface
     └── quickjs-native/         # Expo native module for QuickJS
-        ├── ios/                # Swift wrapper
-        ├── android/            # JNI bridge + C sources
-        └── setup.sh            # Downloads QuickJS C sources
+        ├── ios/quickjs/        # Vendored C sources + Swift wrapper
+        ├── android/            # JNI bridge + vendored C sources
+        ├── QUICKJS_VERSION     # Upstream commit hash and provenance
+        └── setup.sh            # Re-vendoring tool (not needed for builds)
 ```
 
 ## Architecture
