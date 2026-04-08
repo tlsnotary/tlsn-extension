@@ -8,54 +8,20 @@ import React, {
 } from 'react';
 import { Platform } from 'react-native';
 
-// Type definitions (will be replaced with actual module import after prebuild)
-interface ProveRequest {
-  url: string;
-  method: string;
-  headers: Record<string, string>;
-  body?: string;
-}
+// Type-only imports are erased at compile time, so they're safe even before prebuild.
+import type {
+  ProveRequest,
+  HandlerType,
+  HandlerPart,
+  HandlerAction,
+  HandlerParams,
+  Handler,
+  ProverOptions,
+  ProveResult,
+  ProveProgress,
+} from '../../modules/tlsn-native/src';
 
-// Handler types matching Rust enums
-export type HandlerType = 'Sent' | 'Recv';
-export type HandlerPart = 'StartLine' | 'Headers' | 'Body' | 'All';
-export type HandlerAction = 'Reveal';
-
-export interface HandlerParams {
-  key?: string; // For HEADERS: specific header key
-  contentType?: string; // For BODY: "json" for JSON parsing
-  path?: string; // For BODY with JSON: JSON path like "items.0.name"
-}
-
-export interface Handler {
-  handlerType: HandlerType;
-  part: HandlerPart;
-  action: HandlerAction;
-  params?: HandlerParams;
-}
-
-interface ProverOptions {
-  verifierUrl: string;
-  maxSentData?: number;
-  maxRecvData?: number;
-  handlers?: Handler[];
-}
-
-interface ProveResult {
-  status: number;
-  body: unknown;
-  transcript: {
-    sentLength: number;
-    recvLength: number;
-  };
-  handlersReceived?: number;
-}
-
-export interface ProveProgress {
-  step: string;
-  progress: number;
-  message: string;
-}
+export type { HandlerType, HandlerPart, HandlerAction, HandlerParams, Handler, ProveProgress };
 
 export interface NativeProveParams {
   url: string;

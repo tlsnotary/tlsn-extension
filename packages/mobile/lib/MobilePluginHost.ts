@@ -407,6 +407,12 @@ export class MobilePluginHost {
     });
   }
 
+  private _clearActiveRefs(): void {
+    this._activeStateStore = null;
+    this._activeEventEmitter = null;
+    this._activeUuid = null;
+  }
+
   /**
    * Execute a plugin in the host environment.
    *
@@ -537,6 +543,7 @@ export class MobilePluginHost {
         const ctx = contextRegistry.get(uuid);
         if (ctx?.windowId) onCloseWindow(ctx.windowId);
         contextRegistry.delete(uuid);
+        this._clearActiveRefs();
         doneResolve(result);
       },
       doneWithOverlay: (result?: unknown) => {
@@ -545,6 +552,7 @@ export class MobilePluginHost {
         const ctx = contextRegistry.get(uuid);
         if (ctx?.windowId) onCloseWindow(ctx.windowId);
         contextRegistry.delete(uuid);
+        this._clearActiveRefs();
         doneResolve(result);
       },
     };
@@ -559,6 +567,7 @@ export class MobilePluginHost {
       exportedCode = evaluatePluginCode(code, capabilities);
     } catch (evalError) {
       const error = evalError instanceof Error ? evalError : new Error(String(evalError));
+      this._clearActiveRefs();
       doneReject!(new Error(`Plugin evaluation failed: ${error.message}`));
       return donePromise;
     }
@@ -566,6 +575,7 @@ export class MobilePluginHost {
     const { main: mainFn, ...otherExports } = exportedCode;
 
     if (typeof mainFn !== 'function') {
+      this._clearActiveRefs();
       doneReject!(new Error('Main function not found in plugin'));
       return donePromise;
     }
@@ -638,6 +648,7 @@ export class MobilePluginHost {
           const ctx = contextRegistry.get(uuid);
           if (ctx?.windowId) onCloseWindow(ctx.windowId);
           contextRegistry.delete(uuid);
+          this._clearActiveRefs();
           doneReject!(new Error(`Plugin main() error: ${err.message}`));
         }
         return null;
