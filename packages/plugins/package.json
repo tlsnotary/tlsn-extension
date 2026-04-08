@@ -21,7 +21,7 @@
   },
   "devDependencies": {
     "@tlsn/plugin-sdk": "*",
-    "esbuild": "^0.24.2",
+    "esbuild": "^0.25.0",
     "typescript": "^6.0.2"
   }
 }
