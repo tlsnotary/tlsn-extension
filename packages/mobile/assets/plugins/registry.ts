@@ -28,7 +28,7 @@ const CODE_MAP: Record<string, () => string> = {
     require('@tlsn/plugins/dist/mobile/discord_profile').DISCORD_PROFILE_PLUGIN_CODE,
 };
 
-const VERIFIER_URL = 'http://localhost:7047';
+const VERIFIER_URL = process.env.EXPO_PUBLIC_VERIFIER_URL || 'http://localhost:7047';
 
 function toPluginEntry(meta: PluginMetadata): PluginEntry {
   return {

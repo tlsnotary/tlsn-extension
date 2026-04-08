@@ -18,7 +18,7 @@ set -e
 #   --clean                 # Clean prebuild before building
 #
 # Environment:
-#   MOBILE_VERIFIER_URL     # Verifier URL for plugins (default: http://localhost:7047)
+#   EXPO_PUBLIC_VERIFIER_URL  # Verifier URL inlined at bundle time (default: http://localhost:7047)
 ##############################################################################
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

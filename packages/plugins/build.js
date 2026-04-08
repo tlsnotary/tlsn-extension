@@ -10,7 +10,9 @@
  * Environment variables:
  *   VITE_VERIFIER_HOST  - Verifier host (default: localhost:7047)
  *   VITE_SSL            - Use https/wss (default: false)
- *   MOBILE_VERIFIER_URL - Mobile verifier URL (default: http://localhost:7047)
+ *
+ * Mobile verifier URL is configured via EXPO_PUBLIC_VERIFIER_URL when
+ * bundling the mobile app (see packages/mobile/README.md).
  */
 import * as esbuild from 'esbuild';
 import fs from 'fs';
@@ -35,9 +37,6 @@ const VERIFIER_HOST = process.env.VITE_VERIFIER_HOST || 'localhost:7047';
 const SSL = process.env.VITE_SSL === 'true';
 const DEMO_VERIFIER_URL = `${SSL ? 'https' : 'http'}://${VERIFIER_HOST}`;
 const DEMO_PROXY_URL = `${SSL ? 'wss' : 'ws'}://${VERIFIER_HOST}/proxy?token=`;
-
-// Mobile configuration
-const MOBILE_VERIFIER_URL = process.env.MOBILE_VERIFIER_URL || 'http://localhost:7047';
 
 fs.mkdirSync(path.resolve(__dirname, 'dist/demo'), { recursive: true });
 fs.mkdirSync(path.resolve(__dirname, 'dist/mobile'), { recursive: true });
@@ -67,7 +66,7 @@ if (target === 'all' || target === 'demo') {
 
 if (target === 'all' || target === 'mobile') {
   console.log('Building plugins for MOBILE...');
-  console.log(`  VERIFIER_URL: ${MOBILE_VERIFIER_URL}`);
+  console.log(`  VERIFIER_URL: (set via EXPO_PUBLIC_VERIFIER_URL when bundling the app)`);
   console.log(`  PROXY_URL:    (empty)`);
 
   for (const plugin of plugins) {
@@ -84,7 +83,7 @@ if (target === 'all' || target === 'mobile') {
       target: 'es2016',
       outfile: tmpfile,
       define: {
-        __VERIFIER_URL__: JSON.stringify(MOBILE_VERIFIER_URL),
+        __VERIFIER_URL__: JSON.stringify(''),
         __PROXY_URL__: JSON.stringify(''),
       },
     });

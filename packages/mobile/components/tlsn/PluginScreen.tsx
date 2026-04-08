@@ -142,6 +142,10 @@ export function PluginScreen({ pluginCode, pluginConfig, onComplete, onError }: 
     return emitter;
   }, []);
 
+  // Resolve verifier URL: prefer the registry config (driven by EXPO_PUBLIC_VERIFIER_URL)
+  // over whatever the plugin code has baked in.
+  const configVerifierUrl = pluginConfig.requests?.[0]?.verifierUrl;
+
   // Create host
   /* eslint-disable react-hooks/refs */
   const host = useMemo(() => {
@@ -166,7 +170,7 @@ export function PluginScreen({ pluginCode, pluginConfig, onComplete, onError }: 
           method: requestOptions.method,
           headers: requestOptions.headers,
           proverOptions: {
-            verifierUrl: proverOptions.verifierUrl,
+            verifierUrl: configVerifierUrl || proverOptions.verifierUrl,
             maxSentData: proverOptions.maxSentData ?? 4096,
             maxRecvData: proverOptions.maxRecvData ?? 16384,
             handlers: nativeHandlers,
