@@ -111,8 +111,6 @@ export interface PluginConfig {
     method: string;
     host: string;
     pathname: string;
-    verifierUrl: string;
-    proxyUrl?: string;
   }[];
   urls?: string[];
   oauthHosts?: string[];

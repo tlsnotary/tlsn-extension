@@ -28,8 +28,6 @@ const CODE_MAP: Record<string, () => string> = {
     require('@tlsn/plugins/dist/mobile/discord_profile').DISCORD_PROFILE_PLUGIN_CODE,
 };
 
-const VERIFIER_URL = process.env.EXPO_PUBLIC_VERIFIER_URL || 'http://localhost:7047';
-
 function toPluginEntry(meta: PluginMetadata): PluginEntry {
   return {
     id: meta.id,
@@ -41,10 +39,7 @@ function toPluginEntry(meta: PluginMetadata): PluginEntry {
     pluginConfig: {
       name: meta.pluginConfig.name,
       description: meta.pluginConfig.description,
-      requests: meta.pluginConfig.requests.map((r) => ({
-        ...r,
-        verifierUrl: VERIFIER_URL,
-      })),
+      requests: meta.pluginConfig.requests,
       urls: meta.pluginConfig.urls,
       oauthHosts: meta.pluginConfig.oauthHosts,
     },
