@@ -1,0 +1,1 @@
+app/mobile/modules/tlsn-native/android/src/main/jniLibs/**/*.so filter=lfs diff=lfs merge=lfs -text

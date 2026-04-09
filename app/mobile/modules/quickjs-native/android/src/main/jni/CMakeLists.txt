@@ -1,14 +1,10 @@
 cmake_minimum_required(VERSION 3.22.1)
 project(quickjs-native)
 
-# QuickJS C source files
-# These must be copied here by running: ./setup.sh
-# Use file(GLOB ...) to pick up whichever files exist, since the file set
-# changed between QuickJS versions (libbf.c → dtoa.c, etc.)
-file(GLOB QUICKJS_C_SOURCES "*.c")
+# QuickJS C source files — shared vendor directory (one copy for iOS + Android)
+set(QUICKJS_VENDOR_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../../vendor/quickjs")
+file(GLOB QUICKJS_C_SOURCES "${QUICKJS_VENDOR_DIR}/*.c")
 
-# Exclude our JNI bridge from the QuickJS library sources
-list(FILTER QUICKJS_C_SOURCES EXCLUDE REGEX "quickjs_jni\\.c$")
 # Exclude the standalone tools
 list(FILTER QUICKJS_C_SOURCES EXCLUDE REGEX "qjs\\.c$")
 list(FILTER QUICKJS_C_SOURCES EXCLUDE REGEX "qjsc\\.c$")
@@ -32,7 +28,10 @@ target_compile_options(quickjs PRIVATE
     -Wno-unused-but-set-variable
 )
 
+# Headers live in the shared vendor directory
+target_include_directories(quickjs PRIVATE ${QUICKJS_VENDOR_DIR})
+
 # Build the JNI bridge
 add_library(quickjs-jni SHARED quickjs_jni.c)
 target_link_libraries(quickjs-jni quickjs log)
-target_include_directories(quickjs-jni PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(quickjs-jni PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${QUICKJS_VENDOR_DIR})
