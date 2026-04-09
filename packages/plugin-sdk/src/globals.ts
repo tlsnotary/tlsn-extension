@@ -14,6 +14,12 @@ import type {
 } from './types';
 
 /**
+ * Extract and parse a JSON body from an intercepted request.
+ * Returns the parsed JSON object, the raw string if not valid JSON, or null if no body.
+ */
+export type GetJsonBodyFunction = (request: InterceptedRequest) => unknown;
+
+/**
  * Create a div DOM element
  */
 export type DivFunction = {
@@ -137,6 +143,7 @@ export interface PluginAPI {
   useState: UseStateFunction;
   setState: SetStateFunction;
   prove: ProveFunction;
+  getJsonBody: GetJsonBodyFunction;
   done: DoneFunction;
   doneWithOverlay: DoneWithOverlayFunction;
 }
@@ -157,6 +164,7 @@ declare global {
   const useState: UseStateFunction;
   const setState: SetStateFunction;
   const prove: ProveFunction;
+  const getJsonBody: GetJsonBodyFunction;
   const done: DoneFunction;
   const doneWithOverlay: DoneWithOverlayFunction;
 }
