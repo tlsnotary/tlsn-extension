@@ -28,16 +28,11 @@ function renderPluginUI(json: DomJson, windowId: number) {
 
   container.innerHTML = '';
   container.appendChild(createNode(json, windowId));
-  makeDraggable(container);
 }
 
-function makeDraggable(container: HTMLElement) {
-  const root = container.firstElementChild as HTMLElement | null;
-
-  if (!root || root.style.position !== 'fixed') return;
-
-  // Use the first child div as the drag handle (the header bar)
-  const handle = root.firstElementChild as HTMLElement | null;
+function makeDraggable(el: HTMLElement) {
+  // Use the first child as the drag handle (the header bar)
+  const handle = el.firstElementChild as HTMLElement | null;
 
   if (!handle) return;
 
@@ -55,12 +50,12 @@ function makeDraggable(container: HTMLElement) {
     handle.style.cursor = 'grabbing';
 
     // Convert bottom/right positioning to top/left
-    const rect = root.getBoundingClientRect();
+    const rect = el.getBoundingClientRect();
 
-    root.style.top = rect.top + 'px';
-    root.style.left = rect.left + 'px';
-    root.style.bottom = 'auto';
-    root.style.right = 'auto';
+    el.style.top = rect.top + 'px';
+    el.style.left = rect.left + 'px';
+    el.style.bottom = 'auto';
+    el.style.right = 'auto';
 
     offsetX = e.clientX - rect.left;
     offsetY = e.clientY - rect.top;
@@ -71,11 +66,11 @@ function makeDraggable(container: HTMLElement) {
   const onMouseMove = (e: MouseEvent) => {
     if (!dragging) return;
 
-    const x = Math.max(0, Math.min(e.clientX - offsetX, window.innerWidth - root.offsetWidth));
-    const y = Math.max(0, Math.min(e.clientY - offsetY, window.innerHeight - root.offsetHeight));
+    const x = Math.max(0, Math.min(e.clientX - offsetX, window.innerWidth - el.offsetWidth));
+    const y = Math.max(0, Math.min(e.clientY - offsetY, window.innerHeight - el.offsetHeight));
 
-    root.style.left = x + 'px';
-    root.style.top = y + 'px';
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
   };
 
   const onMouseUp = () => {
@@ -173,6 +168,10 @@ function createNode(json: DomJson, windowId: number): HTMLElement | Text {
   json.children.forEach((child) => {
     node.appendChild(createNode(child, windowId));
   });
+
+  if (json.options.draggable) {
+    makeDraggable(node);
+  }
 
   return node;
 }

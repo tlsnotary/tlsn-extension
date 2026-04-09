@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, PanResponder, Animated } from 'react-native';
 import { cssToRN } from '../../lib/cssToRN';
 
 /**
@@ -11,6 +11,7 @@ export type DomOptions = {
   id?: string;
   style?: Record<string, string>;
   onclick?: string;
+  draggable?: boolean;
 };
 
 export type DomJson =
@@ -103,10 +104,62 @@ function renderNode(
     );
   }
 
+  if (options.draggable) {
+    return (
+      <DraggableView key={key} style={rnStyle}>
+        {content}
+      </DraggableView>
+    );
+  }
+
   return (
     <View key={key} style={rnStyle}>
       {content}
     </View>
+  );
+}
+
+/**
+ * Wrapper that makes a View draggable via PanResponder.
+ * Drag starts only after a 5px move threshold so button taps still work.
+ */
+function DraggableView({
+  style,
+  children,
+}: {
+  style: Record<string, unknown>;
+  children: React.ReactNode;
+}) {
+  const pan = useMemo(() => new Animated.ValueXY(), []);
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => false,
+        onMoveShouldSetPanResponder: (_, gs) => Math.abs(gs.dx) > 5 || Math.abs(gs.dy) > 5,
+        onPanResponderGrant: () => {
+          pan.setOffset({
+            x: (pan.x as unknown as { _value: number })._value,
+            y: (pan.y as unknown as { _value: number })._value,
+          });
+          pan.setValue({ x: 0, y: 0 });
+        },
+        onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], {
+          useNativeDriver: false,
+        }),
+        onPanResponderRelease: () => {
+          pan.flattenOffset();
+        },
+      }),
+    [pan],
+  );
+
+  return (
+    <Animated.View
+      style={[style, { transform: pan.getTranslateTransform() }]}
+      {...panResponder.panHandlers}
+    >
+      {children}
+    </Animated.View>
   );
 }
 

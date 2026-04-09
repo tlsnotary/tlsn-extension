@@ -197,6 +197,7 @@ const main = (): DomJson => {
 
   return div(
     {
+      draggable: true,
       style: {
         position: 'fixed',
         bottom: '0',
