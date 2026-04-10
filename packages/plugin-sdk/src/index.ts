@@ -466,6 +466,31 @@ function makeOpenWindow(
   };
 }
 
+/**
+ * Extract and parse a JSON body from an intercepted request.
+ *
+ * For JSON POST/PUT requests, the body is stored in `requestBody.raw[].bytes`
+ * as an ArrayBuffer or number array. This utility decodes the bytes to a string
+ * and attempts to parse it as JSON.
+ *
+ * @param request - An intercepted request from useRequests()
+ * @returns The parsed JSON object, the raw string if not valid JSON, or null if no body
+ */
+function getJsonBody(request: InterceptedRequest): unknown {
+  const bytes = request.requestBody?.raw?.[0]?.bytes;
+  if (!bytes) return null;
+
+  const text = String.fromCharCode(
+    ...(bytes instanceof ArrayBuffer ? new Uint8Array(bytes) : bytes),
+  );
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
 // Export Parser and its types
 export {
   Parser,
@@ -808,6 +833,7 @@ const mapStringToRange = env.mapStringToRange;
 const reveal = env.reveal;
 const getResponse = env.getResponse;
 const closeWindow = env.closeWindow;
+const getJsonBody = env.getJsonBody;
 const done = env.done;
 const doneWithOverlay = env.doneWithOverlay;
 ${processedCode};
@@ -1030,6 +1056,7 @@ ${processedCode};
           finalize();
         }
       },
+      getJsonBody: (request: InterceptedRequest) => getJsonBody(request),
       doneWithOverlay: (
         args?: unknown,
         options?: { title?: string; message?: string; delayMs?: number },
@@ -1098,6 +1125,7 @@ const useHeaders = env.useHeaders;
 const useState = env.useState;
 const setState = env.setState;
 const prove = env.prove;
+const getJsonBody = env.getJsonBody;
 const closeWindow = env.closeWindow;
 const done = env.done;
 const doneWithOverlay = env.doneWithOverlay;
@@ -1340,6 +1368,7 @@ export type {
   UseStateFunction,
   SetStateFunction,
   ProveFunction,
+  GetJsonBodyFunction,
   DoneFunction,
 } from './globals';
 
@@ -1348,6 +1377,9 @@ export { LogLevel } from '@tlsn/common';
 
 // Export internal utilities (used by tests)
 export { preprocessPluginCode };
+
+// Export getJsonBody utility for plugin authors
+export { getJsonBody };
 
 // Default export
 export default Host;
