@@ -186,11 +186,7 @@ if needs_native_build; then
 
     if ! command -v cargo-ndk &>/dev/null; then
       step "Installing cargo-ndk (required for Android cross-compilation)"
-      if command -v cargo-binstall &>/dev/null; then
-        cargo binstall -y cargo-ndk
-      else
-        cargo install cargo-ndk
-      fi
+      cargo install cargo-ndk
       ok "cargo-ndk installed"
     fi
   elif [ "$PLATFORM" = "ios" ]; then
