@@ -72,7 +72,7 @@ npm run mobile:ios      # Build deps + launch iOS
 npm run mobile:android  # Build deps + launch Android
 ```
 
-Or from `packages/mobile/` with the full build pipeline (JS deps + native libs + app):
+Or from `app/mobile/` with the full build pipeline (JS deps + native libs + app):
 
 ```bash
 ./build.sh ios      # Build everything + launch iOS
@@ -171,7 +171,7 @@ adb shell cmd alarm set-time $(( $(date +%s) * 1000 ))
 ## Project Structure
 
 ```
-packages/mobile/
+app/mobile/
 ├── build.sh                    # Unified build script
 ├── app/                        # Expo Router screens
 │   ├── (tabs)/
@@ -198,8 +198,9 @@ packages/mobile/
     │   ├── android/            # Kotlin bridge + JNI libs
     │   └── src/index.ts        # TypeScript interface
     └── quickjs-native/         # Expo native module for QuickJS
-        ├── ios/quickjs/        # Vendored C sources + Swift wrapper
-        ├── android/            # JNI bridge + vendored C sources
+        ├── vendor/quickjs/     # Shared vendored C sources (iOS + Android)
+        ├── ios/                # Swift wrapper + bridge files
+        ├── android/            # JNI bridge + CMake config
         ├── QUICKJS_VERSION     # Upstream commit hash and provenance
         └── setup.sh            # Re-vendoring tool (not needed for builds)
 ```

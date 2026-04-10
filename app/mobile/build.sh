@@ -23,7 +23,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$SCRIPT_DIR/../.."
-QUICKJS_DIR="$SCRIPT_DIR/modules/quickjs-native/ios/quickjs"
+QUICKJS_DIR="$SCRIPT_DIR/modules/quickjs-native/vendor/quickjs"
 XCFRAMEWORK_DIR="$SCRIPT_DIR/modules/tlsn-native/ios/TlsnMobile.xcframework"
 ANDROID_SO="$SCRIPT_DIR/modules/tlsn-native/android/src/main/jniLibs/arm64-v8a/libtlsn_mobile.so"
 TLSN_REPO_DIR="$ROOT_DIR/packages/tlsn-wasm/tlsn"
@@ -138,7 +138,7 @@ fi
 ########################################
 if [ "$SKIP_NATIVE_CHECK" = false ]; then
   if [ ! -f "$QUICKJS_DIR/quickjs.c" ]; then
-    fail "QuickJS C sources missing from ios/quickjs/"
+    fail "QuickJS C sources missing from vendor/quickjs/"
     hint "These should be vendored in git. To re-vendor, run:"
     hint "  cd modules/quickjs-native && ./setup.sh"
     exit 1

@@ -5,7 +5,7 @@ set -e
 # QuickJS re-vendoring script
 #
 # Re-downloads QuickJS C sources from a specific upstream commit, applies
-# the BOOL → JS_BOOL patch, and copies to both iOS and Android directories.
+# the BOOL → JS_BOOL patch, and places them in the shared vendor/quickjs/ directory.
 #
 # Usage:
 #   ./setup.sh                  # Re-vendor from commit in QUICKJS_VERSION
@@ -16,8 +16,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VERSION_FILE="$SCRIPT_DIR/QUICKJS_VERSION"
-QUICKJS_DIR="$SCRIPT_DIR/ios/quickjs"
-ANDROID_JNI_DIR="$SCRIPT_DIR/android/src/main/jni"
+VENDOR_DIR="$SCRIPT_DIR/vendor/quickjs"
 QUICKJS_REPO="https://github.com/bellard/quickjs"
 
 # Determine commit to fetch
@@ -65,26 +64,19 @@ QUICKJS_FILES=(
   libbf.c list.h
 )
 
-# Copy to iOS directory (preserving bridge files)
-echo "Copying C sources to ios/quickjs/..."
+# Copy to shared vendor directory
+echo "Copying C sources to vendor/quickjs/..."
+mkdir -p "$VENDOR_DIR"
 for f in "${QUICKJS_FILES[@]}"; do
   if [ -f "$EXTRACTED_DIR/$f" ]; then
-    cp "$EXTRACTED_DIR/$f" "$QUICKJS_DIR/"
+    cp "$EXTRACTED_DIR/$f" "$VENDOR_DIR/"
   fi
 done
 
 # Apply BOOL → JS_BOOL patch (avoids conflict with Apple's ObjC BOOL type)
 echo "Patching: BOOL → JS_BOOL..."
-for f in "$QUICKJS_DIR"/*.c "$QUICKJS_DIR"/*.h; do
+for f in "$VENDOR_DIR"/*.c "$VENDOR_DIR"/*.h; do
   [ -f "$f" ] && perl -pi -e 's/\bBOOL\b/JS_BOOL/g' "$f"
-done
-
-# Copy patched sources to Android JNI directory (preserving bridge files)
-echo "Copying patched sources to android/src/main/jni/..."
-for f in "${QUICKJS_FILES[@]}"; do
-  if [ -f "$QUICKJS_DIR/$f" ]; then
-    cp "$QUICKJS_DIR/$f" "$ANDROID_JNI_DIR/"
-  fi
 done
 
 # Update QUICKJS_VERSION file
@@ -100,14 +92,13 @@ cat > "$VERSION_FILE" << EOF
 #
 # Patches applied:
 #   - BOOL → JS_BOOL rename (avoids conflict with Apple's ObjC BOOL type)
-#   - Sources duplicated to both ios/quickjs/ and android/src/main/jni/
+#   - Sources stored in vendor/quickjs/ (shared by iOS and Android builds)
 #
 # To re-vendor from a newer upstream commit, run:
 #   ./setup.sh [commit-hash]
 EOF
 
-IOS_COUNT=$(ls "$QUICKJS_DIR"/*.{c,h} 2>/dev/null | wc -l | tr -d ' ')
-ANDROID_COUNT=$(ls "$ANDROID_JNI_DIR"/*.{c,h} 2>/dev/null | wc -l | tr -d ' ')
+VENDOR_COUNT=$(ls "$VENDOR_DIR"/*.{c,h} 2>/dev/null | wc -l | tr -d ' ')
 echo ""
-echo "Done! Vendored $IOS_COUNT files (iOS) and $ANDROID_COUNT files (Android)."
+echo "Done! Vendored $VENDOR_COUNT files to vendor/quickjs/."
 echo "Commit these changes along with the updated QUICKJS_VERSION file."

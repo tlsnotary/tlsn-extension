@@ -5,7 +5,7 @@
 #
 # Patches applied:
 #   - BOOL → JS_BOOL rename (avoids conflict with Apple's ObjC BOOL type)
-#   - Sources duplicated to both ios/quickjs/ and android/src/main/jni/
+#   - Sources stored in vendor/quickjs/ (shared by iOS and Android builds)
 #
 # To re-vendor from a newer upstream commit, run:
 #   ./setup.sh [commit-hash]

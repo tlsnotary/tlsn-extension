@@ -7,6 +7,7 @@ unset LD_LIBRARY_PATH
 unset DYLD_LIBRARY_PATH
 unset NIX_LDFLAGS
 unset NIX_CFLAGS_COMPILE
+unset SDKROOT
 
 echo "Building for iOS device (aarch64-apple-ios)..."
 cargo build --target aarch64-apple-ios --release
@@ -38,7 +39,7 @@ xcodebuild -create-xcframework \
     -output target/TlsnMobile.xcframework
 
 echo "Copying to Expo module..."
-EXPO_MODULE_DIR="../mobile/modules/tlsn-native"
+EXPO_MODULE_DIR="../../app/mobile/modules/tlsn-native"
 
 # Copy Swift bindings
 cp target/swift/tlsn_mobile.swift "$EXPO_MODULE_DIR/ios/"

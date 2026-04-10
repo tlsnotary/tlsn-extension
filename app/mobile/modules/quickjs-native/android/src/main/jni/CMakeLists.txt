@@ -1,13 +1,11 @@
 cmake_minimum_required(VERSION 3.22.1)
 project(quickjs-native)
 
-# QuickJS C source files (vendored — see ../../QUICKJS_VERSION)
-# Use file(GLOB ...) to pick up whichever files exist, since the file set
-# changed between QuickJS versions (libbf.c → dtoa.c, etc.)
-file(GLOB QUICKJS_C_SOURCES "*.c")
+# Shared QuickJS C source files live in vendor/quickjs/ (see ../../QUICKJS_VERSION)
+set(VENDOR_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../../vendor/quickjs")
 
-# Exclude our JNI bridge from the QuickJS library sources
-list(FILTER QUICKJS_C_SOURCES EXCLUDE REGEX "quickjs_jni\\.c$")
+file(GLOB QUICKJS_C_SOURCES "${VENDOR_DIR}/*.c")
+
 # Exclude the standalone tools
 list(FILTER QUICKJS_C_SOURCES EXCLUDE REGEX "qjs\\.c$")
 list(FILTER QUICKJS_C_SOURCES EXCLUDE REGEX "qjsc\\.c$")
@@ -15,6 +13,8 @@ list(FILTER QUICKJS_C_SOURCES EXCLUDE REGEX "run-test262\\.c$")
 
 # Build QuickJS as a shared library
 add_library(quickjs SHARED ${QUICKJS_C_SOURCES})
+
+target_include_directories(quickjs PRIVATE ${VENDOR_DIR})
 
 target_compile_definitions(quickjs PRIVATE
     _GNU_SOURCE
@@ -34,4 +34,4 @@ target_compile_options(quickjs PRIVATE
 # Build the JNI bridge
 add_library(quickjs-jni SHARED quickjs_jni.c)
 target_link_libraries(quickjs-jni quickjs log)
-target_include_directories(quickjs-jni PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(quickjs-jni PRIVATE ${VENDOR_DIR})

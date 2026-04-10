@@ -28,7 +28,7 @@ else
 fi
 
 echo "Copying to Expo module..."
-EXPO_MODULE_DIR="../mobile/modules/tlsn-native"
+EXPO_MODULE_DIR="../../app/mobile/modules/tlsn-native"
 
 # Copy .so library
 mkdir -p "$EXPO_MODULE_DIR/android/src/main/jniLibs/arm64-v8a"

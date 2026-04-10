@@ -9,7 +9,7 @@ See `../../QUICKJS_VERSION` for the upstream commit hash and date.
 To update to a newer upstream version:
 
 ```bash
-cd packages/mobile/modules/quickjs-native
+cd app/mobile/modules/quickjs-native
 ./setup.sh <commit-hash>    # or omit hash to re-vendor current version
 ```
 

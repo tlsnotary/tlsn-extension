@@ -4,7 +4,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Path to the tlsn-mobile Rust crate. Override via env var if the crate moves
 # (e.g., to the tlsn repo): TLSN_MOBILE_CRATE_DIR=/path/to/tlsn-mobile
-TLSN_MOBILE_DIR="${TLSN_MOBILE_CRATE_DIR:-$SCRIPT_DIR/../../../tlsn-mobile}"
+TLSN_MOBILE_DIR="${TLSN_MOBILE_CRATE_DIR:-$SCRIPT_DIR/../../../../packages/tlsn-mobile}"
 
 PLATFORM="${1:-all}"
 

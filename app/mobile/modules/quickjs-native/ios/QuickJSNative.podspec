@@ -12,16 +12,16 @@ Pod::Spec.new do |s|
 
   s.dependency 'ExpoModulesCore'
 
-  # Swift module + QuickJS C source files (glob picks up whichever version)
-  s.source_files = '**/*.swift', 'quickjs/*.{c,h}'
+  # Swift module + QuickJS C source files from shared vendor directory
+  s.source_files = '**/*.swift', 'quickjs/*.{c,h}', '../vendor/quickjs/*.{c,h}'
   # Only expose bridge header as public — Swift uses it via the module map.
   # Internal QuickJS headers (quickjs.h, cutils.h etc.) are pulled in
   # transitively but not exported to other pods.
   s.public_header_files = 'quickjs/quickjs_bridge.h'
-  s.preserve_paths = 'quickjs/**/*'
+  s.preserve_paths = 'quickjs/**/*', '../vendor/quickjs/**/*'
 
   # Exclude standalone QuickJS tools from compilation
-  s.exclude_files = 'quickjs/qjs.c', 'quickjs/qjsc.c', 'quickjs/run-test262.c'
+  s.exclude_files = '**/qjs.c', '**/qjsc.c', '**/run-test262.c'
 
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',
@@ -29,7 +29,7 @@ Pod::Spec.new do |s|
     # C compiler flags for QuickJS
     'GCC_PREPROCESSOR_DEFINITIONS' => '$(inherited) _GNU_SOURCE=1 CONFIG_VERSION=\"2025\"',
     # Allow Swift to find C headers via the module map
-    'HEADER_SEARCH_PATHS' => '"$(PODS_TARGET_SRCROOT)/quickjs"',
-    'SWIFT_INCLUDE_PATHS' => '"$(PODS_TARGET_SRCROOT)/quickjs"',
+    'HEADER_SEARCH_PATHS' => '"$(PODS_TARGET_SRCROOT)/quickjs" "$(PODS_TARGET_SRCROOT)/../vendor/quickjs"',
+    'SWIFT_INCLUDE_PATHS' => '"$(PODS_TARGET_SRCROOT)/quickjs" "$(PODS_TARGET_SRCROOT)/../vendor/quickjs"',
   }
 end

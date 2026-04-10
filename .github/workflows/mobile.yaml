@@ -3,7 +3,7 @@ name: mobile
 on:
   pull_request:
     paths:
-      - 'packages/mobile/**'
+      - 'app/mobile/**'
       - 'packages/tlsn-mobile/**'
       - 'package-lock.json'
   workflow_dispatch:
@@ -32,11 +32,11 @@ jobs:
           npm install rollup --force
 
       - name: Lint mobile package
-        working-directory: packages/mobile
+        working-directory: app/mobile
         run: npm run lint
 
       - name: Test mobile package
-        working-directory: packages/mobile
+        working-directory: app/mobile
         run: npm run test
 
       - name: Cargo check tlsn-mobile
@@ -96,7 +96,7 @@ jobs:
         run: npm run build:deps
 
       - name: Build native Android library
-        working-directory: packages/mobile
+        working-directory: app/mobile
         run: ./build.sh android --skip-deps --no-run
 
       # EAS APK build (optional — requires EXPO_TOKEN secret)
@@ -106,7 +106,7 @@ jobs:
 
       - name: Build Android APK (EAS local)
         if: env.EXPO_TOKEN != ''
-        working-directory: packages/mobile
+        working-directory: app/mobile
         run: eas build --platform android --profile ci-android --local --non-interactive --output ./build/tlsn-mobile.apk
 
       - name: Upload APK artifact
@@ -114,7 +114,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: android-apk
-          path: packages/mobile/build/tlsn-mobile.apk
+          path: app/mobile/build/tlsn-mobile.apk
           if-no-files-found: error
 
   ios-build:
@@ -162,7 +162,7 @@ jobs:
         run: npm run build:deps
 
       - name: Build native iOS library
-        working-directory: packages/mobile
+        working-directory: app/mobile
         run: ./build.sh ios --skip-deps --no-run
 
       # EAS app build (optional — requires EXPO_TOKEN secret)
@@ -172,7 +172,7 @@ jobs:
 
       - name: Build iOS simulator app (EAS local)
         if: env.EXPO_TOKEN != ''
-        working-directory: packages/mobile
+        working-directory: app/mobile
         run: eas build --platform ios --profile ci-ios --local --non-interactive --output ./build/tlsn-mobile-sim.app
 
       - name: Upload iOS artifact
@@ -180,5 +180,5 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: ios-simulator-app
-          path: packages/mobile/build/tlsn-mobile-sim.app
+          path: app/mobile/build/tlsn-mobile-sim.app
           if-no-files-found: error
