@@ -9,6 +9,9 @@ unset NIX_LDFLAGS
 unset NIX_CFLAGS_COMPILE
 unset SDKROOT
 
+# Pin iOS deployment target so ring/cc-rs doesn't inherit a wrong version from Nix SDK
+export IPHONEOS_DEPLOYMENT_TARGET="${IPHONEOS_DEPLOYMENT_TARGET:-15.1}"
+
 echo "Building for iOS device (aarch64-apple-ios)..."
 cargo build --target aarch64-apple-ios --release
 

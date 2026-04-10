@@ -209,6 +209,8 @@ if needs_native_build; then
   step "Building TLSN native library ($PLATFORM)"
   "$SCRIPT_DIR/modules/tlsn-native/build.sh" "$PLATFORM"
   ok "TLSN native library built"
+  # Native artifacts changed — force clean prebuild so CocoaPods/Gradle picks them up
+  CLEAN=true
 elif [ "$SKIP_NATIVE_CHECK" = false ]; then
   skip "TLSN native library already present"
 else

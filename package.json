@@ -30,10 +30,8 @@
     "docker:up": "cd packages/demo && docker compose up --build -d",
     "docker:down": "cd packages/demo && docker compose down",
     "mobile": "npm run start --workspace=@tlsn/mobile",
-    "mobile:ios": "npm run ios --workspace=@tlsn/mobile",
-    "mobile:android": "npm run android --workspace=@tlsn/mobile",
-    "android": "expo run:android",
-    "ios": "expo run:ios"
+    "mobile:ios": "cd app/mobile && ./build.sh ios",
+    "mobile:android": "cd app/mobile && ./build.sh android"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
