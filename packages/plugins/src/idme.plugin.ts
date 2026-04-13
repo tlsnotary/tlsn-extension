@@ -67,7 +67,7 @@ const onClick = async (): Promise<void> => {
     {
       verifierUrl: __VERIFIER_URL__,
       proxyUrl: __PROXY_URL__ + api,
-      maxRecvData: 16384,
+      maxRecvData: 65536,
       maxSentData: 4096,
       handlers: [
         { type: 'SENT', part: 'START_LINE', action: 'REVEAL' } satisfies Handler,
@@ -88,7 +88,7 @@ const onClick = async (): Promise<void> => {
           type: 'RECV',
           part: 'BODY',
           action: 'REVEAL',
-          params: { type: 'json', path: '0.handle' },
+          params: { type: 'json', path: '0.full_name' },
         } satisfies Handler,
       ],
     },

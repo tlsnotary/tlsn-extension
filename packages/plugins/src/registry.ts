@@ -187,7 +187,7 @@ export const PLUGIN_REGISTRY: PluginMetadata[] = [
     id: 'idme',
     name: 'ID.me Credentials',
     description: 'Prove your verified ID.me identity credentials',
-    logo: '\uD83E\uDEB3', // 🪪
+    logo: '\uD83E\uDEAA', // 🪪
     resultLabel: 'Credential',
     accentColor: '#2D6A4F',
     platforms: ['demo'],
