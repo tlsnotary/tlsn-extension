@@ -26,8 +26,24 @@ function renderPluginUI(json: DomJson, windowId: number) {
     container = el;
   }
 
+  // Preserve drag position across re-renders: if the user dragged the element,
+  // its positioning was converted from bottom/right to top/left (bottom becomes 'auto').
+  const prev = container.querySelector('[data-tlsn-draggable]') as HTMLElement | null;
+  const savedPosition =
+    prev && prev.style.bottom === 'auto' ? { top: prev.style.top, left: prev.style.left } : null;
+
   container.innerHTML = '';
   container.appendChild(createNode(json, windowId));
+
+  if (savedPosition) {
+    const el = container.querySelector('[data-tlsn-draggable]') as HTMLElement | null;
+    if (el) {
+      el.style.top = savedPosition.top;
+      el.style.left = savedPosition.left;
+      el.style.bottom = 'auto';
+      el.style.right = 'auto';
+    }
+  }
 }
 
 function makeDraggable(el: HTMLElement) {
@@ -164,6 +180,7 @@ function createNode(json: DomJson, windowId: number): HTMLElement | Text {
   });
 
   if (json.options.draggable) {
+    node.dataset.tlsnDraggable = '';
     makeDraggable(node);
   }
 
