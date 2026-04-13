@@ -260,4 +260,12 @@ export interface PluginConfig {
    * Supports subdomain matching (e.g., "google.com" matches "accounts.google.com").
    */
   oauthHosts?: string[];
+
+  /**
+   * Maximum execution timeout in milliseconds.
+   * When 1 minute remains, a warning modal is shown to the user
+   * with an option to extend by 5 minutes.
+   * Clamped to [2 minutes, 60 minutes]. Defaults to 15 minutes.
+   */
+  timeout?: number;
 }

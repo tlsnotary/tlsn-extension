@@ -36,6 +36,18 @@ type AnyFunction = (...args: any[]) => any;
 // Module-level registry to avoid circular references in capability closures
 const executionContextRegistry = new Map<string, ExecutionContext>();
 
+// Timeout constants
+export const DEFAULT_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
+export const MIN_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
+export const MAX_TIMEOUT_MS = 60 * 60 * 1000; // 60 minutes
+export const TIMEOUT_WARNING_LEAD_MS = 60 * 1000; // 1 minute warning
+export const TIMEOUT_EXTEND_MS = 5 * 60 * 1000; // 5 minutes per extend
+
+export function clampTimeout(value?: number): number {
+  if (value == null) return DEFAULT_TIMEOUT_MS;
+  return Math.max(MIN_TIMEOUT_MS, Math.min(MAX_TIMEOUT_MS, value));
+}
+
 // Pure function for updating execution context without `this` binding
 function updateExecutionContext(
   uuid: string,
@@ -195,6 +207,13 @@ function makeSetState(
       type: 'TO_BG_RE_RENDER_PLUGIN_UI',
       windowId: executionContextRegistry.get(uuid)?.windowId || 0,
     });
+  };
+}
+
+// Pure function for creating usePluginTimeout hook
+function makeUsePluginTimeout(stateStore: Record<string, unknown>) {
+  return (): { remaining: number; total: number } | null => {
+    return (stateStore['_pluginTimeout'] as { remaining: number; total: number }) ?? null;
   };
 }
 
@@ -626,6 +645,133 @@ function createCompletionOverlay(
   };
 }
 
+export function createTimeoutWarningOverlay(): DomJson {
+  return {
+    type: 'div',
+    options: {
+      style: {
+        position: 'fixed',
+        top: '0',
+        left: '0',
+        width: '100%',
+        height: '100%',
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: '9999999',
+        fontFamily:
+          '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+      },
+    },
+    children: [
+      {
+        type: 'div',
+        options: {
+          style: {
+            backgroundColor: '#ffffff',
+            borderRadius: '16px',
+            padding: '40px 48px',
+            textAlign: 'center',
+            boxShadow: '0 24px 48px rgba(0, 0, 0, 0.25)',
+            maxWidth: '360px',
+            width: '90%',
+          },
+        },
+        children: [
+          // Warning icon
+          {
+            type: 'div',
+            options: {
+              style: {
+                width: '72px',
+                height: '72px',
+                margin: '0 auto 20px auto',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '48px',
+              },
+            },
+            children: ['\u23F1\uFE0F'],
+          },
+          // Title
+          {
+            type: 'div',
+            options: {
+              style: {
+                fontSize: '22px',
+                fontWeight: '700',
+                color: '#111827',
+                marginBottom: '8px',
+                letterSpacing: '-0.02em',
+              },
+            },
+            children: ['Plugin Timeout Warning'],
+          },
+          // Message
+          {
+            type: 'div',
+            options: {
+              style: {
+                fontSize: '14px',
+                color: '#6b7280',
+                lineHeight: '1.5',
+                marginBottom: '24px',
+              },
+            },
+            children: ['The plugin will time out in less than 1 minute.'],
+          },
+          // Extend button
+          {
+            type: 'button',
+            options: {
+              onclick: '_extendTimeout',
+              style: {
+                padding: '12px 24px',
+                border: 'none',
+                borderRadius: '8px',
+                backgroundColor: '#2563eb',
+                color: '#ffffff',
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                marginRight: '12px',
+              },
+            },
+            children: ['Extend by 5 min'],
+          },
+          // Let expire button
+          {
+            type: 'button',
+            options: {
+              onclick: '_dismissTimeoutWarning',
+              style: {
+                padding: '12px 24px',
+                border: '1px solid #d1d5db',
+                borderRadius: '8px',
+                backgroundColor: '#ffffff',
+                color: '#374151',
+                fontSize: '14px',
+                cursor: 'pointer',
+              },
+            },
+            children: ['Let it expire'],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function wrapWithTimeoutWarning(pluginUi: DomJson): DomJson {
+  return {
+    type: 'div',
+    options: { style: {} },
+    children: [pluginUi, createTimeoutWarningOverlay()],
+  };
+}
+
 export class Host {
   private capabilities: Map<string, AnyFunction> = new Map();
   private onProve: (
@@ -979,6 +1125,7 @@ ${processedCode};
       useHeaders: makeUseHeaders(uuid, context),
       useState: makeUseState(uuid, stateStore, eventEmitter),
       setState: makeSetState(uuid, stateStore, eventEmitter),
+      usePluginTimeout: makeUsePluginTimeout(stateStore),
       prove: async (
         requestOptions: Parameters<typeof onProve>[0],
         proverOptions: Parameters<typeof onProve>[1],
@@ -1101,6 +1248,7 @@ const prove = env.prove;
 const closeWindow = env.closeWindow;
 const done = env.done;
 const doneWithOverlay = env.doneWithOverlay;
+const usePluginTimeout = env.usePluginTimeout;
 ${processedCode};
 `);
       exportedCode = (evalResult ?? {}) as Record<string, unknown>;
@@ -1178,7 +1326,10 @@ ${processedCode};
             executionContextRegistry.get(uuid)?.windowId,
           );
 
-          json = result;
+          // If timeout warning is active, layer it on top of the plugin UI.
+          // The plugin UI continues to update underneath (no stale state).
+          json = timeoutWarningShown ? wrapWithTimeoutWarning(result) : result;
+
           waitForWindow(async () => executionContextRegistry.get(uuid)?.windowId).then(
             (windowId: number | null) => {
               if (windowId == null) {
@@ -1211,6 +1362,80 @@ ${processedCode};
       main: main,
       callbacks: callbacks,
       stateStore: {},
+    });
+
+    // --- Timeout lifecycle ---
+    const pluginConfig = args.config as PluginConfig | undefined;
+    const timeoutMs = clampTimeout(pluginConfig?.timeout);
+    let deadline = Date.now() + timeoutMs;
+    let timeoutWarningShown = false;
+
+    // Update _pluginTimeout state and trigger re-render
+    const updateTimeoutState = () => {
+      const remaining = Math.max(0, deadline - Date.now());
+      stateStore['_pluginTimeout'] = { remaining, total: timeoutMs };
+    };
+
+    // Extend handler — called via onclick dispatch
+    const extendTimeout = () => {
+      deadline = Date.now() + TIMEOUT_EXTEND_MS;
+      timeoutWarningShown = false;
+      updateTimeoutState();
+      // Re-render to restore normal plugin UI
+      eventEmitter.emit({
+        type: 'TO_BG_RE_RENDER_PLUGIN_UI',
+        windowId: executionContextRegistry.get(uuid)?.windowId || 0,
+      });
+    };
+
+    // Dismiss warning — let deadline fire naturally, just restore plugin UI
+    const dismissTimeoutWarning = () => {
+      timeoutWarningShown = false;
+      eventEmitter.emit({
+        type: 'TO_BG_RE_RENDER_PLUGIN_UI',
+        windowId: executionContextRegistry.get(uuid)?.windowId || 0,
+      });
+    };
+
+    // Register internal onclick handlers for the timeout warning modal
+    callbacks['_extendTimeout'] = async () => {
+      extendTimeout();
+    };
+    callbacks['_dismissTimeoutWarning'] = async () => {
+      dismissTimeoutWarning();
+    };
+
+    updateTimeoutState();
+
+    const timeoutIntervalId = setInterval(() => {
+      if (lifecycle.isCompleted) {
+        clearInterval(timeoutIntervalId);
+        return;
+      }
+
+      const remaining = deadline - Date.now();
+      updateTimeoutState();
+
+      // Show warning overlay at T-60s by triggering a re-render.
+      // main() wraps the plugin UI with the warning overlay when timeoutWarningShown is true.
+      if (remaining <= TIMEOUT_WARNING_LEAD_MS && remaining > 0 && !timeoutWarningShown) {
+        timeoutWarningShown = true;
+        eventEmitter.emit({
+          type: 'TO_BG_RE_RENDER_PLUGIN_UI',
+          windowId: executionContextRegistry.get(uuid)?.windowId || 0,
+        });
+      }
+
+      // Deadline reached — terminate
+      if (remaining <= 0) {
+        clearInterval(timeoutIntervalId);
+        terminateWithError(new Error('Plugin execution timeout'), sandbox);
+      }
+    }, 1000);
+
+    // Clean up interval when plugin completes
+    donePromise.finally(() => {
+      clearInterval(timeoutIntervalId);
     });
 
     // Execute initial main() - errors are handled within main() via terminateWithError
