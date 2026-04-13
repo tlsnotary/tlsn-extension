@@ -19,15 +19,12 @@ config.resolver.nodeModulesPaths = [
 // 3. Enable package.json "exports" field resolution
 config.resolver.unstable_enablePackageExports = true;
 
-// 4. Force resolving these packages from mobile's node_modules
+// 4. Force resolving these packages from mobile's node_modules to avoid
+// duplicate instances. The symlinks in mobile/node_modules (created by
+// postinstall) point to the root copies, so no blockList is needed.
 config.resolver.extraNodeModules = {
   react: path.resolve(projectRoot, 'node_modules/react'),
   'react-native': path.resolve(projectRoot, 'node_modules/react-native'),
 };
-
-// 4. Block the root copy of react to avoid duplicate React instances.
-// Note: react-native is NOT blocked because it only exists at the root
-// and is symlinked into the local node_modules via postinstall.
-config.resolver.blockList = [new RegExp(`^${monorepoRoot}/node_modules/react/.*$`)];
 
 module.exports = config;

@@ -111,8 +111,6 @@ export interface PluginConfig {
     method: string;
     host: string;
     pathname: string;
-    verifierUrl: string;
-    proxyUrl?: string;
   }[];
   urls?: string[];
   oauthHosts?: string[];
@@ -381,11 +379,36 @@ export class MobilePluginHost {
   private onOpenWindow: MobilePluginHostOptions['onOpenWindow'];
   private onCloseWindow: MobilePluginHostOptions['onCloseWindow'];
 
+  // References to the active execution's state, used by setProveProgress()
+  private _activeStateStore: Record<string, unknown> | null = null;
+  private _activeEventEmitter: EventEmitter | null = null;
+  private _activeUuid: string | null = null;
+
   constructor(options: MobilePluginHostOptions) {
     this.onProve = options.onProve;
     this.onRenderPluginUi = options.onRenderPluginUi;
     this.onOpenWindow = options.onOpenWindow;
     this.onCloseWindow = options.onCloseWindow;
+  }
+
+  /**
+   * Update the _proveProgress state from an external source (e.g. native progress events).
+   * This triggers a UI re-render so the plugin's progress bar updates.
+   */
+  setProveProgress(data: { step: string; progress: number; message: string } | null): void {
+    if (!this._activeStateStore || !this._activeEventEmitter || !this._activeUuid) return;
+    this._activeStateStore['_proveProgress'] = data;
+    const ctx = contextRegistry.get(this._activeUuid);
+    this._activeEventEmitter.emit({
+      type: 'RE_RENDER_PLUGIN_UI',
+      windowId: ctx?.windowId || 0,
+    });
+  }
+
+  private _clearActiveRefs(): void {
+    this._activeStateStore = null;
+    this._activeEventEmitter = null;
+    this._activeUuid = null;
   }
 
   /**
@@ -401,6 +424,11 @@ export class MobilePluginHost {
     const uuid = uuidv4();
     const hookContext: Record<string, { effects: unknown[][]; selectors: unknown[][] }> = {};
     const stateStore: Record<string, unknown> = {};
+
+    // Store references so setProveProgress() can update state externally
+    this._activeStateStore = stateStore;
+    this._activeEventEmitter = eventEmitter;
+    this._activeUuid = uuid;
 
     let doneResolve: (result?: unknown) => void;
     let doneReject: (error: Error) => void;
@@ -484,13 +512,36 @@ export class MobilePluginHost {
       useHeaders: makeUseHeaders(uuid, hookContext),
       useState: makeUseState(uuid, stateStore),
       setState: makeSetState(uuid, stateStore, eventEmitter),
-      prove: onProve,
+      prove: async (
+        requestOptions: Parameters<MobilePluginHostOptions['onProve']>[0],
+        proverOptions: Parameters<MobilePluginHostOptions['onProve']>[1],
+      ) => {
+        // Native progress events update _proveProgress via setProveProgress().
+        // The wrapper only handles COMPLETE and error cleanup.
+        try {
+          const result = await onProve(requestOptions, proverOptions);
+          stateStore['_proveProgress'] = { step: 'COMPLETE', progress: 1, message: 'Complete' };
+          eventEmitter.emit({
+            type: 'RE_RENDER_PLUGIN_UI',
+            windowId: contextRegistry.get(uuid)?.windowId || 0,
+          });
+          return result;
+        } catch (err) {
+          stateStore['_proveProgress'] = null;
+          eventEmitter.emit({
+            type: 'RE_RENDER_PLUGIN_UI',
+            windowId: contextRegistry.get(uuid)?.windowId || 0,
+          });
+          throw err;
+        }
+      },
       done: (result?: unknown) => {
         if (isCompleted) return;
         isCompleted = true;
         const ctx = contextRegistry.get(uuid);
         if (ctx?.windowId) onCloseWindow(ctx.windowId);
         contextRegistry.delete(uuid);
+        this._clearActiveRefs();
         doneResolve(result);
       },
       doneWithOverlay: (result?: unknown) => {
@@ -499,6 +550,7 @@ export class MobilePluginHost {
         const ctx = contextRegistry.get(uuid);
         if (ctx?.windowId) onCloseWindow(ctx.windowId);
         contextRegistry.delete(uuid);
+        this._clearActiveRefs();
         doneResolve(result);
       },
     };
@@ -513,6 +565,7 @@ export class MobilePluginHost {
       exportedCode = evaluatePluginCode(code, capabilities);
     } catch (evalError) {
       const error = evalError instanceof Error ? evalError : new Error(String(evalError));
+      this._clearActiveRefs();
       doneReject!(new Error(`Plugin evaluation failed: ${error.message}`));
       return donePromise;
     }
@@ -520,6 +573,7 @@ export class MobilePluginHost {
     const { main: mainFn, ...otherExports } = exportedCode;
 
     if (typeof mainFn !== 'function') {
+      this._clearActiveRefs();
       doneReject!(new Error('Main function not found in plugin'));
       return donePromise;
     }
@@ -592,6 +646,7 @@ export class MobilePluginHost {
           const ctx = contextRegistry.get(uuid);
           if (ctx?.windowId) onCloseWindow(ctx.windowId);
           contextRegistry.delete(uuid);
+          this._clearActiveRefs();
           doneReject!(new Error(`Plugin main() error: ${err.message}`));
         }
         return null;

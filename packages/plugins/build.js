@@ -10,7 +10,7 @@
  * Environment variables:
  *   VITE_VERIFIER_HOST  - Verifier host (default: localhost:7047)
  *   VITE_SSL            - Use https/wss (default: false)
- *   MOBILE_VERIFIER_URL - Mobile verifier URL (default: http://localhost:7047)
+ *   MOBILE_VERIFIER_URL - Mobile verifier URL baked into plugin code (default: http://localhost:7047)
  */
 import * as esbuild from 'esbuild';
 import fs from 'fs';

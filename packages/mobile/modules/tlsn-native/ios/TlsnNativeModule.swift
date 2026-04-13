@@ -6,9 +6,29 @@ import os.log
 
 private let logger = OSLog(subsystem: "com.tlsn.mobile", category: "TlsnNative")
 
+/// Bridge the UniFFI ProgressCallback interface to Expo event emission.
+class SwiftProgressCallback: ProgressCallback {
+    private let sendEvent: (_ name: String, _ body: [String: Any]) -> Void
+
+    init(sendEvent: @escaping (_ name: String, _ body: [String: Any]) -> Void) {
+        self.sendEvent = sendEvent
+    }
+
+    func onProgress(step: String, progress: Double, message: String) {
+        sendEvent("onProveProgress", [
+            "step": step,
+            "progress": progress,
+            "message": message
+        ])
+    }
+}
+
 public class TlsnNativeModule: Module {
     public func definition() -> ModuleDefinition {
         Name("TlsnNative")
+
+        // Declare events that can be sent to JS
+        Events("onProveProgress")
 
         // Initialize the TLSN library
         Function("initialize") {
@@ -160,8 +180,13 @@ public class TlsnNativeModule: Module {
                         handlers: handlers
                     )
 
-                    // Call the prove function
-                    let result = try prove(request: request, options: options)
+                    // Create progress callback that emits Expo events
+                    let progressCallback = SwiftProgressCallback { [weak self] name, body in
+                        self?.sendEvent(name, body)
+                    }
+
+                    // Call the prove function with progress callback
+                    let result = try prove(request: request, options: options, progress: progressCallback)
 
                     // Convert response headers to dictionary
                     var responseHeaders: [[String: String]] = []

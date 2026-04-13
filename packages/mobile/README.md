@@ -117,7 +117,14 @@ cd packages/verifier
 cargo run
 ```
 
-The verifier runs on `http://localhost:7047`. On iOS simulator this is accessible as-is. On Android emulator, the app automatically rewrites `localhost` to `10.0.2.2`.
+The verifier runs on `http://localhost:7047` by default. On iOS simulator this is accessible as-is. On Android emulator, the app automatically rewrites `localhost` to `10.0.2.2`.
+
+To use a remote verifier (e.g. the public demo server), rebuild the plugins with `MOBILE_VERIFIER_URL` and start the app:
+
+```bash
+MOBILE_VERIFIER_URL=https://demo.tlsnotary.org npm run build:plugins
+npm run mobile:ios
+```
 
 ## Build Dependency Chain
 

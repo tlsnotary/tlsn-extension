@@ -15,8 +15,8 @@ use tokio_util::compat::TokioAsyncReadCompatExt;
 use url::Url;
 
 use crate::{
-    ws_io::WsIoAdapter, HttpHeader, HttpRequest, HttpResponse, ProofResult, ProverOptions,
-    TlsnError, Transcript,
+    ws_io::WsIoAdapter, HttpHeader, HttpRequest, HttpResponse, ProofResult, ProgressCallback,
+    ProverOptions, TlsnError, Transcript,
 };
 
 /// Connect to a WebSocket URL and return an [`WsIoAdapter`].
@@ -25,14 +25,23 @@ async fn connect_ws(url: &str) -> Result<WsIoAdapter, TlsnError> {
     Ok(WsIoAdapter::new(ws))
 }
 
+/// Emit progress if a callback is provided.
+fn emit_progress(cb: Option<&dyn ProgressCallback>, step: &str, progress: f64, message: &str) {
+    if let Some(cb) = cb {
+        cb.on_progress(step.to_string(), progress, message.to_string());
+    }
+}
+
 /// Main async prove function.
 pub(crate) async fn prove_async(
     request: HttpRequest,
     options: ProverOptions,
+    progress: Option<&dyn ProgressCallback>,
 ) -> Result<ProofResult, TlsnError> {
     let handlers_received = options.handlers.len() as u32;
 
     tracing::info!("starting proof for {} ({} handlers)", request.url, handlers_received);
+    emit_progress(progress, "CONNECTING", 0.0, "Connecting to verifier...");
 
     // Parse URL to extract hostname for ProverConfig.
     let url = Url::parse(&request.url)?;
@@ -99,6 +108,7 @@ pub(crate) async fn prove_async(
         }
     };
     tracing::info!("session registered: {session_id}");
+    emit_progress(progress, "SESSION_REGISTERED", 0.1, "Session registered");
 
     // -----------------------------------------------------------------------
     // 2. Create prover & MPC setup
@@ -116,6 +126,7 @@ pub(crate) async fn prove_async(
     let verifier_io = connect_ws(&verifier_ws_url).await?;
     prover.setup(verifier_io).await?;
     tracing::info!("MPC setup complete");
+    emit_progress(progress, "MPC_SETUP", 0.25, "MPC session established");
 
     // -----------------------------------------------------------------------
     // 3. Send HTTP request through direct TCP (no proxy needed on native)
@@ -130,9 +141,11 @@ pub(crate) async fn prove_async(
     // Convert tokio TcpStream (tokio::io::AsyncRead) to futures::AsyncRead for sdk-core's Io trait.
     let server_io = tcp_stream.compat();
 
+    emit_progress(progress, "SENDING_REQUEST", 0.35, "Sending request...");
     let sdk_request = request.into_sdk();
     let sdk_response = prover.send_request(server_io, sdk_request).await?;
     tracing::info!("HTTP response: status {}", sdk_response.status);
+    emit_progress(progress, "REQUEST_COMPLETE", 0.5, "Processing transcript...");
 
     // -----------------------------------------------------------------------
     // 4. Compute reveal ranges from handlers
@@ -165,8 +178,10 @@ pub(crate) async fn prove_async(
     // -----------------------------------------------------------------------
     // 5. Reveal and finalize
     // -----------------------------------------------------------------------
+    emit_progress(progress, "GENERATING_PROOF", 0.65, "Generating proof...");
     prover.reveal(compute_output.reveal).await?;
     tracing::info!("proof generated");
+    emit_progress(progress, "REVEAL_COMPLETE", 0.8, "Sending verification data...");
 
     // -----------------------------------------------------------------------
     // 6. Send reveal_config to verifier session
@@ -216,6 +231,7 @@ pub(crate) async fn prove_async(
         Ok(Err(e)) => return Err(e),
         Err(_) => tracing::warn!("timed out waiting for session_completed (proof still valid)"),
     }
+    emit_progress(progress, "VERIFICATION_COMPLETE", 0.95, "Verification complete");
 
     // -----------------------------------------------------------------------
     // 7. Build result
