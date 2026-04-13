@@ -40,13 +40,25 @@ function makeDraggable(el: HTMLElement) {
 
   let offsetX = 0;
   let offsetY = 0;
-  let dragging = false;
 
-  const onMouseDown = (e: MouseEvent) => {
+  const onMouseMove = (e: MouseEvent) => {
+    const x = Math.max(0, Math.min(e.clientX - offsetX, window.innerWidth - el.offsetWidth));
+    const y = Math.max(0, Math.min(e.clientY - offsetY, window.innerHeight - el.offsetHeight));
+
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+  };
+
+  const onMouseUp = () => {
+    handle.style.cursor = 'grab';
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+  };
+
+  handle.addEventListener('mousedown', (e: MouseEvent) => {
     // Only drag on primary button, ignore clicks on buttons inside the handle
     if (e.button !== 0 || (e.target as HTMLElement).closest('button')) return;
 
-    dragging = true;
     handle.style.cursor = 'grabbing';
 
     // Convert bottom/right positioning to top/left
@@ -60,29 +72,11 @@ function makeDraggable(el: HTMLElement) {
     offsetX = e.clientX - rect.left;
     offsetY = e.clientY - rect.top;
 
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+
     e.preventDefault();
-  };
-
-  const onMouseMove = (e: MouseEvent) => {
-    if (!dragging) return;
-
-    const x = Math.max(0, Math.min(e.clientX - offsetX, window.innerWidth - el.offsetWidth));
-    const y = Math.max(0, Math.min(e.clientY - offsetY, window.innerHeight - el.offsetHeight));
-
-    el.style.left = x + 'px';
-    el.style.top = y + 'px';
-  };
-
-  const onMouseUp = () => {
-    if (!dragging) return;
-
-    dragging = false;
-    handle.style.cursor = 'grab';
-  };
-
-  handle.addEventListener('mousedown', onMouseDown);
-  document.addEventListener('mousemove', onMouseMove);
-  document.addEventListener('mouseup', onMouseUp);
+  });
 }
 
 const ALLOWED_ELEMENT_TYPES = new Set([
