@@ -26,18 +26,29 @@ function renderPluginUI(json: DomJson, windowId: number) {
     container = el;
   }
 
+  // Preserve drag position across re-renders: if the user dragged the element,
+  // its positioning was converted from bottom/right to top/left (bottom becomes 'auto').
+  const prev = container.querySelector('[data-tlsn-draggable]') as HTMLElement | null;
+  const savedPosition =
+    prev && prev.style.bottom === 'auto' ? { top: prev.style.top, left: prev.style.left } : null;
+
   container.innerHTML = '';
   container.appendChild(createNode(json, windowId));
-  makeDraggable(container);
+
+  if (savedPosition) {
+    const el = container.querySelector('[data-tlsn-draggable]') as HTMLElement | null;
+    if (el) {
+      el.style.top = savedPosition.top;
+      el.style.left = savedPosition.left;
+      el.style.bottom = 'auto';
+      el.style.right = 'auto';
+    }
+  }
 }
 
-function makeDraggable(container: HTMLElement) {
-  const root = container.firstElementChild as HTMLElement | null;
-
-  if (!root || root.style.position !== 'fixed') return;
-
-  // Use the first child div as the drag handle (the header bar)
-  const handle = root.firstElementChild as HTMLElement | null;
+function makeDraggable(el: HTMLElement) {
+  // Use the first child as the drag handle (the header bar)
+  const handle = el.firstElementChild as HTMLElement | null;
 
   if (!handle) return;
 
@@ -45,49 +56,43 @@ function makeDraggable(container: HTMLElement) {
 
   let offsetX = 0;
   let offsetY = 0;
-  let dragging = false;
 
-  const onMouseDown = (e: MouseEvent) => {
+  const onMouseMove = (e: MouseEvent) => {
+    const x = Math.max(0, Math.min(e.clientX - offsetX, window.innerWidth - el.offsetWidth));
+    const y = Math.max(0, Math.min(e.clientY - offsetY, window.innerHeight - el.offsetHeight));
+
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+  };
+
+  const onMouseUp = () => {
+    handle.style.cursor = 'grab';
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+  };
+
+  handle.addEventListener('mousedown', (e: MouseEvent) => {
     // Only drag on primary button, ignore clicks on buttons inside the handle
     if (e.button !== 0 || (e.target as HTMLElement).closest('button')) return;
 
-    dragging = true;
     handle.style.cursor = 'grabbing';
 
     // Convert bottom/right positioning to top/left
-    const rect = root.getBoundingClientRect();
+    const rect = el.getBoundingClientRect();
 
-    root.style.top = rect.top + 'px';
-    root.style.left = rect.left + 'px';
-    root.style.bottom = 'auto';
-    root.style.right = 'auto';
+    el.style.top = rect.top + 'px';
+    el.style.left = rect.left + 'px';
+    el.style.bottom = 'auto';
+    el.style.right = 'auto';
 
     offsetX = e.clientX - rect.left;
     offsetY = e.clientY - rect.top;
 
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+
     e.preventDefault();
-  };
-
-  const onMouseMove = (e: MouseEvent) => {
-    if (!dragging) return;
-
-    const x = Math.max(0, Math.min(e.clientX - offsetX, window.innerWidth - root.offsetWidth));
-    const y = Math.max(0, Math.min(e.clientY - offsetY, window.innerHeight - root.offsetHeight));
-
-    root.style.left = x + 'px';
-    root.style.top = y + 'px';
-  };
-
-  const onMouseUp = () => {
-    if (!dragging) return;
-
-    dragging = false;
-    handle.style.cursor = 'grab';
-  };
-
-  handle.addEventListener('mousedown', onMouseDown);
-  document.addEventListener('mousemove', onMouseMove);
-  document.addEventListener('mouseup', onMouseUp);
+  });
 }
 
 const ALLOWED_ELEMENT_TYPES = new Set([
@@ -173,6 +178,11 @@ function createNode(json: DomJson, windowId: number): HTMLElement | Text {
   json.children.forEach((child) => {
     node.appendChild(createNode(child, windowId));
   });
+
+  if (json.options.draggable) {
+    node.dataset.tlsnDraggable = '';
+    makeDraggable(node);
+  }
 
   return node;
 }

@@ -65,6 +65,7 @@ export type DomOptions = {
   id?: string;
   style?: { [key: string]: string };
   onclick?: string;
+  draggable?: boolean;
   inputType?: string;
   checked?: boolean;
   value?: string;

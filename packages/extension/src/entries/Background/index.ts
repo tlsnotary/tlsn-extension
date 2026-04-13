@@ -444,8 +444,8 @@ async function createOffscreenDocument(): Promise<void> {
       logger.debug('Creating offscreen document...');
       await chrome.offscreen.createDocument({
         url: 'offscreen.html',
-        reasons: ['DOM_SCRAPING'],
-        justification: 'Offscreen document for background processing',
+        reasons: ['WORKERS'],
+        justification: 'Run QuickJS sandbox and TLS prover in a worker context',
       });
       logger.debug('Offscreen document created successfully');
     } finally {
