@@ -157,7 +157,7 @@ export type HandlerPart =
 
 export type HashAlgorithm = 'BLAKE3' | 'SHA256' | 'KECCAK256';
 
-export type HandlerAction = 'REVEAL' | 'HASH' | 'PEDERSEN';
+export type HandlerAction = 'REVEAL' | 'HASH';
 
 export type StartLineHandler = {
   type: HandlerType;

@@ -219,7 +219,7 @@ Plugins control what data is revealed in proofs using Handler objects:
 
 - `type`: `'SENT'` (request data) or `'RECV'` (response data)
 - `part`: `'START_LINE'`, `'PROTOCOL'`, `'METHOD'`, `'REQUEST_TARGET'`, `'STATUS_CODE'`, `'HEADERS'`, `'BODY'`
-- `action`: `'REVEAL'` (plaintext) or `'PEDERSEN'` (hash commitment)
+- `action`: `'REVEAL'` (plaintext) or `'HASH'` (hash commitment)
 - `params`: Optional parameters for granular control (e.g., `hideKey`, `hideValue`, `type: 'json'`, `path`)
 
 Example prove() call:

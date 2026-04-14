@@ -129,7 +129,7 @@ pub enum HandlerPart {
 #[derive(Debug, Clone, uniffi::Enum)]
 pub enum HandlerAction {
     Reveal,
-    Pedersen,
+    Hash,
 }
 
 /// Handler parameters for fine-grained control.
@@ -193,7 +193,7 @@ impl Handler {
             },
             action: match self.action {
                 HandlerAction::Reveal => tlsn_sdk_core::HandlerAction::Reveal,
-                HandlerAction::Pedersen => tlsn_sdk_core::HandlerAction::Pedersen,
+                HandlerAction::Hash => tlsn_sdk_core::HandlerAction::Hash,
             },
             params: self.params.map(|p| tlsn_sdk_core::HandlerParams {
                 key: p.key,

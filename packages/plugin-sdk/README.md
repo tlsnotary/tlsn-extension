@@ -178,7 +178,7 @@ reveal: [
 **Handler Actions**:
 
 - `REVEAL` - Include in proof as plaintext
-- `PEDERSEN` - Commit with Pedersen hash
+- `HASH` - Commit with hash (default: BLAKE3)
 
 ## Architecture
 

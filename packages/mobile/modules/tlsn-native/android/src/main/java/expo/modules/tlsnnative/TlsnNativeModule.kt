@@ -121,7 +121,7 @@ class TlsnNativeModule : Module() {
 
                             val action = when (actionStr) {
                                 "Reveal" -> HandlerAction.REVEAL
-                                "Pedersen" -> HandlerAction.PEDERSEN
+                                "Hash" -> HandlerAction.HASH
                                 else -> continue
                             }
 

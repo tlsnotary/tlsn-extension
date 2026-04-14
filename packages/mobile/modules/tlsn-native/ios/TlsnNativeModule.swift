@@ -130,7 +130,7 @@ public class TlsnNativeModule: Module {
                             let action: HandlerAction
                             switch actionStr {
                             case "Reveal": action = .reveal
-                            case "Pedersen": action = .pedersen
+                            case "Hash": action = .hash
                             default:
                                 print("[TlsnNative] Handler \(index): unknown action '\(actionStr)'")
                                 continue

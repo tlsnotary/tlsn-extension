@@ -23,7 +23,7 @@ export const Completion: React.FC = () => {
             <li>Reading and analyzing example plugins</li>
             <li>Creating custom reveal handlers</li>
             <li>Working with RECV and SENT data types</li>
-            <li>Using REVEAL and PEDERSEN commitments</li>
+            <li>Using REVEAL and HASH commitments</li>
             <li>Understanding verifier-side validation importance</li>
           </ul>
         </div>

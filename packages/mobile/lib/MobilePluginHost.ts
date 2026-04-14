@@ -74,7 +74,7 @@ export interface PluginHandler {
     | 'HEADERS'
     | 'BODY'
     | 'ALL';
-  action: 'REVEAL' | 'PEDERSEN';
+  action: 'REVEAL' | 'HASH';
   params?: Record<string, unknown>;
 }
 
@@ -90,7 +90,7 @@ export interface NativeHandler {
     | 'Headers'
     | 'Body'
     | 'All';
-  action: 'Reveal' | 'Pedersen';
+  action: 'Reveal' | 'Hash';
   params?: {
     key?: string;
     hideKey?: boolean;
@@ -164,10 +164,9 @@ const HANDLER_PART_MAP: Record<string, NativeHandler['part']> = {
   ALL: 'All',
 };
 
-const HANDLER_ACTION_MAP: Record<string, 'Reveal' | 'Pedersen'> = {
+const HANDLER_ACTION_MAP: Record<string, 'Reveal' | 'Hash'> = {
   REVEAL: 'Reveal',
-  HASH: 'Pedersen',
-  PEDERSEN: 'Pedersen',
+  HASH: 'Hash',
 };
 
 export function translateHandler(handler: PluginHandler): NativeHandler {

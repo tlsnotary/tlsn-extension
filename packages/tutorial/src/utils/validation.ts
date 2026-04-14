@@ -233,6 +233,6 @@ export const step6Validators: ValidationRule[] = [
 // Step 2: Concepts Quiz Answers
 export const quizAnswers = [
   1, // Question 1: What is the verifier's role? -> Cryptographically verify without seeing private data
-  0, // Question 2: PEDERSEN vs REVEAL -> Hashes data for commitment
+  0, // Question 2: HASH vs REVEAL -> Hashes data for commitment
   1, // Question 3: RECV meaning -> Data received from the server
 ];
