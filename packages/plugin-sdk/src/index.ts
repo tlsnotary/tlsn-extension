@@ -1433,10 +1433,12 @@ ${processedCode};
       }
     }, 1000);
 
-    // Clean up interval when plugin completes
-    donePromise.finally(() => {
-      clearInterval(timeoutIntervalId);
-    });
+    // Clean up interval when plugin completes.
+    // Use .then(onFulfilled, onRejected) so rejection doesn't produce an
+    // unhandled rejection on the chained promise. The original donePromise
+    // still rejects to the caller as expected.
+    const clearTimeoutInterval = () => clearInterval(timeoutIntervalId);
+    donePromise.then(clearTimeoutInterval, clearTimeoutInterval);
 
     // Execute initial main() - errors are handled within main() via terminateWithError
     main();
