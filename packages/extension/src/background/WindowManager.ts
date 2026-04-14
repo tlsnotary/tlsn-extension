@@ -182,7 +182,11 @@ export class WindowManager implements IWindowManager {
     this.windows.delete(windowId);
     this.clearBatchState(windowId);
 
-    browser.windows.remove(windowId);
+    try {
+      await browser.windows.remove(windowId);
+    } catch {
+      // Ignore — window may already be closed (e.g. user closed it manually)
+    }
 
     browser.runtime.sendMessage({
       type: 'WINDOW_CLOSED',

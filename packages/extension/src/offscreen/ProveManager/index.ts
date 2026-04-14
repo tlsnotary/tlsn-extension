@@ -94,12 +94,22 @@ export type ProgressCallback = (data: {
 export class ProveManager {
   /** Maps proverId to its session state - each prover has isolated session */
   private sessions: Map<string, SessionState> = new Map();
-  private onProgress: ProgressCallback | null = null;
+
+  /**
+   * Per-prover progress callbacks. Keyed by proverId so concurrent plugin
+   * executions don't overwrite each other's callback.
+   */
+  private progressCallbacks: Map<string, ProgressCallback> = new Map();
+
   private listenerAdded = false;
 
-  /** Set a callback to receive WASM-side progress events from the worker. */
-  setProgressCallback(cb: ProgressCallback | null) {
-    this.onProgress = cb;
+  /** Register a progress callback for a specific prover. */
+  setProgressCallbackForProver(proverId: string, cb: ProgressCallback | null) {
+    if (cb) {
+      this.progressCallbacks.set(proverId, cb);
+    } else {
+      this.progressCallbacks.delete(proverId);
+    }
   }
 
   async init() {
@@ -107,13 +117,18 @@ export class ProveManager {
     if (!this.listenerAdded) {
       this.listenerAdded = true;
       worker.addEventListener('message', (event: MessageEvent) => {
-        if (event.data?.type === 'WASM_PROGRESS' && this.onProgress) {
-          this.onProgress({
-            step: event.data.step,
-            progress: event.data.progress,
-            message: event.data.message,
-            source: 'wasm',
-          });
+        if (event.data?.type === 'WASM_PROGRESS') {
+          // WASM worker doesn't include proverId in progress messages, so
+          // broadcast to all registered callbacks. In practice only one
+          // prove() runs at a time in the WASM worker.
+          for (const cb of this.progressCallbacks.values()) {
+            cb({
+              step: event.data.step,
+              progress: event.data.progress,
+              message: event.data.message,
+              source: 'wasm',
+            });
+          }
         }
       });
     }
@@ -456,8 +471,9 @@ export class ProveManager {
     // Close WebSocket if open
     this.closeSession(proverId);
 
-    // Remove session state
+    // Remove session state and progress callback
     this.sessions.delete(proverId);
+    this.progressCallbacks.delete(proverId);
 
     // Free worker prover
     try {

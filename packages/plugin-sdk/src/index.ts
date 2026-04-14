@@ -285,9 +285,22 @@ function makeOpenWindow(
         return;
       }
 
-      // Handle window closed first - always remove listener
+      // Handle window closed — check if it's our window
       if (message.type === 'WINDOW_CLOSED') {
+        const executionContext = executionContextRegistry.get(uuid);
+        const ourWindowId = executionContext?.windowId ?? resolvedWindowId;
+
+        // Ignore close events for other windows
+        if (ourWindowId != null && message.windowId !== ourWindowId) {
+          return;
+        }
+
         eventEmitter.removeListener(onMessage);
+
+        // Terminate the plugin if it hasn't already completed
+        if (!lifecycle.isCompleted && onError) {
+          onError(new Error('Window closed by user'));
+        }
         return;
       }
 
@@ -434,11 +447,14 @@ function makeOpenWindow(
           let headers = executionContext.headers || [];
           let requests = executionContext.requests || [];
           let bufferedCount = 0;
+          let windowWasClosed = false;
 
           for (const msg of pendingMessages) {
             if (msg.windowId !== windowId) continue;
 
-            if (msg.type === 'HEADER_INTERCEPTED' && msg.header) {
+            if (msg.type === 'WINDOW_CLOSED') {
+              windowWasClosed = true;
+            } else if (msg.type === 'HEADER_INTERCEPTED' && msg.header) {
               headers = [...headers, msg.header];
               bufferedCount++;
             } else if (msg.type === 'HEADERS_BATCH' && msg.headers) {
@@ -460,6 +476,20 @@ function makeOpenWindow(
             updateExecutionContext(uuid, { headers, requests });
             // Trigger a single re-render so the plugin sees the buffered data
             executionContext.main(true);
+          }
+          // If window was closed while we were waiting, terminate
+          if (windowWasClosed) {
+            eventEmitter.removeListener(onMessage);
+            if (!lifecycle.isCompleted && onError) {
+              onError(new Error('Window closed by user'));
+            }
+            pendingMessages.length = 0;
+            cachedResult = {
+              windowId: response.payload.windowId,
+              uuid: response.payload.uuid,
+              tabId: response.payload.tabId,
+            };
+            return cachedResult;
           }
         }
         pendingMessages.length = 0;
