@@ -79,6 +79,11 @@ export interface HttpResponse {
 }
 
 /**
+ * Hash algorithm for hash-commitment actions.
+ */
+export type HashAlgorithm = "BLAKE3" | "SHA256" | "KECCAK256";
+
+/**
  * Network setting for protocol optimization.
  */
 export type NetworkSetting = "Bandwidth" | "Latency";
@@ -124,17 +129,35 @@ export interface PartialTranscript {
 }
 
 /**
- * Ranges of data to commit.
+ * A byte range paired with a hash algorithm for commitment.
+ */
+export interface CommitRange {
+    /**
+     * Start of the byte range (inclusive).
+     */
+    start: number;
+    /**
+     * End of the byte range (exclusive).
+     */
+    end: number;
+    /**
+     * Hash algorithm to use for this range. Defaults to BLAKE3 if not specified.
+     */
+    algorithm?: HashAlgorithm;
+}
+
+/**
+ * Ranges of data to hash-commit.
  */
 export interface Commit {
     /**
-     * Ranges of sent data to commit.
+     * Ranges of sent data to commit, each with its own algorithm.
      */
-    sent: { start: number; end: number }[];
+    sent: CommitRange[];
     /**
-     * Ranges of received data to commit.
+     * Ranges of received data to commit, each with its own algorithm.
      */
-    recv: { start: number; end: number }[];
+    recv: CommitRange[];
 }
 
 /**
@@ -224,8 +247,11 @@ export class Prover {
     constructor(config: ProverConfig);
     /**
      * Reveals data to the verifier and finalizes the protocol.
+     *
+     * Optionally accepts a `Commit` object with ranges to hash-commit.
+     * Pass `undefined` or omit the second argument for reveal-only proofs.
      */
-    reveal(reveal: Reveal): Promise<void>;
+    reveal(reveal: Reveal, commit: any): Promise<void>;
     /**
      * Sends an HTTP request to the server.
      *
@@ -355,7 +381,7 @@ export interface InitOutput {
     readonly compute_reveal: (a: number, b: number, c: number, d: number, e: any) => [number, number, number];
     readonly initialize: (a: number, b: number) => any;
     readonly prover_new: (a: any) => [number, number, number];
-    readonly prover_reveal: (a: number, b: any) => any;
+    readonly prover_reveal: (a: number, b: any, c: any) => any;
     readonly prover_send_request: (a: number, b: any, c: any) => any;
     readonly prover_set_progress_callback: (a: number, b: any) => void;
     readonly prover_setup: (a: number, b: any) => any;

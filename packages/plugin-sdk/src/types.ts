@@ -155,18 +155,24 @@ export type HandlerPart =
   | 'BODY'
   | 'ALL';
 
-export type HandlerAction = 'REVEAL' | 'PEDERSEN';
+export type HashAlgorithm = 'BLAKE3' | 'SHA256' | 'KECCAK256';
+
+export type HandlerAction = 'REVEAL' | 'HASH' | 'PEDERSEN';
 
 export type StartLineHandler = {
   type: HandlerType;
   part: 'START_LINE' | 'PROTOCOL' | 'METHOD' | 'REQUEST_TARGET' | 'STATUS_CODE';
   action: HandlerAction;
+  /** Hash algorithm for HASH action. Default: BLAKE3. Ignored for REVEAL. */
+  algorithm?: HashAlgorithm;
 };
 
 export type HeadersHandler = {
   type: HandlerType;
   part: 'HEADERS';
   action: HandlerAction;
+  /** Hash algorithm for HASH action. Default: BLAKE3. Ignored for REVEAL. */
+  algorithm?: HashAlgorithm;
   params?: {
     key: string;
     hideKey?: boolean;
@@ -178,6 +184,8 @@ export type BodyHandler = {
   type: HandlerType;
   part: 'BODY';
   action: HandlerAction;
+  /** Hash algorithm for HASH action. Default: BLAKE3. Ignored for REVEAL. */
+  algorithm?: HashAlgorithm;
   params?: {
     type: 'json';
     path: string;
@@ -190,6 +198,8 @@ export type AllHandler = {
   type: HandlerType;
   part: 'ALL';
   action: HandlerAction;
+  /** Hash algorithm for HASH action. Default: BLAKE3. Ignored for REVEAL. */
+  algorithm?: HashAlgorithm;
   params?: {
     type: 'regex';
     regex: string;

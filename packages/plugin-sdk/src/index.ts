@@ -1596,6 +1596,7 @@ export type {
   HandlerType,
   HandlerPart,
   HandlerAction,
+  HashAlgorithm,
   PluginConfig,
   RequestPermission,
   Handler,

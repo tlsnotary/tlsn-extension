@@ -166,6 +166,7 @@ const HANDLER_PART_MAP: Record<string, NativeHandler['part']> = {
 
 const HANDLER_ACTION_MAP: Record<string, 'Reveal' | 'Pedersen'> = {
   REVEAL: 'Reveal',
+  HASH: 'Pedersen',
   PEDERSEN: 'Pedersen',
 };
 

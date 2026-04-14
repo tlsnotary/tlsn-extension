@@ -155,11 +155,14 @@ export class SessionManager {
 
           // Compute reveal ranges via WASM (parses HTTP transcripts + maps handlers to byte ranges)
           emitBoth('PROCESSING_TRANSCRIPT', 0.5, 'Processing transcript...');
-          const { sentRanges, recvRanges, sentRangesWithHandlers, recvRangesWithHandlers } =
+          const { sentRanges, recvRanges, sentRangesWithHandlers, recvRangesWithHandlers, commit } =
             await proveManager.computeReveal(proverId, proverOptions.handlers);
 
           logger.debug('sentRanges', sentRanges);
           logger.debug('recvRanges', recvRanges);
+          if (commit) {
+            logger.debug('commitRanges', commit);
+          }
 
           // Send reveal config (ranges + handlers) to verifier BEFORE calling reveal()
           emitBoth('SENDING_REVEAL_CONFIG', 0.6, 'Configuring selective disclosure...');
@@ -168,12 +171,9 @@ export class SessionManager {
             recv: recvRangesWithHandlers,
           });
 
-          // Reveal the ranges
+          // Reveal the ranges (and hash-commit ranges if any handlers use action: HASH)
           emitBoth('GENERATING_PROOF', 0.7, 'Generating proof...');
-          await proveManager.reveal(proverId, {
-            sent: sentRanges,
-            recv: recvRanges,
-          });
+          await proveManager.reveal(proverId, { sent: sentRanges, recv: recvRanges }, commit);
 
           // Get structured response from verifier (now includes handler results)
           emitBoth('WAITING_FOR_VERIFICATION', 0.85, 'Waiting for verification...');
