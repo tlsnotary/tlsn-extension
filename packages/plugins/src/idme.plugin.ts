@@ -88,7 +88,7 @@ const onClick = async (): Promise<void> => {
           type: 'RECV',
           part: 'BODY',
           action: 'REVEAL',
-          params: { type: 'json', path: '0.full_name' },
+          params: { type: 'json', path: '0.status_text' },
         } satisfies Handler,
       ],
     },
