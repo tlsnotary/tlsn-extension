@@ -28,6 +28,7 @@ const plugins = [
   'uber',
   'discord_dm',
   'discord_profile',
+  'idme',
 ];
 
 // Demo configuration

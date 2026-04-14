@@ -183,6 +183,27 @@ export const PLUGIN_REGISTRY: PluginMetadata[] = [
       urls: ['https://discord.com/*'],
     },
   },
+  {
+    id: 'idme',
+    name: 'ID.me Credentials',
+    description: 'Prove your verified ID.me identity credentials',
+    logo: '\uD83E\uDEAA', // 🪪
+    resultLabel: 'Credential',
+    accentColor: '#2D6A4F',
+    platforms: ['demo'],
+    pluginConfig: {
+      name: 'ID.me Credentials',
+      description: 'Prove your verified ID.me credentials.',
+      requests: [
+        {
+          method: 'GET',
+          host: 'account.id.me',
+          pathname: '/api/v3/credentials.json',
+        },
+      ],
+      urls: ['https://account.id.me/*'],
+    },
+  },
 ];
 
 export function getPluginById(id: string): PluginMetadata | undefined {
