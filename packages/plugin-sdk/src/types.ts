@@ -157,55 +157,47 @@ export type HandlerPart =
 
 export type HashAlgorithm = 'BLAKE3' | 'SHA256' | 'KECCAK256';
 
-export type HandlerAction = 'REVEAL' | 'HASH';
+/**
+ * What to do with the matched ranges. REVEAL sends plaintext; HASH sends a
+ * hash commitment (algorithm defaults to BLAKE3).
+ */
+export type HandlerAction = { action: 'REVEAL' } | { action: 'HASH'; algorithm?: HashAlgorithm };
 
 export type StartLineHandler = {
   type: HandlerType;
   part: 'START_LINE' | 'PROTOCOL' | 'METHOD' | 'REQUEST_TARGET' | 'STATUS_CODE';
-  action: HandlerAction;
-  /** Hash algorithm for HASH action. Default: BLAKE3. Ignored for REVEAL. */
-  algorithm?: HashAlgorithm;
-};
+} & HandlerAction;
 
 export type HeadersHandler = {
   type: HandlerType;
   part: 'HEADERS';
-  action: HandlerAction;
-  /** Hash algorithm for HASH action. Default: BLAKE3. Ignored for REVEAL. */
-  algorithm?: HashAlgorithm;
   params?: {
     key: string;
     hideKey?: boolean;
     hideValue?: boolean;
   };
-};
+} & HandlerAction;
 
 export type BodyHandler = {
   type: HandlerType;
   part: 'BODY';
-  action: HandlerAction;
-  /** Hash algorithm for HASH action. Default: BLAKE3. Ignored for REVEAL. */
-  algorithm?: HashAlgorithm;
   params?: {
     type: 'json';
     path: string;
     hideKey?: boolean;
     hideValue?: boolean;
   };
-};
+} & HandlerAction;
 
 export type AllHandler = {
   type: HandlerType;
   part: 'ALL';
-  action: HandlerAction;
-  /** Hash algorithm for HASH action. Default: BLAKE3. Ignored for REVEAL. */
-  algorithm?: HashAlgorithm;
   params?: {
     type: 'regex';
     regex: string;
     flags?: string;
   };
-};
+} & HandlerAction;
 
 export type Handler = StartLineHandler | HeadersHandler | BodyHandler | AllHandler;
 

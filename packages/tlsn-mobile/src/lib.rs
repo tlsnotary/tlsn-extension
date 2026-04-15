@@ -193,7 +193,9 @@ impl Handler {
             },
             action: match self.action {
                 HandlerAction::Reveal => tlsn_sdk_core::HandlerAction::Reveal,
-                HandlerAction::Hash => tlsn_sdk_core::HandlerAction::Hash,
+                HandlerAction::Hash => tlsn_sdk_core::HandlerAction::Hash {
+                    algorithm: tlsn_sdk_core::HashAlgorithm::default(),
+                },
             },
             params: self.params.map(|p| tlsn_sdk_core::HandlerParams {
                 key: p.key,
