@@ -33,17 +33,22 @@
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
-    "plugins": ["expo-router", "./plugins/exclude-x86_64"],
+    "plugins": [
+      "expo-router",
+      "./plugins/exclude-x86_64"
+    ],
     "experiments": {
       "typedRoutes": true
     },
-    "assetBundlePatterns": ["assets/**/*"],
+    "assetBundlePatterns": [
+      "assets/**/*"
+    ],
+    "owner": "tlsnotary",
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "b100719e-2722-44d3-87fb-12739a5e7eda"
+        "projectId": "3f40d3ca-e5a6-45bb-88e9-32e4b9ab7f2f"
       }
-    },
-    "owner": "heeckhau"
+    }
   }
 }
