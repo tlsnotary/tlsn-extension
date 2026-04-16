@@ -159,9 +159,9 @@ export type HashAlgorithm = 'BLAKE3' | 'SHA256' | 'KECCAK256';
 
 /**
  * What to do with the matched ranges. REVEAL sends plaintext; HASH sends a
- * hash commitment (algorithm defaults to BLAKE3).
+ * hash commitment with the specified algorithm.
  */
-export type HandlerAction = { action: 'REVEAL' } | { action: 'HASH'; algorithm?: HashAlgorithm };
+export type HandlerAction = { action: 'REVEAL' } | { action: 'HASH'; algorithm: HashAlgorithm };
 
 export type StartLineHandler = {
   type: HandlerType;

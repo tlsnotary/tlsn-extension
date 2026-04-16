@@ -79,11 +79,6 @@ export interface HttpResponse {
 }
 
 /**
- * Hash algorithm for hash-commitment actions.
- */
-export type HashAlgorithm = "BLAKE3" | "SHA256" | "KECCAK256";
-
-/**
  * Network setting for protocol optimization.
  */
 export type NetworkSetting = "Bandwidth" | "Latency";
@@ -129,6 +124,11 @@ export interface PartialTranscript {
 }
 
 /**
+ * Hash algorithm for hash-commitment actions.
+ */
+export type HashAlgorithm = "BLAKE3" | "SHA256" | "KECCAK256";
+
+/**
  * A byte range paired with a hash algorithm for commitment.
  */
 export interface CommitRange {
@@ -143,7 +143,7 @@ export interface CommitRange {
     /**
      * Hash algorithm to use for this range. Defaults to BLAKE3 if not specified.
      */
-    algorithm?: HashAlgorithm;
+    algorithm: HashAlgorithm | undefined;
 }
 
 /**
@@ -251,7 +251,7 @@ export class Prover {
      * Optionally accepts a `Commit` object with ranges to hash-commit.
      * Pass `undefined` or omit the second argument for reveal-only proofs.
      */
-    reveal(reveal: Reveal, commit: any): Promise<void>;
+    reveal(reveal: Reveal, commit?: Commit): Promise<void>;
     /**
      * Sends an HTTP request to the server.
      *
@@ -381,7 +381,7 @@ export interface InitOutput {
     readonly compute_reveal: (a: number, b: number, c: number, d: number, e: any) => [number, number, number];
     readonly initialize: (a: number, b: number) => any;
     readonly prover_new: (a: any) => [number, number, number];
-    readonly prover_reveal: (a: number, b: any, c: any) => any;
+    readonly prover_reveal: (a: number, b: any) => any;
     readonly prover_send_request: (a: number, b: any, c: any) => any;
     readonly prover_set_progress_callback: (a: number, b: any) => void;
     readonly prover_setup: (a: number, b: any) => any;
