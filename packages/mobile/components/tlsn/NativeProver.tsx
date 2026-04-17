@@ -158,7 +158,10 @@ function NativeProverComponent(
         const result = await module.prove(request, options);
         console.log('[NativeProver] Proof generation complete');
         console.log('[NativeProver] Transcript:', JSON.stringify(result.transcript));
-        console.log('[NativeProver] Debug info:', JSON.stringify((result as any).debug));
+        console.log(
+          '[NativeProver] Debug info:',
+          JSON.stringify((result as { debug?: unknown }).debug),
+        );
         return result;
       } catch (e) {
         console.error('[NativeProver] Proof generation failed:', e);

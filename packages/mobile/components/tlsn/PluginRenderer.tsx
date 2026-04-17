@@ -174,7 +174,7 @@ function renderTextChildren(children: DomJson[]): string {
  * Extract text-relevant styles from a combined style object.
  * RN requires text styles to be on Text components, not Views.
  */
-function extractTextStyle(style: Record<string, any>): Record<string, any> {
+function extractTextStyle(style: Record<string, unknown>): Record<string, unknown> {
   const textProps = [
     'color',
     'fontSize',
@@ -186,7 +186,7 @@ function extractTextStyle(style: Record<string, any>): Record<string, any> {
     'textAlign',
     'textTransform',
   ];
-  const result: Record<string, any> = {};
+  const result: Record<string, unknown> = {};
   for (const prop of textProps) {
     if (style[prop] !== undefined) {
       result[prop] = style[prop];

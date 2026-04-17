@@ -196,7 +196,7 @@ function parseBorder(value: string): Partial<RNStyle> {
 export function cssToRN(cssStyle: Record<string, string> | undefined): Partial<RNStyle> {
   if (!cssStyle) return {};
 
-  const rnStyle: Record<string, any> = {};
+  const rnStyle: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(cssStyle)) {
     if (IGNORED_PROPERTIES.has(key)) continue;
