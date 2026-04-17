@@ -75,6 +75,7 @@ export interface PluginHandler {
     | 'BODY'
     | 'ALL';
   action: 'REVEAL' | 'HASH';
+  algorithm?: 'BLAKE3' | 'SHA256' | 'KECCAK256';
   params?: Record<string, unknown>;
 }
 
@@ -90,7 +91,7 @@ export interface NativeHandler {
     | 'Headers'
     | 'Body'
     | 'All';
-  action: 'Reveal' | 'Hash';
+  action: { type: 'Reveal' } | { type: 'Hash'; algorithm: 'Blake3' | 'Sha256' | 'Keccak256' };
   params?: {
     key?: string;
     hideKey?: boolean;
@@ -164,16 +165,27 @@ const HANDLER_PART_MAP: Record<string, NativeHandler['part']> = {
   ALL: 'All',
 };
 
-const HANDLER_ACTION_MAP: Record<string, 'Reveal' | 'Hash'> = {
-  REVEAL: 'Reveal',
-  HASH: 'Hash',
+const ALGORITHM_MAP: Record<string, 'Blake3' | 'Sha256' | 'Keccak256'> = {
+  BLAKE3: 'Blake3',
+  SHA256: 'Sha256',
+  KECCAK256: 'Keccak256',
 };
+
+function translateAction(handler: PluginHandler): NativeHandler['action'] {
+  if (handler.action === 'HASH') {
+    return {
+      type: 'Hash',
+      algorithm: ALGORITHM_MAP[handler.algorithm ?? 'BLAKE3'] ?? 'Blake3',
+    };
+  }
+  return { type: 'Reveal' };
+}
 
 export function translateHandler(handler: PluginHandler): NativeHandler {
   const result: NativeHandler = {
     handlerType: HANDLER_TYPE_MAP[handler.type] || 'Sent',
     part: HANDLER_PART_MAP[handler.part] || 'StartLine',
-    action: HANDLER_ACTION_MAP[handler.action] || 'Reveal',
+    action: translateAction(handler),
   };
 
   if (handler.params) {

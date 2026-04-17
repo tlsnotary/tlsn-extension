@@ -167,6 +167,7 @@ pub(crate) async fn prove_async(
                 recv: vec![0..transcript.recv.len()],
                 server_identity: true,
             },
+            commit: None,
             sent_ranges_with_handlers: vec![],
             recv_ranges_with_handlers: vec![],
         }
@@ -179,7 +180,7 @@ pub(crate) async fn prove_async(
     // 5. Reveal and finalize
     // -----------------------------------------------------------------------
     emit_progress(progress, "GENERATING_PROOF", 0.65, "Generating proof...");
-    prover.reveal(compute_output.reveal).await?;
+    prover.reveal(compute_output.reveal, compute_output.commit).await?;
     tracing::info!("proof generated");
     emit_progress(progress, "REVEAL_COMPLETE", 0.8, "Sending verification data...");
 

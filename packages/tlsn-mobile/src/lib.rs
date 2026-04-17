@@ -125,11 +125,19 @@ pub enum HandlerPart {
     All,
 }
 
+/// Hash algorithm for hash-commitment actions.
+#[derive(Debug, Clone, uniffi::Enum)]
+pub enum HashAlgorithm {
+    Blake3,
+    Sha256,
+    Keccak256,
+}
+
 /// Handler action (what to do with the part).
 #[derive(Debug, Clone, uniffi::Enum)]
 pub enum HandlerAction {
     Reveal,
-    Hash,
+    Hash { algorithm: HashAlgorithm },
 }
 
 /// Handler parameters for fine-grained control.
@@ -193,8 +201,12 @@ impl Handler {
             },
             action: match self.action {
                 HandlerAction::Reveal => tlsn_sdk_core::HandlerAction::Reveal,
-                HandlerAction::Hash => tlsn_sdk_core::HandlerAction::Hash {
-                    algorithm: tlsn_sdk_core::HashAlgorithm::default(),
+                HandlerAction::Hash { algorithm } => tlsn_sdk_core::HandlerAction::Hash {
+                    algorithm: match algorithm {
+                        HashAlgorithm::Blake3 => tlsn_sdk_core::HashAlgorithm::Blake3,
+                        HashAlgorithm::Sha256 => tlsn_sdk_core::HashAlgorithm::Sha256,
+                        HashAlgorithm::Keccak256 => tlsn_sdk_core::HashAlgorithm::Keccak256,
+                    },
                 },
             },
             params: self.params.map(|p| tlsn_sdk_core::HandlerParams {
