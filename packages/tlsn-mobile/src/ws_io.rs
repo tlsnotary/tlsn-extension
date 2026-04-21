@@ -1,123 +1,101 @@
-//! WebSocket to byte-stream adapter.
+//! Session WebSocket mux.
 //!
-//! Bridges `tokio-tungstenite`'s `WebSocketStream` (which is
-//! `Stream<Item=Message>` / `Sink<Message>`) into a `futures::AsyncRead +
-//! AsyncWrite` byte stream that satisfies sdk-core's `Io` trait.
+//! The verifier session uses one WebSocket for everything: JSON control
+//! frames (Text) and MPC bytes (Binary). This module splits that socket into a
+//! text control channel + a futures `AsyncRead + AsyncWrite` byte stream that
+//! satisfies sdk-core's `Io` trait.
 
-use std::pin::Pin;
-use std::task::{Context, Poll};
-
-use futures::{AsyncRead, AsyncWrite, Sink, Stream};
+use futures::{SinkExt, StreamExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
+use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
+use tokio_util::compat::{Compat, TokioAsyncReadCompatExt};
 
-/// Adapts a WebSocketStream (message-framed) into a contiguous byte stream.
+pub(crate) type ClientWs = WebSocketStream<MaybeTlsStream<TcpStream>>;
+
+/// Result of splitting a session WebSocket: a binary byte stream (for MPC) +
+/// a text send/recv channel pair (for control frames).
+pub(crate) struct SessionMux {
+    /// Binary byte stream — pass to sdk-core's `setup()`.
+    pub binary: Compat<tokio::io::DuplexStream>,
+    /// Receive channel for incoming Text frames (post-registration).
+    pub text_rx: mpsc::UnboundedReceiver<String>,
+    /// Send channel for outgoing Text frames.
+    pub send_text_tx: mpsc::UnboundedSender<String>,
+}
+
+/// Splits a `WebSocketStream` into text + binary channels. Spawns two
+/// background tasks that own the sink/stream halves of the socket.
 ///
-/// sdk-core's `Io` trait requires `futures::AsyncRead + AsyncWrite + Send +
-/// Unpin + 'static`. `WebSocketStream` only implements `Stream` / `Sink`, so
-/// this adapter buffers binary WebSocket messages into a continuous byte
-/// stream.
-pub struct WsIoAdapter {
-    inner: WebSocketStream<MaybeTlsStream<TcpStream>>,
-    read_buf: Vec<u8>,
-    read_pos: usize,
-}
+/// Binary and text directions run independently: dropping the binary side
+/// (e.g. after MPC completes) does not close the text channel — so the caller
+/// can still send `reveal_config` and await `session_completed` after MPC.
+pub(crate) fn session_mux(ws: ClientWs) -> SessionMux {
+    let (text_in_tx, text_in_rx) = mpsc::unbounded_channel::<String>();
+    let (send_text_tx, mut send_text_rx) = mpsc::unbounded_channel::<String>();
+    let (tlsn_side, mux_side) = tokio::io::duplex(64 * 1024);
+    let (mut mux_read, mut mux_write) = tokio::io::split(mux_side);
 
-impl WsIoAdapter {
-    pub fn new(ws: WebSocketStream<MaybeTlsStream<TcpStream>>) -> Self {
-        Self {
-            inner: ws,
-            read_buf: Vec::new(),
-            read_pos: 0,
-        }
-    }
-}
+    let (mut ws_sink, mut ws_stream) = ws.split();
 
-impl AsyncRead for WsIoAdapter {
-    fn poll_read(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &mut [u8],
-    ) -> Poll<std::io::Result<usize>> {
-        // Drain buffered data from a partially-consumed WS message.
-        if self.read_pos < self.read_buf.len() {
-            let remaining = &self.read_buf[self.read_pos..];
-            let n = remaining.len().min(buf.len());
-            buf[..n].copy_from_slice(&remaining[..n]);
-            self.read_pos += n;
-            if self.read_pos >= self.read_buf.len() {
-                self.read_buf.clear();
-                self.read_pos = 0;
-            }
-            return Poll::Ready(Ok(n));
-        }
-
-        // Poll the WebSocket for the next message.
-        match Pin::new(&mut self.inner).poll_next(cx) {
-            Poll::Ready(Some(Ok(Message::Binary(data)))) => {
-                let n = data.len().min(buf.len());
-                buf[..n].copy_from_slice(&data[..n]);
-                if n < data.len() {
-                    self.read_buf = data[n..].to_vec();
-                    self.read_pos = 0;
-                }
-                Poll::Ready(Ok(n))
-            }
-            Poll::Ready(Some(Ok(Message::Close(_)))) | Poll::Ready(None) => {
-                Poll::Ready(Ok(0)) // EOF
-            }
-            Poll::Ready(Some(Ok(_))) => {
-                // Skip non-binary messages (text, ping, pong), re-poll.
-                cx.waker().wake_by_ref();
-                Poll::Pending
-            }
-            Poll::Ready(Some(Err(e))) => {
-                Poll::Ready(Err(std::io::Error::new(std::io::ErrorKind::Other, e)))
-            }
-            Poll::Pending => Poll::Pending,
-        }
-    }
-}
-
-impl AsyncWrite for WsIoAdapter {
-    fn poll_write(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &[u8],
-    ) -> Poll<std::io::Result<usize>> {
-        match Pin::new(&mut self.inner).poll_ready(cx) {
-            Poll::Ready(Ok(())) => {
-                let msg = Message::Binary(buf.to_vec().into());
-                match Pin::new(&mut self.inner).start_send(msg) {
-                    Ok(()) => Poll::Ready(Ok(buf.len())),
-                    Err(e) => {
-                        Poll::Ready(Err(std::io::Error::new(std::io::ErrorKind::Other, e)))
+    // WebSocket -> {text channel, binary duplex}
+    tokio::spawn(async move {
+        while let Some(msg) = ws_stream.next().await {
+            match msg {
+                Ok(Message::Text(t)) => {
+                    if text_in_tx.send(t.to_string()).is_err() {
+                        break;
                     }
                 }
+                Ok(Message::Binary(b)) => {
+                    if mux_write.write_all(&b).await.is_err() {
+                        break;
+                    }
+                }
+                Ok(Message::Close(_)) => break,
+                Ok(_) => {}
+                Err(_) => break,
             }
-            Poll::Ready(Err(e)) => {
-                Poll::Ready(Err(std::io::Error::new(std::io::ErrorKind::Other, e)))
-            }
-            Poll::Pending => Poll::Pending,
         }
-    }
+    });
 
-    fn poll_flush(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<std::io::Result<()>> {
-        Pin::new(&mut self.inner)
-            .poll_flush(cx)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
-    }
+    // {binary duplex, text channel} -> WebSocket. Binary and text are tracked
+    // independently so the MPC binary stream dropping does not close the
+    // text channel.
+    tokio::spawn(async move {
+        let mut buf = vec![0u8; 8192];
+        let mut binary_open = true;
+        let mut text_open = true;
+        while binary_open || text_open {
+            tokio::select! {
+                biased;
+                msg = send_text_rx.recv(), if text_open => match msg {
+                    Some(t) => {
+                        if ws_sink.send(Message::Text(t)).await.is_err() {
+                            break;
+                        }
+                    }
+                    None => text_open = false,
+                },
+                res = mux_read.read(&mut buf), if binary_open => match res {
+                    Ok(0) => binary_open = false,
+                    Ok(n) => {
+                        if ws_sink.send(Message::Binary(buf[..n].to_vec())).await.is_err() {
+                            break;
+                        }
+                    }
+                    Err(_) => binary_open = false,
+                },
+            }
+        }
+        let _ = ws_sink.close().await;
+    });
 
-    fn poll_close(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<std::io::Result<()>> {
-        Pin::new(&mut self.inner)
-            .poll_close(cx)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+    SessionMux {
+        binary: tlsn_side.compat(),
+        text_rx: text_in_rx,
+        send_text_tx,
     }
 }

@@ -1,5 +1,6 @@
 mod axum_websocket;
 mod verifier;
+mod ws_mux;
 
 #[cfg(test)]
 mod tests;
@@ -21,14 +22,13 @@ use std::sync::Arc;
 use std::time::Duration;
 use tlsn::transcript::PartialTranscript;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::sync::{oneshot, Mutex};
+use tokio::sync::mpsc;
 use tokio::time::timeout;
-use tokio_util::compat::FuturesAsyncReadCompatExt;
 use tower_http::cors::CorsLayer;
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 use verifier::verifier;
-use ws_stream_tungstenite::WsStream;
+use ws_mux::{session_stream, SessionStream};
 
 #[tokio::main]
 async fn main() {
@@ -43,6 +43,10 @@ async fn main() {
     // Load configuration from YAML file
     let config = Config::load(Path::new("config.yaml"));
     info!(
+        "Max data limits: max_sent_data={}, max_recv_data={}",
+        config.max_sent_data, config.max_recv_data
+    );
+    info!(
         "Webhook configurations loaded: {} endpoints",
         config.webhooks.len()
     );
@@ -50,9 +54,7 @@ async fn main() {
         info!("  {} -> {}", server_name, webhook.url);
     }
 
-    // Create application state with session storage and config
     let app_state = Arc::new(AppState {
-        sessions: Arc::new(Mutex::new(HashMap::new())),
         config: Arc::new(config),
     });
 
@@ -61,7 +63,6 @@ async fn main() {
         .route("/health", get(health_handler))
         .route("/info", get(info_handler))
         .route("/session", get(session_ws_handler))
-        .route("/verifier", get(verifier_ws_handler))
         .route("/proxy", get(proxy_ws_handler))
         .layer(CorsLayer::permissive())
         .with_state(app_state);
@@ -82,10 +83,6 @@ async fn main() {
     info!("Health endpoint: http://{}/health", addr);
     info!("Info endpoint: http://{}/info", addr);
     info!("Session WebSocket endpoint: ws://{}/session", addr);
-    info!(
-        "Verifier WebSocket endpoint: ws://{}/verifier?sessionId=<id>",
-        addr
-    );
     info!("Proxy WebSocket endpoint: ws://{}/proxy?token=<host>", addr);
 
     axum::serve(listener, app)
@@ -121,16 +118,6 @@ pub(crate) struct Handler {
     pub(crate) part: HandlerPart,
 }
 
-// Session data structure (without handlers - they come later with ranges)
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct SessionConfig {
-    #[serde(rename = "maxRecvData")]
-    max_recv_data: usize,
-    #[serde(rename = "maxSentData")]
-    max_sent_data: usize,
-}
-
-// Range with handler metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct RangeWithHandler {
     pub(crate) start: usize,
@@ -138,14 +125,14 @@ pub(crate) struct RangeWithHandler {
     pub(crate) handler: Handler,
 }
 
-// Reveal configuration sent before prover.reveal()
+/// Reveal configuration sent by the client after MPC completes.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct RevealConfig {
     sent: Vec<RangeWithHandler>,
     recv: Vec<RangeWithHandler>,
 }
 
-// Handler result with revealed value
+/// Handler result with revealed value.
 #[derive(Debug, Clone, Serialize)]
 struct HandlerResult {
     #[serde(flatten)]
@@ -153,36 +140,14 @@ struct HandlerResult {
     value: String,
 }
 
-// Verification result containing handler results
-#[derive(Debug, Clone, Serialize)]
-struct VerificationResult {
-    results: Vec<HandlerResult>,
-}
-
-// Type alias for the prover WebSocket sender
-type ProverSocketSender = oneshot::Sender<WebSocket>;
-
-// Session data stored in AppState (only prover socket sender - config/sessionData passed directly to verifier task)
-pub(crate) struct SessionData {
-    pub(crate) prover_socket_tx: ProverSocketSender,
-}
-
-// Application state for sharing data between handlers
+/// Application state shared across handlers.
 #[derive(Clone)]
 pub(crate) struct AppState {
-    pub(crate) sessions: Arc<Mutex<HashMap<String, SessionData>>>,
     pub(crate) config: Arc<Config>,
 }
 
-// Query parameters for verifier WebSocket connection
-#[derive(Debug, Deserialize)]
-struct VerifierQuery {
-    #[serde(rename = "sessionId")]
-    session_id: String,
-}
-
-// Query parameters for proxy WebSocket connection
-// Supports both `token` (notary.pse.dev compatible) and `host` (legacy)
+/// Query parameters for the proxy WebSocket endpoint.
+/// Supports both `token` (notary.pse.dev compatible) and `host` (legacy).
 #[derive(Debug, Deserialize)]
 struct ProxyQuery {
     #[serde(alias = "host")]
@@ -193,50 +158,39 @@ struct ProxyQuery {
 // WebSocket Message Protocol (Typed Messages)
 // ============================================================================
 
-/// Incoming messages from client (extension)
+/// Incoming messages from client (extension).
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 enum ClientMessage {
-    /// Registration message - sent first to establish session
+    /// First frame: client identifies itself and opens a session.
     Register {
-        #[serde(rename = "maxRecvData")]
-        max_recv_data: usize,
-        #[serde(rename = "maxSentData")]
-        max_sent_data: usize,
         #[serde(rename = "sessionData", default)]
         session_data: HashMap<String, String>,
     },
-    /// Reveal configuration - sent with ranges and handlers
+    /// Post-MPC frame: client specifies which byte ranges to reveal.
     RevealConfig {
         sent: Vec<RangeWithHandler>,
         recv: Vec<RangeWithHandler>,
     },
 }
 
-/// Outgoing messages to client (extension)
+/// Outgoing messages to client (extension).
 #[derive(Debug, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 enum ServerMessage {
-    /// Session registered successfully
-    SessionRegistered {
-        #[serde(rename = "sessionId")]
-        session_id: String,
-    },
-    /// Session completed with results
-    SessionCompleted {
-        results: Vec<HandlerResult>,
-    },
-    /// Error occurred
-    Error {
-        message: String,
-    },
+    /// Sent after the server accepts `register`. The client may now begin MPC
+    /// by sending Binary frames.
+    Registered,
+    /// Sent after verification + reveal processing completes.
+    SessionCompleted { results: Vec<HandlerResult> },
+    /// Fatal error; the server closes the connection after sending.
+    Error { message: String },
 }
 
 // ============================================================================
 // Webhook Types
 // ============================================================================
 
-/// Webhook configuration for a specific server
 #[derive(Debug, Clone, Deserialize)]
 pub(crate) struct WebhookConfig {
     pub(crate) url: String,
@@ -244,17 +198,44 @@ pub(crate) struct WebhookConfig {
     pub(crate) headers: HashMap<String, String>,
 }
 
-/// Application configuration loaded from YAML
-#[derive(Debug, Clone, Deserialize, Default)]
+/// Application configuration loaded from YAML.
+///
+/// `max_sent_data` and `max_recv_data` are the server-enforced absolute
+/// maximums for MPC preprocessing. The prover's own requested max (sent via
+/// the MPC protocol) must be `<=` these values or verification is rejected.
+#[derive(Debug, Clone, Deserialize)]
 pub(crate) struct Config {
+    #[serde(default = "default_max_sent_data")]
+    pub(crate) max_sent_data: usize,
+    #[serde(default = "default_max_recv_data")]
+    pub(crate) max_recv_data: usize,
     #[serde(default)]
     pub(crate) webhooks: HashMap<String, WebhookConfig>,
 }
 
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            max_sent_data: default_max_sent_data(),
+            max_recv_data: default_max_recv_data(),
+            webhooks: HashMap::new(),
+        }
+    }
+}
+
+fn default_max_sent_data() -> usize {
+    1 << 20 // 1 MiB
+}
+
+fn default_max_recv_data() -> usize {
+    16 << 20 // 16 MiB
+}
+
 impl Config {
-    /// Load configuration from YAML file, returns default if file doesn't exist
+    /// Load configuration from YAML, then apply env var overrides
+    /// (`VERIFIER_MAX_SENT_DATA`, `VERIFIER_MAX_RECV_DATA`).
     fn load(path: &Path) -> Self {
-        match std::fs::read_to_string(path) {
+        let mut config = match std::fs::read_to_string(path) {
             Ok(contents) => match serde_yaml::from_str(&contents) {
                 Ok(config) => {
                     info!("Loaded config from {:?}", path);
@@ -269,10 +250,24 @@ impl Config {
                 info!("No config file found at {:?}, using defaults", path);
                 Self::default()
             }
+        };
+
+        if let Ok(v) = std::env::var("VERIFIER_MAX_SENT_DATA") {
+            match v.parse() {
+                Ok(n) => config.max_sent_data = n,
+                Err(e) => warn!("Invalid VERIFIER_MAX_SENT_DATA: {}", e),
+            }
         }
+        if let Ok(v) = std::env::var("VERIFIER_MAX_RECV_DATA") {
+            match v.parse() {
+                Ok(n) => config.max_recv_data = n,
+                Err(e) => warn!("Invalid VERIFIER_MAX_RECV_DATA: {}", e),
+            }
+        }
+
+        config
     }
 
-    /// Get webhook configuration for a server name (with wildcard fallback)
     fn get_webhook(&self, server_name: &str) -> Option<&WebhookConfig> {
         self.webhooks
             .get(server_name)
@@ -280,29 +275,22 @@ impl Config {
     }
 }
 
-/// Webhook payload sent to configured endpoints
+/// Webhook payload sent to configured endpoints.
 #[derive(Debug, Serialize)]
 struct WebhookPayload {
-    /// The server name (hostname) from the TLS connection
     server_name: String,
-    /// Handler results with revealed values
     results: Vec<HandlerResult>,
-    /// The reveal configuration (ranges + handlers)
     config: RevealConfigForWebhook,
-    /// Session metadata
     session: SessionInfo,
-    /// Redacted transcripts (bytes outside revealed ranges replaced with 0x00)
     transcript: RedactedTranscript,
 }
 
-/// Reveal config for webhook (same structure, different purpose)
 #[derive(Debug, Serialize)]
 struct RevealConfigForWebhook {
     sent: Vec<RangeWithHandler>,
     recv: Vec<RangeWithHandler>,
 }
 
-/// Session information for webhook
 #[derive(Debug, Serialize)]
 struct SessionInfo {
     id: String,
@@ -310,21 +298,16 @@ struct SessionInfo {
     data: HashMap<String, String>,
 }
 
-/// Redacted transcript data - bytes outside revealed ranges are zeroed out
+/// Redacted transcript: bytes outside revealed ranges are zeroed.
 #[derive(Debug, Serialize)]
 struct RedactedTranscript {
-    /// Redacted sent data (request) - unrevealed bytes replaced with 0x00
     sent: String,
-    /// Redacted received data (response) - unrevealed bytes replaced with 0x00
     recv: String,
-    /// Original sent length before redaction
     sent_length: usize,
-    /// Original recv length before redaction
     recv_length: usize,
 }
 
 impl RedactedTranscript {
-    /// Create redacted transcript from raw bytes and reveal config
     fn from_transcript(
         sent_bytes: &[u8],
         recv_bytes: &[u8],
@@ -338,7 +321,6 @@ impl RedactedTranscript {
         }
     }
 
-    /// Redact bytes by zeroing out bytes outside the revealed ranges
     fn redact_bytes(bytes: &[u8], ranges: &[RangeWithHandler]) -> String {
         let mut redacted = vec![0u8; bytes.len()];
 
@@ -348,28 +330,22 @@ impl RedactedTranscript {
             }
         }
 
-        // Convert to string - using lossy conversion for non-UTF8 bytes
         String::from_utf8_lossy(&redacted).to_string()
     }
 }
 
-// Health check endpoint handler
+// Health check endpoint
 async fn health_handler() -> impl IntoResponse {
     "ok"
 }
 
-/// Info response structure
 #[derive(Debug, Serialize)]
 struct InfoResponse {
-    /// Package version from Cargo.toml
     version: &'static str,
-    /// Git commit hash (from GIT_HASH env var, set by CI)
     git_hash: String,
-    /// TLSNotary library version
     tlsn_version: &'static str,
 }
 
-/// Info endpoint handler - returns server information as JSON
 pub(crate) async fn info_handler() -> impl IntoResponse {
     let git_hash = std::env::var("GIT_HASH").unwrap_or_else(|_| "dev".to_string());
 
@@ -380,7 +356,10 @@ pub(crate) async fn info_handler() -> impl IntoResponse {
     })
 }
 
-// WebSocket session handler for extension
+// ============================================================================
+// Session WebSocket
+// ============================================================================
+
 pub(crate) async fn session_ws_handler(
     ws: WebSocketUpgrade,
     State(state): State<Arc<AppState>>,
@@ -388,7 +367,8 @@ pub(crate) async fn session_ws_handler(
     ws.on_upgrade(move |socket| handle_session_websocket(socket, state))
 }
 
-/// Helper to send typed server messages
+/// Send a typed server message as a Text frame on the raw socket (used for
+/// the initial `registered` and any pre-mux errors).
 async fn send_server_message(socket: &mut WebSocket, message: &ServerMessage) -> bool {
     match socket
         .send(axum_websocket::Message::Text(
@@ -404,57 +384,64 @@ async fn send_server_message(socket: &mut WebSocket, message: &ServerMessage) ->
     }
 }
 
-/// Helper to send error message
 async fn send_error(socket: &mut WebSocket, message: &str) {
-    let _ = send_server_message(socket, &ServerMessage::Error {
-        message: message.to_string(),
-    })
+    let _ = send_server_message(
+        socket,
+        &ServerMessage::Error {
+            message: message.to_string(),
+        },
+    )
     .await;
 }
 
-// Handle the session WebSocket connection with typed message protocol
+/// Send a server message via the mux's text channel (used after the WS has
+/// been split into text + binary channels).
+fn send_server_message_tx(tx: &mpsc::UnboundedSender<String>, message: &ServerMessage) {
+    if let Ok(json) = serde_json::to_string(message) {
+        let _ = tx.send(json);
+    }
+}
+
 async fn handle_session_websocket(mut socket: WebSocket, state: Arc<AppState>) {
     use futures_util::StreamExt;
 
-    // Generate session ID upfront (but don't send yet - wait for register)
+    // UUID is generated server-side for log correlation only. It is not sent
+    // to the client and has no protocol meaning.
     let session_id = Uuid::new_v4().to_string();
     info!("[{}] New session WebSocket connected", session_id);
 
-    // Wait for "register" message first
-    let register_msg = match socket.next().await {
+    // Step 1: read the `register` text frame.
+    let register_text = match socket.next().await {
         Some(Ok(axum_websocket::Message::Text(text))) => text,
         Some(Ok(msg)) => {
-            error!("[{}] Expected text message, got: {:?}", session_id, msg);
-            send_error(&mut socket, "Expected text message").await;
+            error!(
+                "[{}] Expected text register frame, got: {:?}",
+                session_id, msg
+            );
+            send_error(&mut socket, "Expected text register frame").await;
             return;
         }
         Some(Err(e)) => {
-            error!("[{}] Error receiving message: {}", session_id, e);
+            error!("[{}] WebSocket error before register: {}", session_id, e);
             return;
         }
         None => {
-            error!("[{}] Connection closed before registration", session_id);
+            error!("[{}] Connection closed before register", session_id);
             return;
         }
     };
 
-    // Parse as ClientMessage
-    let client_msg: ClientMessage = match serde_json::from_str(&register_msg) {
+    let client_msg: ClientMessage = match serde_json::from_str(&register_text) {
         Ok(msg) => msg,
         Err(e) => {
-            error!("[{}] Failed to parse message: {}", session_id, e);
-            send_error(&mut socket, &format!("Invalid message format: {}", e)).await;
+            error!("[{}] Failed to parse register: {}", session_id, e);
+            send_error(&mut socket, &format!("Invalid register: {}", e)).await;
             return;
         }
     };
 
-    // Expect "register" message type
-    let (max_recv_data, max_sent_data, session_data) = match client_msg {
-        ClientMessage::Register {
-            max_recv_data,
-            max_sent_data,
-            session_data,
-        } => (max_recv_data, max_sent_data, session_data),
+    let session_data = match client_msg {
+        ClientMessage::Register { session_data } => session_data,
         _ => {
             error!("[{}] Expected 'register' message type", session_id);
             send_error(&mut socket, "Expected 'register' message type").await;
@@ -463,115 +450,115 @@ async fn handle_session_websocket(mut socket: WebSocket, state: Arc<AppState>) {
     };
 
     info!(
-        "[{}] Received registration: maxRecvData={}, maxSentData={}, sessionData keys: {:?}",
+        "[{}] Registered: sessionData keys: {:?}",
         session_id,
-        max_recv_data,
-        max_sent_data,
         session_data.keys().collect::<Vec<_>>()
     );
 
-    // Send session_registered response
-    if !send_server_message(
-        &mut socket,
-        &ServerMessage::SessionRegistered {
-            session_id: session_id.clone(),
-        },
-    )
-    .await
-    {
-        error!("[{}] Failed to send session_registered", session_id);
+    // Step 2: acknowledge with `registered`.
+    if !send_server_message(&mut socket, &ServerMessage::Registered).await {
         return;
     }
 
-    info!("[{}] Sent session_registered to client", session_id);
+    // Step 3: split the socket into (Text, Binary) channels. From here on the
+    // raw socket is owned by the mux tasks; all further communication goes
+    // through the channels.
+    let SessionStream {
+        mut text_rx,
+        send_text_tx,
+        binary,
+    } = session_stream(socket);
 
-    // Create channels for prover socket and results
-    let (prover_socket_tx, prover_socket_rx) = oneshot::channel::<WebSocket>();
-    let (result_tx, result_rx) = oneshot::channel::<VerificationResult>();
+    // Step 4: run the MPC verifier against the binary half, using the
+    // server's configured absolute max limits as the ceiling.
+    let max_sent = state.config.max_sent_data;
+    let max_recv = state.config.max_recv_data;
+    info!(
+        "[{}] Starting verification (server ceiling: max_sent={}, max_recv={})",
+        session_id, max_sent, max_recv
+    );
 
-    // Create shared reveal config storage and session data storage
-    let reveal_config_storage = Arc::new(Mutex::new(None));
-    let session_data_storage = Arc::new(session_data.clone());
+    let verification_timeout = Duration::from_secs(120);
+    let verification = timeout(verification_timeout, verifier(binary, max_sent, max_recv)).await;
 
-    let session_config = SessionConfig {
-        max_recv_data,
-        max_sent_data,
+    let (server_name, transcript) = match verification {
+        Ok(Ok(out)) => {
+            info!("[{}] ✅ Verification completed successfully", session_id);
+            out
+        }
+        Ok(Err(e)) => {
+            error!("[{}] ❌ Verification failed: {}", session_id, e);
+            send_server_message_tx(
+                &send_text_tx,
+                &ServerMessage::Error {
+                    message: format!("Verification failed: {}", e),
+                },
+            );
+            return;
+        }
+        Err(_) => {
+            error!(
+                "[{}] ⏱️  Verification timed out after {:?}",
+                session_id, verification_timeout
+            );
+            send_server_message_tx(
+                &send_text_tx,
+                &ServerMessage::Error {
+                    message: "Verification timed out".into(),
+                },
+            );
+            return;
+        }
     };
 
-    // Store session data (so prover can connect)
-    {
-        let mut sessions = state.sessions.lock().await;
-        sessions.insert(session_id.clone(), SessionData { prover_socket_tx });
-    }
+    let sent_bytes = transcript.sent_unsafe().to_vec();
+    let recv_bytes = transcript.received_unsafe().to_vec();
 
     info!(
-        "[{}] Session stored, prover can now connect to /verifier",
-        session_id
+        "[{}] Transcript: sent={} bytes (authed={}), recv={} bytes (authed={})",
+        session_id,
+        sent_bytes.len(),
+        transcript.sent_authed().len(),
+        recv_bytes.len(),
+        transcript.received_authed().len()
     );
 
-    // Spawn the verifier task with the result sender
-    let session_id_clone = session_id.clone();
-    let state_clone = state.clone();
-    let reveal_config_storage_clone = reveal_config_storage.clone();
-    let session_data_clone = session_data_storage.clone();
-    tokio::spawn(async move {
-        run_verifier_task(
-            session_id_clone,
-            session_config,
-            (*session_data_clone).clone(),
-            reveal_config_storage_clone,
-            prover_socket_rx,
-            result_tx,
-            state_clone,
-        )
-        .await;
-    });
-
-    info!(
-        "[{}] Verifier task spawned, waiting for prover connection and reveal config",
-        session_id
-    );
-
-    // Wait for reveal_config message
-    let reveal_msg = match socket.next().await {
-        Some(Ok(axum_websocket::Message::Text(text))) => text,
-        Some(Ok(msg)) => {
-            error!(
-                "[{}] Expected text message for reveal_config, got: {:?}",
-                session_id, msg
-            );
-            send_error(&mut socket, "Expected text message").await;
-            return;
-        }
-        Some(Err(e)) => {
-            error!("[{}] Error receiving reveal_config: {}", session_id, e);
-            return;
-        }
+    // Step 5: await the `reveal_config` text frame.
+    let reveal_text = match text_rx.recv().await {
+        Some(t) => t,
         None => {
             error!(
-                "[{}] Connection closed before receiving reveal_config",
+                "[{}] Connection closed before reveal_config",
                 session_id
             );
             return;
         }
     };
 
-    // Parse as ClientMessage
-    let client_msg: ClientMessage = match serde_json::from_str(&reveal_msg) {
+    let client_msg: ClientMessage = match serde_json::from_str(&reveal_text) {
         Ok(msg) => msg,
         Err(e) => {
             error!("[{}] Failed to parse reveal_config: {}", session_id, e);
-            send_error(&mut socket, &format!("Invalid message format: {}", e)).await;
+            send_server_message_tx(
+                &send_text_tx,
+                &ServerMessage::Error {
+                    message: format!("Invalid reveal_config: {}", e),
+                },
+            );
             return;
         }
     };
 
-    // Expect "reveal_config" message type
     let reveal_config = match client_msg {
         ClientMessage::RevealConfig { sent, recv } => RevealConfig { sent, recv },
         _ => {
             error!("[{}] Expected 'reveal_config' message type", session_id);
-            send_error(&mut socket, "Expected 'reveal_config' message type").await;
+            send_server_message_tx(
+                &send_text_tx,
+                &ServerMessage::Error {
+                    message: "Expected 'reveal_config' message type".into(),
+                },
+            );
             return;
         }
     };
@@ -583,486 +570,86 @@ async fn handle_session_websocket(mut socket: WebSocket, state: Arc<AppState>) {
         reveal_config.recv.len()
     );
 
-    // Store reveal config in shared storage
-    {
-        let mut storage = reveal_config_storage.lock().await;
-        *storage = Some(reveal_config);
+    // Step 6: validate reveal ranges against the authenticated transcript.
+    if let Err((direction, start, end)) = verify_reveal_config(&reveal_config, &transcript) {
+        error!(
+            "[{}] ❌ Invalid {} range [{}, {}) - not fully within authenticated ranges",
+            session_id, direction, start, end
+        );
+        send_server_message_tx(
+            &send_text_tx,
+            &ServerMessage::Error {
+                message: format!(
+                    "Invalid {} range [{}, {}) - not within authenticated ranges",
+                    direction, start, end
+                ),
+            },
+        );
+        return;
     }
 
-    info!(
-        "[{}] ✅ Reveal config stored, verifier task can now proceed",
-        session_id
-    );
+    // Step 7: extract handler values from the transcript.
+    let mut handler_results = Vec::new();
+    handler_results.extend(process_ranges(
+        &reveal_config.sent,
+        &sent_bytes,
+        "SENT",
+        &session_id,
+    ));
+    handler_results.extend(process_ranges(
+        &reveal_config.recv,
+        &recv_bytes,
+        "RECV",
+        &session_id,
+    ));
 
-    // Wait for verification result
-    match result_rx.await {
-        Ok(result) => {
-            info!(
-                "[{}] Received verification result, sending to extension",
-                session_id
-            );
+    // Step 8: fire webhook (fire-and-forget) if configured.
+    let server_name_str = server_name.as_ref();
+    if let Some(webhook_config) = state.config.get_webhook(server_name_str) {
+        info!(
+            "[{}] Webhook configured for {}, sending POST to {}",
+            session_id, server_name_str, webhook_config.url
+        );
 
-            // Send session_completed to extension
-            if send_server_message(
-                &mut socket,
-                &ServerMessage::SessionCompleted {
-                    results: result.results,
-                },
-            )
-            .await
-            {
-                info!("[{}] ✅ Sent session_completed to extension", session_id);
-            } else {
-                error!("[{}] Failed to send session_completed", session_id);
-            }
-        }
-        Err(_) => {
-            error!(
-                "[{}] ❌ Verifier task closed without sending result",
-                session_id
-            );
-            send_error(&mut socket, "Verification failed").await;
-        }
+        let redacted_transcript =
+            RedactedTranscript::from_transcript(&sent_bytes, &recv_bytes, &reveal_config);
+
+        let payload = WebhookPayload {
+            server_name: server_name_str.to_string(),
+            results: handler_results.clone(),
+            config: RevealConfigForWebhook {
+                sent: reveal_config.sent.clone(),
+                recv: reveal_config.recv.clone(),
+            },
+            session: SessionInfo {
+                id: session_id.clone(),
+                data: session_data.clone(),
+            },
+            transcript: redacted_transcript,
+        };
+
+        let webhook_config = webhook_config.clone();
+        let session_id_for_webhook = session_id.clone();
+        tokio::spawn(async move {
+            send_webhook(&webhook_config, &payload, &session_id_for_webhook).await;
+        });
     }
 
-    // Close the WebSocket
-    let _ = socket.close().await;
-    info!("[{}] Session WebSocket closed", session_id);
+    // Step 9: send `session_completed`.
+    send_server_message_tx(
+        &send_text_tx,
+        &ServerMessage::SessionCompleted {
+            results: handler_results,
+        },
+    );
+    info!("[{}] ✅ session_completed sent", session_id);
+
+    // Drop send_text_tx and text_rx so the mux tasks shut down and the
+    // WebSocket closes.
 }
 
-// WebSocket handler for verifier (prover connection)
-pub(crate) async fn verifier_ws_handler(
-    ws: WebSocketUpgrade,
-    State(state): State<Arc<AppState>>,
-    Query(query): Query<VerifierQuery>,
-) -> Result<impl IntoResponse, (StatusCode, String)> {
-    let session_id = query.session_id;
-
-    // Look up the session and extract the socket sender
-    let prover_socket_tx = {
-        let mut sessions = state.sessions.lock().await;
-        sessions
-            .remove(&session_id)
-            .map(|session_data| session_data.prover_socket_tx)
-    };
-
-    match prover_socket_tx {
-        Some(sender) => {
-            info!(
-                "[{}] Prover WebSocket connection established, passing to verifier",
-                session_id
-            );
-            Ok(ws.on_upgrade(move |socket| async move {
-                // Send the WebSocket to the waiting verifier
-                if sender.send(socket).is_err() {
-                    error!(
-                        "[{}] Failed to send socket to verifier - channel closed",
-                        session_id
-                    );
-                } else {
-                    info!(
-                        "[{}] Prover socket passed to verifier successfully",
-                        session_id
-                    );
-                }
-            }))
-        }
-        None => {
-            error!("[{}] Session not found or already connected", session_id);
-            Err((
-                StatusCode::NOT_FOUND,
-                format!("Session not found or already connected: {}", session_id),
-            ))
-        }
-    }
-}
-
-// WebSocket proxy handler - bridges WebSocket to TCP
-// Compatible with notary.pse.dev: /proxy?token=<host> or legacy /proxy?host=<host>
-pub(crate) async fn proxy_ws_handler(
-    ws: WebSocketUpgrade,
-    Query(query): Query<ProxyQuery>,
-) -> Result<impl IntoResponse, (StatusCode, String)> {
-    let host = query.token;
-
-    info!("[Proxy] New proxy request for host: {}", host);
-
-    Ok(ws.on_upgrade(move |socket| handle_proxy_connection(socket, host)))
-}
-
-// Handle the proxy WebSocket connection by bridging to TCP
-async fn handle_proxy_connection(ws: WebSocket, host: String) {
-    use futures_util::{SinkExt, StreamExt};
-
-    let proxy_id = Uuid::new_v4().to_string();
-    info!(
-        "[{}] Proxy WebSocket connected for host: {}",
-        proxy_id, host
-    );
-
-    // Parse host and port (default to 443 for HTTPS)
-    let (hostname, port) = if host.contains(':') {
-        let parts: Vec<&str> = host.split(':').collect();
-        (
-            parts[0].to_string(),
-            parts.get(1).and_then(|p| p.parse().ok()).unwrap_or(443),
-        )
-    } else {
-        (host.clone(), 443)
-    };
-
-    info!("[{}] Connecting to {}:{}", proxy_id, hostname, port);
-
-    // Connect to the remote TCP host
-    let tcp_stream = match tokio::net::TcpStream::connect((hostname.as_str(), port)).await {
-        Ok(stream) => {
-            info!(
-                "[{}] TCP connection established to {}:{}",
-                proxy_id, hostname, port
-            );
-            stream
-        }
-        Err(e) => {
-            error!(
-                "[{}] Failed to connect to {}:{} - {}",
-                proxy_id, hostname, port, e
-            );
-            return;
-        }
-    };
-
-    // Split WebSocket into sink and stream
-    let (mut ws_sink, mut ws_stream) = ws.split();
-
-    // Split the TCP stream into read and write halves
-    let (mut tcp_read, mut tcp_write) = tokio::io::split(tcp_stream);
-
-    // Spawn task to forward WebSocket -> TCP
-    // Read WebSocket Binary messages and write payload to TCP
-    let proxy_id_clone = proxy_id.clone();
-    let ws_to_tcp = tokio::spawn(async move {
-        let mut total_bytes = 0u64;
-
-        loop {
-            match ws_stream.next().await {
-                Some(Ok(msg)) => {
-                    match msg {
-                        axum_websocket::Message::Binary(data) => {
-                            let len = data.len();
-                            total_bytes += len as u64;
-
-                            if let Err(e) = tcp_write.write_all(&data).await {
-                                error!("[{}] Failed to write to TCP: {}", proxy_id_clone, e);
-                                break;
-                            }
-                        }
-                        axum_websocket::Message::Close(_) => {
-                            info!(
-                                "[{}] WebSocket close frame received, forwarded {} bytes total",
-                                proxy_id_clone, total_bytes
-                            );
-                            break;
-                        }
-                        _ => {
-                            // Ignore Text, Ping, Pong messages for now
-                        }
-                    }
-                }
-                Some(Err(e)) => {
-                    error!("[{}] WebSocket read error: {}", proxy_id_clone, e);
-                    break;
-                }
-                None => {
-                    info!(
-                        "[{}] WebSocket stream ended, forwarded {} bytes total",
-                        proxy_id_clone, total_bytes
-                    );
-                    break;
-                }
-            }
-        }
-
-        total_bytes
-    });
-
-    // Spawn task to forward TCP -> WebSocket
-    // Read from TCP and wrap in WebSocket Binary messages
-    let proxy_id_clone = proxy_id.clone();
-    let tcp_to_ws = tokio::spawn(async move {
-        let mut buf = vec![0u8; 8192];
-        let mut total_bytes = 0u64;
-
-        loop {
-            match tcp_read.read(&mut buf).await {
-                Ok(0) => {
-                    info!(
-                        "[{}] TCP read EOF (server closed), forwarded {} bytes to WebSocket",
-                        proxy_id_clone, total_bytes
-                    );
-                    // Send WebSocket close frame to signal EOF to client
-                    if let Err(e) = ws_sink.send(axum_websocket::Message::Close(None)).await {
-                        error!("[{}] Failed to send WebSocket close frame: {}", proxy_id_clone, e);
-                    }
-                    break;
-                }
-                Ok(n) => {
-                    total_bytes += n as u64;
-                    let binary_msg = axum_websocket::Message::Binary(buf[..n].to_vec());
-
-                    if let Err(e) = ws_sink.send(binary_msg).await {
-                        error!("[{}] Failed to send to WebSocket: {}", proxy_id_clone, e);
-                        break;
-                    }
-                }
-                Err(e) => {
-                    error!("[{}] TCP read error: {}", proxy_id_clone, e);
-                    // Send close frame on error too
-                    let _ = ws_sink.send(axum_websocket::Message::Close(None)).await;
-                    break;
-                }
-            }
-        }
-
-        total_bytes
-    });
-
-    // Wait for both tasks to complete
-    let (ws_result, tcp_result) = tokio::join!(ws_to_tcp, tcp_to_ws);
-
-    let ws_total = ws_result.unwrap_or(0);
-    let tcp_total = tcp_result.unwrap_or(0);
-
-    info!(
-        "[{}] Proxy closed: WS→TCP {} bytes, TCP→WS {} bytes",
-        proxy_id, ws_total, tcp_total
-    );
-}
-
-// Verifier task that waits for WebSocket and runs verification
-async fn run_verifier_task(
-    session_id: String,
-    config: SessionConfig,
-    session_data: HashMap<String, String>,
-    reveal_config_storage: Arc<Mutex<Option<RevealConfig>>>,
-    socket_rx: oneshot::Receiver<WebSocket>,
-    result_tx: oneshot::Sender<VerificationResult>,
-    state: Arc<AppState>,
-) {
-    info!(
-        "[{}] Verifier task started, waiting for WebSocket connection...",
-        session_id
-    );
-    info!(
-        "[{}] Configuration: maxRecvData={}, maxSentData={}",
-        session_id, config.max_recv_data, config.max_sent_data
-    );
-
-    // Wait for WebSocket connection with timeout
-    let connection_timeout = Duration::from_secs(30);
-    let socket_result = timeout(connection_timeout, socket_rx).await;
-
-    let socket = match socket_result {
-        Ok(Ok(socket)) => {
-            info!(
-                "[{}] ✅ WebSocket received, starting verification",
-                session_id
-            );
-            socket
-        }
-        Ok(Err(_)) => {
-            error!(
-                "[{}] ❌ Socket channel closed before connection",
-                session_id
-            );
-            cleanup_session(&state, &session_id).await;
-            return;
-        }
-        Err(_) => {
-            error!(
-                "[{}] ⏱️  Timed out waiting for WebSocket connection after {:?}",
-                session_id, connection_timeout
-            );
-            cleanup_session(&state, &session_id).await;
-            return;
-        }
-    };
-
-    // Convert WebSocket to WsStream for AsyncRead/AsyncWrite compatibility
-    let stream = WsStream::new(socket.into_inner());
-    info!("[{}] WebSocket converted to stream", session_id);
-
-    // Convert from futures AsyncRead/AsyncWrite to tokio AsyncRead/AsyncWrite
-    let stream = stream.compat();
-
-    // Run the verifier with timeout
-    let verification_timeout = Duration::from_secs(120);
-    info!(
-        "[{}] Starting verification with timeout of {:?}",
-        session_id, verification_timeout
-    );
-
-    let verification_result = timeout(
-        verification_timeout,
-        verifier(stream, config.max_sent_data, config.max_recv_data),
-    )
-    .await;
-
-    // Handle the verification result
-    match verification_result {
-        Ok(Ok((server_name, transcript))) => {
-            info!("[{}] ✅ Verification completed successfully!", session_id);
-
-            // Extract sent and received data
-            let sent_bytes = transcript.sent_unsafe().to_vec();
-            let recv_bytes = transcript.received_unsafe().to_vec();
-
-            info!(
-                "[{}] Sent data length: {} bytes (authed: {} bytes)",
-                session_id,
-                sent_bytes.len(),
-                transcript.sent_authed().len(),
-            );
-            info!(
-                "[{}] Received data length: {} bytes (authed: {} bytes)",
-                session_id,
-                recv_bytes.len(),
-                transcript.received_authed().len()
-            );
-
-            // Wait for RevealConfig to be available (with polling and timeout)
-            let reveal_config_wait_timeout = Duration::from_secs(30);
-            let start_time = tokio::time::Instant::now();
-
-            let reveal_config = loop {
-                {
-                    let storage = reveal_config_storage.lock().await;
-                    if let Some(config) = storage.as_ref() {
-                        info!("[{}] ✅ RevealConfig found, mapping results", session_id);
-                        break config.clone();
-                    }
-                }
-
-                // Check timeout
-                if start_time.elapsed() > reveal_config_wait_timeout {
-                    error!(
-                        "[{}] ❌ Timed out waiting for RevealConfig after verification",
-                        session_id
-                    );
-                    cleanup_session(&state, &session_id).await;
-                    return;
-                }
-
-                // RevealConfig not available yet, wait a bit
-                info!("[{}] Waiting for RevealConfig...", session_id);
-                tokio::time::sleep(Duration::from_millis(100)).await;
-            };
-
-            // Validate that reveal_config ranges match authenticated transcript ranges
-            if let Err((direction, start, end)) = verify_reveal_config(&reveal_config, &transcript)
-            {
-                error!(
-                    "[{}] ❌ Invalid {} range [{}, {}) - not fully within authenticated ranges",
-                    session_id, direction, start, end
-                );
-                cleanup_session(&state, &session_id).await;
-                return;
-            }
-
-            info!(
-                "[{}] ✅ All reveal_config ranges validated against authenticated transcript",
-                session_id
-            );
-
-            // Map revealed ranges to handler results using raw transcript bytes
-
-            let mut handler_results = Vec::new();
-
-            // Process ranges using unified function to eliminate duplication
-            handler_results.extend(process_ranges(
-                &reveal_config.sent,
-                &sent_bytes,
-                "SENT",
-                &session_id,
-            ));
-            handler_results.extend(process_ranges(
-                &reveal_config.recv,
-                &recv_bytes,
-                "RECV",
-                &session_id,
-            ));
-
-            // Check if webhook is configured for this server_name
-            let server_name_str = server_name.as_ref();
-            if let Some(webhook_config) = state.config.get_webhook(server_name_str) {
-                info!(
-                    "[{}] Webhook configured for {}, sending POST to {}",
-                    session_id, server_name_str, webhook_config.url
-                );
-
-                // Create redacted transcript - only revealed ranges are visible
-                let redacted_transcript = RedactedTranscript::from_transcript(
-                    &sent_bytes,
-                    &recv_bytes,
-                    &reveal_config,
-                );
-
-                let payload = WebhookPayload {
-                    server_name: server_name_str.to_string(),
-                    results: handler_results.clone(),
-                    config: RevealConfigForWebhook {
-                        sent: reveal_config.sent.clone(),
-                        recv: reveal_config.recv.clone(),
-                    },
-                    session: SessionInfo {
-                        id: session_id.clone(),
-                        data: session_data.clone(),
-                    },
-                    transcript: redacted_transcript,
-                };
-
-                // Fire and forget - don't block on webhook
-                let webhook_config = webhook_config.clone();
-                let session_id_for_webhook = session_id.clone();
-                tokio::spawn(async move {
-                    send_webhook(&webhook_config, &payload, &session_id_for_webhook).await;
-                });
-            }
-
-            // Send result to extension via the result channel
-            let result = VerificationResult {
-                results: handler_results,
-            };
-
-            if result_tx.send(result).is_err() {
-                error!(
-                    "[{}] ❌ Failed to send result to extension - channel closed",
-                    session_id
-                );
-            } else {
-                info!("[{}] ✅ Result sent to extension successfully", session_id);
-            }
-        }
-        Ok(Err(e)) => {
-            error!("[{}] ❌ Verification failed: {}", session_id, e);
-            // Note: result_tx will be dropped, causing extension to receive an error
-        }
-        Err(_) => {
-            error!(
-                "[{}] ⏱️  Verification timed out after {:?}",
-                session_id, verification_timeout
-            );
-            // Note: result_tx will be dropped, causing extension to receive an error
-        }
-    }
-
-    // Clean up session (if it still exists in the map)
-    cleanup_session(&state, &session_id).await;
-
-    info!("[{}] Verifier task completed and cleaned up", session_id);
-}
-
-/// Validates that all ranges in reveal config are fully within authenticated transcript ranges.
-/// Returns error with (direction, start, end) if any range contains unauthenticated data.
+/// Validates that all ranges in reveal config are fully within authenticated
+/// transcript ranges. Returns `(direction, start, end)` of the first offender.
 fn verify_reveal_config(
     reveal_config: &RevealConfig,
     transcript: &PartialTranscript,
@@ -1091,15 +678,6 @@ fn verify_reveal_config(
     Ok(())
 }
 
-// Helper function to clean up session from state
-async fn cleanup_session(state: &Arc<AppState>, session_id: &str) {
-    let mut sessions = state.sessions.lock().await;
-    if sessions.remove(session_id).is_some() {
-        info!("[{}] Session removed from state", session_id);
-    }
-}
-
-/// Processes ranges and extracts values from transcript bytes
 fn process_ranges(
     ranges: &[RangeWithHandler],
     bytes: &[u8],
@@ -1140,14 +718,11 @@ fn process_ranges(
         .collect()
 }
 
-
-/// Send webhook POST request to configured endpoint
 async fn send_webhook(config: &WebhookConfig, payload: &WebhookPayload, session_id: &str) {
     let client = reqwest::Client::new();
 
     let mut request = client.post(&config.url).json(payload);
 
-    // Add custom headers from config
     for (key, value) in &config.headers {
         request = request.header(key, value);
     }
@@ -1169,11 +744,162 @@ async fn send_webhook(config: &WebhookConfig, payload: &WebhookPayload, session_
             }
         }
         Err(e) => {
-            // Log error but don't fail the verification
             error!(
                 "[{}] ❌ Webhook POST error: {} - {}",
                 session_id, config.url, e
             );
         }
     }
+}
+
+// ============================================================================
+// Proxy WebSocket (unchanged: bridges a WebSocket to a raw TCP connection)
+// ============================================================================
+
+pub(crate) async fn proxy_ws_handler(
+    ws: WebSocketUpgrade,
+    Query(query): Query<ProxyQuery>,
+) -> Result<impl IntoResponse, (StatusCode, String)> {
+    let host = query.token;
+
+    info!("[Proxy] New proxy request for host: {}", host);
+
+    Ok(ws.on_upgrade(move |socket| handle_proxy_connection(socket, host)))
+}
+
+async fn handle_proxy_connection(ws: WebSocket, host: String) {
+    use futures_util::{SinkExt, StreamExt};
+
+    let proxy_id = Uuid::new_v4().to_string();
+    info!(
+        "[{}] Proxy WebSocket connected for host: {}",
+        proxy_id, host
+    );
+
+    // Parse host and port (default to 443 for HTTPS)
+    let (hostname, port) = if host.contains(':') {
+        let parts: Vec<&str> = host.split(':').collect();
+        (
+            parts[0].to_string(),
+            parts.get(1).and_then(|p| p.parse().ok()).unwrap_or(443),
+        )
+    } else {
+        (host.clone(), 443)
+    };
+
+    info!("[{}] Connecting to {}:{}", proxy_id, hostname, port);
+
+    let tcp_stream = match tokio::net::TcpStream::connect((hostname.as_str(), port)).await {
+        Ok(stream) => {
+            info!(
+                "[{}] TCP connection established to {}:{}",
+                proxy_id, hostname, port
+            );
+            stream
+        }
+        Err(e) => {
+            error!(
+                "[{}] Failed to connect to {}:{} - {}",
+                proxy_id, hostname, port, e
+            );
+            return;
+        }
+    };
+
+    let (mut ws_sink, mut ws_stream) = ws.split();
+    let (mut tcp_read, mut tcp_write) = tokio::io::split(tcp_stream);
+
+    let proxy_id_clone = proxy_id.clone();
+    let ws_to_tcp = tokio::spawn(async move {
+        let mut total_bytes = 0u64;
+
+        loop {
+            match ws_stream.next().await {
+                Some(Ok(msg)) => match msg {
+                    axum_websocket::Message::Binary(data) => {
+                        let len = data.len();
+                        total_bytes += len as u64;
+
+                        if let Err(e) = tcp_write.write_all(&data).await {
+                            error!("[{}] Failed to write to TCP: {}", proxy_id_clone, e);
+                            break;
+                        }
+                    }
+                    axum_websocket::Message::Close(_) => {
+                        info!(
+                            "[{}] WebSocket close frame received, forwarded {} bytes total",
+                            proxy_id_clone, total_bytes
+                        );
+                        break;
+                    }
+                    _ => {
+                        // Ignore Text, Ping, Pong messages for now
+                    }
+                },
+                Some(Err(e)) => {
+                    error!("[{}] WebSocket read error: {}", proxy_id_clone, e);
+                    break;
+                }
+                None => {
+                    info!(
+                        "[{}] WebSocket stream ended, forwarded {} bytes total",
+                        proxy_id_clone, total_bytes
+                    );
+                    break;
+                }
+            }
+        }
+
+        total_bytes
+    });
+
+    let proxy_id_clone = proxy_id.clone();
+    let tcp_to_ws = tokio::spawn(async move {
+        let mut buf = vec![0u8; 8192];
+        let mut total_bytes = 0u64;
+
+        loop {
+            match tcp_read.read(&mut buf).await {
+                Ok(0) => {
+                    info!(
+                        "[{}] TCP read EOF (server closed), forwarded {} bytes to WebSocket",
+                        proxy_id_clone, total_bytes
+                    );
+                    if let Err(e) = ws_sink.send(axum_websocket::Message::Close(None)).await {
+                        error!(
+                            "[{}] Failed to send WebSocket close frame: {}",
+                            proxy_id_clone, e
+                        );
+                    }
+                    break;
+                }
+                Ok(n) => {
+                    total_bytes += n as u64;
+                    let binary_msg = axum_websocket::Message::Binary(buf[..n].to_vec());
+
+                    if let Err(e) = ws_sink.send(binary_msg).await {
+                        error!("[{}] Failed to send to WebSocket: {}", proxy_id_clone, e);
+                        break;
+                    }
+                }
+                Err(e) => {
+                    error!("[{}] TCP read error: {}", proxy_id_clone, e);
+                    let _ = ws_sink.send(axum_websocket::Message::Close(None)).await;
+                    break;
+                }
+            }
+        }
+
+        total_bytes
+    });
+
+    let (ws_result, tcp_result) = tokio::join!(ws_to_tcp, tcp_to_ws);
+
+    let ws_total = ws_result.unwrap_or(0);
+    let tcp_total = tcp_result.unwrap_or(0);
+
+    info!(
+        "[{}] Proxy closed: WS→TCP {} bytes, TCP→WS {} bytes",
+        proxy_id, ws_total, tcp_total
+    );
 }

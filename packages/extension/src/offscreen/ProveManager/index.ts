@@ -30,7 +30,8 @@ const workerApi = Comlink.wrap<{
     crateFilters?: { name: string; level: string }[];
   }) => Promise<void>;
   createProver: (config: ProverConfig) => Promise<string>;
-  setupProver: (proverId: string, verifierUrl: string) => Promise<void>;
+  createSession: (verifierUrl: string, sessionData: Record<string, string>) => Promise<string>;
+  setupProver: (proverId: string, sessionId: string) => Promise<void>;
   sendRequest: (proverId: string, proxyUrl: string, request: HttpRequest) => Promise<void>;
   getTranscript: (proverId: string) => { sent: number[]; recv: number[] };
   computeReveal: (
@@ -43,32 +44,15 @@ const workerApi = Comlink.wrap<{
     recvRangesWithHandlers: RevealRangeWithHandler[];
   };
   reveal: (proverId: string, revealConfig: Reveal) => Promise<void>;
+  sendRevealConfig: (
+    sessionId: string,
+    sent: RevealRangeWithHandler[],
+    recv: RevealRangeWithHandler[],
+  ) => Promise<void>;
+  awaitSessionCompleted: (sessionId: string) => Promise<{ results: unknown[] }>;
+  closeSession: (sessionId: string) => Promise<void>;
   freeProver: (proverId: string) => void;
 }>(worker);
-
-// ============================================================================
-// WebSocket Message Types (matching Rust verifier)
-// ============================================================================
-
-/** Client message types (sent to server) */
-type ClientMessage =
-  | {
-      type: 'register';
-      maxRecvData: number;
-      maxSentData: number;
-      sessionData?: Record<string, string>;
-    }
-  | {
-      type: 'reveal_config';
-      sent: Array<{ start: number; end: number; handler: Handler }>;
-      recv: Array<{ start: number; end: number; handler: Handler }>;
-    };
-
-/** Server message types (received from server) */
-type ServerMessage =
-  | { type: 'session_registered'; sessionId: string }
-  | { type: 'session_completed'; results: unknown[] }
-  | { type: 'error'; message: string };
 
 /** Verification response from the server */
 interface VerificationResponse {
@@ -78,9 +62,9 @@ interface VerificationResponse {
 /** Session state tracked per prover */
 interface SessionState {
   sessionId: string;
-  webSocket: WebSocket;
   response: VerificationResponse | null;
   responseReceived: boolean;
+  completionPromise: Promise<void> | null;
 }
 
 /** Progress callback signature for WASM and JS-side progress events. */
@@ -145,136 +129,6 @@ export class ProveManager {
     logger.debug('ProveManager initialized');
   }
 
-  /**
-   * Create a session WebSocket and register with the verifier.
-   * Each prover gets its own isolated session.
-   */
-  private async createSession(
-    proverId: string,
-    verifierUrl: string,
-    maxRecvData: number,
-    maxSentData: number,
-    sessionData: Record<string, string>,
-  ): Promise<string> {
-    return new Promise((resolve, reject) => {
-      logger.debug('[ProveManager] Creating session for prover:', proverId);
-      const _url = new URL(verifierUrl);
-      const protocol = _url.protocol === 'https:' ? 'wss' : 'ws';
-      const pathname = _url.pathname;
-      const sessionWsUrl = `${protocol}://${_url.host}${pathname === '/' ? '' : pathname}/session`;
-
-      const ws = new WebSocket(sessionWsUrl);
-
-      ws.onopen = () => {
-        logger.debug('[ProveManager] Session WebSocket connected for prover:', proverId);
-
-        const registerMsg: ClientMessage = {
-          type: 'register',
-          maxRecvData,
-          maxSentData,
-          sessionData,
-        };
-        ws.send(JSON.stringify(registerMsg));
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data) as ServerMessage;
-
-          switch (data.type) {
-            case 'session_registered': {
-              const sessionId = data.sessionId;
-              logger.debug(
-                '[ProveManager] Session registered for prover:',
-                proverId,
-                'sessionId:',
-                sessionId,
-              );
-
-              // Store session state for this prover
-              this.sessions.set(proverId, {
-                sessionId,
-                webSocket: ws,
-                response: null,
-                responseReceived: false,
-              });
-
-              const verifierWsUrl = `${protocol}://${_url.host}${pathname === '/' ? '' : pathname}/verifier?sessionId=${sessionId}`;
-
-              resolve(verifierWsUrl);
-              break;
-            }
-
-            case 'session_completed': {
-              logger.debug('[ProveManager] Session completed for prover:', proverId);
-              logger.debug('[ProveManager] Handler results count:', data.results.length);
-
-              // Store response in the session state
-              const session = this.sessions.get(proverId);
-              if (session) {
-                session.response = { results: data.results };
-                session.responseReceived = true;
-              }
-              break;
-            }
-
-            case 'error': {
-              logger.error('[ProveManager] Server error for prover:', proverId, data.message);
-              reject(new Error(data.message));
-              break;
-            }
-
-            default: {
-              // Handle legacy format for backward compatibility
-              const legacyData = data as unknown as Record<string, unknown>;
-              if (legacyData.sessionId) {
-                logger.warn(
-                  '[ProveManager] Received legacy sessionId format for prover:',
-                  proverId,
-                );
-                this.sessions.set(proverId, {
-                  sessionId: String(legacyData.sessionId),
-                  webSocket: ws,
-                  response: null,
-                  responseReceived: false,
-                });
-                const verifierWsUrl = `${protocol}://${_url.host}${pathname === '/' ? '' : pathname}/verifier?sessionId=${String(legacyData.sessionId)}`;
-                resolve(verifierWsUrl);
-              } else if (legacyData.results !== undefined) {
-                logger.warn('[ProveManager] Received legacy results format for prover:', proverId);
-                const session = this.sessions.get(proverId);
-                if (session) {
-                  session.response = {
-                    results: Array.isArray(legacyData.results)
-                      ? (legacyData.results as unknown[])
-                      : [],
-                  };
-                  session.responseReceived = true;
-                }
-              } else {
-                logger.warn(
-                  '[ProveManager] Unknown message type:',
-                  (data as unknown as Record<string, unknown>).type,
-                );
-              }
-            }
-          }
-        } catch (error) {
-          logger.error('[ProveManager] Error parsing WebSocket message:', error);
-        }
-      };
-
-      ws.onerror = (error) => {
-        logger.error('[ProveManager] WebSocket error for prover:', proverId, error);
-        reject(new Error('WebSocket connection failed'));
-      };
-
-      ws.onclose = () => {
-        logger.debug('[ProveManager] Session WebSocket closed for prover:', proverId);
-      };
-    });
-  }
-
   async createProver(
     serverDns: string,
     verifierUrl: string,
@@ -282,7 +136,6 @@ export class ProveManager {
     maxSentData = 4096,
     sessionData: Record<string, string> = {},
   ) {
-    // Create prover in the worker first to get the ID.
     const proverId = await workerApi.createProver({
       server_name: serverDns,
       max_recv_data: maxRecvData,
@@ -296,17 +149,40 @@ export class ProveManager {
     });
 
     try {
-      // Create isolated session for this prover.
-      const sessionUrl = await this.createSession(
+      // Open session WebSocket and register. The single WS carries both the
+      // JSON control protocol (Text frames) and the MPC byte stream (Binary
+      // frames); the worker handles the split.
+      logger.debug('[ProveManager] Creating session for prover:', proverId);
+      const sessionId = await workerApi.createSession(verifierUrl, sessionData);
+      logger.debug(
+        '[ProveManager] Session registered for prover:',
         proverId,
-        verifierUrl,
-        maxRecvData,
-        maxSentData,
-        sessionData,
+        'sessionId:',
+        sessionId,
       );
 
-      // Setup prover with verifier - IoChannel created in worker.
-      await workerApi.setupProver(proverId, sessionUrl);
+      this.sessions.set(proverId, {
+        sessionId,
+        response: null,
+        responseReceived: false,
+        completionPromise: null,
+      });
+
+      // Run MPC setup over the session's binary channel.
+      await workerApi.setupProver(proverId, sessionId);
+
+      // Kick off the background wait for session_completed. Populates the
+      // session state when the server responds.
+      const session = this.sessions.get(proverId)!;
+      session.completionPromise = (async () => {
+        try {
+          const result = await workerApi.awaitSessionCompleted(sessionId);
+          session.response = { results: result.results };
+          session.responseReceived = true;
+        } catch (err) {
+          logger.error('[ProveManager] awaitSessionCompleted failed:', err);
+        }
+      })();
 
       return proverId;
     } catch (error) {
@@ -317,7 +193,7 @@ export class ProveManager {
   }
 
   /**
-   * Send reveal configuration (ranges + handlers) to verifier before calling reveal()
+   * Send reveal configuration (ranges + handlers) to verifier before calling reveal().
    */
   async sendRevealConfig(
     proverId: string,
@@ -331,16 +207,6 @@ export class ProveManager {
       throw new Error('Session not found for prover: ' + proverId);
     }
 
-    if (session.webSocket.readyState !== WebSocket.OPEN) {
-      throw new Error('Session WebSocket not open for prover: ' + proverId);
-    }
-
-    const message: ClientMessage = {
-      type: 'reveal_config',
-      sent: revealConfig.sent,
-      recv: revealConfig.recv,
-    };
-
     logger.debug('[ProveManager] Sending reveal_config message:', {
       proverId,
       sessionId: session.sessionId,
@@ -349,10 +215,10 @@ export class ProveManager {
     });
 
     try {
-      session.webSocket.send(JSON.stringify(message));
-    } catch (_err) {
+      await workerApi.sendRevealConfig(session.sessionId, revealConfig.sent, revealConfig.recv);
+    } catch (err) {
       throw new Error(
-        `Reveal config send failed for prover ${proverId}: verifier connection was closed`,
+        `Reveal config send failed for prover ${proverId}: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
     logger.debug('[ProveManager] reveal_config sent to verifier');
@@ -368,7 +234,6 @@ export class ProveManager {
       body?: string;
     },
   ) {
-    // Convert headers to the format expected by the worker.
     const headerMap: Map<string, number[]> = new Map();
     Object.entries(options.headers || {}).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
@@ -376,7 +241,6 @@ export class ProveManager {
       }
     });
 
-    // Send request via worker - IoChannel created in worker.
     // Extract path+query from full URL (hyper sends absolute-form if given full URL)
     const parsedUrl = new URL(options.url);
     const requestUri = parsedUrl.pathname + parsedUrl.search;
@@ -454,11 +318,15 @@ export class ProveManager {
   /**
    * Close the session WebSocket for a specific prover.
    */
-  closeSession(proverId: string) {
+  async closeSession(proverId: string) {
     const session = this.sessions.get(proverId);
-    if (session && session.webSocket.readyState === WebSocket.OPEN) {
+    if (session) {
       logger.debug('[ProveManager] Closing session WebSocket for prover:', proverId);
-      session.webSocket.close();
+      try {
+        await workerApi.closeSession(session.sessionId);
+      } catch (err) {
+        logger.warn('[ProveManager] closeSession failed for', proverId, ':', err);
+      }
     }
   }
 
@@ -468,8 +336,7 @@ export class ProveManager {
   async cleanupProver(proverId: string) {
     logger.debug('[ProveManager] Cleaning up prover:', proverId);
 
-    // Close WebSocket if open
-    this.closeSession(proverId);
+    await this.closeSession(proverId);
 
     // Remove session state and progress callback
     this.sessions.delete(proverId);

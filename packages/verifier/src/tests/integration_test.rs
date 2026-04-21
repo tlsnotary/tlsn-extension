@@ -2,8 +2,8 @@
 //!
 //! This test validates the complete end-to-end flow:
 //! 1. Verifier server with webhook configuration
-//! 2. Prover connecting via WebSocket
-//! 3. MPC-TLS verification against swapi.dev
+//! 2. Prover connecting via a single WebSocket for both control and MPC
+//! 3. MPC-TLS verification against raw.githubusercontent.com
 //! 4. Webhook delivery to test server
 
 use std::collections::HashMap;
@@ -13,7 +13,11 @@ use std::time::Duration;
 
 use async_tungstenite::tungstenite::Message;
 use axum::{extract::State, routing::post, Json, Router};
-use futures_util::{io::AsyncRead, io::AsyncWrite, StreamExt};
+use futures_util::{
+    io::{AsyncRead, AsyncWrite},
+    sink::SinkExt,
+    StreamExt,
+};
 use http_body_util::Empty;
 use hyper::{body::Bytes, Request, StatusCode};
 use hyper_util::rt::TokioIo;
@@ -22,10 +26,9 @@ use serde_json::{json, Value};
 use tokio::net::TcpStream;
 use tokio::sync::{oneshot, Mutex};
 use tokio::task::JoinHandle;
-use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
+use tokio_util::compat::{Compat, FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
 use tower_http::cors::CorsLayer;
 use tracing::info;
-use ws_stream_tungstenite::WsStream;
 
 use tlsn::{
     config::{
@@ -158,21 +161,21 @@ async fn webhook_handler(
 // ============================================================================
 
 async fn start_verifier_server(webhook_port: u16, verifier_port: u16) -> JoinHandle<()> {
-    // Create config with webhook for raw.githubusercontent.com
     let config_yaml = format!(
         r#"
+max_sent_data: {}
+max_recv_data: {}
 webhooks:
   "raw.githubusercontent.com":
     url: "http://127.0.0.1:{}"
     headers: {{}}
 "#,
-        webhook_port
+        MAX_SENT_DATA, MAX_RECV_DATA, webhook_port
     );
 
     let config: crate::Config = serde_yaml::from_str(&config_yaml).unwrap();
 
     let app_state = Arc::new(crate::AppState {
-        sessions: Arc::new(Mutex::new(HashMap::new())),
         config: Arc::new(config),
     });
 
@@ -180,7 +183,6 @@ webhooks:
         .route("/health", axum::routing::get(|| async { "ok" }))
         .route("/info", axum::routing::get(crate::info_handler))
         .route("/session", axum::routing::get(crate::session_ws_handler))
-        .route("/verifier", axum::routing::get(crate::verifier_ws_handler))
         .route("/proxy", axum::routing::get(crate::proxy_ws_handler))
         .layer(CorsLayer::permissive())
         .with_state(app_state);
@@ -195,13 +197,94 @@ webhooks:
 }
 
 // ============================================================================
-// WebSocket Session Client
+// Client-side session mux
+//
+// Mirrors the server's ws_mux: splits a single WebSocket into a text control
+// channel (Text frames) and a binary byte stream (Binary frames) so that MPC
+// bytes and JSON control messages share one socket.
 // ============================================================================
 
-/// Client that implements the /session WebSocket protocol
+type ClientWs = async_tungstenite::WebSocketStream<Compat<TcpStream>>;
+
+struct ClientSessionStream {
+    text_rx: tokio::sync::mpsc::UnboundedReceiver<String>,
+    send_text_tx: tokio::sync::mpsc::UnboundedSender<String>,
+    binary: tokio::io::DuplexStream,
+}
+
+fn client_session_stream(ws: ClientWs) -> ClientSessionStream {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    let (text_in_tx, text_in_rx) = tokio::sync::mpsc::unbounded_channel::<String>();
+    let (send_text_tx, mut send_text_rx) = tokio::sync::mpsc::unbounded_channel::<String>();
+    let (tlsn_side, mux_side) = tokio::io::duplex(64 * 1024);
+    let (mut mux_read, mut mux_write) = tokio::io::split(mux_side);
+
+    let (mut ws_sink, mut ws_stream) = ws.split();
+
+    // WS -> {text channel, binary duplex}
+    tokio::spawn(async move {
+        while let Some(msg) = ws_stream.next().await {
+            match msg {
+                Ok(Message::Text(t)) => {
+                    if text_in_tx.send(t.to_string()).is_err() {
+                        break;
+                    }
+                }
+                Ok(Message::Binary(b)) => {
+                    if mux_write.write_all(&b).await.is_err() {
+                        break;
+                    }
+                }
+                Ok(Message::Close(_)) => break,
+                Ok(_) => {}
+                Err(_) => break,
+            }
+        }
+    });
+
+    // {binary duplex, text channel} -> WS. Binary and text are tracked
+    // independently so dropping the MPC binary stream doesn't close the text
+    // channel.
+    tokio::spawn(async move {
+        let mut buf = vec![0u8; 8192];
+        let mut binary_open = true;
+        let mut text_open = true;
+        while binary_open || text_open {
+            tokio::select! {
+                biased;
+                msg = send_text_rx.recv(), if text_open => match msg {
+                    Some(t) => {
+                        if ws_sink.send(Message::Text(t)).await.is_err() { break; }
+                    }
+                    None => text_open = false,
+                },
+                res = mux_read.read(&mut buf), if binary_open => match res {
+                    Ok(0) => binary_open = false,
+                    Ok(n) => {
+                        if ws_sink.send(Message::Binary(buf[..n].to_vec())).await.is_err() { break; }
+                    }
+                    Err(_) => binary_open = false,
+                },
+            }
+        }
+        let _ = ws_sink.close().await;
+    });
+
+    ClientSessionStream {
+        text_rx: text_in_rx,
+        send_text_tx,
+        binary: tlsn_side,
+    }
+}
+
+// ============================================================================
+// WebSocket Session Client (single-socket protocol)
+// ============================================================================
+
 struct SessionClient {
-    ws: async_tungstenite::WebSocketStream<tokio_util::compat::Compat<TcpStream>>,
-    session_id: Option<String>,
+    ws: Option<ClientWs>,
+    stream: Option<ClientSessionStream>,
 }
 
 impl SessionClient {
@@ -209,91 +292,103 @@ impl SessionClient {
         let url = format!("{}/session", verifier_url);
         info!("[SessionClient] Connecting to {}", url);
 
-        // Parse the URL to get host and port
         let parsed = url.parse::<http::Uri>()?;
         let host = parsed.host().ok_or("Missing host in URL")?;
         let port = parsed.port_u16().unwrap_or(80);
 
-        // Connect via TCP and wrap for futures_io compatibility
         let tcp_stream = TcpStream::connect((host, port)).await?;
         let stream = tcp_stream.compat();
 
-        // Perform WebSocket handshake
         let (ws, _) = async_tungstenite::client_async(&url, stream).await?;
         info!("[SessionClient] Connected");
 
         Ok(Self {
-            ws,
-            session_id: None,
+            ws: Some(ws),
+            stream: None,
         })
     }
 
+    /// Send `register` and wait for `registered`. After this returns, the
+    /// client can begin MPC on the binary byte stream.
     async fn register(
         &mut self,
-        max_recv_data: usize,
-        max_sent_data: usize,
         session_data: HashMap<String, String>,
-    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let mut ws = self.ws.take().ok_or("Already registered")?;
+
         let msg = json!({
             "type": "register",
-            "maxRecvData": max_recv_data,
-            "maxSentData": max_sent_data,
             "sessionData": session_data
         });
 
         info!("[SessionClient] Sending register: {:?}", msg);
-        self.ws.send(Message::Text(msg.to_string().into())).await?;
+        ws.send(Message::Text(msg.to_string())).await?;
 
-        // Wait for session_registered response
-        while let Some(msg) = self.ws.next().await {
-            match msg? {
-                Message::Text(text) => {
+        // Wait for `registered` response (must be the first text frame).
+        loop {
+            match ws.next().await {
+                Some(Ok(Message::Text(text))) => {
                     let response: Value = serde_json::from_str(&text)?;
                     info!("[SessionClient] Received: {:?}", response);
 
-                    if response["type"] == "session_registered" {
-                        let session_id = response["sessionId"]
-                            .as_str()
-                            .ok_or("Missing sessionId")?
-                            .to_string();
-                        self.session_id = Some(session_id.clone());
-                        return Ok(session_id);
+                    if response["type"] == "registered" {
+                        break;
                     } else if response["type"] == "error" {
                         return Err(format!(
                             "Server error: {}",
                             response["message"].as_str().unwrap_or("unknown")
                         )
                         .into());
+                    } else {
+                        return Err(format!("Unexpected message: {:?}", response).into());
                     }
                 }
-                Message::Close(_) => {
+                Some(Ok(Message::Close(_))) => {
                     return Err("Connection closed unexpectedly".into());
                 }
-                _ => {}
+                Some(Ok(_)) => {}
+                Some(Err(e)) => return Err(e.into()),
+                None => return Err("Connection closed before registration".into()),
             }
         }
 
-        Err("Connection closed before registration".into())
+        // Now split the WS into text + binary channels for the rest of the
+        // session.
+        self.stream = Some(client_session_stream(ws));
+        Ok(())
+    }
+
+    /// Take the binary stream for MPC. Can only be called once.
+    fn take_binary_stream(&mut self) -> Compat<tokio::io::DuplexStream> {
+        let stream = self
+            .stream
+            .as_mut()
+            .expect("register() must be called first");
+        // Swap out the binary half; callers use this only once per session.
+        let binary = std::mem::replace(&mut stream.binary, tokio::io::duplex(1).0);
+        binary.compat()
     }
 
     async fn send_reveal_config(
-        &mut self,
+        &self,
         sent: Vec<RangeWithHandler>,
         recv: Vec<RangeWithHandler>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let stream = self.stream.as_ref().ok_or("Not registered")?;
         let msg = json!({
             "type": "reveal_config",
             "sent": sent,
             "recv": recv
         });
-
         info!(
             "[SessionClient] Sending reveal_config: {} sent, {} recv",
             sent.len(),
             recv.len()
         );
-        self.ws.send(Message::Text(msg.to_string().into())).await?;
-
+        stream
+            .send_text_tx
+            .send(msg.to_string())
+            .map_err(|_| "Failed to send reveal_config: mux closed")?;
         Ok(())
     }
 
@@ -301,10 +396,10 @@ impl SessionClient {
         &mut self,
     ) -> Result<Vec<Value>, Box<dyn std::error::Error + Send + Sync>> {
         info!("[SessionClient] Waiting for session completion...");
-
-        while let Some(msg) = self.ws.next().await {
-            match msg? {
-                Message::Text(text) => {
+        let stream = self.stream.as_mut().ok_or("Not registered")?;
+        loop {
+            match stream.text_rx.recv().await {
+                Some(text) => {
                     let response: Value = serde_json::from_str(&text)?;
                     info!("[SessionClient] Received: {:?}", response);
 
@@ -322,14 +417,9 @@ impl SessionClient {
                         .into());
                     }
                 }
-                Message::Close(_) => {
-                    return Err("Connection closed unexpectedly".into());
-                }
-                _ => {}
+                None => return Err("Connection closed before completion".into()),
             }
         }
-
-        Err("Connection closed before completion".into())
     }
 }
 
@@ -337,7 +427,6 @@ impl SessionClient {
 // Prover Implementation
 // ============================================================================
 
-/// Helper to connect WebSocket with futures_io compatible stream
 async fn connect_ws(
     url: &str,
 ) -> Result<
@@ -355,7 +444,6 @@ async fn connect_ws(
     Ok(ws)
 }
 
-/// Helper to connect secure WebSocket (wss://) with futures_io compatible stream
 async fn connect_wss(
     url: &str,
 ) -> Result<
@@ -370,7 +458,6 @@ async fn connect_wss(
 
     let tcp_stream = TcpStream::connect((&*host, port)).await?;
 
-    // Create TLS connector
     let connector = native_tls::TlsConnector::new()?;
     let connector = tokio_native_tls::TlsConnector::from(connector);
     let tls_stream = connector.connect(&host, tcp_stream).await?;
@@ -380,7 +467,6 @@ async fn connect_wss(
     Ok(ws)
 }
 
-/// Helper function that performs MPC-TLS and HTTP request with a given proxy stream
 async fn run_prover_with_stream<S>(
     prover: Prover,
     tls_commit_config: TlsCommitConfig,
@@ -390,26 +476,21 @@ async fn run_prover_with_stream<S>(
 where
     S: AsyncRead + AsyncWrite + Send + Unpin + 'static,
 {
-    // 5. Start the TLS commitment protocol
     let prover = prover
         .commit(tls_commit_config)
         .await
         .map_err(|e| format!("Commitment failed: {}", e))?;
 
-    // 6. Pass proxy connection into the prover for TLS
     let (mpc_tls_connection, prover_fut) = prover
         .connect(tls_client_config, proxy_stream)
         .map_err(|e| format!("TLS connect failed: {}", e))?;
 
     info!("[Prover] MPC-TLS connection established");
 
-    // Wrap for hyper compatibility
     let mpc_tls_connection = TokioIo::new(mpc_tls_connection.compat());
 
-    // Spawn the prover task
     let prover_task = tokio::spawn(prover_fut);
 
-    // 7. HTTP handshake
     let (mut request_sender, connection) =
         hyper::client::conn::http1::handshake(mpc_tls_connection)
             .await
@@ -417,7 +498,6 @@ where
 
     tokio::spawn(connection);
 
-    // 8. Send HTTP GET request
     info!("[Prover] Sending GET /tlsnotary/tlsn/refs/heads/main/crates/server-fixture/server/src/data/1kb.json");
     let request = Request::builder()
         .uri("/tlsnotary/tlsn/refs/heads/main/crates/server-fixture/server/src/data/1kb.json")
@@ -436,7 +516,6 @@ where
     info!("[Prover] Response status: {}", response.status());
     assert_eq!(response.status(), StatusCode::OK);
 
-    // 9. Wait for prover task to complete
     let mut prover = prover_task
         .await
         .map_err(|e| format!("Prover task panicked: {}", e))?
@@ -451,7 +530,6 @@ where
         recv.len()
     );
 
-    // 10. Build proof configuration (reveal everything including server identity)
     let mut prove_config = ProveConfig::builder(prover.transcript());
     prove_config.server_identity();
     prove_config
@@ -464,7 +542,6 @@ where
         .build()
         .map_err(|e| format!("build proof failed: {}", e))?;
 
-    // 11. Send proof to verifier
     info!("[Prover] Sending proof to verifier");
     prover
         .prove(&prove_config)
@@ -481,31 +558,21 @@ where
     Ok((sent, recv))
 }
 
-/// Prover that connects to verifier and performs MPC-TLS with swapi.dev
-async fn run_prover(
-    verifier_ws_url: String,
+/// Run the prover over an already-established session (binary byte stream).
+async fn run_prover<V>(
+    verifier_stream: V,
     proxy_url: String,
     max_sent_data: usize,
     max_recv_data: usize,
-) -> Result<(Vec<u8>, Vec<u8>), Box<dyn std::error::Error + Send + Sync>> {
-    info!("[Prover] Connecting to verifier at {}", verifier_ws_url);
-
-    // 1. Connect to verifier WebSocket (ws://)
-    let verifier_ws = connect_ws(&verifier_ws_url).await?;
-    info!("[Prover] Connected to verifier");
-
-    // Convert WebSocket to stream compatible with tlsn
-    // WsStream implements tokio::io::AsyncRead/AsyncWrite when inner implements futures_io traits
-    let verifier_stream = WsStream::new(verifier_ws);
-
-    // 2. Create session with verifier stream
+) -> Result<(Vec<u8>, Vec<u8>), Box<dyn std::error::Error + Send + Sync>>
+where
+    V: AsyncRead + AsyncWrite + Send + Unpin + 'static,
+{
     let session = Session::new(verifier_stream);
     let (driver, mut handle) = session.split();
 
-    // Spawn the session driver in the background
     let driver_task = tokio::spawn(driver);
 
-    // 3. Create TLS commit config for MPC protocol
     use tlsn::config::tls_commit::{mpc::MpcTlsConfig, TlsCommitProtocolConfig};
     let mpc_config = MpcTlsConfig::builder()
         .max_sent_data(max_sent_data)
@@ -518,19 +585,16 @@ async fn run_prover(
         .build()
         .map_err(|e| format!("Failed to build TLS commit config: {}", e))?;
 
-    // 4. Create prover config
     let prover_config = ProverConfig::builder()
         .build()
         .map_err(|e| format!("Failed to build prover config: {}", e))?;
 
     info!("[Prover] Setting up MPC-TLS with verifier");
 
-    // 5. Create prover via handle
     let prover = handle
         .new_prover(prover_config)
         .map_err(|e| format!("Failed to create prover: {}", e))?;
 
-    // 6. Create TLS client config with server name and root certs
     use tlsn::{connection::ServerName, webpki::RootCertStore};
     let tls_client_config = TlsClientConfig::builder()
         .server_name(ServerName::Dns(
@@ -542,23 +606,20 @@ async fn run_prover(
 
     info!("[Prover] Connecting to proxy at {}", proxy_url);
 
-    // 7. Connect to proxy WebSocket (ws:// or wss://) and run prover
     let result = if proxy_url.starts_with("wss://") {
         let proxy_ws = connect_wss(&proxy_url).await?;
         info!("[Prover] Connected to proxy (wss)");
-        let proxy_stream = WsStream::new(proxy_ws);
+        let proxy_stream = ws_stream_tungstenite::WsStream::new(proxy_ws);
         run_prover_with_stream(prover, tls_commit_config, tls_client_config, proxy_stream).await
     } else {
         let proxy_ws = connect_ws(&proxy_url).await?;
         info!("[Prover] Connected to proxy (ws)");
-        let proxy_stream = WsStream::new(proxy_ws);
+        let proxy_stream = ws_stream_tungstenite::WsStream::new(proxy_ws);
         run_prover_with_stream(prover, tls_commit_config, tls_client_config, proxy_stream).await
     };
 
-    // 8. Close the session handle
     handle.close();
 
-    // 9. Wait for the driver to complete
     driver_task
         .await
         .map_err(|e| format!("Driver task failed: {}", e))?
@@ -571,7 +632,6 @@ async fn run_prover(
 // Integration Tests
 // ============================================================================
 
-/// Test the /health endpoint
 #[tokio::test]
 async fn health() {
     let _ = tracing_subscriber::fmt()
@@ -594,7 +654,6 @@ async fn health() {
     verifier_handle.abort();
 }
 
-/// Test the /info endpoint returns expected JSON structure
 #[tokio::test]
 async fn info() {
     let _ = tracing_subscriber::fmt()
@@ -615,7 +674,6 @@ async fn info() {
 
     let info: Value = resp.json().await.expect("Failed to parse JSON");
 
-    // Verify required fields exist
     info.get("version").expect("Missing version field");
     info.get("git_hash").expect("Missing git_hash field");
     info.get("tlsn_version")
@@ -626,25 +684,21 @@ async fn info() {
 
 #[tokio::test]
 async fn test_webhook_integration_with_github() {
-    // Initialize tracing for debugging
     let _ = tracing_subscriber::fmt()
         .with_max_level(tracing::Level::INFO)
         .try_init();
 
     info!("Starting integration test");
 
-    // 1. Start test webhook server
     info!("Starting webhook server on port {}", WEBHOOK_PORT);
     let webhook_server = TestWebhookServer::start(WEBHOOK_PORT).await;
 
-    // 2. Start verifier server
     info!("Starting verifier server on port {}", VERIFIER_PORT);
     let verifier_handle = start_verifier_server(WEBHOOK_PORT, VERIFIER_PORT).await;
 
-    // Wait for servers to be ready
     tokio::time::sleep(Duration::from_secs(1)).await;
 
-    // 3. Create session client and register
+    // 1. Open session and register
     let verifier_url = format!("ws://127.0.0.1:{}", VERIFIER_PORT);
     let mut session = SessionClient::connect(&verifier_url)
         .await
@@ -652,28 +706,24 @@ async fn test_webhook_integration_with_github() {
 
     let session_data = HashMap::from([("test_key".to_string(), "test_value".to_string())]);
 
-    let session_id = session
-        .register(MAX_RECV_DATA, MAX_SENT_DATA, session_data)
+    session
+        .register(session_data)
         .await
         .expect("Failed to register session");
 
-    info!("Session registered: {}", session_id);
+    info!("Session registered");
 
-    // 4. Run prover in background
-    let verifier_ws_url = format!(
-        "ws://127.0.0.1:{}/verifier?sessionId={}",
-        VERIFIER_PORT, session_id
-    );
+    // 2. Take the binary stream and run the prover over it
+    let verifier_stream = session.take_binary_stream();
     let proxy_url = format!(
         "ws://127.0.0.1:{}/proxy?token=raw.githubusercontent.com",
         VERIFIER_PORT
     );
 
     let prover_handle = tokio::spawn(async move {
-        run_prover(verifier_ws_url, proxy_url, MAX_SENT_DATA, MAX_RECV_DATA).await
+        run_prover(verifier_stream, proxy_url, MAX_SENT_DATA, MAX_RECV_DATA).await
     });
 
-    // 5. Wait for prover to complete first so we know the actual transcript sizes
     let prover_result = tokio::time::timeout(Duration::from_secs(120), prover_handle)
         .await
         .expect("Prover timed out")
@@ -687,8 +737,7 @@ async fn test_webhook_integration_with_github() {
         recv_transcript.len()
     );
 
-    // 6. Send reveal config with actual transcript sizes
-    // The reveal_config ranges must match the authenticated transcript ranges
+    // 3. Send reveal config with actual transcript sizes
     let sent_ranges = vec![RangeWithHandler {
         start: 0,
         end: sent_transcript.len(),
@@ -711,7 +760,7 @@ async fn test_webhook_integration_with_github() {
         .await
         .expect("Failed to send reveal config");
 
-    // 7. Wait for session completion
+    // 4. Wait for session completion
     let results = tokio::time::timeout(Duration::from_secs(30), session.wait_for_completion())
         .await
         .expect("Session completion timed out")
@@ -719,10 +768,8 @@ async fn test_webhook_integration_with_github() {
 
     info!("Session completed with {} results", results.len());
 
-    // 8. Verify results contain expected data
     assert!(!results.is_empty(), "Should have handler results");
 
-    // Check that response contains expected JSON data
     let recv_str = String::from_utf8_lossy(&recv_transcript);
     assert!(
         recv_str.contains("software engineer") || recv_str.contains("Anytown"),
@@ -730,10 +777,9 @@ async fn test_webhook_integration_with_github() {
         &recv_str[..recv_str.len().min(500)]
     );
 
-    // 9. Wait for webhook delivery
+    // 5. Wait for webhook delivery and verify
     tokio::time::sleep(Duration::from_secs(2)).await;
 
-    // 10. Verify webhook was received
     let payloads = webhook_server.get_payloads().await;
     assert_eq!(
         payloads.len(),
@@ -743,7 +789,6 @@ async fn test_webhook_integration_with_github() {
 
     let payload = &payloads[0];
 
-    // Verify webhook payload structure
     assert_eq!(
         payload["server_name"], "raw.githubusercontent.com",
         "server_name should be raw.githubusercontent.com"
@@ -782,7 +827,6 @@ async fn test_webhook_integration_with_github() {
         "transcript.recv_length should be a number"
     );
 
-    // Verify transcript contains expected content
     let webhook_recv = payload["transcript"]["recv"].as_str().unwrap();
     assert!(
         webhook_recv.contains("software engineer") || webhook_recv.contains("Anytown"),
@@ -791,7 +835,6 @@ async fn test_webhook_integration_with_github() {
 
     info!("All assertions passed!");
 
-    // 11. Cleanup
     webhook_server.shutdown().await;
     verifier_handle.abort();
 
