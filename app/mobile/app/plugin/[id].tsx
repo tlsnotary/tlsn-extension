@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Alert, ScrollView, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
-import { PluginScreen } from '@/components/tlsn';
+import { PluginScreen } from '@/components/tlsn/PluginScreen';
 import { getPluginById } from '../../assets/plugins/registry';
+import { useVerifierUrl } from '@/lib/useVerifierUrl';
 
 /**
  * Extract all handler result values from the proof result string.
@@ -60,7 +61,8 @@ function formatRawData(raw: string): string {
 
 export default function PluginRunnerScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const plugin = getPluginById(id);
+  const { url: verifierUrl } = useVerifierUrl();
+  const plugin = getPluginById(id, verifierUrl);
   const router = useRouter();
   const [result, setResult] = useState<string | null>(null);
   const [provenExpanded, setProvenExpanded] = useState(false);
@@ -174,6 +176,7 @@ export default function PluginRunnerScreen() {
         <PluginScreen
           pluginCode={plugin.getPluginCode()}
           pluginConfig={plugin.pluginConfig}
+          verifierUrlOverride={verifierUrl}
           onComplete={(res) => {
             setResult(typeof res === 'string' ? res : JSON.stringify(res, null, 2));
           }}

@@ -91,6 +91,8 @@ interface PluginScreenProps {
   onComplete?: (result: unknown) => void;
   /** Called when the plugin encounters an error */
   onError?: (error: Error) => void;
+  /** Override the verifier URL used by prove() (from Settings) */
+  verifierUrlOverride?: string;
 }
 
 /**
@@ -102,7 +104,10 @@ interface PluginScreenProps {
  * - Plugin UI rendering via PluginRenderer
  * - Event emitter bridging all components
  */
-export function PluginScreen({ pluginCode, pluginConfig, onComplete, onError }: PluginScreenProps) {
+export function PluginScreen({ pluginCode, pluginConfig, onComplete, onError, verifierUrlOverride }: PluginScreenProps) {
+  const verifierUrlRef = useRef(verifierUrlOverride);
+  verifierUrlRef.current = verifierUrlOverride;
+
   const [domJson, setDomJson] = useState<DomJson | null>(null);
   const [webViewUrl, setWebViewUrl] = useState<string | null>(null);
   const [_windowId, setWindowId] = useState<number>(0);
@@ -166,7 +171,7 @@ export function PluginScreen({ pluginCode, pluginConfig, onComplete, onError }: 
           method: requestOptions.method,
           headers: requestOptions.headers,
           proverOptions: {
-            verifierUrl: proverOptions.verifierUrl,
+            verifierUrl: verifierUrlRef.current || proverOptions.verifierUrl,
             maxSentData: proverOptions.maxSentData ?? 4096,
             maxRecvData: proverOptions.maxRecvData ?? 16384,
             handlers: nativeHandlers,

@@ -28,7 +28,9 @@ const CODE_MAP: Record<string, () => string> = {
     require('@tlsn/plugins/dist/mobile/discord_profile').DISCORD_PROFILE_PLUGIN_CODE,
 };
 
-function toPluginEntry(meta: PluginMetadata): PluginEntry {
+const DEFAULT_VERIFIER_URL = 'https://demo.tlsnotary.org';
+
+function toPluginEntry(meta: PluginMetadata, verifierUrl: string): PluginEntry {
   return {
     id: meta.id,
     name: meta.name,
@@ -39,7 +41,10 @@ function toPluginEntry(meta: PluginMetadata): PluginEntry {
     pluginConfig: {
       name: meta.pluginConfig.name,
       description: meta.pluginConfig.description,
-      requests: meta.pluginConfig.requests,
+      requests: meta.pluginConfig.requests.map((r) => ({
+        ...r,
+        verifierUrl,
+      })),
       urls: meta.pluginConfig.urls,
       oauthHosts: meta.pluginConfig.oauthHosts,
     },
@@ -47,8 +52,14 @@ function toPluginEntry(meta: PluginMetadata): PluginEntry {
   };
 }
 
-export const PLUGIN_REGISTRY: PluginEntry[] = getPluginsForPlatform('mobile').map(toPluginEntry);
-
-export function getPluginById(id: string): PluginEntry | undefined {
-  return PLUGIN_REGISTRY.find((p) => p.id === id);
+export function getPluginRegistry(verifierUrl?: string): PluginEntry[] {
+  const url = verifierUrl || DEFAULT_VERIFIER_URL;
+  return getPluginsForPlatform('mobile').map((m) => toPluginEntry(m, url));
 }
+
+export function getPluginById(id: string, verifierUrl?: string): PluginEntry | undefined {
+  return getPluginRegistry(verifierUrl).find((p) => p.id === id);
+}
+
+/** @deprecated Use getPluginRegistry(verifierUrl) instead */
+export const PLUGIN_REGISTRY: PluginEntry[] = getPluginRegistry();

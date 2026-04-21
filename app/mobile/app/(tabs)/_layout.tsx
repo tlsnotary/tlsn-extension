@@ -41,6 +41,21 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <TabBarIcon name="info" color={color} />,
         }}
       />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'Settings',
+          tabBarIcon: ({ color }) => <TabBarIcon name="cog" color={color} />,
+          headerTitle: 'Settings',
+          headerStyle: {
+            backgroundColor: '#243f5f',
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
     </Tabs>
   );
 }

@@ -6,8 +6,8 @@ ios/lib/
 ios/tlsn_mobile.swift
 ios/include/
 
-# Built Android .so libraries (regenerate with build-android.sh)
-android/src/main/jniLibs/
-
-# Generated Kotlin bindings (regenerate with build-android.sh)
-android/src/main/java/uniffi/
+# Android native artifacts are committed to the repo so that
+# EAS Build can include them (EAS can't run cargo/Rust).
+# Regenerate with build-android.sh if updating the Rust code.
+# android/src/main/jniLibs/
+# android/src/main/java/uniffi/

@@ -1,14 +1,17 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { PLUGIN_REGISTRY } from '../../assets/plugins/registry';
+import { getPluginRegistry } from '../../assets/plugins/registry';
+import { useVerifierUrl } from '@/lib/useVerifierUrl';
 
 export default function PluginGalleryScreen() {
   const router = useRouter();
+  const { url: verifierUrl } = useVerifierUrl();
+  const plugins = getPluginRegistry(verifierUrl);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {PLUGIN_REGISTRY.map((plugin) => (
+      {plugins.map((plugin) => (
         <TouchableOpacity
           key={plugin.id}
           style={styles.card}

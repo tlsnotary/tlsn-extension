@@ -2,7 +2,10 @@ import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Platform } from 'react-native';
 import { WebView, WebViewMessageEvent, WebViewNavigation } from 'react-native-webview';
 import type { ShouldStartLoadRequest } from 'react-native-webview/lib/WebViewTypes';
-import CookieManager from '@react-native-cookies/cookies';
+// Lazy import to avoid crash when native module isn't linked (e.g. Expo Go).
+// This package uses module.exports (CommonJS), not export default.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const getCookieManager = () => require('@react-native-cookies/cookies') as { get: (url: string, useWebKit?: boolean) => Promise<Record<string, { value: string }>> };
 
 // Google blocks OAuth in embedded WebViews by detecting platform-specific
 // user-agent markers:
@@ -69,7 +72,7 @@ async function readNativeCookies(
     // Merge cookies from all checked URLs into a single cookie string
     const allCookies = new Map<string, string>();
     for (const checkUrl of urlsToCheck) {
-      const cookies = await CookieManager.get(checkUrl);
+      const cookies = await getCookieManager().get(checkUrl);
       for (const [name, cookie] of Object.entries(cookies)) {
         if (cookie.value && !allCookies.has(name)) {
           allCookies.set(name, `${name}=${cookie.value}`);
