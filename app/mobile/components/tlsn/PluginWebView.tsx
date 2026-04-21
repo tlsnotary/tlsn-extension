@@ -4,8 +4,10 @@ import { WebView, WebViewMessageEvent, WebViewNavigation } from 'react-native-we
 import type { ShouldStartLoadRequest } from 'react-native-webview/lib/WebViewTypes';
 // Lazy import to avoid crash when native module isn't linked (e.g. Expo Go).
 // This package uses module.exports (CommonJS), not export default.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const getCookieManager = () => require('@react-native-cookies/cookies') as { get: (url: string, useWebKit?: boolean) => Promise<Record<string, { value: string }>> };
+const getCookieManager = () =>
+  require('@react-native-cookies/cookies') as {
+    get: (url: string, useWebKit?: boolean) => Promise<Record<string, { value: string }>>;
+  };
 
 // Google blocks OAuth in embedded WebViews by detecting platform-specific
 // user-agent markers:

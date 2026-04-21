@@ -8,11 +8,7 @@ import {
   Alert,
   ScrollView,
 } from 'react-native';
-import {
-  getVerifierUrl,
-  setVerifierUrl,
-  DEFAULT_VERIFIER_URL,
-} from '@/lib/useVerifierUrl';
+import { getVerifierUrl, setVerifierUrl, DEFAULT_VERIFIER_URL } from '@/lib/useVerifierUrl';
 
 export default function SettingsScreen() {
   const [url, setUrl] = useState('');
@@ -45,8 +41,8 @@ export default function SettingsScreen() {
       <View style={styles.card}>
         <Text style={styles.label}>Verifier URL</Text>
         <Text style={styles.description}>
-          Override the verifier server URL used for proof generation. Leave empty or reset to use the
-          default.
+          Override the verifier server URL used for proof generation. Leave empty or reset to use
+          the default.
         </Text>
         <TextInput
           style={styles.input}

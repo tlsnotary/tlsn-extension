@@ -104,9 +104,17 @@ interface PluginScreenProps {
  * - Plugin UI rendering via PluginRenderer
  * - Event emitter bridging all components
  */
-export function PluginScreen({ pluginCode, pluginConfig, onComplete, onError, verifierUrlOverride }: PluginScreenProps) {
+export function PluginScreen({
+  pluginCode,
+  pluginConfig,
+  onComplete,
+  onError,
+  verifierUrlOverride,
+}: PluginScreenProps) {
   const verifierUrlRef = useRef(verifierUrlOverride);
-  verifierUrlRef.current = verifierUrlOverride;
+  useEffect(() => {
+    verifierUrlRef.current = verifierUrlOverride;
+  }, [verifierUrlOverride]);
 
   const [domJson, setDomJson] = useState<DomJson | null>(null);
   const [webViewUrl, setWebViewUrl] = useState<string | null>(null);
