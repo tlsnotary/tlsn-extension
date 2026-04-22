@@ -33,11 +33,15 @@ export class Prover {
     }
     /**
      * Reveals data to the verifier and finalizes the protocol.
+     *
+     * Optionally accepts a `Commit` object with ranges to hash-commit.
+     * Pass `undefined` or omit the second argument for reveal-only proofs.
      * @param {Reveal} reveal
+     * @param {any} commit
      * @returns {Promise<void>}
      */
-    reveal(reveal) {
-        const ret = wasm.prover_reveal(this.__wbg_ptr, reveal);
+    reveal(reveal, commit) {
+        const ret = wasm.prover_reveal(this.__wbg_ptr, reveal, commit);
         return ret;
     }
     /**
@@ -227,6 +231,7 @@ if (Symbol.dispose) WorkerData.prototype[Symbol.dispose] = WorkerData.prototype.
  * - `sentRanges` / `recvRanges`: byte ranges for `Prover.reveal()`
  * - `sentRangesWithHandlers` / `recvRangesWithHandlers`: ranges annotated with
  *   handlers
+ * - `commit` (optional): ranges to hash-commit, with per-range algorithm
  * @param {Uint8Array} sent
  * @param {Uint8Array} recv
  * @param {any} handlers
@@ -556,6 +561,10 @@ function __wbg_get_imports(memory) {
             const ret = new Worker(getStringFromWasm0(arg0, arg1));
             return ret;
         }, arguments); },
+        __wbg_new_49d5571bd3f0c4d4: function() {
+            const ret = new Map();
+            return ret;
+        },
         __wbg_new_5f486cdf45a04d78: function(arg0) {
             const ret = new Uint8Array(arg0);
             return ret;
@@ -694,6 +703,10 @@ function __wbg_get_imports(memory) {
             const ret = Reflect.set(arg0, arg1, arg2);
             return ret;
         }, arguments); },
+        __wbg_set_bf7251625df30a02: function(arg0, arg1, arg2) {
+            const ret = arg0.set(arg1, arg2);
+            return ret;
+        },
         __wbg_set_name_174189c0f222f5a2: function(arg0, arg1, arg2) {
             arg0.name = getStringFromWasm0(arg1, arg2);
         },
@@ -775,17 +788,17 @@ function __wbg_get_imports(memory) {
             return ret;
         }, arguments); },
         __wbindgen_cast_0000000000000001: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { dtor_idx: 1684, function: Function { arguments: [Externref], shim_idx: 1685, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            // Cast intrinsic for `Closure(Closure { dtor_idx: 1663, function: Function { arguments: [Externref], shim_idx: 1664, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen_be5bb63e37a358e___closure__destroy___dyn_core_2b7419d43886a840___ops__function__FnMut__wasm_bindgen_be5bb63e37a358e___JsValue____Output_______, wasm_bindgen_be5bb63e37a358e___convert__closures_____invoke___wasm_bindgen_be5bb63e37a358e___JsValue______true_);
             return ret;
         },
         __wbindgen_cast_0000000000000002: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { dtor_idx: 3747, function: Function { arguments: [Externref], shim_idx: 3748, ret: Result(Unit), inner_ret: Some(Result(Unit)) }, mutable: true }) -> Externref`.
+            // Cast intrinsic for `Closure(Closure { dtor_idx: 3702, function: Function { arguments: [Externref], shim_idx: 3703, ret: Result(Unit), inner_ret: Some(Result(Unit)) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen_be5bb63e37a358e___closure__destroy___dyn_core_2b7419d43886a840___ops__function__FnMut__wasm_bindgen_be5bb63e37a358e___JsValue____Output___core_2b7419d43886a840___result__Result_____wasm_bindgen_be5bb63e37a358e___JsError___, wasm_bindgen_be5bb63e37a358e___convert__closures_____invoke___wasm_bindgen_be5bb63e37a358e___JsValue__core_2b7419d43886a840___result__Result_____wasm_bindgen_be5bb63e37a358e___JsError___true_);
             return ret;
         },
         __wbindgen_cast_0000000000000003: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { dtor_idx: 3747, function: Function { arguments: [NamedExternref("MessageEvent")], shim_idx: 3750, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            // Cast intrinsic for `Closure(Closure { dtor_idx: 3702, function: Function { arguments: [NamedExternref("MessageEvent")], shim_idx: 3705, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen_be5bb63e37a358e___closure__destroy___dyn_core_2b7419d43886a840___ops__function__FnMut__wasm_bindgen_be5bb63e37a358e___JsValue____Output___core_2b7419d43886a840___result__Result_____wasm_bindgen_be5bb63e37a358e___JsError___, wasm_bindgen_be5bb63e37a358e___convert__closures_____invoke___web_sys_8ba583b92831bfc___features__gen_MessageEvent__MessageEvent______true_);
             return ret;
         },
@@ -837,7 +850,7 @@ function __wbg_get_imports(memory) {
             getDataViewMemory0().setInt32(arg0 + 4 * 1, len1, true);
             getDataViewMemory0().setInt32(arg0 + 4 * 0, ptr1, true);
         },
-        memory: memory || new WebAssembly.Memory({initial:226,maximum:65536,shared:true}),
+        memory: memory || new WebAssembly.Memory({initial:225,maximum:65536,shared:true}),
     };
     return {
         __proto__: null,

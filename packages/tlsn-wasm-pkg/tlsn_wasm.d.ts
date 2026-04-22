@@ -1,6 +1,28 @@
 /* tslint:disable */
 /* eslint-disable */
 /**
+ * A byte range paired with a hash algorithm for commitment.
+ *
+ * Uses explicit `start`/`end` fields (rather than `Range<usize>`) for
+ * clean JS/TS interop via tsify. Converted to the sdk-core `CommitRange`
+ * (which uses `Range<usize>`) in [`super::prover::convert_commit_range`].
+ */
+export interface CommitRange {
+    /**
+     * Start of the byte range (inclusive).
+     */
+    start: number;
+    /**
+     * End of the byte range (exclusive).
+     */
+    end: number;
+    /**
+     * Hash algorithm to use for this range.
+     */
+    algorithm: HashAlgorithm;
+}
+
+/**
  * Connection information.
  */
 export interface ConnectionInfo {
@@ -79,6 +101,11 @@ export interface HttpResponse {
 }
 
 /**
+ * Hash algorithm for hash-commitment actions.
+ */
+export type HashAlgorithm = "BLAKE3" | "SHA256" | "KECCAK256";
+
+/**
  * Network setting for protocol optimization.
  */
 export type NetworkSetting = "Bandwidth" | "Latency";
@@ -121,29 +148,6 @@ export interface PartialTranscript {
      * Authenticated ranges of received data.
      */
     recv_authed: { start: number; end: number }[];
-}
-
-/**
- * Hash algorithm for hash-commitment actions.
- */
-export type HashAlgorithm = "BLAKE3" | "SHA256" | "KECCAK256";
-
-/**
- * A byte range paired with a hash algorithm for commitment.
- */
-export interface CommitRange {
-    /**
-     * Start of the byte range (inclusive).
-     */
-    start: number;
-    /**
-     * End of the byte range (exclusive).
-     */
-    end: number;
-    /**
-     * Hash algorithm to use for this range. Defaults to BLAKE3 if not specified.
-     */
-    algorithm: HashAlgorithm | undefined;
 }
 
 /**
@@ -251,7 +255,7 @@ export class Prover {
      * Optionally accepts a `Commit` object with ranges to hash-commit.
      * Pass `undefined` or omit the second argument for reveal-only proofs.
      */
-    reveal(reveal: Reveal, commit?: Commit): Promise<void>;
+    reveal(reveal: Reveal, commit: any): Promise<void>;
     /**
      * Sends an HTTP request to the server.
      *
@@ -356,6 +360,7 @@ export class WorkerData {
  * - `sentRanges` / `recvRanges`: byte ranges for `Prover.reveal()`
  * - `sentRangesWithHandlers` / `recvRangesWithHandlers`: ranges annotated with
  *   handlers
+ * - `commit` (optional): ranges to hash-commit, with per-range algorithm
  */
 export function compute_reveal(sent: Uint8Array, recv: Uint8Array, handlers: any): any;
 
@@ -381,7 +386,7 @@ export interface InitOutput {
     readonly compute_reveal: (a: number, b: number, c: number, d: number, e: any) => [number, number, number];
     readonly initialize: (a: number, b: number) => any;
     readonly prover_new: (a: any) => [number, number, number];
-    readonly prover_reveal: (a: number, b: any) => any;
+    readonly prover_reveal: (a: number, b: any, c: any) => any;
     readonly prover_send_request: (a: number, b: any, c: any) => any;
     readonly prover_set_progress_callback: (a: number, b: any) => void;
     readonly prover_setup: (a: number, b: any) => any;

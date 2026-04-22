@@ -2,7 +2,7 @@ use eyre::eyre;
 use tlsn::{
     config::{tls_commit::TlsCommitProtocolConfig, verifier::VerifierConfig},
     connection::{DnsName, ServerName},
-    transcript::PartialTranscript,
+    transcript::{PartialTranscript, TranscriptCommitment},
     verifier::VerifierOutput,
     webpki::RootCertStore,
     Session,
@@ -12,14 +12,12 @@ use tokio_util::compat::TokioAsyncReadCompatExt;
 use tracing::{debug, info};
 
 /// Core verifier logic that validates the TLS proof
-/// Returns: (sent_bytes, recv_bytes, sent_string, recv_string)
-/// - sent_bytes/recv_bytes: Raw transcript bytes (with \0 for unrevealed)
-/// - sent_string/recv_string: Display strings (with 🙈 for unrevealed)
+/// Returns: (server name, partial transcript, transcript commitments)
 pub async fn verifier<T: AsyncWrite + AsyncRead + Send + Unpin + 'static>(
     socket: T,
     max_sent_data: usize,
     max_recv_data: usize,
-) -> Result<(DnsName, PartialTranscript), eyre::ErrReport> {
+) -> Result<(DnsName, PartialTranscript, Vec<TranscriptCommitment>), eyre::ErrReport> {
     info!(
         "Starting verification with maxSentData={}, maxRecvData={}",
         max_sent_data, max_recv_data
@@ -106,6 +104,7 @@ pub async fn verifier<T: AsyncWrite + AsyncRead + Send + Unpin + 'static>(
         VerifierOutput {
             server_name,
             transcript,
+            transcript_commitments,
             ..
         },
         verifier,
@@ -158,8 +157,12 @@ pub async fn verifier<T: AsyncWrite + AsyncRead + Send + Unpin + 'static>(
         bytes_to_redacted_string(&received, "█")?
     );
 
-    // Return both raw bytes (for range extraction) and display strings (for logging)
-    Ok((dns_name, transcript))
+    info!(
+        "Hash commitments: {} (sent+recv)",
+        transcript_commitments.len()
+    );
+
+    Ok((dns_name, transcript, transcript_commitments))
 }
 
 /// Compress long sequences of redacted emojis for better readability

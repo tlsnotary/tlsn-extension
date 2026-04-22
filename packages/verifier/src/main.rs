@@ -114,11 +114,36 @@ pub(crate) enum HandlerPart {
     All,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "UPPERCASE")]
+pub(crate) enum HashAlgorithm {
+    Blake3,
+    Sha256,
+    Keccak256,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(tag = "action", rename_all = "UPPERCASE")]
+pub(crate) enum HandlerAction {
+    Reveal,
+    Hash {
+        algorithm: HashAlgorithm,
+    },
+}
+
+impl Default for HandlerAction {
+    fn default() -> Self {
+        Self::Reveal
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct Handler {
     #[serde(rename = "type")]
     pub(crate) handler_type: HandlerType,
     pub(crate) part: HandlerPart,
+    #[serde(flatten, default)]
+    pub(crate) action: HandlerAction,
 }
 
 // Session data structure (without handlers - they come later with ranges)
@@ -909,7 +934,7 @@ async fn run_verifier_task(
 
     // Handle the verification result
     match verification_result {
-        Ok(Ok((server_name, transcript))) => {
+        Ok(Ok((server_name, transcript, transcript_commitments))) => {
             info!("[{}] ✅ Verification completed successfully!", session_id);
 
             // Extract sent and received data
@@ -957,9 +982,14 @@ async fn run_verifier_task(
                 tokio::time::sleep(Duration::from_millis(100)).await;
             };
 
-            // Validate that reveal_config ranges match authenticated transcript ranges
-            if let Err((direction, start, end)) = verify_reveal_config(&reveal_config, &transcript)
-            {
+            // Validate that reveal_config ranges match authenticated transcript
+            // ranges. Hash-committed ranges aren't in `sent_authed`/`received_authed`
+            // (those hold revealed plaintext), so we union the commitment ranges in.
+            if let Err((direction, start, end)) = verify_reveal_config(
+                &reveal_config,
+                &transcript,
+                &transcript_commitments,
+            ) {
                 error!(
                     "[{}] ❌ Invalid {} range [{}, {}) - not fully within authenticated ranges",
                     session_id, direction, start, end
@@ -973,20 +1003,25 @@ async fn run_verifier_task(
                 session_id
             );
 
-            // Map revealed ranges to handler results using raw transcript bytes
+            // Map revealed ranges to handler results using raw transcript bytes.
+            // For HASH handlers, substitute the hex-encoded hash digest (the
+            // plaintext was never revealed, so `bytes[..]` is zeroed).
 
             let mut handler_results = Vec::new();
 
-            // Process ranges using unified function to eliminate duplication
             handler_results.extend(process_ranges(
                 &reveal_config.sent,
                 &sent_bytes,
+                tlsn::transcript::Direction::Sent,
+                &transcript_commitments,
                 "SENT",
                 &session_id,
             ));
             handler_results.extend(process_ranges(
                 &reveal_config.recv,
                 &recv_bytes,
+                tlsn::transcript::Direction::Received,
+                &transcript_commitments,
                 "RECV",
                 &session_id,
             ));
@@ -1062,11 +1097,32 @@ async fn run_verifier_task(
 }
 
 /// Validates that all ranges in reveal config are fully within authenticated transcript ranges.
+///
+/// "Authenticated" means either:
+/// - Revealed as plaintext (in `transcript.sent_authed()` / `received_authed()`), or
+/// - Hash-committed via `TranscriptCommitment::Hash` (the prover proved knowledge of
+///   plaintext whose hash matches the commitment; the range itself is bound).
+///
 /// Returns error with (direction, start, end) if any range contains unauthenticated data.
 fn verify_reveal_config(
     reveal_config: &RevealConfig,
     transcript: &PartialTranscript,
+    transcript_commitments: &[tlsn::transcript::TranscriptCommitment],
 ) -> Result<(), (String, usize, usize)> {
+    use tlsn::transcript::{Direction, TranscriptCommitment};
+
+    // Union of revealed + hash-committed ranges, per direction.
+    let mut sent_auth = transcript.sent_authed().clone();
+    let mut recv_auth = transcript.received_authed().clone();
+    for commitment in transcript_commitments {
+        if let TranscriptCommitment::Hash(hash) = commitment {
+            match hash.direction {
+                Direction::Sent => sent_auth.union_mut(&hash.idx),
+                Direction::Received => recv_auth.union_mut(&hash.idx),
+            }
+        }
+    }
+
     fn validate_ranges_against_auth_set(
         ranges: &[RangeWithHandler],
         auth_set: &RangeSet<usize>,
@@ -1085,8 +1141,8 @@ fn verify_reveal_config(
         Ok(())
     }
 
-    validate_ranges_against_auth_set(&reveal_config.sent, transcript.sent_authed(), "sent")?;
-    validate_ranges_against_auth_set(&reveal_config.recv, transcript.received_authed(), "recv")?;
+    validate_ranges_against_auth_set(&reveal_config.sent, &sent_auth, "sent")?;
+    validate_ranges_against_auth_set(&reveal_config.recv, &recv_auth, "recv")?;
 
     Ok(())
 }
@@ -1099,33 +1155,56 @@ async fn cleanup_session(state: &Arc<AppState>, session_id: &str) {
     }
 }
 
-/// Processes ranges and extracts values from transcript bytes
+/// Processes ranges and extracts values from the transcript.
+///
+/// - For REVEAL handlers, returns the revealed plaintext bytes as UTF-8.
+/// - For HASH handlers, returns the hex-encoded hash digest from the matching
+///   `TranscriptCommitment::Hash` (plaintext was never revealed).
 fn process_ranges(
     ranges: &[RangeWithHandler],
     bytes: &[u8],
-    direction: &str,
+    direction: tlsn::transcript::Direction,
+    transcript_commitments: &[tlsn::transcript::TranscriptCommitment],
+    direction_label: &str,
     session_id: &str,
 ) -> Vec<HandlerResult> {
     ranges
         .iter()
         .map(|range_with_handler| {
-            let value = if range_with_handler.start < bytes.len()
-                && range_with_handler.end <= bytes.len()
-                && range_with_handler.start < range_with_handler.end
-            {
-                let extracted_bytes = &bytes[range_with_handler.start..range_with_handler.end];
-                String::from_utf8_lossy(extracted_bytes).to_string()
-            } else {
-                format!(
-                    "ERROR: Invalid range [{}, {})",
-                    range_with_handler.start, range_with_handler.end
+            let value = match range_with_handler.handler.action {
+                HandlerAction::Hash { .. } => find_hash_digest(
+                    transcript_commitments,
+                    direction,
+                    range_with_handler.start,
+                    range_with_handler.end,
                 )
+                .unwrap_or_else(|| {
+                    format!(
+                        "ERROR: No hash commitment for [{}, {})",
+                        range_with_handler.start, range_with_handler.end
+                    )
+                }),
+                HandlerAction::Reveal => {
+                    if range_with_handler.start < bytes.len()
+                        && range_with_handler.end <= bytes.len()
+                        && range_with_handler.start < range_with_handler.end
+                    {
+                        let extracted_bytes =
+                            &bytes[range_with_handler.start..range_with_handler.end];
+                        String::from_utf8_lossy(extracted_bytes).to_string()
+                    } else {
+                        format!(
+                            "ERROR: Invalid range [{}, {})",
+                            range_with_handler.start, range_with_handler.end
+                        )
+                    }
+                }
             };
 
             debug!(
                 "[{}] Mapped {} range [{}, {}) to handler {:?}: {} bytes",
                 session_id,
-                direction,
+                direction_label,
                 range_with_handler.start,
                 range_with_handler.end,
                 range_with_handler.handler.part,
@@ -1138,6 +1217,35 @@ fn process_ranges(
             }
         })
         .collect()
+}
+
+/// Finds the hash digest (hex) for a given range+direction from the list of
+/// transcript commitments. Returns `None` if no `Hash` commitment covers the
+/// exact range for the requested direction.
+fn find_hash_digest(
+    commitments: &[tlsn::transcript::TranscriptCommitment],
+    direction: tlsn::transcript::Direction,
+    start: usize,
+    end: usize,
+) -> Option<String> {
+    use tlsn::transcript::TranscriptCommitment;
+
+    for commitment in commitments {
+        if let TranscriptCommitment::Hash(hash) = commitment {
+            if hash.direction == direction
+                && (start..end).all(|i| hash.idx.contains(&i))
+            {
+                let bytes = hash.hash.value.as_bytes();
+                let mut hex_str = String::with_capacity(bytes.len() * 2);
+                for b in bytes {
+                    use std::fmt::Write;
+                    let _ = write!(hex_str, "{:02x}", b);
+                }
+                return Some(hex_str);
+            }
+        }
+    }
+    None
 }
 
 
