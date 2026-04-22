@@ -8,7 +8,7 @@ edition = "2021"
 tlsn = { git = "https://github.com/tlsnotary/tlsn.git", branch = "main", features = ["mozilla-certs"] }
 
 # HTTP server framework
-axum = { version = "0.7", features = ["ws"] }
+axum = { version = "0.7" }
 http = "1.0"
 hyper = "1.0"
 tokio = { version = "1", features = ["full"] }
