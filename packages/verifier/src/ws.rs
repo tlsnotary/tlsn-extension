@@ -132,6 +132,9 @@ impl<S: Send + Sync> FromRequestParts<S> for WsUpgrade {
             .get(header::SEC_WEBSOCKET_KEY)
             .ok_or(WsRejection::WebSocketKeyHeaderMissing)?
             .clone();
+        // Sec-WebSocket-Protocol is intentionally ignored: no caller negotiates
+        // a subprotocol. To support one, parse the header here and echo the
+        // selected value back in `on_upgrade`'s response.
         let on_upgrade = parts
             .extensions
             .remove::<hyper::upgrade::OnUpgrade>()
