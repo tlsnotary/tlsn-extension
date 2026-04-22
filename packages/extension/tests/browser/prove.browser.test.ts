@@ -28,7 +28,6 @@ const REQUEST_PATH =
 // ============================================================================
 
 interface ProveResult {
-  sessionId: string;
   sentLength: number;
   recvLength: number;
   resultsLength: number;
@@ -101,7 +100,6 @@ describe('WASM Prove Integration', () => {
     console.log('[Test] Prove completed successfully');
 
     // Assertions (same as Rust integration test)
-    expect(result.sessionId).toBeTruthy();
     expect(result.sentLength).toBeGreaterThan(0);
     expect(result.recvLength).toBeGreaterThan(0);
     expect(result.resultsLength).toBeGreaterThan(0);

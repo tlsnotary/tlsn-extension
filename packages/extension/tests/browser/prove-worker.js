@@ -1,12 +1,13 @@
 /**
  * Web Worker that runs the full MPC-TLS prove flow using the tlsn WASM prover.
  *
- * Uses IoChannel (from @tlsn/common) to inject WebSocket IO from JavaScript,
- * exercising the same code path as the extension. This is critical: without
- * the deadlock fix, WASM's Atomics.wait() blocks the thread and prevents
- * the WebSocket event loop from pumping data, causing a deadlock.
+ * Mirrors the single-WebSocket protocol used by the production extension worker
+ * (src/offscreen/ProveManager/worker.ts): one `/session` WebSocket multiplexes
+ * Text frames (register, reveal_config, session_completed) and Binary frames
+ * (MPC bytes). The WASM prover consumes the binary stream via an IoChannel
+ * built on top of the same socket; text frames are handled by the worker.
  *
- * Communication protocol:
+ * Communication protocol (with main thread):
  *   Main thread → Worker: { type: 'run', config: { ... } }
  *   Worker → Main thread: { type: 'log', level, message }
  *   Worker → Main thread: { type: 'result', success, data }
@@ -15,46 +16,117 @@
 import { fromWebSocket } from '/@tlsn-common/io-channel.js';
 
 // ============================================================================
-// SessionClient: WebSocket protocol for verifier /session endpoint
+// Session WebSocket: single socket multiplexing Text (control) + Binary (MPC).
 // ============================================================================
 
 class SessionClient {
   constructor() {
     this.ws = null;
-    this.sessionId = null;
+    this.binaryQueue = [];
+    this.binaryResolver = null;
+    this.textQueue = [];
+    this.textResolver = null;
+    this.closed = false;
+    this.error = null;
   }
 
-  async connect(verifierUrl) {
+  async connectAndRegister(verifierBase, sessionData) {
     return new Promise((resolve, reject) => {
-      this.ws = new WebSocket(`${verifierUrl}/session`);
-      this.ws.onopen = () => resolve();
-      this.ws.onerror = () => reject(new Error(`Session WebSocket failed: ${verifierUrl}`));
-    });
-  }
+      this.ws = new WebSocket(`${verifierBase}/session`);
+      this.ws.binaryType = 'arraybuffer';
+      let registered = false;
 
-  async register(maxRecvData, maxSentData, sessionData) {
-    return new Promise((resolve, reject) => {
-      const handler = (event) => {
-        const data = JSON.parse(event.data);
-        if (data.type === 'session_registered' && data.sessionId) {
-          this.sessionId = data.sessionId;
-          this.ws.removeEventListener('message', handler);
-          resolve(data.sessionId);
-        } else if (data.type === 'error') {
-          this.ws.removeEventListener('message', handler);
-          reject(new Error(`Server error: ${data.message}`));
+      this.ws.onopen = () => {
+        this.ws.send(JSON.stringify({ type: 'register', sessionData }));
+      };
+
+      this.ws.onmessage = (event) => {
+        if (typeof event.data === 'string') {
+          let msg;
+          try {
+            msg = JSON.parse(event.data);
+          } catch (err) {
+            reject(new Error(`Invalid JSON from server: ${err.message}`));
+            return;
+          }
+          if (!registered) {
+            if (msg.type === 'registered') {
+              registered = true;
+              resolve();
+            } else if (msg.type === 'error') {
+              reject(new Error(`Server error during register: ${msg.message}`));
+            } else {
+              reject(new Error(`Unexpected server message before registered: ${msg.type}`));
+            }
+            return;
+          }
+          if (this.textResolver) {
+            const r = this.textResolver;
+            this.textResolver = null;
+            r(msg);
+          } else {
+            this.textQueue.push(msg);
+          }
+        } else {
+          const data = new Uint8Array(event.data);
+          if (this.binaryResolver) {
+            const r = this.binaryResolver;
+            this.binaryResolver = null;
+            r(data);
+          } else {
+            this.binaryQueue.push(data);
+          }
         }
       };
-      this.ws.addEventListener('message', handler);
-      this.ws.send(
-        JSON.stringify({
-          type: 'register',
-          maxRecvData,
-          maxSentData,
-          sessionData,
-        }),
-      );
+
+      this.ws.onerror = (event) => {
+        const err = new Error(`Session WebSocket error: ${event.type || 'unknown'}`);
+        this.error = err;
+        if (!registered) reject(err);
+      };
+
+      this.ws.onclose = () => {
+        this.closed = true;
+        if (this.binaryResolver) {
+          const r = this.binaryResolver;
+          this.binaryResolver = null;
+          r(null);
+        }
+        if (this.textResolver) {
+          const r = this.textResolver;
+          this.textResolver = null;
+          r(null);
+        }
+        if (!registered) reject(new Error('Session WebSocket closed before registration'));
+      };
     });
+  }
+
+  /**
+   * IoChannel view over the binary frames of the session WebSocket. The WASM
+   * prover reads/writes MPC bytes through this channel; text frames on the
+   * same socket are routed separately to textQueue.
+   */
+  binaryIo() {
+    return {
+      read: async () => {
+        if (this.error) throw this.error;
+        if (this.binaryQueue.length > 0) return this.binaryQueue.shift();
+        if (this.closed) return null;
+        return new Promise((resolve) => {
+          this.binaryResolver = resolve;
+        });
+      },
+      write: async (data) => {
+        if (this.error) throw this.error;
+        if (this.closed) throw new Error('Session WebSocket is closed');
+        this.ws.send(data);
+      },
+      // No-op: the session WS is closed by close(), not by the WASM prover
+      // dropping its IoChannel (we still need the socket for reveal_config +
+      // session_completed after MPC finishes).
+      close: async () => {},
+    };
   }
 
   sendRevealConfig(sent, recv) {
@@ -62,25 +134,27 @@ class SessionClient {
   }
 
   async waitForCompletion(timeoutMs = 60000) {
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        this.ws.removeEventListener('message', handler);
-        reject(new Error('Timed out waiting for session_completed'));
-      }, timeoutMs);
+    const deadline = Date.now() + timeoutMs;
+    while (true) {
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) throw new Error('Timed out waiting for session_completed');
+      const msg = await Promise.race([
+        this._recvText(),
+        new Promise((resolve) => setTimeout(() => resolve('__timeout__'), remaining)),
+      ]);
+      if (msg === '__timeout__') throw new Error('Timed out waiting for session_completed');
+      if (!msg) throw new Error('Session WebSocket closed before session_completed');
+      if (msg.type === 'session_completed') return msg.results;
+      if (msg.type === 'error') throw new Error(`Server error: ${msg.message}`);
+      // Ignore unexpected types.
+    }
+  }
 
-      const handler = (event) => {
-        const data = JSON.parse(event.data);
-        if (data.type === 'session_completed' && data.results) {
-          clearTimeout(timeout);
-          this.ws.removeEventListener('message', handler);
-          resolve(data.results);
-        } else if (data.type === 'error') {
-          clearTimeout(timeout);
-          this.ws.removeEventListener('message', handler);
-          reject(new Error(`Server error: ${data.message}`));
-        }
-      };
-      this.ws.addEventListener('message', handler);
+  _recvText() {
+    if (this.textQueue.length > 0) return Promise.resolve(this.textQueue.shift());
+    if (this.closed) return Promise.resolve(null);
+    return new Promise((resolve) => {
+      this.textResolver = resolve;
     });
   }
 
@@ -113,13 +187,12 @@ async function runProve(config) {
   await wasm.initialize(null, threads);
   log('info', 'WASM initialized');
 
-  // 2. Register session with verifier
+  // 2. Open session WS and register. Server-side max data ceilings now come
+  //    from the verifier's config.yaml, so the register message carries only
+  //    sessionData.
   const session = new SessionClient();
-  await session.connect(verifierBase);
-  const sessionId = await session.register(maxRecvData, maxSentData, {
-    test: 'browser-prove',
-  });
-  log('info', `Session registered: ${sessionId}`);
+  await session.connectAndRegister(verifierBase, { test: 'browser-prove' });
+  log('info', 'Session registered');
 
   // 3. Create prover
   const prover = new wasm.Prover({
@@ -129,17 +202,12 @@ async function runProve(config) {
     network: 'Bandwidth',
   });
 
-  // 4. Setup MPC protocol with verifier via IoChannel (NOT a URL string).
-  //    This is the code path that deadlocks without the fix — WASM and the
-  //    WebSocket share this thread, so Atomics.wait() must not block the
-  //    event loop.
-  const verifierUrl = `${verifierBase}/verifier?sessionId=${sessionId}`;
-  log('info', `Setting up with verifier via IoChannel: ${verifierUrl}`);
-  const verifierIo = await fromWebSocket(verifierUrl);
-  await prover.setup(verifierIo);
+  // 4. Run MPC setup over the session's binary channel (same WebSocket).
+  log('info', 'Setting up prover with verifier via session binary channel');
+  await prover.setup(session.binaryIo());
   log('info', 'Prover setup complete');
 
-  // 5. Send HTTP request through proxy via IoChannel
+  // 5. Send HTTP request via the proxy WebSocket (binary-only, separate socket).
   const proxyUrl = `${verifierBase}/proxy?token=${serverName}`;
   const encoder = new TextEncoder();
   const headers = new Map();
@@ -147,7 +215,7 @@ async function runProve(config) {
   headers.set('Accept', Array.from(encoder.encode('application/json')));
   headers.set('Connection', Array.from(encoder.encode('close')));
 
-  log('info', `Sending HTTP request via IoChannel proxy: ${proxyUrl}`);
+  log('info', `Sending HTTP request via proxy: ${proxyUrl}`);
   const proxyIo = await fromWebSocket(proxyUrl);
   await prover.send_request(proxyIo, {
     uri: requestPath,
@@ -163,14 +231,14 @@ async function runProve(config) {
   const recv = new Uint8Array(transcript.recv);
   log('info', `Transcript: sent=${sent.length} bytes, recv=${recv.length} bytes`);
 
-  // 7. Build reveal config (reveal everything)
+  // 7. Build reveal config (reveal everything) and send it as a Text frame on
+  //    the session WS BEFORE running prover.reveal(). The server expects the
+  //    reveal_config text frame; the MPC reveal then flows over binary frames.
   const sentRanges = [{ start: 0, end: sent.length, handler: { type: 'SENT', part: 'ALL' } }];
   const recvRanges = [{ start: 0, end: recv.length, handler: { type: 'RECV', part: 'ALL' } }];
-
-  // 8. Send reveal config to verifier via session WebSocket
   session.sendRevealConfig(sentRanges, recvRanges);
 
-  // 9. Reveal to verifier (MPC finalization)
+  // 8. Reveal to verifier (more MPC binary on the session channel).
   await prover.reveal({
     sent: [{ start: 0, end: sent.length }],
     recv: [{ start: 0, end: recv.length }],
@@ -178,17 +246,16 @@ async function runProve(config) {
   });
   log('info', 'Reveal complete');
 
-  // 10. Wait for session completion
+  // 9. Wait for the server's session_completed text frame.
   const results = await session.waitForCompletion();
   log('info', `Session completed with ${results.length} results`);
 
-  // 11. Cleanup
+  // 10. Cleanup
   const recvStr = new TextDecoder().decode(recv);
   prover.free();
   session.close();
 
   return {
-    sessionId,
     sentLength: sent.length,
     recvLength: recv.length,
     resultsLength: results.length,
