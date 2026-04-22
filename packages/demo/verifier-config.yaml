@@ -1,3 +1,11 @@
+# Server-enforced absolute maximums on MPC preprocessing. The prover's
+# requested max (announced via the MPC protocol) is rejected if it exceeds
+# these. Values shown are the server's built-in defaults — listed here
+# explicitly so the demo's behavior is visible at a glance.
+# Env overrides: VERIFIER_MAX_SENT_DATA, VERIFIER_MAX_RECV_DATA.
+max_sent_data: 1048576 # 1 MiB
+max_recv_data: 16777216 # 16 MiB
+
 webhooks:
-  "api.spotify.com":
-    url: "http://eas-webhook:3001/webhook"
+  'api.spotify.com':
+    url: 'http://eas-webhook:3001/webhook'
