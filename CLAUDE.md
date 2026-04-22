@@ -79,7 +79,7 @@ cd packages/plugin-sdk && npm run build
 cd packages/extension && npm run dev
 ```
 
-**Important**: The extension must match the version of the notary server it connects to.
+**Important**: The extension must match the version of the verifier server it connects to.
 
 ## Extension Architecture Overview
 
@@ -602,16 +602,18 @@ cargo test                   # Tests
 
 **Session Flow** (single WebSocket, Text + Binary frames):
 
-1. Extension opens `WS /session` and sends `register` as a Text frame
-   (`{ type: "register", sessionData: {...} }`).
-2. Server replies with `registered` as a Text frame.
+1. Extension opens `WS /session` and sends `register` (Text).
+2. Server replies `registered` (Text).
 3. Extension's WASM prover runs MPC-TLS over Binary frames on the same
    socket. HTTP requests to the target server are tunneled through
    `/proxy?token=<host>` (a separate connection).
-4. After MPC completes, extension sends `reveal_config` as a Text frame.
+4. After MPC completes, extension sends `reveal_config` (Text).
 5. Server validates reveal ranges against the authenticated transcript,
-   sends `session_completed` as a Text frame, fires webhooks if configured,
-   and closes the socket.
+   sends `session_completed` (Text), fires webhooks if configured, and
+   closes the socket.
+
+Full protocol reference (message shapes, field definitions, webhook
+payload): [VERIFIER.md](VERIFIER.md) and [packages/verifier/README.md](packages/verifier/README.md).
 
 ## Common Package (`packages/common`)
 
