@@ -1,13 +1,13 @@
-# Built libraries (regenerate with build.sh)
-ios/TlsnMobile.xcframework/
-ios/lib/
+# Native build artifacts are committed to the repo so that
+# EAS Build can include them (EAS can't run cargo/Rust).
+# Regenerate with build-ios.sh / build-android.sh if updating Rust code.
 
-# Generated Swift bindings (regenerate with build.sh)
-ios/tlsn_mobile.swift
+# iOS
+# ios/TlsnMobile.xcframework/
+# ios/tlsn_mobile.swift
+ios/lib/
 ios/include/
 
-# Android native artifacts are committed to the repo so that
-# EAS Build can include them (EAS can't run cargo/Rust).
-# Regenerate with build-android.sh if updating the Rust code.
+# Android
 # android/src/main/jniLibs/
 # android/src/main/java/uniffi/
