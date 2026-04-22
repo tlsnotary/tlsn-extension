@@ -653,6 +653,27 @@ internal open class UniffiForeignFutureStructVoid(
 internal interface UniffiForeignFutureCompleteVoid : com.sun.jna.Callback {
     fun callback(`callbackData`: Long,`result`: UniffiForeignFutureStructVoid.UniffiByValue,)
 }
+internal interface UniffiCallbackInterfaceProgressCallbackMethod0 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`step`: RustBuffer.ByValue,`progress`: Double,`message`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
+}
+@Structure.FieldOrder("onProgress", "uniffiFree")
+internal open class UniffiVTableCallbackInterfaceProgressCallback(
+    @JvmField internal var `onProgress`: UniffiCallbackInterfaceProgressCallbackMethod0? = null,
+    @JvmField internal var `uniffiFree`: UniffiCallbackInterfaceFree? = null,
+) : Structure() {
+    class UniffiByValue(
+        `onProgress`: UniffiCallbackInterfaceProgressCallbackMethod0? = null,
+        `uniffiFree`: UniffiCallbackInterfaceFree? = null,
+    ): UniffiVTableCallbackInterfaceProgressCallback(`onProgress`,`uniffiFree`,), Structure.ByValue
+
+   internal fun uniffiSetValue(other: UniffiVTableCallbackInterfaceProgressCallback) {
+        `onProgress` = other.`onProgress`
+        `uniffiFree` = other.`uniffiFree`
+    }
+
+}
+
+
 
 
 
@@ -725,14 +746,17 @@ internal interface UniffiLib : Library {
             .also { lib: UniffiLib ->
                 uniffiCheckContractApiVersion(lib)
                 uniffiCheckApiChecksums(lib)
+                uniffiCallbackInterfaceProgressCallback.register(lib)
                 }
         }
         
     }
 
+    fun uniffi_tlsn_mobile_fn_init_callback_vtable_progresscallback(`vtable`: UniffiVTableCallbackInterfaceProgressCallback,
+    ): Unit
     fun uniffi_tlsn_mobile_fn_func_initialize(uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    fun uniffi_tlsn_mobile_fn_func_prove(`request`: RustBuffer.ByValue,`options`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_tlsn_mobile_fn_func_prove(`request`: RustBuffer.ByValue,`options`: RustBuffer.ByValue,`progress`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun ffi_tlsn_mobile_rustbuffer_alloc(`size`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
@@ -850,6 +874,8 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_tlsn_mobile_checksum_func_prove(
     ): Short
+    fun uniffi_tlsn_mobile_checksum_method_progresscallback_on_progress(
+    ): Short
     fun ffi_tlsn_mobile_uniffi_contract_version(
     ): Int
     
@@ -870,7 +896,10 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_tlsn_mobile_checksum_func_initialize() != 2246.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_tlsn_mobile_checksum_func_prove() != 7977.toShort()) {
+    if (lib.uniffi_tlsn_mobile_checksum_func_prove() != 5243.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_tlsn_mobile_checksum_method_progresscallback_on_progress() != 49206.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
 }
@@ -963,6 +992,29 @@ public object FfiConverterUInt: FfiConverter<UInt, Int> {
 
     override fun write(value: UInt, buf: ByteBuffer) {
         buf.putInt(value.toInt())
+    }
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterDouble: FfiConverter<Double, Double> {
+    override fun lift(value: Double): Double {
+        return value
+    }
+
+    override fun read(buf: ByteBuffer): Double {
+        return buf.getDouble()
+    }
+
+    override fun lower(value: Double): Double {
+        return value
+    }
+
+    override fun allocationSize(value: Double) = 8UL
+
+    override fun write(value: Double, buf: ByteBuffer) {
+        buf.putDouble(value)
     }
 }
 
@@ -1687,6 +1739,101 @@ public object FfiConverterTypeTlsnError : FfiConverterRustBuffer<TlsnException> 
 
 
 
+
+/**
+ * Callback interface for receiving proof progress updates.
+ *
+ * Implement this on the Swift/Kotlin side to receive real-time progress
+ * from the Rust prover. Each call includes:
+ * - `step`: machine-readable step name (e.g. "MPC_SETUP")
+ * - `progress`: 0.0–1.0 fraction
+ * - `message`: human-readable description
+ */
+public interface ProgressCallback {
+    
+    fun `onProgress`(`step`: kotlin.String, `progress`: kotlin.Double, `message`: kotlin.String)
+    
+    companion object
+}
+
+// Magic number for the Rust proxy to call using the same mechanism as every other method,
+// to free the callback once it's dropped by Rust.
+internal const val IDX_CALLBACK_FREE = 0
+// Callback return codes
+internal const val UNIFFI_CALLBACK_SUCCESS = 0
+internal const val UNIFFI_CALLBACK_ERROR = 1
+internal const val UNIFFI_CALLBACK_UNEXPECTED_ERROR = 2
+
+/**
+ * @suppress
+ */
+public abstract class FfiConverterCallbackInterface<CallbackInterface: Any>: FfiConverter<CallbackInterface, Long> {
+    internal val handleMap = UniffiHandleMap<CallbackInterface>()
+
+    internal fun drop(handle: Long) {
+        handleMap.remove(handle)
+    }
+
+    override fun lift(value: Long): CallbackInterface {
+        return handleMap.get(value)
+    }
+
+    override fun read(buf: ByteBuffer) = lift(buf.getLong())
+
+    override fun lower(value: CallbackInterface) = handleMap.insert(value)
+
+    override fun allocationSize(value: CallbackInterface) = 8UL
+
+    override fun write(value: CallbackInterface, buf: ByteBuffer) {
+        buf.putLong(lower(value))
+    }
+}
+
+// Put the implementation in an object so we don't pollute the top-level namespace
+internal object uniffiCallbackInterfaceProgressCallback {
+    internal object `onProgress`: UniffiCallbackInterfaceProgressCallbackMethod0 {
+        override fun callback(`uniffiHandle`: Long,`step`: RustBuffer.ByValue,`progress`: Double,`message`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeProgressCallback.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`onProgress`(
+                    FfiConverterString.lift(`step`),
+                    FfiConverterDouble.lift(`progress`),
+                    FfiConverterString.lift(`message`),
+                )
+            }
+            val writeReturn = { _: Unit -> Unit }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
+
+    internal object uniffiFree: UniffiCallbackInterfaceFree {
+        override fun callback(handle: Long) {
+            FfiConverterTypeProgressCallback.handleMap.remove(handle)
+        }
+    }
+
+    internal var vtable = UniffiVTableCallbackInterfaceProgressCallback.UniffiByValue(
+        `onProgress`,
+        uniffiFree,
+    )
+
+    // Registers the foreign callback with the Rust side.
+    // This method is generated for each callback interface.
+    internal fun register(lib: UniffiLib) {
+        lib.uniffi_tlsn_mobile_fn_init_callback_vtable_progresscallback(vtable)
+    }
+}
+
+/**
+ * The ffiConverter which transforms the Callbacks in to handles to pass to Rust.
+ *
+ * @suppress
+ */
+public object FfiConverterTypeProgressCallback: FfiConverterCallbackInterface<ProgressCallback>()
+
+
+
+
 /**
  * @suppress
  */
@@ -1786,6 +1933,38 @@ public object FfiConverterOptionalTypeHandlerParams: FfiConverterRustBuffer<Hand
 /**
  * @suppress
  */
+public object FfiConverterOptionalTypeProgressCallback: FfiConverterRustBuffer<ProgressCallback?> {
+    override fun read(buf: ByteBuffer): ProgressCallback? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterTypeProgressCallback.read(buf)
+    }
+
+    override fun allocationSize(value: ProgressCallback?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterTypeProgressCallback.allocationSize(value)
+        }
+    }
+
+    override fun write(value: ProgressCallback?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterTypeProgressCallback.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
 public object FfiConverterSequenceTypeHandler: FfiConverterRustBuffer<List<Handler>> {
     override fun read(buf: ByteBuffer): List<Handler> {
         val len = buf.getInt()
@@ -1848,7 +2027,7 @@ public object FfiConverterSequenceTypeHttpHeader: FfiConverterRustBuffer<List<Ht
     
 
         /**
-         * High-level prove function.
+         * High-level prove function with progress reporting.
          *
          * Handles the entire proof flow:
          * 1. Register session with verifier
@@ -1858,11 +2037,11 @@ public object FfiConverterSequenceTypeHttpHeader: FfiConverterRustBuffer<List<Ht
          * 5. Generate and finalize proof
          * 6. Send reveal config to verifier session
          */
-    @Throws(TlsnException::class) fun `prove`(`request`: HttpRequest, `options`: ProverOptions): ProofResult {
+    @Throws(TlsnException::class) fun `prove`(`request`: HttpRequest, `options`: ProverOptions, `progress`: ProgressCallback?): ProofResult {
             return FfiConverterTypeProofResult.lift(
     uniffiRustCallWithError(TlsnException) { _status ->
     UniffiLib.INSTANCE.uniffi_tlsn_mobile_fn_func_prove(
-        FfiConverterTypeHttpRequest.lower(`request`),FfiConverterTypeProverOptions.lower(`options`),_status)
+        FfiConverterTypeHttpRequest.lower(`request`),FfiConverterTypeProverOptions.lower(`options`),FfiConverterOptionalTypeProgressCallback.lower(`progress`),_status)
 }
     )
     }
