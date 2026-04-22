@@ -10,6 +10,7 @@ use axum::{
     http::StatusCode,
     response::IntoResponse,
     routing::get,
+    serve::ListenerExt,
     Router,
 };
 use futures_util::SinkExt;
@@ -79,6 +80,11 @@ async fn main() {
     let listener = tokio::net::TcpListener::bind(addr)
         .await
         .expect("Failed to bind to address");
+    let listener = listener.tap_io(|tcp_stream| {
+        if let Err(err) = tcp_stream.set_nodelay(true) {
+            warn!("failed to set TCP_NODELAY on incoming connection: {err}");
+        }
+    });
 
     info!("Server listening on http://{}", addr);
     info!("Health endpoint: http://{}/health", addr);
@@ -91,7 +97,6 @@ async fn main() {
     info!("Proxy WebSocket endpoint: ws://{}/proxy?token=<host>", addr);
 
     axum::serve(listener, app)
-        .tcp_nodelay(true)
         .await
         .expect("Server error");
 }
@@ -282,7 +287,7 @@ impl Config {
     /// Load configuration from YAML file, returns default if file doesn't exist
     fn load(path: &Path) -> Self {
         match std::fs::read_to_string(path) {
-            Ok(contents) => match serde_yaml::from_str(&contents) {
+            Ok(contents) => match serde_yaml_ng::from_str(&contents) {
                 Ok(config) => {
                     info!("Loaded config from {:?}", path);
                     config
@@ -418,7 +423,7 @@ pub(crate) async fn session_ws_handler(
 /// Helper to send typed server messages
 async fn send_server_message(socket: &mut TungsteniteStream, message: &ServerMessage) -> bool {
     match socket
-        .send(Message::Text(serde_json::to_string(message).unwrap()))
+        .send(Message::Text(serde_json::to_string(message).unwrap().into()))
         .await
     {
         Ok(_) => true,
@@ -832,7 +837,7 @@ async fn handle_proxy_connection(ws: TungsteniteStream, host: String) {
                 }
                 Ok(n) => {
                     total_bytes += n as u64;
-                    let binary_msg = Message::Binary(buf[..n].to_vec());
+                    let binary_msg = Message::Binary(buf[..n].to_vec().into());
 
                     if let Err(e) = ws_sink.send(binary_msg).await {
                         error!("[{}] Failed to send to WebSocket: {}", proxy_id_clone, e);
