@@ -37,6 +37,7 @@ pub struct WsUpgrade {
 }
 
 impl WsUpgrade {
+    #[must_use = "to set up the WebSocket connection, this response must be returned"]
     pub fn on_upgrade<F, Fut>(self, callback: F) -> Response
     where
         F: FnOnce(TungsteniteStream) -> Fut + Send + 'static,

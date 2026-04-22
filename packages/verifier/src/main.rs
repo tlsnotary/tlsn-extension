@@ -14,7 +14,6 @@ use axum::{
 };
 use futures_util::SinkExt;
 use rangeset::prelude::RangeSet;
-use ws::{TungsteniteStream, WsUpgrade};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::net::SocketAddr;
@@ -30,6 +29,7 @@ use tower_http::cors::CorsLayer;
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 use verifier::verifier;
+use ws::{TungsteniteStream, WsUpgrade};
 use ws_stream_tungstenite::WsStream;
 
 #[tokio::main]
