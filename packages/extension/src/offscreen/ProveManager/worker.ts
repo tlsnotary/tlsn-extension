@@ -115,7 +115,7 @@ interface IoChannel {
  * Server → client message shapes (must stay in sync with Rust ServerMessage).
  */
 type ServerMessage =
-  | { type: 'registered' }
+  | { type: 'registered'; id: string }
   | { type: 'session_completed'; results: unknown[] }
   | { type: 'error'; message: string };
 
@@ -185,6 +185,7 @@ async function createSession(
           if (msg.type === 'registered') {
             registered = true;
             sessions.set(id, state);
+            console.info('[Worker] Session registered — server id:', msg.id);
             resolve(id);
           } else if (msg.type === 'error') {
             reject(new Error(`Server error during register: ${msg.message}`));

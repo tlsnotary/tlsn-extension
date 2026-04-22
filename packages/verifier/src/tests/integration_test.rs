@@ -332,6 +332,11 @@ impl SessionClient {
                     info!("[SessionClient] Received: {:?}", response);
 
                     if response["type"] == "registered" {
+                        let id = response["id"]
+                            .as_str()
+                            .ok_or("registered response missing 'id' field")?;
+                        assert!(!id.is_empty(), "registered id should be non-empty");
+                        info!("[SessionClient] Server-assigned session id: {}", id);
                         break;
                     } else if response["type"] == "error" {
                         return Err(format!(

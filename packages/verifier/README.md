@@ -5,11 +5,11 @@ and optionally forwards verified results to a configured webhook.
 
 ## Endpoints
 
-| Endpoint | Purpose |
-|---|---|
-| `GET /health` | Liveness check — returns `"ok"`. |
-| `GET /info` | Version info JSON (`version`, `git_hash`, `tlsn_version`). |
-| `WS /session` | Full verification session — see protocol below. |
+| Endpoint                 | Purpose                                                                                                                      |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| `GET /health`            | Liveness check — returns `"ok"`.                                                                                             |
+| `GET /info`              | Version info JSON (`version`, `git_hash`, `tlsn_version`).                                                                   |
+| `WS /session`            | Full verification session — see protocol below.                                                                              |
 | `WS /proxy?token=<host>` | WebSocket ↔ TCP bridge used by the prover to reach a target server (notary.pse.dev compatible; legacy alias `?host=<host>`). |
 
 The verifier is one WebSocket per session. Control frames (JSON) and MPC bytes
@@ -21,16 +21,29 @@ frame type.
 Text frames carry JSON control messages; Binary frames carry MPC bytes.
 
 1. **Client → server** (Text)
+
    ```json
-   { "type": "register", "sessionData": { /* arbitrary key/value strings */ } }
+   {
+     "type": "register",
+     "sessionData": {
+       /* arbitrary key/value strings */
+     }
+   }
    ```
+
    `sessionData` is opaque to the verifier and is included verbatim in the
    webhook payload (under `session.*`).
 
 2. **Server → client** (Text)
+
    ```json
-   { "type": "registered" }
+   { "type": "registered", "id": "550e8400-e29b-41d4-a716-446655440000" }
    ```
+
+   `id` is a server-generated UUID for log correlation. It has no protocol
+   meaning — the session is already established by the open WebSocket — but
+   surfacing it lets clients include it in error reports so operators can
+   grep the server log.
 
 3. **MPC handshake** — both sides exchange Binary frames. The server runs
    tlsn's verifier against the byte stream; the client runs tlsn's prover.
@@ -42,6 +55,7 @@ Text frames carry JSON control messages; Binary frames carry MPC bytes.
    server-configured limits (see Configuration below).
 
 4. **Client → server** (Text, after MPC completes)
+
    ```json
    {
      "type": "reveal_config",
@@ -49,13 +63,17 @@ Text frames carry JSON control messages; Binary frames carry MPC bytes.
      "recv": [ { "start": 0, "end": M, "handler": { "type": "RECV", "part": "ALL" } } ]
    }
    ```
+
    Each range must be fully contained in the authenticated transcript.
 
 5. **Server → client** (Text)
+
    ```json
-   { "type": "session_completed", "results": [ { "type": "SENT", "part": "ALL", "value": "..." } ] }
+   { "type": "session_completed", "results": [{ "type": "SENT", "part": "ALL", "value": "..." }] }
    ```
+
    or, on failure:
+
    ```json
    { "type": "error", "message": "..." }
    ```
@@ -77,12 +95,12 @@ max_recv_data: 16777216
 
 webhooks:
   # Keyed by TLS server name (SNI). "*" is a wildcard fallback.
-  "api.x.com":
-    url: "https://your-backend.example.com/webhook/twitter"
+  'api.x.com':
+    url: 'https://your-backend.example.com/webhook/twitter'
     headers:
-      Authorization: "Bearer ..."
-  "*":
-    url: "https://your-backend.example.com/webhook/default"
+      Authorization: 'Bearer ...'
+  '*':
+    url: 'https://your-backend.example.com/webhook/default'
 ```
 
 Environment overrides: `VERIFIER_MAX_SENT_DATA`, `VERIFIER_MAX_RECV_DATA`, `PORT`

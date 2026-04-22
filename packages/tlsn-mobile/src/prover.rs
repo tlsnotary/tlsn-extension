@@ -73,12 +73,12 @@ pub(crate) async fn prove_async(
 
     // Wait for `registered` response before splitting the socket.
     use futures::StreamExt;
-    loop {
+    let server_session_id: Option<String> = loop {
         match session_ws.next().await {
             Some(Ok(Message::Text(text))) => {
                 let resp: serde_json::Value = serde_json::from_str(&text)?;
                 if resp["type"] == "registered" {
-                    break;
+                    break resp["id"].as_str().map(String::from);
                 } else if resp["type"] == "error" {
                     return Err(TlsnError::ConnectionFailed(
                         resp["message"].as_str().unwrap_or("unknown error").into(),
@@ -95,8 +95,11 @@ pub(crate) async fn prove_async(
                 ))
             }
         }
-    }
-    tracing::info!("session registered");
+    };
+    tracing::info!(
+        "session registered (server id: {})",
+        server_session_id.as_deref().unwrap_or("<missing>")
+    );
     emit_progress(progress, "SESSION_REGISTERED", 0.1, "Session registered");
 
     // Now split the WS into text + binary channels. Binary is the byte stream

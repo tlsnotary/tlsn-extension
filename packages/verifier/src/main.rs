@@ -179,8 +179,10 @@ enum ClientMessage {
 #[serde(tag = "type", rename_all = "snake_case")]
 enum ServerMessage {
     /// Sent after the server accepts `register`. The client may now begin MPC
-    /// by sending Binary frames.
-    Registered,
+    /// by sending Binary frames. The `id` is a server-generated UUID for log
+    /// correlation — it is opaque to the protocol and safe to surface in
+    /// client-side error reports to help ops grep server logs.
+    Registered { id: String },
     /// Sent after verification + reveal processing completes.
     SessionCompleted { results: Vec<HandlerResult> },
     /// Fatal error; the server closes the connection after sending.
@@ -455,8 +457,15 @@ async fn handle_session_websocket(mut socket: WebSocket, state: Arc<AppState>) {
         session_data.keys().collect::<Vec<_>>()
     );
 
-    // Step 2: acknowledge with `registered`.
-    if !send_server_message(&mut socket, &ServerMessage::Registered).await {
+    // Step 2: acknowledge with `registered`, including the log-correlation id.
+    if !send_server_message(
+        &mut socket,
+        &ServerMessage::Registered {
+            id: session_id.clone(),
+        },
+    )
+    .await
+    {
         return;
     }
 
