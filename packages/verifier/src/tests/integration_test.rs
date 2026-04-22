@@ -69,10 +69,18 @@ enum HandlerPart {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "action", rename_all = "UPPERCASE")]
+enum HandlerAction {
+    Reveal,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct Handler {
     #[serde(rename = "type")]
     handler_type: HandlerType,
     part: HandlerPart,
+    #[serde(flatten)]
+    action: HandlerAction,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -695,6 +703,7 @@ async fn test_webhook_integration_with_github() {
         handler: Handler {
             handler_type: HandlerType::Sent,
             part: HandlerPart::All,
+            action: HandlerAction::Reveal,
         },
     }];
     let recv_ranges = vec![RangeWithHandler {
@@ -703,6 +712,7 @@ async fn test_webhook_integration_with_github() {
         handler: Handler {
             handler_type: HandlerType::Recv,
             part: HandlerPart::All,
+            action: HandlerAction::Reveal,
         },
     }];
 
