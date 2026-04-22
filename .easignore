@@ -1,0 +1,33 @@
+# EAS build archive ignore file.
+# When present, EAS uses this instead of .gitignore to decide what
+# to include in the build tarball. Keep in sync with .gitignore,
+# but intentionally omit the mobile native build artifacts so EAS
+# picks them up from disk (produced by app/mobile/build.sh before
+# `eas build --local` runs in CI).
+
+/target
+**/*.rs.bk
+bin/
+**/node_modules
+**/.DS_Store
+.idea
+build
+# TLSN submodule in tlsn-wasm
+packages/tlsn-wasm/tlsn/
+zip
+.vscode
+.claude/*
+!.claude/commands/
+coverage
+packages/verifier/target/
+
+# Mobile native module symlinks (recreated by postinstall)
+app/mobile/modules/quickjs-native/quickjs-native
+app/mobile/modules/tlsn-native/tlsn-native
+
+# NOTE: Unlike .gitignore, we intentionally do NOT ignore the native
+# build artifacts below, so EAS includes them in the build archive:
+#   - app/mobile/modules/tlsn-native/ios/TlsnMobile.xcframework/
+#   - app/mobile/modules/tlsn-native/ios/tlsn_mobile.swift
+#   - app/mobile/modules/tlsn-native/android/src/main/jniLibs/
+#   - app/mobile/modules/tlsn-native/android/src/main/java/uniffi/
