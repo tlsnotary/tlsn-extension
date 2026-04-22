@@ -5,7 +5,11 @@
 # picks them up from disk (produced by app/mobile/build.sh before
 # `eas build --local` runs in CI).
 
-/target
+# Rust build output. `**/target/` (not `/target`) is deliberate —
+# the anchored `/target` variant misses packages/tlsn-mobile/target
+# and packages/tlsn-wasm/target, which together added ~700 MB to the
+# EAS upload tarball. Do not change back.
+**/target/
 **/*.rs.bk
 bin/
 **/node_modules
@@ -19,7 +23,16 @@ zip
 .claude/*
 !.claude/commands/
 coverage
-packages/verifier/target/
+.expo/
+.expo-shared/
+
+# Android/iOS local build caches (regenerated inside EAS worker)
+**/.gradle/
+**/.cxx/
+**/android/app/build/
+**/ios/Pods/
+**/ios/build/
+**/DerivedData/
 
 # Mobile native module symlinks (recreated by postinstall)
 app/mobile/modules/quickjs-native/quickjs-native
