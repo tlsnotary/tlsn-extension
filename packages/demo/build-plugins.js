@@ -26,6 +26,7 @@ fs.mkdirSync(targetDir, { recursive: true });
 const plugins = [
   'twitter',
   'swissbank',
+  'swissbank_hash',
   'spotify',
   'duolingo',
   'uber',
