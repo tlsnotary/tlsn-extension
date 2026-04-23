@@ -62,7 +62,14 @@ export interface InterceptedRequestHeader {
   tabId: number;
 }
 
-/** Plugin-sdk handler format (SCREAMING_SNAKE_CASE) */
+/**
+ * Plugin-sdk handler format (SCREAMING_SNAKE_CASE).
+ *
+ * The `action` field accepts either the `'REVEAL'` string shorthand or the
+ * canonical object form. Plugin-sdk's `prove()` wrapper canonicalizes before
+ * handing handlers to the host; the mobile host also tolerates the shorthand
+ * defensively since it runs plugin code outside of plugin-sdk.
+ */
 export interface PluginHandler {
   type: 'SENT' | 'RECV';
   part:
@@ -74,8 +81,10 @@ export interface PluginHandler {
     | 'HEADERS'
     | 'BODY'
     | 'ALL';
-  action: 'REVEAL' | 'HASH';
-  algorithm?: 'BLAKE3' | 'SHA256' | 'KECCAK256';
+  action:
+    | 'REVEAL'
+    | { kind: 'REVEAL' }
+    | { kind: 'HASH'; algorithm: 'BLAKE3' | 'SHA256' | 'KECCAK256' };
   params?: Record<string, unknown>;
 }
 
@@ -172,10 +181,12 @@ const ALGORITHM_MAP: Record<string, 'Blake3' | 'Sha256' | 'Keccak256'> = {
 };
 
 function translateAction(handler: PluginHandler): NativeHandler['action'] {
-  if (handler.action === 'HASH') {
+  const action =
+    typeof handler.action === 'string' ? ({ kind: handler.action } as const) : handler.action;
+  if (action.kind === 'HASH') {
     return {
       type: 'Hash',
-      algorithm: ALGORITHM_MAP[handler.algorithm ?? 'BLAKE3'] ?? 'Blake3',
+      algorithm: ALGORITHM_MAP[action.algorithm],
     };
   }
   return { type: 'Reveal' };

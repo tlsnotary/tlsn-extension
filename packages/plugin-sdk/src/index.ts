@@ -19,6 +19,7 @@ import {
   Handler,
   PluginConfig,
   ProveProgressData,
+  canonicalizeHandlers,
 } from './types';
 import deepEqual from 'fast-deep-equal';
 
@@ -1195,7 +1196,11 @@ ${processedCode};
         };
         setProgress({ step: 'CONNECTING', progress: 0, message: 'Connecting...' });
         try {
-          const result = await onProve(requestOptions, proverOptions, setProgress);
+          const canonicalProverOptions = {
+            ...proverOptions,
+            handlers: canonicalizeHandlers(proverOptions.handlers),
+          };
+          const result = await onProve(requestOptions, canonicalProverOptions, setProgress);
           setProgress({ step: 'COMPLETE', progress: 1, message: 'Complete' });
           return result;
         } catch (err) {
@@ -1596,6 +1601,8 @@ export type {
   HandlerType,
   HandlerPart,
   HandlerAction,
+  CanonicalHandlerAction,
+  CanonicalHandler,
   HashAlgorithm,
   PluginConfig,
   RequestPermission,
@@ -1613,6 +1620,8 @@ export type {
   ExecutionContext,
   ProveProgressData,
 } from './types';
+
+export { canonicalizeHandler, canonicalizeHandlers } from './types';
 
 // Export Plugin API types
 export type {

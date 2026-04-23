@@ -158,48 +158,87 @@ export type HandlerPart =
 export type HashAlgorithm = 'BLAKE3' | 'SHA256' | 'KECCAK256';
 
 /**
- * What to do with the matched ranges. REVEAL sends plaintext; HASH sends a
- * hash commitment with the specified algorithm.
+ * What to do with the matched ranges.
+ *
+ * - REVEAL sends plaintext. Accepts the string shorthand `'REVEAL'` or the
+ *   object form `{ kind: 'REVEAL' }`.
+ * - HASH sends a hash commitment with the specified algorithm; the algorithm
+ *   must be chosen explicitly, so only the object form is valid.
+ *
+ * The object form is the canonical representation that crosses the WASM and
+ * native Rust boundaries. Plugin code is canonicalized before leaving the
+ * host.
  */
-export type HandlerAction = { action: 'REVEAL' } | { action: 'HASH'; algorithm: HashAlgorithm };
+export type HandlerAction =
+  | 'REVEAL'
+  | { kind: 'REVEAL' }
+  | { kind: 'HASH'; algorithm: HashAlgorithm };
 
 export type StartLineHandler = {
   type: HandlerType;
   part: 'START_LINE' | 'PROTOCOL' | 'METHOD' | 'REQUEST_TARGET' | 'STATUS_CODE';
-} & HandlerAction;
+  action: HandlerAction;
+};
 
 export type HeadersHandler = {
   type: HandlerType;
   part: 'HEADERS';
+  action: HandlerAction;
   params?: {
     key: string;
     hideKey?: boolean;
     hideValue?: boolean;
   };
-} & HandlerAction;
+};
 
 export type BodyHandler = {
   type: HandlerType;
   part: 'BODY';
+  action: HandlerAction;
   params?: {
     type: 'json';
     path: string;
     hideKey?: boolean;
     hideValue?: boolean;
   };
-} & HandlerAction;
+};
 
 export type AllHandler = {
   type: HandlerType;
   part: 'ALL';
+  action: HandlerAction;
   params?: {
     type: 'regex';
     regex: string;
     flags?: string;
   };
-} & HandlerAction;
+};
 
 export type Handler = StartLineHandler | HeadersHandler | BodyHandler | AllHandler;
+
+/**
+ * Action in its canonical object form (never the string shorthand).
+ */
+export type CanonicalHandlerAction = Exclude<HandlerAction, string>;
+
+/** Handler with `action` guaranteed to be in object form. */
+export type CanonicalHandler = Handler & { action: CanonicalHandlerAction };
+
+/**
+ * Expand the `action: 'REVEAL'` shorthand into its object form. Serialization
+ * boundaries (WASM, native Rust) only accept the object form, so callers must
+ * canonicalize before handing handlers off.
+ */
+export function canonicalizeHandler(handler: Handler): CanonicalHandler {
+  if (typeof handler.action === 'string') {
+    return { ...handler, action: { kind: handler.action } } as CanonicalHandler;
+  }
+  return handler as CanonicalHandler;
+}
+
+export function canonicalizeHandlers(handlers: Handler[]): CanonicalHandler[] {
+  return handlers.map(canonicalizeHandler);
+}
 
 /**
  * Permission for making HTTP requests via prove()

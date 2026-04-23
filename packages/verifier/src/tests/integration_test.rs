@@ -69,7 +69,7 @@ enum HandlerPart {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "action", rename_all = "UPPERCASE")]
+#[serde(tag = "kind", rename_all = "UPPERCASE")]
 enum HandlerAction {
     Reveal,
 }
@@ -79,7 +79,6 @@ struct Handler {
     #[serde(rename = "type")]
     handler_type: HandlerType,
     part: HandlerPart,
-    #[serde(flatten)]
     action: HandlerAction,
 }
 

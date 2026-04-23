@@ -15,7 +15,8 @@ const url = `https://${host}${apiPath}`;
 
 const config: PluginConfig = {
   name: 'Swiss Bank Prover',
-  description: 'This plugin will prove a blinded hash of an account balance on a (dummy) Swiss bank.',
+  description:
+    'This plugin will prove a blinded hash of an account balance on a (dummy) Swiss bank.',
   requests: [
     {
       method: 'GET',
@@ -75,8 +76,7 @@ const onClick = async (): Promise<void> => {
         {
           type: 'RECV',
           part: 'BODY',
-          action: 'HASH',
-          algorithm: 'SHA256',
+          action: { kind: 'HASH', algorithm: 'SHA256' },
           params: { type: 'json', path: 'accounts.EUR' },
         } satisfies Handler,
       ],

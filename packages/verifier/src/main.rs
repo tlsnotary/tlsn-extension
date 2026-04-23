@@ -123,7 +123,7 @@ pub(crate) enum HashAlgorithm {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-#[serde(tag = "action", rename_all = "UPPERCASE")]
+#[serde(tag = "kind", rename_all = "UPPERCASE")]
 pub(crate) enum HandlerAction {
     Reveal,
     Hash {
@@ -142,7 +142,7 @@ pub(crate) struct Handler {
     #[serde(rename = "type")]
     pub(crate) handler_type: HandlerType,
     pub(crate) part: HandlerPart,
-    #[serde(flatten, default)]
+    #[serde(default)]
     pub(crate) action: HandlerAction,
 }
 
