@@ -19,10 +19,11 @@ export default function AboutScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>How it works</Text>
           <Text style={styles.text}>
-            1. You authenticate with a service (like Spotify){'\n'}
-            2. The app captures your authentication token{'\n'}
-            3. TLSNotary creates a cryptographic proof of the API response{'\n'}
-            4. You can share this proof without revealing sensitive data
+            1. You authenticate with a web service in the in-app browser{'\n'}
+            2. A plugin intercepts the request needed to access your data{'\n'}
+            3. TLSNotary proves to the verifier that the response genuinely came from the server
+            {'\n'}
+            4. The plugin specifies which fields to reveal, the rest stays redacted
           </Text>
         </View>
 
