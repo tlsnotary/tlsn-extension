@@ -13,7 +13,7 @@ type Phase = 'idle' | 'connecting' | 'proving' | 'waiting' | 'complete' | 'error
 declare global {
   interface Window {
     ethereum?: {
-      request: (args: { method: string; params?: unknown[] }) => Promise<any>;
+      request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
       isMetaMask?: boolean;
     };
   }
@@ -86,10 +86,10 @@ export function OnchainDemo({ allChecksPass, addConsoleEntry }: Props) {
     }
 
     try {
-      const accounts = await window.ethereum.request({
+      const accounts = (await window.ethereum.request({
         method: 'eth_requestAccounts',
-      });
-      const address = accounts[0] as string;
+      })) as string[];
+      const address = accounts[0];
       setWalletAddress(address);
 
       // Sign challenge message

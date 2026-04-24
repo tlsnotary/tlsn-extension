@@ -1,7 +1,7 @@
 /**
  * Shared plugin registry — single source of truth for all plugin metadata.
  *
- * Consumed by both `packages/demo` and `packages/mobile`.
+ * Consumed by both `packages/demo` and `app/mobile`.
  */
 
 export interface PluginMetadata {

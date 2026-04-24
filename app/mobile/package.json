@@ -1,0 +1,68 @@
+{
+  "name": "@tlsn/mobile",
+  "main": "expo-router/entry",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web",
+    "prebuild": "expo prebuild --clean",
+    "prebuild:ios": "expo prebuild --platform ios --clean",
+    "build:native": "./modules/tlsn-native/build.sh",
+    "setup:quickjs": "./modules/quickjs-native/setup.sh",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "serve:prover": "node assets/prover/server.js",
+    "postinstall": "ln -sf ../modules/tlsn-native node_modules/tlsn-native || true; ln -sf ../modules/quickjs-native node_modules/quickjs-native || true; ln -sf ../../../node_modules/react node_modules/react || true; ln -sf ../../../node_modules/react-native node_modules/react-native || true",
+    "eas-build-post-install": "cd ../.. && npm run build:deps"
+  },
+  "dependencies": {
+    "@expo/vector-icons": "^15.0.3",
+    "@react-native-cookies/cookies": "^6.2.1",
+    "@react-navigation/native": "^7.1.8",
+    "@tlsn/plugins": "*",
+    "@types/uuid": "^10.0.0",
+    "expo": "~54.0.33",
+    "expo-constants": "~18.0.13",
+    "expo-font": "~14.0.11",
+    "expo-linking": "~8.0.11",
+    "expo-router": "~6.0.23",
+    "expo-splash-screen": "~31.0.13",
+    "expo-status-bar": "~3.0.9",
+    "expo-web-browser": "~15.0.10",
+    "quickjs-native": "file:./modules/quickjs-native",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-native": "0.81.5",
+    "react-native-reanimated": "~4.1.1",
+    "react-native-safe-area-context": "~5.6.0",
+    "react-native-screens": "~4.16.0",
+    "react-native-web": "~0.21.0",
+    "react-native-webview": "13.15.0",
+    "react-native-worklets": "0.5.1",
+    "tlsn-native": "file:./modules/tlsn-native",
+    "uuid": "^13.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "~19.1.0",
+    "react-test-renderer": "19.1.0",
+    "typescript": "^6.0.2",
+    "vitest": "^4.0.16"
+  },
+  "private": true,
+  "expo": {
+    "doctor": {
+      "reactNativeDirectoryCheck": {
+        "exclude": [
+          "@react-native-cookies/cookies",
+          "quickjs-native",
+          "tlsn-native"
+        ],
+        "listUnknownPackages": false
+      }
+    }
+  }
+}

@@ -1,0 +1,11 @@
+# QuickJS vendored sources
+# Repository: https://github.com/bellard/quickjs
+# Commit: d7ae12ae71dfd6ab2997527d295014a8996fa0f9
+# Date: 2026-03-23
+#
+# Patches applied:
+#   - BOOL → JS_BOOL rename (avoids conflict with Apple's ObjC BOOL type)
+#   - Sources stored in vendor/quickjs/ (shared by iOS and Android builds)
+#
+# To re-vendor from a newer upstream commit, run:
+#   ./setup.sh [commit-hash]
