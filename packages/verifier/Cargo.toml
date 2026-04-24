@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 # TLSNotary dependency
-tlsn = { git = "https://github.com/tlsnotary/tlsn.git", branch = "feat/hash-commitment-support", features = ["mozilla-certs"] }
+tlsn = { git = "https://github.com/tlsnotary/tlsn.git", branch = "main", features = ["mozilla-certs"] }
 
 # HTTP server framework
 axum = { version = "0.7", features = ["ws"] }

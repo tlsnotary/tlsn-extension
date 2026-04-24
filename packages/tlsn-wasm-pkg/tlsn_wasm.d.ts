@@ -255,7 +255,7 @@ export class Prover {
      * Optionally accepts a `Commit` object with ranges to hash-commit.
      * Pass `undefined` or omit the second argument for reveal-only proofs.
      */
-    reveal(reveal: Reveal, commit: any): Promise<void>;
+    reveal(reveal: Reveal, commit?: Commit | null): Promise<void>;
     /**
      * Sends an HTTP request to the server.
      *
@@ -386,7 +386,7 @@ export interface InitOutput {
     readonly compute_reveal: (a: number, b: number, c: number, d: number, e: any) => [number, number, number];
     readonly initialize: (a: number, b: number) => any;
     readonly prover_new: (a: any) => [number, number, number];
-    readonly prover_reveal: (a: number, b: any, c: any) => any;
+    readonly prover_reveal: (a: number, b: any, c: number) => any;
     readonly prover_send_request: (a: number, b: any, c: any) => any;
     readonly prover_set_progress_callback: (a: number, b: any) => void;
     readonly prover_setup: (a: number, b: any) => any;
