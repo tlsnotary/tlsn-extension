@@ -1,9 +1,10 @@
-mod axum_websocket;
 mod verifier;
+mod ws;
 
 #[cfg(test)]
 mod tests;
 
+use async_tungstenite::tungstenite::Message;
 use axum::{
     extract::{Query, State},
     http::StatusCode,
@@ -11,7 +12,7 @@ use axum::{
     routing::get,
     Router,
 };
-use axum_websocket::{WebSocket, WebSocketUpgrade};
+use futures_util::SinkExt;
 use rangeset::prelude::RangeSet;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -28,6 +29,7 @@ use tower_http::cors::CorsLayer;
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 use verifier::verifier;
+use ws::{TungsteniteStream, WsUpgrade};
 use ws_stream_tungstenite::WsStream;
 
 #[tokio::main]
@@ -160,7 +162,7 @@ struct VerificationResult {
 }
 
 // Type alias for the prover WebSocket sender
-type ProverSocketSender = oneshot::Sender<WebSocket>;
+type ProverSocketSender = oneshot::Sender<TungsteniteStream>;
 
 // Session data stored in AppState (only prover socket sender - config/sessionData passed directly to verifier task)
 pub(crate) struct SessionData {
@@ -382,18 +384,16 @@ pub(crate) async fn info_handler() -> impl IntoResponse {
 
 // WebSocket session handler for extension
 pub(crate) async fn session_ws_handler(
-    ws: WebSocketUpgrade,
+    ws: WsUpgrade,
     State(state): State<Arc<AppState>>,
 ) -> impl IntoResponse {
     ws.on_upgrade(move |socket| handle_session_websocket(socket, state))
 }
 
 /// Helper to send typed server messages
-async fn send_server_message(socket: &mut WebSocket, message: &ServerMessage) -> bool {
+async fn send_server_message(socket: &mut TungsteniteStream, message: &ServerMessage) -> bool {
     match socket
-        .send(axum_websocket::Message::Text(
-            serde_json::to_string(message).unwrap(),
-        ))
+        .send(Message::Text(serde_json::to_string(message).unwrap()))
         .await
     {
         Ok(_) => true,
@@ -405,7 +405,7 @@ async fn send_server_message(socket: &mut WebSocket, message: &ServerMessage) ->
 }
 
 /// Helper to send error message
-async fn send_error(socket: &mut WebSocket, message: &str) {
+async fn send_error(socket: &mut TungsteniteStream, message: &str) {
     let _ = send_server_message(socket, &ServerMessage::Error {
         message: message.to_string(),
     })
@@ -413,7 +413,7 @@ async fn send_error(socket: &mut WebSocket, message: &str) {
 }
 
 // Handle the session WebSocket connection with typed message protocol
-async fn handle_session_websocket(mut socket: WebSocket, state: Arc<AppState>) {
+async fn handle_session_websocket(mut socket: TungsteniteStream, state: Arc<AppState>) {
     use futures_util::StreamExt;
 
     // Generate session ID upfront (but don't send yet - wait for register)
@@ -422,7 +422,7 @@ async fn handle_session_websocket(mut socket: WebSocket, state: Arc<AppState>) {
 
     // Wait for "register" message first
     let register_msg = match socket.next().await {
-        Some(Ok(axum_websocket::Message::Text(text))) => text,
+        Some(Ok(Message::Text(text))) => text,
         Some(Ok(msg)) => {
             error!("[{}] Expected text message, got: {:?}", session_id, msg);
             send_error(&mut socket, "Expected text message").await;
@@ -486,7 +486,7 @@ async fn handle_session_websocket(mut socket: WebSocket, state: Arc<AppState>) {
     info!("[{}] Sent session_registered to client", session_id);
 
     // Create channels for prover socket and results
-    let (prover_socket_tx, prover_socket_rx) = oneshot::channel::<WebSocket>();
+    let (prover_socket_tx, prover_socket_rx) = oneshot::channel::<TungsteniteStream>();
     let (result_tx, result_rx) = oneshot::channel::<VerificationResult>();
 
     // Create shared reveal config storage and session data storage
@@ -534,7 +534,7 @@ async fn handle_session_websocket(mut socket: WebSocket, state: Arc<AppState>) {
 
     // Wait for reveal_config message
     let reveal_msg = match socket.next().await {
-        Some(Ok(axum_websocket::Message::Text(text))) => text,
+        Some(Ok(Message::Text(text))) => text,
         Some(Ok(msg)) => {
             error!(
                 "[{}] Expected text message for reveal_config, got: {:?}",
@@ -626,13 +626,13 @@ async fn handle_session_websocket(mut socket: WebSocket, state: Arc<AppState>) {
     }
 
     // Close the WebSocket
-    let _ = socket.close().await;
+    let _ = socket.close(None).await;
     info!("[{}] Session WebSocket closed", session_id);
 }
 
 // WebSocket handler for verifier (prover connection)
 pub(crate) async fn verifier_ws_handler(
-    ws: WebSocketUpgrade,
+    ws: WsUpgrade,
     State(state): State<Arc<AppState>>,
     Query(query): Query<VerifierQuery>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
@@ -680,7 +680,7 @@ pub(crate) async fn verifier_ws_handler(
 // WebSocket proxy handler - bridges WebSocket to TCP
 // Compatible with notary.pse.dev: /proxy?token=<host> or legacy /proxy?host=<host>
 pub(crate) async fn proxy_ws_handler(
-    ws: WebSocketUpgrade,
+    ws: WsUpgrade,
     Query(query): Query<ProxyQuery>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
     let host = query.token;
@@ -691,8 +691,8 @@ pub(crate) async fn proxy_ws_handler(
 }
 
 // Handle the proxy WebSocket connection by bridging to TCP
-async fn handle_proxy_connection(ws: WebSocket, host: String) {
-    use futures_util::{SinkExt, StreamExt};
+async fn handle_proxy_connection(ws: TungsteniteStream, host: String) {
+    use futures_util::StreamExt;
 
     let proxy_id = Uuid::new_v4().to_string();
     info!(
@@ -747,7 +747,7 @@ async fn handle_proxy_connection(ws: WebSocket, host: String) {
             match ws_stream.next().await {
                 Some(Ok(msg)) => {
                     match msg {
-                        axum_websocket::Message::Binary(data) => {
+                        Message::Binary(data) => {
                             let len = data.len();
                             total_bytes += len as u64;
 
@@ -756,7 +756,7 @@ async fn handle_proxy_connection(ws: WebSocket, host: String) {
                                 break;
                             }
                         }
-                        axum_websocket::Message::Close(_) => {
+                        Message::Close(_) => {
                             info!(
                                 "[{}] WebSocket close frame received, forwarded {} bytes total",
                                 proxy_id_clone, total_bytes
@@ -800,14 +800,14 @@ async fn handle_proxy_connection(ws: WebSocket, host: String) {
                         proxy_id_clone, total_bytes
                     );
                     // Send WebSocket close frame to signal EOF to client
-                    if let Err(e) = ws_sink.send(axum_websocket::Message::Close(None)).await {
+                    if let Err(e) = ws_sink.send(Message::Close(None)).await {
                         error!("[{}] Failed to send WebSocket close frame: {}", proxy_id_clone, e);
                     }
                     break;
                 }
                 Ok(n) => {
                     total_bytes += n as u64;
-                    let binary_msg = axum_websocket::Message::Binary(buf[..n].to_vec());
+                    let binary_msg = Message::Binary(buf[..n].to_vec());
 
                     if let Err(e) = ws_sink.send(binary_msg).await {
                         error!("[{}] Failed to send to WebSocket: {}", proxy_id_clone, e);
@@ -817,7 +817,7 @@ async fn handle_proxy_connection(ws: WebSocket, host: String) {
                 Err(e) => {
                     error!("[{}] TCP read error: {}", proxy_id_clone, e);
                     // Send close frame on error too
-                    let _ = ws_sink.send(axum_websocket::Message::Close(None)).await;
+                    let _ = ws_sink.send(Message::Close(None)).await;
                     break;
                 }
             }
@@ -844,7 +844,7 @@ async fn run_verifier_task(
     config: SessionConfig,
     session_data: HashMap<String, String>,
     reveal_config_storage: Arc<Mutex<Option<RevealConfig>>>,
-    socket_rx: oneshot::Receiver<WebSocket>,
+    socket_rx: oneshot::Receiver<TungsteniteStream>,
     result_tx: oneshot::Sender<VerificationResult>,
     state: Arc<AppState>,
 ) {
@@ -887,8 +887,8 @@ async fn run_verifier_task(
         }
     };
 
-    // Convert WebSocket to WsStream for AsyncRead/AsyncWrite compatibility
-    let stream = WsStream::new(socket.into_inner());
+    // Wrap the WebSocket stream in WsStream for AsyncRead/AsyncWrite compatibility
+    let stream = WsStream::new(socket);
     info!("[{}] WebSocket converted to stream", session_id);
 
     // Convert from futures AsyncRead/AsyncWrite to tokio AsyncRead/AsyncWrite
