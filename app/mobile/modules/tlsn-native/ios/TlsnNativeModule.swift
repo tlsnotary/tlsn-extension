@@ -93,12 +93,13 @@ public class TlsnNativeModule: Module {
                                 print("[TlsnNative] Handler \(index): missing part")
                                 continue
                             }
-                            guard let actionStr = handlerDict["action"] as? String else {
-                                print("[TlsnNative] Handler \(index): missing action")
+                            guard let actionDict = handlerDict["action"] as? [String: Any],
+                                  let actionType = actionDict["type"] as? String else {
+                                print("[TlsnNative] Handler \(index): missing or malformed action")
                                 continue
                             }
 
-                            print("[TlsnNative] Handler \(index): type=\(handlerTypeStr), part=\(partStr), action=\(actionStr)")
+                            print("[TlsnNative] Handler \(index): type=\(handlerTypeStr), part=\(partStr), action=\(actionType)")
 
                             // Parse handler type
                             let handlerType: HandlerType
@@ -128,11 +129,26 @@ public class TlsnNativeModule: Module {
 
                             // Parse handler action
                             let action: HandlerAction
-                            switch actionStr {
-                            case "Reveal": action = .reveal
-                            case "Hash": action = .hash
+                            switch actionType {
+                            case "Reveal":
+                                action = .reveal
+                            case "Hash":
+                                guard let algoStr = actionDict["algorithm"] as? String else {
+                                    print("[TlsnNative] Handler \(index): Hash action missing algorithm")
+                                    continue
+                                }
+                                let algorithm: HashAlgorithm
+                                switch algoStr {
+                                case "Blake3": algorithm = .blake3
+                                case "Sha256": algorithm = .sha256
+                                case "Keccak256": algorithm = .keccak256
+                                default:
+                                    print("[TlsnNative] Handler \(index): unknown hash algorithm '\(algoStr)'")
+                                    continue
+                                }
+                                action = .hash(algorithm: algorithm)
                             default:
-                                print("[TlsnNative] Handler \(index): unknown action '\(actionStr)'")
+                                print("[TlsnNative] Handler \(index): unknown action type '\(actionType)'")
                                 continue
                             }
 

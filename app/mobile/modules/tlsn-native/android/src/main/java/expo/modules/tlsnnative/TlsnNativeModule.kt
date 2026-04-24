@@ -11,6 +11,7 @@ import uniffi.tlsn_mobile.HandlerType
 import uniffi.tlsn_mobile.HandlerPart
 import uniffi.tlsn_mobile.HandlerAction
 import uniffi.tlsn_mobile.HandlerParams
+import uniffi.tlsn_mobile.HashAlgorithm
 import uniffi.tlsn_mobile.ProgressCallback
 import uniffi.tlsn_mobile.initialize as rustInitialize
 import uniffi.tlsn_mobile.prove as rustProve
@@ -97,9 +98,10 @@ class TlsnNativeModule : Module() {
                             val handlerObj = handlersArray.getJSONObject(index)
                             val handlerTypeStr = handlerObj.optString("handlerType", "")
                             val partStr = handlerObj.optString("part", "")
-                            val actionStr = handlerObj.optString("action", "")
+                            val actionObj = handlerObj.optJSONObject("action") ?: continue
+                            val actionType = actionObj.optString("type", "")
 
-                            if (handlerTypeStr.isEmpty() || partStr.isEmpty() || actionStr.isEmpty()) continue
+                            if (handlerTypeStr.isEmpty() || partStr.isEmpty() || actionType.isEmpty()) continue
 
                             val handlerType = when (handlerTypeStr) {
                                 "Sent" -> HandlerType.SENT
@@ -119,9 +121,18 @@ class TlsnNativeModule : Module() {
                                 else -> continue
                             }
 
-                            val action = when (actionStr) {
-                                "Reveal" -> HandlerAction.REVEAL
-                                "Hash" -> HandlerAction.HASH
+                            val action: HandlerAction = when (actionType) {
+                                "Reveal" -> HandlerAction.Reveal
+                                "Hash" -> {
+                                    val algoStr = actionObj.optString("algorithm", "")
+                                    val algorithm = when (algoStr) {
+                                        "Blake3" -> HashAlgorithm.BLAKE3
+                                        "Sha256" -> HashAlgorithm.SHA256
+                                        "Keccak256" -> HashAlgorithm.KECCAK256
+                                        else -> continue
+                                    }
+                                    HandlerAction.Hash(algorithm)
+                                }
                                 else -> continue
                             }
 
@@ -141,7 +152,7 @@ class TlsnNativeModule : Module() {
                             }
 
                             handlers.add(Handler(handlerType, part, action, params))
-                            android.util.Log.i("TlsnNative", "Handler $index: type=$handlerTypeStr, part=$partStr, action=$actionStr")
+                            android.util.Log.i("TlsnNative", "Handler $index: type=$handlerTypeStr, part=$partStr, action=$actionType")
                         }
                     }
 
