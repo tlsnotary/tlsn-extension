@@ -259,7 +259,7 @@ pub fn initialize() -> Result<(), TlsnError> {
         .with_env_filter("tlsn_mobile=info,tlsn=info")
         .try_init();
 
-    tracing::info!("TLSN Mobile initialized (sdk-core)");
+    tracing::info!("TLSNotary Mobile initialized (sdk-core)");
     Ok(())
 }
 
