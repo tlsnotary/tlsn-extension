@@ -77,6 +77,28 @@ export const PLUGIN_REGISTRY: PluginMetadata[] = [
       urls: ['https://swissbank.tlsnotary.org/*'],
     },
   },
+   {
+    id: 'swissbank_hash',
+    name: 'Swiss Bank (Hashed)',
+    description:
+      'Verify your Swiss bank account balance securely and privately. (Login: admin / admin)',
+    logo: '\uD83C\uDFE6', // 🏦
+    resultLabel: 'Account Balance (EUR, hashed)',
+    accentColor: '#4CAF50',
+    platforms: ['demo', 'mobile'],
+    pluginConfig: {
+      name: 'Swiss Bank Prover (Hashed)',
+      description: 'This plugin will prove a blinded hash of an account balance on a (dummy) Swiss bank.',
+      requests: [
+        {
+          method: 'GET',
+          host: 'swissbank.tlsnotary.org',
+          pathname: '/balances',
+        },
+      ],
+      urls: ['https://swissbank.tlsnotary.org/*'],
+    },
+  },
   {
     id: 'spotify',
     name: 'Spotify',

@@ -23,6 +23,7 @@ const target = process.argv.find((a) => a.startsWith('--target='))?.split('=')[1
 const plugins = [
   'twitter',
   'swissbank',
+  'swissbank_hash',
   'spotify',
   'duolingo',
   'uber',

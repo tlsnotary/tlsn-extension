@@ -9,6 +9,7 @@ import initWasm, {
   ProverConfig,
   HttpRequest,
   Reveal,
+  Commit,
   compute_reveal as wasmComputeReveal,
 } from '../../../../tlsn-wasm-pkg/tlsn_wasm';
 
@@ -285,13 +286,17 @@ function getTranscript(proverId: string): { sent: number[]; recv: number[] } {
 }
 
 /**
- * Reveals data to the verifier.
+ * Reveals data to the verifier, optionally with hash-committed ranges.
  */
-async function reveal(proverId: string, revealConfig: Reveal): Promise<void> {
+async function reveal(
+  proverId: string,
+  revealConfig: Reveal,
+  commitConfig?: Commit,
+): Promise<void> {
   const prover = provers.get(proverId);
   if (!prover) throw new Error(`Prover not found: ${proverId}`);
 
-  await prover.reveal(revealConfig);
+  await prover.reveal(revealConfig, commitConfig);
 }
 
 /**
@@ -319,6 +324,7 @@ function computeReveal(
   recvRanges: RevealRange[];
   sentRangesWithHandlers: RevealRangeWithHandler[];
   recvRangesWithHandlers: RevealRangeWithHandler[];
+  commit: Commit | undefined;
 } {
   const prover = provers.get(proverId);
   if (!prover) throw new Error(`Prover not found: ${proverId}`);
@@ -345,6 +351,7 @@ function computeReveal(
 
   const typed = output as {
     reveal: { sent: RevealRange[]; recv: RevealRange[] };
+    commit?: Commit;
     sent_ranges_with_handlers: RevealRangeWithHandler[];
     recv_ranges_with_handlers: RevealRangeWithHandler[];
   };
@@ -354,6 +361,7 @@ function computeReveal(
     recvRanges: typed.reveal.recv,
     sentRangesWithHandlers: typed.sent_ranges_with_handlers,
     recvRangesWithHandlers: typed.recv_ranges_with_handlers,
+    commit: typed.commit as Commit | undefined,
   };
 }
 

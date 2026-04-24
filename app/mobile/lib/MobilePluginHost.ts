@@ -62,7 +62,14 @@ export interface InterceptedRequestHeader {
   tabId: number;
 }
 
-/** Plugin-sdk handler format (SCREAMING_SNAKE_CASE) */
+/**
+ * Plugin-sdk handler format (SCREAMING_SNAKE_CASE).
+ *
+ * The `action` field accepts either the `'REVEAL'` string shorthand or the
+ * canonical object form. Plugin-sdk's `prove()` wrapper canonicalizes before
+ * handing handlers to the host; the mobile host also tolerates the shorthand
+ * defensively since it runs plugin code outside of plugin-sdk.
+ */
 export interface PluginHandler {
   type: 'SENT' | 'RECV';
   part:
@@ -74,7 +81,10 @@ export interface PluginHandler {
     | 'HEADERS'
     | 'BODY'
     | 'ALL';
-  action: 'REVEAL' | 'PEDERSEN';
+  action:
+    | 'REVEAL'
+    | { kind: 'REVEAL' }
+    | { kind: 'HASH'; algorithm: 'BLAKE3' | 'SHA256' | 'KECCAK256' };
   params?: Record<string, unknown>;
 }
 
@@ -90,7 +100,7 @@ export interface NativeHandler {
     | 'Headers'
     | 'Body'
     | 'All';
-  action: 'Reveal' | 'Pedersen';
+  action: { type: 'Reveal' } | { type: 'Hash'; algorithm: 'Blake3' | 'Sha256' | 'Keccak256' };
   params?: {
     key?: string;
     hideKey?: boolean;
@@ -164,16 +174,29 @@ const HANDLER_PART_MAP: Record<string, NativeHandler['part']> = {
   ALL: 'All',
 };
 
-const HANDLER_ACTION_MAP: Record<string, 'Reveal' | 'Pedersen'> = {
-  REVEAL: 'Reveal',
-  PEDERSEN: 'Pedersen',
+const ALGORITHM_MAP: Record<string, 'Blake3' | 'Sha256' | 'Keccak256'> = {
+  BLAKE3: 'Blake3',
+  SHA256: 'Sha256',
+  KECCAK256: 'Keccak256',
 };
+
+function translateAction(handler: PluginHandler): NativeHandler['action'] {
+  const action =
+    typeof handler.action === 'string' ? ({ kind: handler.action } as const) : handler.action;
+  if (action.kind === 'HASH') {
+    return {
+      type: 'Hash',
+      algorithm: ALGORITHM_MAP[action.algorithm],
+    };
+  }
+  return { type: 'Reveal' };
+}
 
 export function translateHandler(handler: PluginHandler): NativeHandler {
   const result: NativeHandler = {
     handlerType: HANDLER_TYPE_MAP[handler.type] || 'Sent',
     part: HANDLER_PART_MAP[handler.part] || 'StartLine',
-    action: HANDLER_ACTION_MAP[handler.action] || 'Reveal',
+    action: translateAction(handler),
   };
 
   if (handler.params) {

@@ -3,6 +3,7 @@ import type {
   ProverConfig,
   HttpRequest,
   Reveal,
+  Commit,
   Method,
 } from '../../../../tlsn-wasm-pkg/tlsn_wasm';
 import { logger } from '@tlsn/common';
@@ -41,8 +42,9 @@ const workerApi = Comlink.wrap<{
     recvRanges: RevealRange[];
     sentRangesWithHandlers: RevealRangeWithHandler[];
     recvRangesWithHandlers: RevealRangeWithHandler[];
+    commit: Commit | undefined;
   };
-  reveal: (proverId: string, revealConfig: Reveal) => Promise<void>;
+  reveal: (proverId: string, revealConfig: Reveal, commitConfig?: Commit) => Promise<void>;
   freeProver: (proverId: string) => void;
 }>(worker);
 
@@ -402,12 +404,13 @@ export class ProveManager {
 
   async reveal(
     proverId: string,
-    commit: {
+    revealRanges: {
       sent: { start: number; end: number }[];
       recv: { start: number; end: number }[];
     },
+    commitConfig?: Commit,
   ) {
-    await workerApi.reveal(proverId, { ...commit, server_identity: true });
+    await workerApi.reveal(proverId, { ...revealRanges, server_identity: true }, commitConfig);
   }
 
   /** Hard timeout for getResponse polling (60 seconds). */

@@ -34,7 +34,7 @@ TLSNotary uses **Multi-Party Computation (MPC)** to generate cryptographic proof
 
 - **User Credentials**: Authentication tokens, cookies, API keys remain encrypted to the verifier
 - **Hidden Data**: Only data marked with `action: 'REVEAL'` in handlers is visible to the verifier
-- **Committed Data**: Data marked with `action: 'PEDERSEN'` is sent as a hash commitment, not plaintext
+- **Committed Data**: Data marked with `action: 'HASH'` is sent as a hash commitment, not plaintext
 
 This architecture allows users to prove data authenticity **without revealing sensitive information** to the verifier.
 
@@ -434,7 +434,7 @@ webhooks:
   - **Only revealed ranges are visible** - hidden data is replaced with null bytes or omitted
 - `revealConfig` (array) - Handler configuration showing what was revealed
 
-**Important:** The `redactedTranscript` contains **only the data marked as revealed** in the handlers. Data with `action: 'PEDERSEN'` or unmarked data is **not included** in the transcript.
+**Important:** The `redactedTranscript` contains **only the data marked as revealed** in the handlers. Data with `action: 'HASH'` or unmarked data is **not included** in the transcript.
 
 ### Example Backend Handler
 

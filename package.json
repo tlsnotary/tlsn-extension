@@ -24,7 +24,7 @@
     "test": "npm run test --workspaces --if-present",
     "test:browser": "npm run test:browser --workspaces --if-present",
     "clean": "rm -rf packages/*/node_modules app/*/node_modules packages/*/dist packages/*/build node_modules",
-    "build:wasm": "sh packages/tlsn-wasm/build.sh v0.1.0-alpha.14 --no-logging",
+    "build:wasm": "sh packages/tlsn-wasm/build.sh main --no-logging",
     "demo": "npm run dev --workspace=@tlsnotary/demo",
     "tutorial": "npm run dev --workspace=@tlsn/tutorial",
     "docker:up": "cd packages/demo && docker compose up --build -d",

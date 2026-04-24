@@ -616,7 +616,7 @@ type Handler = {
     | 'HEADERS'
     | 'BODY'
     | 'ALL';
-  action: 'REVEAL' | 'PEDERSEN'; // Reveal plaintext or commit hash
+  action: 'REVEAL' | 'HASH'; // Reveal plaintext or commit hash
   params?: {
     // For HEADERS:
     key?: string; // Header name to reveal
@@ -660,7 +660,7 @@ interface ProofResponse {
   results: Array<{
     type: 'SENT' | 'RECV'; // Request or response data
     part: string; // Which part (START_LINE, HEADERS, BODY, etc.)
-    action: 'REVEAL' | 'PEDERSEN'; // Reveal or commitment action
+    action: 'REVEAL' | 'HASH'; // Reveal or commitment action
     params?: object; // Optional handler parameters
     value: string; // The extracted value
   }>;
@@ -847,7 +847,7 @@ console.log('Proof generated:', proof);
 {
   type: 'SENT',
   part: 'HEADERS',
-  action: 'PEDERSEN',
+  action: 'HASH',
   params: { key: 'Cookie' },
 }
 
