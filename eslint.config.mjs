@@ -64,7 +64,7 @@ export default defineConfig(
       'packages/verifier/scripts/**',
       'packages/demo/**',
       'packages/eas-webhook/**',
-      'packages/mobile/**',
+      'app/mobile/**',
       'packages/tutorial/**',
       '**/*.js',
       '**/*.mjs',
@@ -87,7 +87,7 @@ export default defineConfig(
 
   // CJS build scripts and Metro/React Native (require() needed for static assets)
   {
-    files: ['packages/extension/**/*.js', 'packages/mobile/**/*.{js,ts,tsx}'],
+    files: ['packages/extension/**/*.js', 'app/mobile/**/*.{js,ts,tsx}'],
     rules: {
       '@typescript-eslint/no-require-imports': 'off',
     },
@@ -123,7 +123,7 @@ export default defineConfig(
     files: [
       'packages/extension/**/*.{tsx,jsx}',
       'packages/demo/src/**/*.{tsx,jsx}',
-      'packages/mobile/**/*.{tsx,jsx}',
+      'app/mobile/**/*.{tsx,jsx}',
       'packages/tutorial/src/**/*.{tsx,jsx}',
     ],
     plugins: {

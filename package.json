@@ -9,30 +9,29 @@
     "url": "https://github.com/tlsnotary/tlsn-extension.git"
   },
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "app/*"
   ],
   "scripts": {
     "build": "npm run build:deps && npm run build --workspace=extension",
     "build:deps": "npm run build --workspace=@tlsn/common && npm run build --workspace=@tlsn/plugin-sdk && npm run build --workspace=@tlsn/plugins",
     "build:plugins": "npm run build --workspace=@tlsn/plugins",
     "build:extension": "npm run build --workspace=extension",
-    "build:all": "npm run build --workspaces",
+    "build:all": "npm run build --workspaces --if-present",
     "dev": "npm run dev --workspace=extension",
     "lint": "npm run build:deps && npm run lint --workspaces --if-present",
     "lint:fix": "npm run build:deps && npm run lint:fix --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "test:browser": "npm run test:browser --workspaces --if-present",
-    "clean": "rm -rf packages/*/node_modules packages/*/dist packages/*/build node_modules",
+    "clean": "rm -rf packages/*/node_modules app/*/node_modules packages/*/dist packages/*/build node_modules",
     "build:wasm": "sh packages/tlsn-wasm/build.sh v0.1.0-alpha.14 --no-logging",
     "demo": "npm run dev --workspace=@tlsnotary/demo",
     "tutorial": "npm run dev --workspace=@tlsn/tutorial",
     "docker:up": "cd packages/demo && docker compose up --build -d",
     "docker:down": "cd packages/demo && docker compose down",
     "mobile": "npm run start --workspace=@tlsn/mobile",
-    "mobile:ios": "npm run ios --workspace=@tlsn/mobile",
-    "mobile:android": "npm run android --workspace=@tlsn/mobile",
-    "android": "expo run:android",
-    "ios": "expo run:ios"
+    "mobile:ios": "cd app/mobile && ./build.sh ios",
+    "mobile:android": "cd app/mobile && ./build.sh android"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",

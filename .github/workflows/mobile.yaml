@@ -1,0 +1,184 @@
+name: mobile
+
+on:
+  pull_request:
+    paths:
+      - 'app/mobile/**'
+      - 'packages/tlsn-mobile/**'
+      - 'package-lock.json'
+  workflow_dispatch:
+
+jobs:
+  mobile-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          cache: false
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm install rollup --force
+
+      - name: Lint mobile package
+        working-directory: app/mobile
+        run: npm run lint
+
+      - name: Test mobile package
+        working-directory: app/mobile
+        run: npm run test
+
+      - name: Cargo check tlsn-mobile
+        run: cargo check --manifest-path packages/tlsn-mobile/Cargo.toml
+
+  android-build:
+    runs-on: ubuntu-latest
+    # Skip on fork PRs (no access to secrets)
+    if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'workflow_dispatch'
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          target: aarch64-linux-android
+          cache: false
+
+      - name: Cache Rust build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            packages/tlsn-mobile/target
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: mobile-android-rust-${{ hashFiles('packages/tlsn-mobile/Cargo.lock', 'packages/tlsn-mobile/Cargo.toml') }}
+          restore-keys: |
+            mobile-android-rust-
+
+      - name: Clone tlsn repo (for sdk-core)
+        run: git clone --depth 1 https://github.com/tlsnotary/tlsn.git packages/tlsn-wasm/tlsn
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm install rollup --force
+
+      - name: Build JS dependencies
+        run: npm run build:deps
+
+      - name: Build native Android library
+        working-directory: app/mobile
+        run: ./build.sh android --skip-deps --no-run
+
+      # EAS APK build (optional — requires EXPO_TOKEN secret)
+      - name: Install EAS CLI
+        if: env.EXPO_TOKEN != ''
+        run: npm install -g eas-cli
+
+      - name: Build Android APK (EAS local)
+        if: env.EXPO_TOKEN != ''
+        working-directory: app/mobile
+        run: eas build --platform android --profile ci-android --local --non-interactive --output ./build/tlsn-mobile.apk
+
+      - name: Upload APK artifact
+        if: env.EXPO_TOKEN != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-apk
+          path: app/mobile/build/tlsn-mobile.apk
+          if-no-files-found: error
+
+  ios-build:
+    runs-on: macos-26
+    # Skip on fork PRs (no access to secrets)
+    if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'workflow_dispatch'
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          target: aarch64-apple-ios,aarch64-apple-ios-sim
+          cache: false
+
+      - name: Cache Rust build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            packages/tlsn-mobile/target
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: mobile-ios-rust-${{ hashFiles('packages/tlsn-mobile/Cargo.lock', 'packages/tlsn-mobile/Cargo.toml') }}
+          restore-keys: |
+            mobile-ios-rust-
+
+      - name: Clone tlsn repo (for sdk-core)
+        run: git clone --depth 1 https://github.com/tlsnotary/tlsn.git packages/tlsn-wasm/tlsn
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm install rollup --force
+
+      - name: Build JS dependencies
+        run: npm run build:deps
+
+      - name: Build native iOS library
+        working-directory: app/mobile
+        run: ./build.sh ios --skip-deps --no-run
+
+      # EAS app build (optional — requires EXPO_TOKEN secret)
+      - name: Install EAS CLI
+        if: env.EXPO_TOKEN != ''
+        run: npm install -g eas-cli
+
+      - name: Build iOS simulator app (EAS local)
+        if: env.EXPO_TOKEN != ''
+        working-directory: app/mobile
+        run: eas build --platform ios --profile ci-ios --local --non-interactive --output ./build/tlsn-mobile-sim.app
+
+      - name: Upload iOS artifact
+        if: env.EXPO_TOKEN != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: ios-simulator-app
+          path: app/mobile/build/tlsn-mobile-sim.app
+          if-no-files-found: error
