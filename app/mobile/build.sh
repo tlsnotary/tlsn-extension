@@ -2,7 +2,7 @@
 set -e
 
 ##############################################################################
-# Unified build script for TLSN Mobile
+# Unified build script for TLSNotary Mobile
 #
 # Usage:
 #   ./build.sh ios          # Build & run iOS (default)
