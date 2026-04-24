@@ -79,7 +79,7 @@ cd packages/plugin-sdk && npm run build
 cd packages/extension && npm run dev
 ```
 
-**Important**: The extension must match the version of the notary server it connects to.
+**Important**: The extension must match the version of the verifier server it connects to.
 
 ## Extension Architecture Overview
 
@@ -547,41 +547,43 @@ Rust-based HTTP/WebSocket server for TLSNotary verification:
 **Architecture:**
 
 - Built with Axum web framework
-- WebSocket endpoints for prover-verifier communication
-- Session management with UUID-based tracking
+- Single-WebSocket session protocol: one connection carries both JSON control
+  frames (Text) and MPC bytes (Binary). A frame multiplexer
+  ([packages/verifier/src/ws_mux.rs](packages/verifier/src/ws_mux.rs)) splits
+  the socket into a text channel and a binary `AsyncRead + AsyncWrite` stream.
 - CORS enabled for cross-origin requests
 - Webhook system for external service notifications
 
 **Endpoints:**
 
 - `GET /health` → Health check (returns "ok")
-- `WS /session` → Create new verification session
-- `WS /verifier?sessionId=<id>` → WebSocket verification endpoint
+- `GET /info` → Server version info (version, git_hash, tlsn_version)
+- `WS /session` → Full verification session (register → MPC → reveal_config → session_completed)
 - `WS /proxy?token=<host>` → WebSocket proxy for TLS connections (compatible with notary.pse.dev)
 
-**Configuration:**
-
-- Default port: `7047`
-- Configurable max sent/received data sizes
-- Request timeout handling
-- Tracing with INFO level logging
-- YAML configuration file (`config.yaml`) for webhooks
-
-**Webhook Configuration (`config.yaml`):**
+**Configuration (`config.yaml`):**
 
 ```yaml
+# Absolute maximums the server will accept for MPC preprocessing. The
+# prover's requested max (announced via the MPC protocol) must be <= these.
+# Defaults: 1 MiB sent, 16 MiB recv. Env overrides:
+#   VERIFIER_MAX_SENT_DATA, VERIFIER_MAX_RECV_DATA
+max_sent_data: 4096
+max_recv_data: 16384
+
 webhooks:
-  # Per-server webhooks
   'api.x.com':
     url: 'https://your-backend.example.com/webhook/twitter'
     headers:
       Authorization: 'Bearer your-secret-token'
-      X-Source: 'tlsn-verifier'
-
-  # Wildcard for unmatched servers
   '*':
     url: 'https://your-backend.example.com/webhook/default'
 ```
+
+Other settings:
+
+- Default port: `7047` (override via `PORT` env var)
+- Tracing with INFO level logging
 
 Webhooks receive POST requests with:
 
@@ -598,15 +600,20 @@ cargo build --release        # Production
 cargo test                   # Tests
 ```
 
-**Session Flow:**
+**Session Flow** (single WebSocket, Text + Binary frames):
 
-1. Extension creates session via `/session` WebSocket
-2. Server returns `sessionId` and waits for verifier connection
-3. Extension connects to `/verifier?sessionId=<id>`
-4. Prover sends HTTP request through `/proxy?token=<host>`
-5. Verifier validates TLS handshake and transcript
-6. Server returns verification result with transcripts
-7. If webhook configured, sends POST to configured endpoint (fire-and-forget)
+1. Extension opens `WS /session` and sends `register` (Text).
+2. Server replies `registered` (Text).
+3. Extension's WASM prover runs MPC-TLS over Binary frames on the same
+   socket. HTTP requests to the target server are tunneled through
+   `/proxy?token=<host>` (a separate connection).
+4. After MPC completes, extension sends `reveal_config` (Text).
+5. Server validates reveal ranges against the authenticated transcript,
+   sends `session_completed` (Text), fires webhooks if configured, and
+   closes the socket.
+
+Full protocol reference (message shapes, field definitions, webhook
+payload): [VERIFIER.md](VERIFIER.md) and [packages/verifier/README.md](packages/verifier/README.md).
 
 ## Common Package (`packages/common`)
 

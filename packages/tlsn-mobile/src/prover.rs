@@ -2,12 +2,13 @@
 //!
 //! All protocol logic (MPC-TLS, HTTP, selective disclosure) is delegated to
 //! `SdkProver`. This module handles:
-//! - WebSocket transport via [`WsIoAdapter`] (for verifier connection)
-//! - Direct TCP connection to the target server (no proxy needed on native)
-//! - Verifier session registration (the `/session` → `/verifier` protocol)
-//! - Sending `reveal_config` to the verifier session WebSocket
+//! - A single WebSocket to the verifier that carries both JSON control
+//!   frames (Text) and MPC bytes (Binary), split by [`session_mux`].
+//! - Direct TCP connection to the target server (no proxy needed on native).
+//! - Session handshake (`register` / `registered`) and final `reveal_config`
+//!   / `session_completed` exchange.
 
-use futures::{SinkExt, StreamExt};
+use futures::SinkExt;
 use tlsn_sdk_core::{compute_reveal, ProverConfig, SdkProver};
 use tokio::net::TcpStream;
 use tokio_tungstenite::{connect_async, tungstenite::Message};
@@ -15,15 +16,9 @@ use tokio_util::compat::TokioAsyncReadCompatExt;
 use url::Url;
 
 use crate::{
-    ws_io::WsIoAdapter, HttpHeader, HttpRequest, HttpResponse, ProofResult, ProgressCallback,
+    ws_io::session_mux, HttpHeader, HttpRequest, HttpResponse, ProofResult, ProgressCallback,
     ProverOptions, TlsnError, Transcript,
 };
-
-/// Connect to a WebSocket URL and return an [`WsIoAdapter`].
-async fn connect_ws(url: &str) -> Result<WsIoAdapter, TlsnError> {
-    let (ws, _) = connect_async(url).await?;
-    Ok(WsIoAdapter::new(ws))
-}
 
 /// Emit progress if a callback is provided.
 fn emit_progress(cb: Option<&dyn ProgressCallback>, step: &str, progress: f64, message: &str) {
@@ -50,46 +45,40 @@ pub(crate) async fn prove_async(
         .ok_or_else(|| TlsnError::InvalidConfig("URL has no host".into()))?;
 
     // -----------------------------------------------------------------------
-    // 1. Register session with verifier
+    // 1. Open session WebSocket and register
     // -----------------------------------------------------------------------
     let verifier_url = Url::parse(&options.verifier_url)?;
     let ws_protocol = if verifier_url.scheme() == "https" { "wss" } else { "ws" };
-    let base_ws_url = format!(
-        "{}://{}{}",
+    let session_ws_url = format!(
+        "{}://{}{}/session",
         ws_protocol,
         verifier_url.host_str().unwrap_or("localhost"),
         verifier_url.port().map(|p| format!(":{p}")).unwrap_or_default()
     );
 
-    let session_ws_url = format!("{base_ws_url}/session");
     tracing::info!("connecting to session endpoint: {session_ws_url}");
 
     let (mut session_ws, _) = connect_async(&session_ws_url).await.map_err(|e| {
         TlsnError::ConnectionFailed(format!("failed to connect to session: {e}"))
     })?;
 
-    // Send register message.
     let register_msg = serde_json::json!({
         "type": "register",
-        "maxRecvData": options.max_recv_data,
-        "maxSentData": options.max_sent_data,
         "sessionData": {},
     });
     session_ws
-        .send(Message::Text(register_msg.to_string().into()))
+        .send(Message::Text(register_msg.to_string()))
         .await
         .map_err(|e| TlsnError::ConnectionFailed(format!("failed to send register: {e}")))?;
 
-    // Wait for session_registered response.
-    let session_id = loop {
+    // Wait for `registered` response before splitting the socket.
+    use futures::StreamExt;
+    let server_session_id: Option<String> = loop {
         match session_ws.next().await {
             Some(Ok(Message::Text(text))) => {
                 let resp: serde_json::Value = serde_json::from_str(&text)?;
-                if resp["type"] == "session_registered" {
-                    break resp["sessionId"]
-                        .as_str()
-                        .ok_or_else(|| TlsnError::ConnectionFailed("missing sessionId".into()))?
-                        .to_string();
+                if resp["type"] == "registered" {
+                    break resp["id"].as_str().map(String::from);
                 } else if resp["type"] == "error" {
                     return Err(TlsnError::ConnectionFailed(
                         resp["message"].as_str().unwrap_or("unknown error").into(),
@@ -102,16 +91,26 @@ pub(crate) async fn prove_async(
             }
             None => {
                 return Err(TlsnError::ConnectionFailed(
-                    "session WebSocket closed unexpectedly".into(),
+                    "session WebSocket closed before registration".into(),
                 ))
             }
         }
     };
-    tracing::info!("session registered: {session_id}");
+    tracing::info!(
+        "session registered (server id: {})",
+        server_session_id.as_deref().unwrap_or("<missing>")
+    );
     emit_progress(progress, "SESSION_REGISTERED", 0.1, "Session registered");
 
+    // Now split the WS into text + binary channels. Binary is the byte stream
+    // for MPC; text is for reveal_config / session_completed.
+    let mux = session_mux(session_ws);
+    let mut text_rx = mux.text_rx;
+    let send_text_tx = mux.send_text_tx;
+    let verifier_io = mux.binary;
+
     // -----------------------------------------------------------------------
-    // 2. Create prover & MPC setup
+    // 2. Create prover & MPC setup (over the binary byte stream)
     // -----------------------------------------------------------------------
     let config = ProverConfig::builder(hostname)
         .max_sent_data(options.max_sent_data as usize)
@@ -119,11 +118,6 @@ pub(crate) async fn prove_async(
         .build();
 
     let mut prover = SdkProver::new(config)?;
-
-    let verifier_ws_url = format!("{base_ws_url}/verifier?sessionId={session_id}");
-    tracing::info!("connecting to verifier: {verifier_ws_url}");
-
-    let verifier_io = connect_ws(&verifier_ws_url).await?;
     prover.setup(verifier_io).await?;
     tracing::info!("MPC setup complete");
     emit_progress(progress, "MPC_SETUP", 0.25, "MPC session established");
@@ -161,6 +155,7 @@ pub(crate) async fn prove_async(
     let compute_output = if sdk_handlers.is_empty() {
         // No handlers → reveal everything.
         tracing::info!("no handlers specified, revealing all data");
+        #[allow(clippy::single_range_in_vec_init)]
         tlsn_sdk_core::handler::ComputeRevealOutput {
             reveal: tlsn_sdk_core::Reveal {
                 sent: vec![0..transcript.sent.len()],
@@ -184,7 +179,7 @@ pub(crate) async fn prove_async(
     emit_progress(progress, "REVEAL_COMPLETE", 0.8, "Sending verification data...");
 
     // -----------------------------------------------------------------------
-    // 6. Send reveal_config to verifier session
+    // 6. Send reveal_config on the session's text channel
     // -----------------------------------------------------------------------
     let reveal_config = build_reveal_config(
         &transcript,
@@ -192,39 +187,28 @@ pub(crate) async fn prove_async(
         &compute_output.sent_ranges_with_handlers,
         &compute_output.recv_ranges_with_handlers,
     );
-    session_ws
-        .send(Message::Text(reveal_config.to_string().into()))
-        .await
-        .map_err(|e| TlsnError::ProofFailed(format!("failed to send reveal_config: {e}")))?;
+    send_text_tx
+        .send(reveal_config.to_string())
+        .map_err(|_| TlsnError::ProofFailed("session mux closed before reveal_config".into()))?;
 
     // Wait for session_completed (with timeout — proof result is already available).
-    let wait_result = tokio::time::timeout(
-        std::time::Duration::from_secs(30),
-        async {
-            loop {
-                match session_ws.next().await {
-                    Some(Ok(Message::Text(text))) => {
-                        let resp: serde_json::Value = serde_json::from_str(&text)?;
-                        tracing::info!("session message: {}", resp["type"]);
-                        if resp["type"] == "session_completed" {
-                            tracing::info!("session completed");
-                            return Ok::<(), TlsnError>(());
-                        } else if resp["type"] == "error" {
-                            return Err(TlsnError::ProofFailed(
-                                resp["message"].as_str().unwrap_or("unknown error").into(),
-                            ));
-                        }
-                    }
-                    Some(Ok(_)) => continue,
-                    Some(Err(e)) => return Err(TlsnError::ProofFailed(format!("WebSocket error: {e}"))),
-                    None => {
-                        tracing::warn!("session WebSocket closed before completion");
-                        return Ok(());
-                    }
-                }
+    let wait_result = tokio::time::timeout(std::time::Duration::from_secs(30), async {
+        while let Some(text) = text_rx.recv().await {
+            let resp: serde_json::Value = serde_json::from_str(&text)?;
+            tracing::info!("session message: {}", resp["type"]);
+            if resp["type"] == "session_completed" {
+                tracing::info!("session completed");
+                return Ok::<(), TlsnError>(());
+            } else if resp["type"] == "error" {
+                return Err(TlsnError::ProofFailed(
+                    resp["message"].as_str().unwrap_or("unknown error").into(),
+                ));
             }
         }
-    ).await;
+        tracing::warn!("session text channel closed before completion");
+        Ok(())
+    })
+    .await;
 
     match wait_result {
         Ok(Ok(())) => {}

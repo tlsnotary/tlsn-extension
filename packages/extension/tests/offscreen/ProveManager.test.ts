@@ -6,7 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
  * - #11: Duplicate listener registration guarded in init()
  * - #12: cleanupProver() logs warning instead of empty catch
  * - #13: getResponse() throws on hard timeout
- * - #14: sendRevealConfig() wraps ws.send() error
+ * - #14: sendRevealConfig() wraps worker error
  */
 
 // ---------------------------------------------------------------------------
@@ -15,6 +15,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mockWorkerApi = {
   init: vi.fn().mockResolvedValue(undefined),
   createProver: vi.fn().mockResolvedValue('prover-0'),
+  createSession: vi.fn().mockResolvedValue('session-0'),
   setupProver: vi.fn().mockResolvedValue(undefined),
   sendRequest: vi.fn().mockResolvedValue(undefined),
   getTranscript: vi.fn().mockReturnValue({ sent: [], recv: [] }),
@@ -25,18 +26,13 @@ const mockWorkerApi = {
     recvRangesWithHandlers: [],
   }),
   reveal: vi.fn().mockResolvedValue(undefined),
+  sendRevealConfig: vi.fn().mockResolvedValue(undefined),
+  awaitSessionCompleted: vi.fn().mockResolvedValue({ results: [] }),
+  closeSession: vi.fn().mockResolvedValue(undefined),
   freeProver: vi.fn().mockResolvedValue(undefined),
 };
 
 const mockAddEventListener = vi.fn();
-
-// Provide WebSocket constants (used by closeSession / sendRevealConfig)
-vi.stubGlobal('WebSocket', {
-  CONNECTING: 0,
-  OPEN: 1,
-  CLOSING: 2,
-  CLOSED: 3,
-});
 
 vi.mock('comlink', () => ({
   wrap: () => mockWorkerApi,
@@ -79,21 +75,19 @@ describe('ProveManager', () => {
   // -----------------------------------------------------------------------
   it('awaits freeProver and logs warning on failure (#6, #12)', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(vi.fn());
-    // Make freeProver reject
     mockWorkerApi.freeProver.mockRejectedValueOnce(new Error('already freed'));
 
-    // We need a session entry to exercise closeSession path
-    // Access private sessions map via any cast
+    // Insert a session entry directly so closeSession + freeProver are exercised.
     (pm as unknown as { sessions: Map<string, unknown> }).sessions.set('prover-0', {
       sessionId: 'sess-1',
-      webSocket: { readyState: 3, close: vi.fn() }, // CLOSED
       response: null,
       responseReceived: false,
+      completionPromise: null,
     });
 
     await pm.cleanupProver('prover-0');
 
-    // freeProver was called (and awaited — test would hang if not)
+    expect(mockWorkerApi.closeSession).toHaveBeenCalledWith('sess-1');
     expect(mockWorkerApi.freeProver).toHaveBeenCalledWith('prover-0');
 
     warnSpy.mockRestore();
@@ -103,47 +97,38 @@ describe('ProveManager', () => {
   // #13 — hard timeout on getResponse
   // -----------------------------------------------------------------------
   it('throws on getResponse timeout (#13)', async () => {
-    // Set up a session that never receives a response
     (pm as unknown as { sessions: Map<string, unknown> }).sessions.set('prover-timeout', {
       sessionId: 'sess-t',
-      webSocket: { readyState: 1, close: vi.fn() },
       response: null,
       responseReceived: false,
+      completionPromise: null,
     });
 
-    // Override the static timeout to 100ms for fast test
     const original = (ProveManager as unknown as { GET_RESPONSE_TIMEOUT_MS: number })
       .GET_RESPONSE_TIMEOUT_MS;
     (ProveManager as unknown as { GET_RESPONSE_TIMEOUT_MS: number }).GET_RESPONSE_TIMEOUT_MS = 100;
 
     await expect(pm.getResponse('prover-timeout', 200)).rejects.toThrow(/timed out/i);
 
-    // Restore
     (ProveManager as unknown as { GET_RESPONSE_TIMEOUT_MS: number }).GET_RESPONSE_TIMEOUT_MS =
       original;
   });
 
   // -----------------------------------------------------------------------
-  // #14 — sendRevealConfig wraps ws.send() error
+  // #14 — sendRevealConfig wraps worker error in descriptive error
   // -----------------------------------------------------------------------
-  it('wraps ws.send() TypeError in descriptive error (#14)', async () => {
-    const mockWs = {
-      readyState: 1, // WebSocket.OPEN
-      close: vi.fn(),
-      send: vi.fn(() => {
-        throw new TypeError('Failed to execute send');
-      }),
-    };
+  it('wraps worker sendRevealConfig error in descriptive error (#14)', async () => {
+    mockWorkerApi.sendRevealConfig.mockRejectedValueOnce(new Error('session closed'));
 
     (pm as unknown as { sessions: Map<string, unknown> }).sessions.set('prover-send', {
       sessionId: 'sess-s',
-      webSocket: mockWs,
       response: null,
       responseReceived: false,
+      completionPromise: null,
     });
 
     await expect(pm.sendRevealConfig('prover-send', { sent: [], recv: [] })).rejects.toThrow(
-      /Reveal config send failed.*verifier connection was closed/,
+      /Reveal config send failed for prover prover-send.*session closed/,
     );
   });
 
@@ -182,16 +167,14 @@ describe('ProveManager', () => {
       const calls: string[] = [];
       pm.setProgressCallbackForProver('prover-X', (data) => calls.push(data.message));
 
-      // Simulate cleanup (removes callback)
       (pm as unknown as { sessions: Map<string, unknown> }).sessions.set('prover-X', {
         sessionId: 'sess-x',
-        webSocket: { readyState: 3, close: vi.fn() },
         response: null,
         responseReceived: false,
+        completionPromise: null,
       });
       await pm.cleanupProver('prover-X');
 
-      // Fire progress after cleanup
       const listener = mockAddEventListener.mock.calls[0][1];
       listener({
         data: { type: 'WASM_PROGRESS', step: 'TEST', progress: 1, message: 'late' },

@@ -110,8 +110,8 @@ Centralized logging system used across packages:
 Rust-based HTTP/WebSocket server for TLSNotary verification:
 
 - Health check endpoint (`GET /health`)
-- Session creation endpoint (`WS /session`)
-- WebSocket verification endpoint (`WS /verifier?sessionId=<id>`)
+- Info endpoint (`GET /info`)
+- Session endpoint (`WS /session`) - carries JSON control frames + MPC bytes on a single socket
 - WebSocket proxy endpoint (`WS /proxy?token=<host>`) - compatible with notary.pse.dev
 - Webhook API for POST notifications to external services
 - YAML configuration for webhook endpoints (`config.yaml`)
@@ -249,8 +249,8 @@ The server will start on `http://localhost:7047`.
 **Verifier API Endpoints:**
 
 - `GET /health` - Health check
-- `WS /session` - Create new verification session
-- `WS /verifier?sessionId=<id>` - WebSocket verification endpoint
+- `GET /info` - Server version info
+- `WS /session` - Full verification session (control + MPC bytes on one socket)
 - `WS /proxy?token=<host>` - WebSocket proxy for TLS connections (compatible with notary.pse.dev)
 
 **Webhook Configuration:**
@@ -507,6 +507,7 @@ This repo includes a [Claude Code](https://claude.ai/claude-code) slash command 
 ```
 
 The command will:
+
 1. Research the target service's API endpoints
 2. Plan the auth interception strategy
 3. Generate a complete plugin `.ts` file with UI, proof handlers, and progress bar

@@ -1,8 +1,14 @@
 # TLSNotary Verifier Server Configuration
-#
-# This file configures webhook endpoints that receive verification results.
-# Webhooks are triggered after successful MPC-TLS verification.
 
+# Absolute maximums accepted from the prover. The prover announces its
+# requested max via the MPC protocol; the server rejects the session if the
+# request exceeds these limits. Defaults: 1 MiB sent, 16 MiB recv.
+# Env overrides: VERIFIER_MAX_SENT_DATA, VERIFIER_MAX_RECV_DATA.
+max_sent_data: 1048576
+max_recv_data: 16777216
+
+# Webhook endpoints that receive verification results after a successful
+# session. Keyed by TLS server name; "*" is a wildcard fallback.
 webhooks:
   # Example: Twitter/X API webhook
   # "api.x.com":
