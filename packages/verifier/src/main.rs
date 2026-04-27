@@ -760,6 +760,12 @@ async fn handle_proxy_connection(ws: TungsteniteStream, host: String) {
             return;
         }
     };
+    if let Err(err) = tcp_stream.set_nodelay(true) {
+        warn!(
+            "[{}] failed to set TCP_NODELAY on outbound proxy connection: {}",
+            proxy_id, err
+        );
+    }
 
     // Split WebSocket into sink and stream
     let (mut ws_sink, mut ws_stream) = ws.split();
