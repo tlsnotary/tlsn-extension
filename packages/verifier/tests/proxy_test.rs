@@ -107,7 +107,7 @@ async fn test_proxy_endpoint_integration() {
         println!("  Client: sending {} bytes: {:?}", test_data.len(), String::from_utf8_lossy(test_data));
 
         // Send binary message
-        ws_write.send(Message::Binary(test_data.clone())).await.unwrap();
+        ws_write.send(Message::Binary(test_data.clone().into())).await.unwrap();
         println!("  Client: sent binary frame");
 
         // Receive echo back
@@ -176,7 +176,7 @@ async fn handle_proxy_test(ws: tokio_tungstenite::WebSocketStream<tokio::net::Tc
                 Ok(n) => {
                     count += 1;
                     println!("  Proxy: TCP->WS forwarding {} bytes (chunk #{})", n, count);
-                    let msg = Message::Binary(buf[..n].to_vec());
+                    let msg = Message::Binary(buf[..n].to_vec().into());
                     if ws_sink.send(msg).await.is_err() {
                         println!("  Proxy: TCP->WS write failed");
                         break;
@@ -255,7 +255,7 @@ async fn test_proxy_real_http_request() {
 
     // Send HTTP request as binary WebSocket message
     ws_write
-        .send(Message::Binary(http_request.as_bytes().to_vec()))
+        .send(Message::Binary(http_request.as_bytes().to_vec().into()))
         .await
         .unwrap();
 
@@ -385,7 +385,7 @@ async fn test_websocket_binary_frames() {
 
     // Send binary data
     let test_data = b"Binary data test";
-    write.send(Message::Binary(test_data.to_vec())).await.unwrap();
+    write.send(Message::Binary(test_data.to_vec().into())).await.unwrap();
     println!("WS Client: sent {} bytes", test_data.len());
 
     // Receive echo

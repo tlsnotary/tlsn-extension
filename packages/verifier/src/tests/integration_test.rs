@@ -176,7 +176,7 @@ webhooks:
         webhook_port
     );
 
-    let config: crate::Config = serde_yaml::from_str(&config_yaml).unwrap();
+    let config: crate::Config = serde_yaml_ng::from_str(&config_yaml).unwrap();
 
     let app_state = Arc::new(crate::AppState {
         sessions: Arc::new(Mutex::new(HashMap::new())),

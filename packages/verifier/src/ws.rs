@@ -6,7 +6,6 @@
 //! ws module to swap the backend, we implement just the upgrade handshake
 //! here and return the async-tungstenite stream directly.
 
-use async_trait::async_trait;
 use async_tungstenite::{
     tokio::TokioAdapter,
     tungstenite::protocol::{Role, WebSocketConfig},
@@ -110,7 +109,6 @@ impl IntoResponse for WsRejection {
     }
 }
 
-#[async_trait]
 impl<S: Send + Sync> FromRequestParts<S> for WsUpgrade {
     type Rejection = WsRejection;
 
