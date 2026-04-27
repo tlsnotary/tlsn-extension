@@ -13,6 +13,7 @@ use axum::{
     serve::ListenerExt,
     Router,
 };
+use bytes::BytesMut;
 use futures_util::SinkExt;
 use rangeset::prelude::RangeSet;
 use serde::{Deserialize, Serialize};
@@ -515,12 +516,11 @@ async fn handle_session_websocket(mut socket: TungsteniteStream, state: Arc<AppS
 
     info!("[{}] Sent session_registered to client", session_id);
 
-    // Create channels for prover socket and results
+    // Create channels for prover socket, reveal config, and results
     let (prover_socket_tx, prover_socket_rx) = oneshot::channel::<TungsteniteStream>();
+    let (reveal_config_tx, reveal_config_rx) = oneshot::channel::<RevealConfig>();
     let (result_tx, result_rx) = oneshot::channel::<VerificationResult>();
 
-    // Create shared reveal config storage and session data storage
-    let reveal_config_storage = Arc::new(Mutex::new(None));
     let session_data_storage = Arc::new(session_data.clone());
 
     let session_config = SessionConfig {
@@ -542,14 +542,13 @@ async fn handle_session_websocket(mut socket: TungsteniteStream, state: Arc<AppS
     // Spawn the verifier task with the result sender
     let session_id_clone = session_id.clone();
     let state_clone = state.clone();
-    let reveal_config_storage_clone = reveal_config_storage.clone();
     let session_data_clone = session_data_storage.clone();
     tokio::spawn(async move {
         run_verifier_task(
             session_id_clone,
             session_config,
             (*session_data_clone).clone(),
-            reveal_config_storage_clone,
+            reveal_config_rx,
             prover_socket_rx,
             result_tx,
             state_clone,
@@ -613,14 +612,17 @@ async fn handle_session_websocket(mut socket: TungsteniteStream, state: Arc<AppS
         reveal_config.recv.len()
     );
 
-    // Store reveal config in shared storage
-    {
-        let mut storage = reveal_config_storage.lock().await;
-        *storage = Some(reveal_config);
+    // Forward reveal config to verifier task
+    if reveal_config_tx.send(reveal_config).is_err() {
+        error!(
+            "[{}] ❌ Verifier task dropped reveal config receiver",
+            session_id
+        );
+        return;
     }
 
     info!(
-        "[{}] ✅ Reveal config stored, verifier task can now proceed",
+        "[{}] ✅ Reveal config sent, verifier task can now proceed",
         session_id
     );
 
@@ -825,11 +827,13 @@ async fn handle_proxy_connection(ws: TungsteniteStream, host: String) {
     // Read from TCP and wrap in WebSocket Binary messages
     let proxy_id_clone = proxy_id.clone();
     let tcp_to_ws = tokio::spawn(async move {
-        let mut buf = vec![0u8; 8192];
+        const CHUNK: usize = 8192;
+        let mut buf = BytesMut::with_capacity(CHUNK);
         let mut total_bytes = 0u64;
 
         loop {
-            match tcp_read.read(&mut buf).await {
+            buf.reserve(CHUNK);
+            match tcp_read.read_buf(&mut buf).await {
                 Ok(0) => {
                     info!(
                         "[{}] TCP read EOF (server closed), forwarded {} bytes to WebSocket",
@@ -843,9 +847,9 @@ async fn handle_proxy_connection(ws: TungsteniteStream, host: String) {
                 }
                 Ok(n) => {
                     total_bytes += n as u64;
-                    let binary_msg = Message::Binary(buf[..n].to_vec().into());
+                    let chunk = buf.split().freeze();
 
-                    if let Err(e) = ws_sink.send(binary_msg).await {
+                    if let Err(e) = ws_sink.send(Message::Binary(chunk)).await {
                         error!("[{}] Failed to send to WebSocket: {}", proxy_id_clone, e);
                         break;
                     }
@@ -879,7 +883,7 @@ async fn run_verifier_task(
     session_id: String,
     config: SessionConfig,
     session_data: HashMap<String, String>,
-    reveal_config_storage: Arc<Mutex<Option<RevealConfig>>>,
+    reveal_config_rx: oneshot::Receiver<RevealConfig>,
     socket_rx: oneshot::Receiver<TungsteniteStream>,
     result_tx: oneshot::Sender<VerificationResult>,
     state: Arc<AppState>,
@@ -965,21 +969,22 @@ async fn run_verifier_task(
                 transcript.received_authed().len()
             );
 
-            // Wait for RevealConfig to be available (with polling and timeout)
+            // Wait for RevealConfig from the session handler (with timeout)
             let reveal_config_wait_timeout = Duration::from_secs(30);
-            let start_time = tokio::time::Instant::now();
-
-            let reveal_config = loop {
-                {
-                    let storage = reveal_config_storage.lock().await;
-                    if let Some(config) = storage.as_ref() {
-                        info!("[{}] ✅ RevealConfig found, mapping results", session_id);
-                        break config.clone();
-                    }
+            let reveal_config = match timeout(reveal_config_wait_timeout, reveal_config_rx).await {
+                Ok(Ok(config)) => {
+                    info!("[{}] ✅ RevealConfig received, mapping results", session_id);
+                    config
                 }
-
-                // Check timeout
-                if start_time.elapsed() > reveal_config_wait_timeout {
+                Ok(Err(_)) => {
+                    error!(
+                        "[{}] ❌ RevealConfig channel closed before delivery",
+                        session_id
+                    );
+                    cleanup_session(&state, &session_id).await;
+                    return;
+                }
+                Err(_) => {
                     error!(
                         "[{}] ❌ Timed out waiting for RevealConfig after verification",
                         session_id
@@ -987,10 +992,6 @@ async fn run_verifier_task(
                     cleanup_session(&state, &session_id).await;
                     return;
                 }
-
-                // RevealConfig not available yet, wait a bit
-                info!("[{}] Waiting for RevealConfig...", session_id);
-                tokio::time::sleep(Duration::from_millis(100)).await;
             };
 
             // Validate that reveal_config ranges match authenticated transcript
