@@ -3426,6 +3426,7 @@ dependencies = [
  "async-tungstenite",
  "axum",
  "base64 0.22.1",
+ "bytes",
  "either",
  "eyre",
  "futures-util",
