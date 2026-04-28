@@ -10,7 +10,7 @@
   "plugins": [
     {
       "name": "tlsn-create-plugin",
-      "source": ".",
+      "source": "./",
       "description": "Create TLSNotary plugins that prove data from web services using MPC-TLS",
       "version": "1.0.0",
       "author": {
