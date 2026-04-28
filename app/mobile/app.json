@@ -33,7 +33,7 @@
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
-    "plugins": ["expo-router", "./plugins/exclude-x86_64"],
+    "plugins": ["expo-router", "./plugins/exclude-x86_64", "./plugins/adi-registration"],
     "experiments": {
       "typedRoutes": true
     },
