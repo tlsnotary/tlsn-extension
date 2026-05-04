@@ -68,7 +68,7 @@ const onClick = async () => {
     {
       verifierUrl: '${VERIFIER_URL}',
       proxyUrl: '${PROXY_URL_BASE}swissbank.tlsnotary.org',
-      maxRecvData: 460,
+      maxRecvData: 520,
       maxSentData: 180,
       handlers: [
         { type: 'SENT', part: 'START_LINE', action: 'REVEAL' },
