@@ -37,7 +37,7 @@ const onClick = async () => {
       verifierUrl: 'http://localhost:7047',
       proxyUrl: 'wss://notary.pse.dev/proxy?token=swissbank.tlsnotary.org',
       // proxyUrl: 'ws://localhost:55688',
-      maxRecvData: 460, // Maximum bytes to receive from server (response size limit)
+      maxRecvData: 520, // Maximum bytes to receive from server (response size limit)
       maxSentData: 180, // Maximum bytes to send to server (request size limit)
 
       // -----------------------------------------------------------------------
