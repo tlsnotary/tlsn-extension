@@ -413,7 +413,9 @@ function makeOpenWindow(
 
         if (message.type === 'RE_RENDER_PLUGIN_UI') {
           logger.debug('[makeOpenWindow] RE_RENDER_PLUGIN_UI', message.windowId);
-          executionContext.main(true);
+          if (!executionContext.revealApproval) {
+            executionContext.main(true);
+          }
         }
       } catch (error) {
         logger.error(`[makeOpenWindow] Error handling message ${message.type}:`, error);
