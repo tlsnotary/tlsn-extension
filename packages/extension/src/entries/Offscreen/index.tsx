@@ -4,6 +4,8 @@ import browser from 'webextension-polyfill';
 import { SessionManager } from '../../offscreen/SessionManager';
 import { logger } from '@tlsn/common';
 import { getStoredLogLevel } from '../../utils/logLevelStorage';
+import { sha256 } from '../../utils/cryptoHash';
+import { getPluginCount, incrementPluginCount } from '../../utils/pluginExecutionCounts';
 import type { OffscreenMessage } from '../../types/messages';
 
 const OffscreenApp: React.FC = () => {
@@ -53,6 +55,19 @@ const OffscreenApp: React.FC = () => {
           });
       }
 
+      if (request.type === 'GET_PLUGIN_STATS_OFFSCREEN') {
+        return sessionManager.awaitInit().then(async (sm) => {
+          const config = await sm.extractConfig(request.code as string);
+          const hash = await sha256((request.code as string) + (request.pageOrigin as string));
+          const count = await getPluginCount(hash);
+          return { config, hash, count };
+        });
+      }
+
+      if (request.type === 'INCREMENT_PLUGIN_COUNT_OFFSCREEN') {
+        return incrementPluginCount(request.hash as string).then(() => ({ success: true }));
+      }
+
       // Handle code execution requests
       if (request.type === 'EXEC_CODE_OFFSCREEN') {
         logger.debug('Offscreen executing code:', request.code);
@@ -74,8 +89,13 @@ const OffscreenApp: React.FC = () => {
               request.sessionData as Record<string, string> | undefined,
             ),
           )
-          .then((result) => {
+          .then(async (result) => {
             logger.debug('Plugin execution result:', result);
+            const pluginHash = (request.sessionData as Record<string, string> | undefined)
+              ?._pluginHash;
+            if (pluginHash) {
+              await incrementPluginCount(pluginHash);
+            }
             return {
               success: true,
               result,
