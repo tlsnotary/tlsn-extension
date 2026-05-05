@@ -60,7 +60,7 @@ const OffscreenApp: React.FC = () => {
           const config = await sm.extractConfig(request.code as string);
           const hash = await sha256((request.code as string) + (request.pageOrigin as string));
           const count = await getPluginCount(hash);
-          return { config, hash, count };
+          return { success: true, config, hash, count };
         });
       }
 

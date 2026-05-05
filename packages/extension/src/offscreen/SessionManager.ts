@@ -57,10 +57,20 @@ function makeDescriptor(
   const canonical = canonicalizeHandler(range.handler);
   const safeStart = Math.max(0, Math.min(range.start, bytes.length));
   const safeEnd = Math.max(safeStart, Math.min(range.end, bytes.length));
-  const raw = decoder.decode(bytes.subarray(safeStart, safeEnd));
-  const preview = raw.length > PREVIEW_MAX_CHARS ? raw.slice(0, PREVIEW_MAX_CHARS) + '…' : raw;
+  const slice = bytes.subarray(safeStart, safeEnd);
   const action: 'REVEAL' | 'HASH' = canonical.action.kind === 'HASH' ? 'HASH' : 'REVEAL';
   const algorithm = canonical.action.kind === 'HASH' ? canonical.action.algorithm : undefined;
+
+  let preview: string;
+  if (action === 'HASH') {
+    // Blinder is generated inside WASM during proving — we cannot compute the
+    // actual commitment hash ahead of time. Show the algorithm name instead.
+    preview = algorithm ?? 'SHA-256';
+  } else {
+    const raw = decoder.decode(slice);
+    preview = raw.length > PREVIEW_MAX_CHARS ? raw.slice(0, PREVIEW_MAX_CHARS) + '…' : raw;
+  }
+
   return {
     direction,
     label: buildLabel(canonical),
@@ -243,7 +253,12 @@ export class SessionManager {
 
             const explicitWindowId = parseInt(execSessionData?._windowId ?? '0', 10);
             const targetWindowId = explicitWindowId > 0 ? explicitWindowId : activeWindowId;
-            logger.debug('[SessionManager] reveal approval: targetWindowId=%d activeWindowId=%d descriptors=%d', targetWindowId, activeWindowId, descriptors.length);
+            logger.debug(
+              '[SessionManager] reveal approval: targetWindowId=%d activeWindowId=%d descriptors=%d',
+              targetWindowId,
+              activeWindowId,
+              descriptors.length,
+            );
 
             await new Promise<void>((resolve, reject) => {
               if (!hostRef) {

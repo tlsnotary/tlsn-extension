@@ -136,6 +136,7 @@ const ConfirmPopup: React.FC = () => {
   const { pluginInfo, requestId, senderOrigin, count, error } = useState(parseUrlParams)[0];
   const [sourceCode, setSourceCode] = useState<string | null>(null);
   const [showDetails, setShowDetails] = useState(false);
+  const [focusedIndex, setFocusedIndex] = useState(0);
 
   const sendResponse = useCallback(
     async (mode: ApprovalMode) => {
@@ -162,14 +163,36 @@ const ConfirmPopup: React.FC = () => {
   // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        handleDeny();
+      switch (e.key) {
+        case 'ArrowUp':
+          e.preventDefault();
+          setFocusedIndex((i) => (i + 2) % 3);
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          setFocusedIndex((i) => (i + 1) % 3);
+          break;
+        case '1':
+          handleManual();
+          break;
+        case '2':
+          handleAllSession();
+          break;
+        case '3':
+          handleDeny();
+          break;
+        case 'Enter':
+          [handleManual, handleAllSession, handleDeny][focusedIndex]();
+          break;
+        case 'Escape':
+          handleDeny();
+          break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleDeny]);
+  }, [handleDeny, handleManual, handleAllSession, focusedIndex]);
 
   const handleViewSource = useCallback(
     async (e: React.MouseEvent) => {
@@ -326,13 +349,6 @@ const ConfirmPopup: React.FC = () => {
 
         {metaLine && <p className="confirm-popup__meta">{metaLine}</p>}
 
-        {isUnknown && (
-          <div className="confirm-popup__warning">
-            <span className="confirm-popup__warning-icon">!</span>
-            <p>This plugin could not be verified. Only allow it if you trust where it came from.</p>
-          </div>
-        )}
-
         <div className="confirm-popup__links">
           <a
             href="#"
@@ -347,40 +363,67 @@ const ConfirmPopup: React.FC = () => {
         </div>
 
         <p className="confirm-popup__execution-count">
-          You have executed this plugin {count} times.
+          {count === 1 ? 'Executed 1 time' : `Executed ${count} times`}
         </p>
       </div>
 
       <div className="confirm-popup__actions">
-        <button
-          id="allow-btn"
-          className="confirm-popup__btn confirm-popup__btn--allow"
-          onClick={handleManual}
-          tabIndex={0}
-          autoFocus
-        >
-          Yes, manually approve actions
-          {count === 0 && <span style={{ color: 'red' }}> (Recommended)</span>}
-        </button>
-        <button
-          className="confirm-popup__btn confirm-popup__btn--allow"
-          onClick={handleAllSession}
-          tabIndex={1}
-        >
-          Yes, allow all actions during this session
-        </button>
-        <button
-          className="confirm-popup__btn confirm-popup__btn--deny"
-          onClick={handleDeny}
-          tabIndex={2}
-        >
-          No
-        </button>
+        {(
+          [
+            {
+              key: '1',
+              label: 'Yes, manually approve actions',
+              badge: count === 0 ? '(Recommended)' : undefined,
+              handler: handleManual,
+              isDeny: false,
+            },
+            {
+              key: '2',
+              label: 'Yes, allow all actions during this session',
+              badge: undefined,
+              handler: handleAllSession,
+              isDeny: false,
+            },
+            {
+              key: '3',
+              label: 'No',
+              badge: undefined,
+              handler: handleDeny,
+              isDeny: true,
+            },
+          ] as Array<{
+            key: string;
+            label: string;
+            badge: string | undefined;
+            handler: () => void;
+            isDeny: boolean;
+          }>
+        ).map(({ key, label, badge, handler, isDeny }, i) => (
+          <button
+            key={key}
+            className={[
+              'confirm-popup__btn',
+              isDeny ? 'confirm-popup__btn--deny' : 'confirm-popup__btn--allow',
+              focusedIndex === i ? 'confirm-popup__btn--focused' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            onClick={handler}
+            onMouseEnter={() => setFocusedIndex(i)}
+          >
+            <span className="confirm-popup__btn-key">{key}</span>
+            <span className="confirm-popup__btn-label">{label}</span>
+            {badge && <span className="confirm-popup__btn-badge">{badge}</span>}
+          </button>
+        ))}
       </div>
 
       <div className="confirm-popup__footer">
         <p className="confirm-popup__hint">
-          Press <kbd>Enter</kbd> to confirm or <kbd>Esc</kbd> to deny
+          <kbd>1</kbd>
+          <kbd>2</kbd>
+          <kbd>3</kbd> select · <kbd>↑↓</kbd> navigate · <kbd>Enter</kbd> confirm · <kbd>Esc</kbd>{' '}
+          cancel
         </p>
         <a
           href="https://tlsnotary.org/docs/extension/plugins"

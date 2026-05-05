@@ -774,7 +774,8 @@ export function createRevealApprovalOverlay(descriptors: RevealRangeDescriptor[]
             style: {
               fontFamily: 'monospace',
               fontSize: '11px',
-              color: '#6b7280',
+              color: isReveal ? '#6b7280' : '#9ca3af',
+              fontStyle: isReveal ? 'normal' : 'italic',
               wordBreak: 'break-all',
             },
           },
