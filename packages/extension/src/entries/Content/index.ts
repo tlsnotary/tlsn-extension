@@ -280,6 +280,7 @@ window.addEventListener('message', (event) => {
         code: event.data.payload.code,
         requestId: event.data.payload.requestId,
         sessionData: event.data.payload.sessionData,
+        pageOrigin: window.location.origin,
       })
       .then((msg) => {
         const response = msg as ExecCodeResponse;

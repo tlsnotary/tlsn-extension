@@ -6,7 +6,7 @@ import type { InterceptedRequest, InterceptedRequestHeader } from '../../types/w
 import { validateUrl } from '../../utils/url-validator';
 import { logger } from '@tlsn/common';
 import { getStoredLogLevel } from '../../utils/logLevelStorage';
-import type { BackgroundMessage } from '../../types/messages';
+import type { ApprovalMode, BackgroundMessage } from '../../types/messages';
 
 const chrome = (global as typeof globalThis).chrome;
 
@@ -143,7 +143,7 @@ browser.runtime.onMessage.addListener((msg: unknown, sender: browser.Runtime.Mes
   // Handle plugin confirmation responses from popup
   if (request.type === 'PLUGIN_CONFIRM_RESPONSE') {
     logger.debug('PLUGIN_CONFIRM_RESPONSE received:', request);
-    confirmationManager.handleConfirmationResponse(request.requestId, request.allowed);
+    confirmationManager.handleConfirmationResponse(request.requestId, request.mode);
     return; // No response needed
   }
 
@@ -192,12 +192,13 @@ browser.runtime.onMessage.addListener((msg: unknown, sender: browser.Runtime.Mes
 
         // Step 2: Request user confirmation
         const confirmRequestId = `confirm_${Date.now()}_${Math.random()}`;
-        let userAllowed: boolean;
+        let mode: ApprovalMode;
 
         try {
-          userAllowed = await confirmationManager.requestConfirmation(
+          mode = await confirmationManager.requestConfirmation(
             pluginConfig,
             confirmRequestId,
+            0,
             sender.tab?.url,
             request.code,
           );
@@ -210,7 +211,7 @@ browser.runtime.onMessage.addListener((msg: unknown, sender: browser.Runtime.Mes
         }
 
         // Step 3: If user denied, return rejection error
-        if (!userAllowed) {
+        if (mode === 'rejected') {
           logger.info('User rejected plugin execution');
           return {
             success: false,

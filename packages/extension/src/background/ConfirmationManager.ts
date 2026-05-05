@@ -1,10 +1,11 @@
 import browser from 'webextension-polyfill';
 import { logger } from '@tlsn/common';
 import type { PluginConfig } from '@tlsn/plugin-sdk';
+import type { ApprovalMode } from '../types/messages';
 
 interface PendingConfirmation {
   requestId: string;
-  resolve: (allowed: boolean) => void;
+  resolve: (mode: ApprovalMode) => void;
   reject: (error: Error) => void;
   windowId?: number;
   timeoutId?: ReturnType<typeof setTimeout>;
@@ -38,14 +39,16 @@ export class ConfirmationManager {
    *
    * @param config - Plugin configuration (can be null for unknown plugins)
    * @param requestId - Unique ID to correlate the confirmation request
-   * @returns Promise that resolves to true (allowed) or false (denied)
+   * @param executionCount - Number of prior executions for this plugin
+   * @returns Promise that resolves with the user's approval mode
    */
   async requestConfirmation(
     config: PluginConfig | null,
     requestId: string,
+    executionCount: number,
     senderOrigin?: string,
     pluginCode?: string,
-  ): Promise<boolean> {
+  ): Promise<ApprovalMode> {
     // Check if there's already a pending confirmation.
     // Claim the slot synchronously (before any await) to prevent concurrent
     // requestConfirmation calls from both passing the guard.
@@ -72,7 +75,7 @@ export class ConfirmationManager {
       }
 
       // Build URL with plugin info as query params
-      const popupUrl = this.buildPopupUrl(config, requestId, senderOrigin);
+      const popupUrl = this.buildPopupUrl(config, requestId, executionCount, senderOrigin);
 
       // Calculate position to center on the active browser window
       let left: number | undefined;
@@ -111,14 +114,14 @@ export class ConfirmationManager {
 
       this.currentPopupWindowId = window.id;
 
-      return new Promise<boolean>((resolve, reject) => {
+      return new Promise<ApprovalMode>((resolve, reject) => {
         // Set up timeout
         const timeoutId = setTimeout(() => {
           const pending = this.pendingConfirmations.get(requestId);
           if (pending) {
             logger.debug('[ConfirmationManager] Confirmation timed out');
             this.cleanup(requestId);
-            resolve(false); // Treat timeout as denial
+            resolve('rejected'); // Treat timeout as denial
           }
         }, this.CONFIRMATION_TIMEOUT_MS);
 
@@ -147,21 +150,19 @@ export class ConfirmationManager {
    * Called when the popup sends a PLUGIN_CONFIRM_RESPONSE message.
    *
    * @param requestId - The request ID to match
-   * @param allowed - Whether the user allowed execution
+   * @param mode - The approval mode chosen by the user
    */
-  handleConfirmationResponse(requestId: string, allowed: boolean): void {
+  handleConfirmationResponse(requestId: string, mode: ApprovalMode): void {
     const pending = this.pendingConfirmations.get(requestId);
     if (!pending) {
       logger.warn(`[ConfirmationManager] No pending confirmation found for request: ${requestId}`);
       return;
     }
 
-    logger.debug(
-      `[ConfirmationManager] Received response for ${requestId}: ${allowed ? 'allowed' : 'denied'}`,
-    );
+    logger.debug(`[ConfirmationManager] Received response for ${requestId}: ${mode}`);
 
     // Resolve the promise
-    pending.resolve(allowed);
+    pending.resolve(mode);
 
     // Close popup window if still open
     if (pending.windowId) {
@@ -191,7 +192,7 @@ export class ConfirmationManager {
         logger.debug(
           `[ConfirmationManager] Treating window close as denial for request: ${requestId}`,
         );
-        pending.resolve(false); // Treat close as denial
+        pending.resolve('rejected'); // Treat close as denial
         this.cleanup(requestId);
         break;
       }
@@ -206,12 +207,14 @@ export class ConfirmationManager {
   private buildPopupUrl(
     config: PluginConfig | null,
     requestId: string,
+    executionCount: number,
     senderOrigin?: string,
   ): string {
     const baseUrl = browser.runtime.getURL('confirmPopup.html');
     const params = new URLSearchParams();
 
     params.set('requestId', requestId);
+    params.set('count', String(executionCount));
 
     if (senderOrigin) {
       params.set('senderOrigin', encodeURIComponent(senderOrigin));
