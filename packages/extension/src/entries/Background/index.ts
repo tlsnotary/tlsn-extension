@@ -230,9 +230,6 @@ browser.runtime.onMessage.addListener((msg: unknown, sender: browser.Runtime.Mes
         // Ensure offscreen document exists
         await createOffscreenDocument();
 
-        // Forward to offscreen document. The _approvalMode and _pluginHash
-        // fields let the offscreen side enforce strict-mode policy and
-        // increment the plugin's run count after a successful execution.
         const response = await chrome.runtime.sendMessage({
           type: 'EXEC_CODE_OFFSCREEN',
           code: request.code,
