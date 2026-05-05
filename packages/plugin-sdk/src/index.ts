@@ -19,6 +19,7 @@ import {
   Handler,
   PluginConfig,
   ProveProgressData,
+  RevealRangeDescriptor,
   canonicalizeHandlers,
 } from './types';
 import deepEqual from 'fast-deep-equal';
@@ -60,6 +61,7 @@ function updateExecutionContext(
     context?: HookContext;
     currentContext?: string;
     stateStore?: Record<string, unknown>;
+    revealApproval?: { resolve: () => void; reject: (err: Error) => void } | null;
   },
 ): void {
   const context = executionContextRegistry.get(uuid);
@@ -364,6 +366,22 @@ function makeOpenWindow(
 
         if (message.type === 'PLUGIN_UI_CLICK') {
           logger.debug('PLUGIN_UI_CLICK', message);
+          if (message.onclick === '_revealApprove') {
+            const approval = executionContext.revealApproval;
+            if (approval) {
+              updateExecutionContext(uuid, { revealApproval: null });
+              approval.resolve();
+            }
+            return;
+          }
+          if (message.onclick === '_revealReject') {
+            const approval = executionContext.revealApproval;
+            if (approval) {
+              updateExecutionContext(uuid, { revealApproval: null });
+              approval.reject(new Error('User rejected reveal'));
+            }
+            return;
+          }
           const cb = executionContext.callbacks[message.onclick];
 
           logger.debug('Callback:', cb);
@@ -701,6 +719,198 @@ function createCompletionOverlay(
   };
 }
 
+export function createRevealApprovalOverlay(descriptors: RevealRangeDescriptor[]): DomJson {
+  const sentDescriptors = descriptors.filter((d) => d.direction === 'SENT');
+  const recvDescriptors = descriptors.filter((d) => d.direction === 'RECV');
+
+  const renderDescriptorRow = (descriptor: RevealRangeDescriptor): DomJson => {
+    const isReveal = descriptor.action === 'REVEAL';
+    return {
+      type: 'div',
+      options: {
+        style: {
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '8px',
+          marginBottom: '8px',
+        },
+      },
+      children: [
+        {
+          type: 'div',
+          options: {
+            style: {
+              fontSize: '12px',
+              color: '#374151',
+              minWidth: '120px',
+            },
+          },
+          children: [descriptor.label],
+        },
+        {
+          type: 'div',
+          options: {
+            style: {
+              fontSize: '11px',
+              fontWeight: '600',
+              padding: '2px 6px',
+              borderRadius: '4px',
+              backgroundColor: isReveal ? '#d1fae5' : '#fef3c7',
+              color: isReveal ? '#065f46' : '#92400e',
+            },
+          },
+          children: [descriptor.action],
+        },
+        {
+          type: 'div',
+          options: {
+            style: {
+              fontFamily: 'monospace',
+              fontSize: '11px',
+              color: '#6b7280',
+              wordBreak: 'break-all',
+            },
+          },
+          children: [descriptor.preview],
+        },
+      ],
+    };
+  };
+
+  const renderSection = (
+    title: 'Sent' | 'Received',
+    sectionDescriptors: RevealRangeDescriptor[],
+  ): DomJson => ({
+    type: 'div',
+    options: {
+      style: {
+        marginBottom: '16px',
+      },
+    },
+    children: [
+      {
+        type: 'div',
+        options: {
+          style: {
+            fontSize: '12px',
+            fontWeight: '600',
+            color: '#6b7280',
+            textTransform: 'uppercase',
+            marginBottom: '8px',
+          },
+        },
+        children: [title],
+      },
+      ...sectionDescriptors.map(renderDescriptorRow),
+    ],
+  });
+
+  const cardChildren: DomJson[] = [
+    {
+      type: 'div',
+      options: {
+        style: {
+          fontSize: '20px',
+          fontWeight: '700',
+          color: '#111827',
+          marginBottom: '16px',
+        },
+      },
+      children: ['Approve Reveal to Verifier'],
+    },
+  ];
+
+  if (sentDescriptors.length > 0) {
+    cardChildren.push(renderSection('Sent', sentDescriptors));
+  }
+
+  if (recvDescriptors.length > 0) {
+    cardChildren.push(renderSection('Received', recvDescriptors));
+  }
+
+  cardChildren.push({
+    type: 'div',
+    options: {
+      style: {
+        display: 'flex',
+        justifyContent: 'flex-end',
+        gap: '12px',
+        marginTop: '24px',
+      },
+    },
+    children: [
+      {
+        type: 'button',
+        options: {
+          onclick: '_revealReject',
+          style: {
+            backgroundColor: '#fee2e2',
+            color: '#991b1b',
+            border: 'none',
+            padding: '8px 20px',
+            borderRadius: '8px',
+            fontWeight: '600',
+            cursor: 'pointer',
+          },
+        },
+        children: ['Reject'],
+      },
+      {
+        type: 'button',
+        options: {
+          onclick: '_revealApprove',
+          style: {
+            backgroundColor: '#d1fae5',
+            color: '#065f46',
+            border: 'none',
+            padding: '8px 20px',
+            borderRadius: '8px',
+            fontWeight: '600',
+            cursor: 'pointer',
+          },
+        },
+        children: ['Approve'],
+      },
+    ],
+  });
+
+  return {
+    type: 'div',
+    options: {
+      style: {
+        position: 'fixed',
+        top: '0',
+        left: '0',
+        width: '100%',
+        height: '100%',
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: '9999999',
+        fontFamily:
+          '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+      },
+    },
+    children: [
+      {
+        type: 'div',
+        options: {
+          style: {
+            backgroundColor: '#ffffff',
+            borderRadius: '16px',
+            padding: '32px',
+            maxWidth: '520px',
+            width: '90%',
+            boxShadow: '0 24px 48px rgba(0, 0, 0, 0.25)',
+          },
+        },
+        children: cardChildren,
+      },
+    ],
+  };
+}
+
 export function createTimeoutWarningOverlay(): DomJson {
   return {
     type: 'div',
@@ -830,6 +1040,7 @@ function wrapWithTimeoutWarning(pluginUi: DomJson): DomJson {
 
 export class Host {
   private capabilities: Map<string, AnyFunction> = new Map();
+  private _activeUuid: string | null = null;
   private onProve: (
     requestOptions: {
       url: string;
@@ -1036,6 +1247,7 @@ ${processedCode};
     },
   ): Promise<unknown> {
     const uuid = uuidv4();
+    this._activeUuid = uuid;
 
     const context: HookContext = {};
 
@@ -1500,8 +1712,13 @@ ${processedCode};
     // Use .then(onFulfilled, onRejected) so rejection doesn't produce an
     // unhandled rejection on the chained promise. The original donePromise
     // still rejects to the caller as expected.
-    const clearTimeoutInterval = () => clearInterval(timeoutIntervalId);
-    donePromise.then(clearTimeoutInterval, clearTimeoutInterval);
+    const cleanup = () => {
+      clearInterval(timeoutIntervalId);
+      if (this._activeUuid === uuid) {
+        this._activeUuid = null;
+      }
+    };
+    donePromise.then(cleanup, cleanup);
 
     // Execute initial main() - errors are handled within main() via terminateWithError
     main();
@@ -1520,6 +1737,15 @@ ${processedCode};
   ): DomJson => {
     return createDomJson(type, param1, param2);
   };
+
+  registerRevealApproval(resolve: () => void, reject: (err: Error) => void): void {
+    if (!this._activeUuid) return;
+    updateExecutionContext(this._activeUuid, { revealApproval: { resolve, reject } });
+  }
+
+  renderUi(windowId: number, json: DomJson): void {
+    this.onRenderPluginUi(windowId, json);
+  }
 }
 
 async function waitForWindow(
@@ -1619,6 +1845,7 @@ export type {
   WindowMessage,
   ExecutionContext,
   ProveProgressData,
+  RevealRangeDescriptor,
 } from './types';
 
 export { canonicalizeHandler, canonicalizeHandlers } from './types';
