@@ -243,6 +243,7 @@ export class SessionManager {
 
             const explicitWindowId = parseInt(execSessionData?._windowId ?? '0', 10);
             const targetWindowId = explicitWindowId > 0 ? explicitWindowId : activeWindowId;
+            logger.debug('[SessionManager] reveal approval: targetWindowId=%d activeWindowId=%d descriptors=%d', targetWindowId, activeWindowId, descriptors.length);
             if (!hostRef) {
               throw new Error('Host not initialized for reveal approval');
             }

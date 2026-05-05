@@ -129,7 +129,7 @@ browser.runtime.onMessage.addListener((msg: unknown, sender: browser.Runtime.Mes
   }
 
   if (request.type === 'RENDER_PLUGIN_UI') {
-    logger.debug('RENDER_PLUGIN_UI request received:', request.json, request.windowId);
+    logger.debug('RENDER_PLUGIN_UI request received, windowId=%d', request.windowId);
     windowManager.showPluginUI(request.windowId, request.json);
     return; // No response needed
   }
