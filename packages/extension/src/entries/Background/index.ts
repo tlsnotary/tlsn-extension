@@ -189,7 +189,11 @@ browser.runtime.onMessage.addListener((msg: unknown, sender: browser.Runtime.Mes
           pluginConfig = stats.config;
           pluginHash = stats.hash;
           executionCount = stats.count;
-          logger.debug('Plugin stats:', { config: pluginConfig, hash: pluginHash, count: executionCount });
+          logger.debug('Plugin stats:', {
+            config: pluginConfig,
+            hash: pluginHash,
+            count: executionCount,
+          });
         } catch (extractError) {
           logger.warn('Failed to get plugin stats:', extractError);
           // Continue with defaults - user will see "Unknown Plugin" warning
