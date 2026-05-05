@@ -59,6 +59,7 @@ export type ExecutionContext = {
     [callbackName: string]: () => Promise<void>;
   };
   revealApproval?: { resolve: () => void; reject: (err: Error) => void } | null;
+  revealApprovalDescriptors?: RevealRangeDescriptor[] | null;
 };
 
 export type DomOptions = {

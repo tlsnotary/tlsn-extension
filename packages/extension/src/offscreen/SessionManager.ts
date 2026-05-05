@@ -1,4 +1,4 @@
-import Host, { canonicalizeHandler, createRevealApprovalOverlay } from '@tlsn/plugin-sdk';
+import Host, { canonicalizeHandler } from '@tlsn/plugin-sdk';
 import { ProveManager } from './ProveManager';
 import type { RevealRangeWithHandler } from './ProveManager';
 import type { Method } from '../../../tlsn-wasm-pkg/tlsn_wasm';
@@ -244,17 +244,13 @@ export class SessionManager {
             const explicitWindowId = parseInt(execSessionData?._windowId ?? '0', 10);
             const targetWindowId = explicitWindowId > 0 ? explicitWindowId : activeWindowId;
             logger.debug('[SessionManager] reveal approval: targetWindowId=%d activeWindowId=%d descriptors=%d', targetWindowId, activeWindowId, descriptors.length);
-            if (!hostRef) {
-              throw new Error('Host not initialized for reveal approval');
-            }
-            hostRef.renderUi(targetWindowId, createRevealApprovalOverlay(descriptors));
 
             await new Promise<void>((resolve, reject) => {
               if (!hostRef) {
                 reject(new Error('Host not initialized for reveal approval'));
                 return;
               }
-              hostRef.registerRevealApproval(resolve, (err: Error) => reject(err));
+              hostRef.registerRevealApproval(resolve, (err: Error) => reject(err), descriptors);
             });
           }
 

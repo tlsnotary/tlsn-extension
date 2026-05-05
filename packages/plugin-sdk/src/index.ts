@@ -62,6 +62,7 @@ function updateExecutionContext(
     currentContext?: string;
     stateStore?: Record<string, unknown>;
     revealApproval?: { resolve: () => void; reject: (err: Error) => void } | null;
+    revealApprovalDescriptors?: RevealRangeDescriptor[] | null;
   },
 ): void {
   const context = executionContextRegistry.get(uuid);
@@ -369,7 +370,10 @@ function makeOpenWindow(
           if (message.onclick === '_revealApprove') {
             const approval = executionContext.revealApproval;
             if (approval) {
-              updateExecutionContext(uuid, { revealApproval: null });
+              updateExecutionContext(uuid, {
+                revealApproval: null,
+                revealApprovalDescriptors: null,
+              });
               approval.resolve();
             }
             return;
@@ -377,7 +381,10 @@ function makeOpenWindow(
           if (message.onclick === '_revealReject') {
             const approval = executionContext.revealApproval;
             if (approval) {
-              updateExecutionContext(uuid, { revealApproval: null });
+              updateExecutionContext(uuid, {
+                revealApproval: null,
+                revealApprovalDescriptors: null,
+              });
               approval.reject(new Error('User rejected reveal'));
             }
             return;
@@ -413,9 +420,7 @@ function makeOpenWindow(
 
         if (message.type === 'RE_RENDER_PLUGIN_UI') {
           logger.debug('[makeOpenWindow] RE_RENDER_PLUGIN_UI', message.windowId);
-          if (!executionContext.revealApproval) {
-            executionContext.main(true);
-          }
+          executionContext.main(true);
         }
       } catch (error) {
         logger.error(`[makeOpenWindow] Error handling message ${message.type}:`, error);
@@ -889,7 +894,7 @@ export function createRevealApprovalOverlay(descriptors: RevealRangeDescriptor[]
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: '9999999',
+        zIndex: '9999998',
         fontFamily:
           '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
       },
@@ -1032,11 +1037,12 @@ export function createTimeoutWarningOverlay(): DomJson {
   };
 }
 
-function wrapWithTimeoutWarning(pluginUi: DomJson): DomJson {
+export function decorateJson(base: DomJson, overlays: DomJson[]): DomJson {
+  if (overlays.length === 0) return base;
   return {
     type: 'div',
     options: { style: {} },
-    children: [pluginUi, createTimeoutWarningOverlay()],
+    children: [base, ...overlays],
   };
 }
 
@@ -1603,9 +1609,18 @@ ${processedCode};
             executionContextRegistry.get(uuid)?.windowId,
           );
 
-          // If timeout warning is active, layer it on top of the plugin UI.
-          // The plugin UI continues to update underneath (no stale state).
-          json = timeoutWarningShown ? wrapWithTimeoutWarning(result) : result;
+          // Layer overlays on top of the plugin UI using the decorator pattern.
+          // Stack order matters: timeout (z=9999999) is rendered above reveal
+          // approval (z=9999998) so a timeout warning never gets buried.
+          const overlays: DomJson[] = [];
+          const ctx = executionContextRegistry.get(uuid);
+          if (ctx?.revealApprovalDescriptors) {
+            overlays.push(createRevealApprovalOverlay(ctx.revealApprovalDescriptors));
+          }
+          if (timeoutWarningShown) {
+            overlays.push(createTimeoutWarningOverlay());
+          }
+          json = decorateJson(result, overlays);
 
           waitForWindow(async () => executionContextRegistry.get(uuid)?.windowId).then(
             (windowId: number | null) => {
@@ -1740,9 +1755,20 @@ ${processedCode};
     return createDomJson(type, param1, param2);
   };
 
-  registerRevealApproval(resolve: () => void, reject: (err: Error) => void): void {
+  registerRevealApproval(
+    resolve: () => void,
+    reject: (err: Error) => void,
+    descriptors: RevealRangeDescriptor[],
+  ): void {
     if (!this._activeUuid) return;
-    updateExecutionContext(this._activeUuid, { revealApproval: { resolve, reject } });
+    const uuid = this._activeUuid;
+    updateExecutionContext(uuid, {
+      revealApproval: { resolve, reject },
+      revealApprovalDescriptors: descriptors,
+    });
+    // Trigger a re-render so the decorator applies immediately
+    const ctx = executionContextRegistry.get(uuid);
+    ctx?.main(true);
   }
 
   renderUi(windowId: number, json: DomJson): void {
