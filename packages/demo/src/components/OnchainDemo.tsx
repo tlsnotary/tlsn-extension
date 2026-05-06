@@ -162,11 +162,14 @@ export function OnchainDemo({ allChecksPass, addConsoleEntry }: Props) {
     allChecksPass && walletAddress && walletSignature && !isRunning && serviceAvailable;
 
   return (
-    <div className="content-card">
+    <div id="onchain-demo" className="content-card">
       <h2 className="section-title">Onchain Demo: Prove &amp; Attest on Ethereum</h2>
       <p className="section-subtitle">
-        Prove your favorite Spotify artist and get an EAS attestation on Ethereum Testnet (Sepolia)
-        — powered by the verifier's webhook system.
+        From web data to onchain truth. Portable, verifiable claims for smart contracts
+      </p>
+      <p className="section-subtitle">
+        Prove your favorite Spotify artist and get an EAS attestation on Ethereum Testnet (Sepolia),
+        powered by the verifier's webhook system.
       </p>
 
       {serviceAvailable === false && (

@@ -273,6 +273,9 @@ export function PluginScreen({
       .finally(() => {
         setIsRunning(false);
       });
+    // isRunning is intentionally omitted: it guards against double-starts,
+    // and re-running when it flips back to false would start the plugin twice.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [proverReady, pluginCode, eventEmitter, host, onComplete, onError]);
 
   return (

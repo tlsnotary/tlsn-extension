@@ -1,9 +1,9 @@
 export function WhyPlugins() {
   return (
     <div className="why-plugins">
-      <h2 className="why-plugins-title">Why Plugins?</h2>
+      <h2 className="why-plugins-title">Why a plugin system?</h2>
       <p className="why-plugins-subtitle">
-        TLSNotary plugins provide a secure, flexible way to prove and verify web data
+        TLSNotary is a protocol, not a product. Plugins are how applications securely use it.
       </p>
 
       <div className="benefits-grid">

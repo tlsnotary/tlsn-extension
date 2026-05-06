@@ -1,4 +1,13 @@
 import { CheckStatus } from '../types';
+import { config } from '../config';
+
+const CHROME_STORE_URL =
+  'https://chromewebstore.google.com/detail/tlsnotary/gnoglgpcamodhflknhmafmjdahcejcgg';
+
+interface CheckLink {
+  href: string;
+  label: string;
+}
 
 interface CheckItemProps {
   id: string;
@@ -8,6 +17,7 @@ interface CheckItemProps {
   message: string;
   showInstructions?: boolean;
   onRecheck?: () => void;
+  link?: CheckLink;
 }
 
 export function CheckItem({
@@ -17,10 +27,20 @@ export function CheckItem({
   message,
   showInstructions,
   onRecheck,
+  link,
 }: CheckItemProps) {
   return (
     <div className={`check-item ${status}`}>
-      {icon} {label}: <span className={`status ${status}`}>{message}</span>
+      <div className="check-item-row">
+        {icon} {label}: <span className={`status ${status}`}>{message}</span>
+      </div>
+      {link && (
+        <div className="check-item-link">
+          <a href={link.href} target="_blank" rel="noopener noreferrer">
+            {link.label} →
+          </a>
+        </div>
+      )}
       {showInstructions && (
         <div style={{ marginTop: '10px', fontSize: '14px' }}>
           <p>Start the verifier server:</p>
@@ -61,7 +81,6 @@ export function SystemChecks({ checks, onRecheck, showBrowserWarning }: SystemCh
       )}
 
       <div>
-        <strong>System Checks:</strong>
         <CheckItem
           id="check-browser"
           icon="🌐"
@@ -75,6 +94,7 @@ export function SystemChecks({ checks, onRecheck, showBrowserWarning }: SystemCh
           label="Extension"
           status={checks.extension.status}
           message={checks.extension.message}
+          link={{ href: CHROME_STORE_URL, label: 'View in Chrome Web Store' }}
         />
         <CheckItem
           id="check-verifier"
@@ -84,6 +104,7 @@ export function SystemChecks({ checks, onRecheck, showBrowserWarning }: SystemCh
           message={checks.verifier.message}
           showInstructions={checks.verifier.showInstructions}
           onRecheck={onRecheck}
+          link={{ href: `${config.verifierUrl}/info`, label: `${config.verifierUrl}/info` }}
         />
       </div>
     </>
