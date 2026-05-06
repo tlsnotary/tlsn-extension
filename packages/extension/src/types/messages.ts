@@ -69,8 +69,7 @@ export type OffscreenMessage =
       requestId?: string;
       sessionData?: Record<string, unknown>;
     }
-  | { type: 'GET_PLUGIN_STATS_OFFSCREEN'; code: string; pageOrigin: string }
-  | { type: 'INCREMENT_PLUGIN_COUNT_OFFSCREEN'; hash: string };
+  | { type: 'GET_PLUGIN_STATS_OFFSCREEN'; code: string; pageOrigin: string };
 
 // ---------------------------------------------------------------------------
 // Responses returned from sendMessage calls

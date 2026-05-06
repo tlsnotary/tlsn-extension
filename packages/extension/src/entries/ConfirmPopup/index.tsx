@@ -173,18 +173,23 @@ const ConfirmPopup: React.FC = () => {
           setFocusedIndex((i) => (i + 1) % 3);
           break;
         case '1':
+          e.preventDefault();
           handleManual();
           break;
         case '2':
+          e.preventDefault();
           handleAllSession();
           break;
         case '3':
+          e.preventDefault();
           handleDeny();
           break;
         case 'Enter':
+          e.preventDefault();
           [handleManual, handleAllSession, handleDeny][focusedIndex]();
           break;
         case 'Escape':
+          e.preventDefault();
           handleDeny();
           break;
       }

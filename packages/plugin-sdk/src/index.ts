@@ -63,6 +63,7 @@ function updateExecutionContext(
     stateStore?: Record<string, unknown>;
     revealApproval?: { resolve: () => void; reject: (err: Error) => void } | null;
     revealApprovalDescriptors?: RevealRangeDescriptor[] | null;
+    revealWasRejected?: boolean;
   },
 ): void {
   const context = executionContextRegistry.get(uuid);
@@ -368,7 +369,8 @@ function makeOpenWindow(
         if (message.type === 'PLUGIN_UI_CLICK') {
           logger.debug('PLUGIN_UI_CLICK', message);
           if (message.onclick === '_revealApprove') {
-            const approval = executionContext.revealApproval;
+            const liveCtx = executionContextRegistry.get(uuid);
+            const approval = liveCtx?.revealApproval;
             if (approval) {
               updateExecutionContext(uuid, {
                 revealApproval: null,
@@ -379,11 +381,13 @@ function makeOpenWindow(
             return;
           }
           if (message.onclick === '_revealReject') {
-            const approval = executionContext.revealApproval;
+            const liveCtx = executionContextRegistry.get(uuid);
+            const approval = liveCtx?.revealApproval;
             if (approval) {
               updateExecutionContext(uuid, {
                 revealApproval: null,
                 revealApprovalDescriptors: null,
+                revealWasRejected: true,
               });
               approval.reject(new Error('User rejected reveal'));
             }
@@ -1318,6 +1322,18 @@ ${processedCode};
 
       // Clean up registry entry
       const ctx = executionContextRegistry.get(uuid);
+
+      // If a reveal approval is pending, reject it so the awaiting onProve
+      // (and any owned resources like transcript bytes) can unwind.
+      const pendingApproval = ctx?.revealApproval;
+      if (pendingApproval) {
+        try {
+          pendingApproval.reject(error);
+        } catch (rejectError) {
+          logger.error('[executePlugin] Error rejecting pending reveal approval:', rejectError);
+        }
+      }
+
       if (ctx?.windowId) {
         try {
           this.onCloseWindow(ctx.windowId);
@@ -1443,9 +1459,18 @@ ${processedCode};
           onCloseWindow(context.windowId);
         }
 
+        // If a reveal was rejected during this execution, treat done() as a
+        // failure so callers can skip success-only side effects (e.g. the
+        // execution counter).
+        const wasRejected = context?.revealWasRejected === true;
+
         const finalize = () => {
           executionContextRegistry.delete(uuid);
-          doneResolve(args);
+          if (wasRejected) {
+            doneReject(new Error('User rejected reveal'));
+          } else {
+            doneResolve(args);
+          }
         };
 
         // If called from within an async callback (e.g. onClick → prove() → done()),
@@ -1472,12 +1497,20 @@ ${processedCode};
 
         const ctx = executionContextRegistry.get(uuid);
         const windowId = ctx?.windowId;
+        const wasRejected = ctx?.revealWasRejected === true;
+        const settle = () => {
+          if (wasRejected) {
+            doneReject(new Error('User rejected reveal'));
+          } else {
+            doneResolve(args);
+          }
+        };
 
         // If there's no window, behave like done() — no overlay or delay needed
         if (!windowId) {
           const finalize = () => {
             executionContextRegistry.delete(uuid);
-            doneResolve(args);
+            settle();
           };
 
           if (lifecycle.pendingCallbacks > 0) {
@@ -1497,7 +1530,7 @@ ${processedCode};
         const closeAndFinalize = () => {
           onCloseWindow(windowId);
           executionContextRegistry.delete(uuid);
-          doneResolve(args);
+          settle();
         };
 
         // Wait for pending callbacks to complete (e.g. the onClick that

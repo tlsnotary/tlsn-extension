@@ -64,10 +64,6 @@ const OffscreenApp: React.FC = () => {
         });
       }
 
-      if (request.type === 'INCREMENT_PLUGIN_COUNT_OFFSCREEN') {
-        return incrementPluginCount(request.hash as string).then(() => ({ success: true }));
-      }
-
       // Handle code execution requests
       if (request.type === 'EXEC_CODE_OFFSCREEN') {
         logger.debug('Offscreen executing code:', request.code);

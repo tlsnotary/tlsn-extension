@@ -60,6 +60,7 @@ export type ExecutionContext = {
   };
   revealApproval?: { resolve: () => void; reject: (err: Error) => void } | null;
   revealApprovalDescriptors?: RevealRangeDescriptor[] | null;
+  revealWasRejected?: boolean;
 };
 
 export type DomOptions = {
