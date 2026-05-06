@@ -116,7 +116,7 @@ pub(crate) async fn prove_async(
     let config = ProverConfig::builder(hostname)
         .max_sent_data(options.max_sent_data as usize)
         .max_recv_data(options.max_recv_data as usize)
-        .build();
+        .build()?;
 
     let mut prover = SdkProver::new(config)?;
 
