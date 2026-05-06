@@ -142,9 +142,10 @@ describe('Reveal Approval E2E', () => {
       windowId: 1,
     } as unknown as WindowMessage);
 
-    const result = (await donePromise) as { ok: boolean; message?: string };
-    expect(result.ok).toBe(false);
-    expect(result.message).toContain('rejected');
+    // Even if the plugin catches prove()'s rejection and calls done() with a
+    // recovery payload, executePlugin must surface the rejection so callers
+    // can skip success-only side effects (e.g. the execution counter).
+    await expect(donePromise).rejects.toThrow('User rejected reveal');
   });
 
   it('should not forward _revealApprove or _revealReject to plugin callbacks', async () => {
