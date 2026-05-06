@@ -1514,16 +1514,50 @@ export class HostCore {
 // NativeFunctionEvaluator
 // ---------------------------------------------------------------------------
 
+function preprocessForNativeEval(code: string): string {
+  // Collect named exports: export function main() / export const config = ...
+  const exportNames: string[] = [];
+  const exportRegex = /export\s+(?:async\s+)?(?:function|const|let|var|class)\s+(\w+)/g;
+  let match;
+  while ((match = exportRegex.exec(code)) !== null) {
+    exportNames.push(match[1]);
+  }
+
+  if (exportNames.length > 0) {
+    const stripped = code.replace(/^(\s*)export\s+/gm, '$1');
+    const entries = exportNames
+      .map((n) => `${n}: typeof ${n} === 'function' ? (...args) => ${n}(...args) : ${n}`)
+      .join(',\n  ');
+    return `${stripped}\nreturn { ${entries} };`;
+  }
+
+  // Handle export default { ... }
+  const defaultMatch = code.match(/export\s+default\s+\{([^}]+)\}\s*;?\s*$/);
+  if (defaultMatch) {
+    const names = defaultMatch[1]
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const stripped = code.replace(/export\s+default\s+\{[^}]+\}\s*;?\s*$/, '');
+    const entries = names
+      .map((n) => `${n}: typeof ${n} === 'function' ? (...args) => ${n}(...args) : ${n}`)
+      .join(',\n  ');
+    return `${stripped}\nreturn { ${entries} };`;
+  }
+
+  return code;
+}
+
 export class NativeFunctionEvaluator implements PluginEvaluator {
   async evaluate(
     code: string,
     capabilities: Record<string, AnyFunction>,
   ): Promise<PluginEvaluatorResult> {
+    const processedCode = preprocessForNativeEval(code);
     const keys = Object.keys(capabilities);
     const vals = Object.values(capabilities);
-    const fn = new Function(...keys, code);
-    const exports: Record<string, unknown> = {};
-    fn.call(exports, ...vals);
+    const fn = new Function(...keys, processedCode);
+    const exports = (fn(...vals) as Record<string, unknown>) ?? {};
     return { exports, dispose: () => {} };
   }
 }
