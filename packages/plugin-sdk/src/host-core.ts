@@ -94,6 +94,8 @@ export interface HostCoreOptions {
     },
   ) => Promise<OpenWindowResponse>;
   logLevel?: LogLevel;
+  reRenderEvent?: string;
+  enableTimeout?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -263,6 +265,7 @@ export function makeSetState(
   eventEmitter: {
     emit: (message: WindowMessage) => void;
   },
+  reRenderEvent: string,
 ) {
   return (key: string, value: unknown) => {
     const executionContext = executionContextRegistry.get(uuid);
@@ -275,9 +278,9 @@ export function makeSetState(
     }
 
     eventEmitter.emit({
-      type: 'TO_BG_RE_RENDER_PLUGIN_UI',
+      type: reRenderEvent,
       windowId: executionContextRegistry.get(uuid)?.windowId || 0,
-    });
+    } as WindowMessage);
   };
 }
 
@@ -997,6 +1000,8 @@ export class HostCore {
   private onCloseWindow: (windowId: number) => void;
   private onOpenWindow: HostCoreOptions['onOpenWindow'];
   private _activeUuid: string | null = null;
+  private reRenderEvent: string;
+  private enableTimeout: boolean;
 
   constructor(options: HostCoreOptions) {
     this.evaluator = options.evaluator;
@@ -1004,6 +1009,8 @@ export class HostCore {
     this.onRenderPluginUi = options.onRenderPluginUi;
     this.onCloseWindow = options.onCloseWindow;
     this.onOpenWindow = options.onOpenWindow;
+    this.reRenderEvent = options.reRenderEvent ?? 'TO_BG_RE_RENDER_PLUGIN_UI';
+    this.enableTimeout = options.enableTimeout ?? true;
 
     logger.init(options.logLevel ?? DEFAULT_LOG_LEVEL);
   }
@@ -1026,6 +1033,8 @@ export class HostCore {
   ): Promise<unknown> {
     const uuid = uuidv4();
     this._activeUuid = uuid;
+
+    const reRenderEvent = this.reRenderEvent;
 
     const context: HookContext = {};
     const stateStore: Record<string, unknown> = {};
@@ -1142,7 +1151,7 @@ export class HostCore {
       useRequests: makeUseRequests(uuid, context),
       useHeaders: makeUseHeaders(uuid, context),
       useState: makeUseState(uuid, stateStore, eventEmitter),
-      setState: makeSetState(uuid, stateStore, eventEmitter),
+      setState: makeSetState(uuid, stateStore, eventEmitter, reRenderEvent),
       usePluginTimeout: makeUsePluginTimeout(stateStore),
       prove: async (
         requestOptions: Parameters<typeof onProve>[0],
@@ -1151,9 +1160,9 @@ export class HostCore {
         const setProgress = (data: ProveProgressData) => {
           stateStore['_proveProgress'] = data;
           eventEmitter.emit({
-            type: 'TO_BG_RE_RENDER_PLUGIN_UI',
+            type: reRenderEvent,
             windowId: executionContextRegistry.get(uuid)?.windowId || 0,
-          });
+          } as WindowMessage);
         };
         setProgress({ step: 'CONNECTING', progress: 0, message: 'Connecting...' });
         try {
@@ -1167,9 +1176,9 @@ export class HostCore {
         } catch (err) {
           stateStore['_proveProgress'] = null;
           eventEmitter.emit({
-            type: 'TO_BG_RE_RENDER_PLUGIN_UI',
+            type: reRenderEvent,
             windowId: executionContextRegistry.get(uuid)?.windowId || 0,
-          });
+          } as WindowMessage);
           throw err;
         }
       },
@@ -1411,17 +1420,17 @@ export class HostCore {
       timeoutWarningShown = false;
       updateTimeoutState();
       eventEmitter.emit({
-        type: 'TO_BG_RE_RENDER_PLUGIN_UI',
+        type: reRenderEvent,
         windowId: executionContextRegistry.get(uuid)?.windowId || 0,
-      });
+      } as WindowMessage);
     };
 
     const dismissTimeoutWarning = () => {
       timeoutWarningShown = false;
       eventEmitter.emit({
-        type: 'TO_BG_RE_RENDER_PLUGIN_UI',
+        type: reRenderEvent,
         windowId: executionContextRegistry.get(uuid)?.windowId || 0,
-      });
+      } as WindowMessage);
     };
 
     callbacks['_extendTimeout'] = async () => {
@@ -1433,31 +1442,35 @@ export class HostCore {
 
     updateTimeoutState();
 
-    const timeoutIntervalId = setInterval(() => {
-      if (lifecycle.isCompleted) {
-        clearInterval(timeoutIntervalId);
-        return;
-      }
+    let timeoutIntervalId: ReturnType<typeof setInterval> | null = null;
 
-      const remaining = deadline - Date.now();
-      updateTimeoutState();
+    if (this.enableTimeout) {
+      timeoutIntervalId = setInterval(() => {
+        if (lifecycle.isCompleted) {
+          if (timeoutIntervalId !== null) clearInterval(timeoutIntervalId);
+          return;
+        }
 
-      if (remaining <= TIMEOUT_WARNING_LEAD_MS && remaining > 0 && !timeoutWarningShown) {
-        timeoutWarningShown = true;
-        eventEmitter.emit({
-          type: 'TO_BG_RE_RENDER_PLUGIN_UI',
-          windowId: executionContextRegistry.get(uuid)?.windowId || 0,
-        });
-      }
+        const remaining = deadline - Date.now();
+        updateTimeoutState();
 
-      if (remaining <= 0) {
-        clearInterval(timeoutIntervalId);
-        terminateWithError(new Error('Plugin execution timeout'));
-      }
-    }, 1000);
+        if (remaining <= TIMEOUT_WARNING_LEAD_MS && remaining > 0 && !timeoutWarningShown) {
+          timeoutWarningShown = true;
+          eventEmitter.emit({
+            type: reRenderEvent,
+            windowId: executionContextRegistry.get(uuid)?.windowId || 0,
+          } as WindowMessage);
+        }
+
+        if (remaining <= 0) {
+          if (timeoutIntervalId !== null) clearInterval(timeoutIntervalId);
+          terminateWithError(new Error('Plugin execution timeout'));
+        }
+      }, 1000);
+    }
 
     const cleanup = () => {
-      clearInterval(timeoutIntervalId);
+      if (timeoutIntervalId !== null) clearInterval(timeoutIntervalId);
       if (this._activeUuid === uuid) {
         this._activeUuid = null;
       }
@@ -1494,5 +1507,23 @@ export class HostCore {
 
   renderUi(windowId: number, json: DomJson): void {
     this.onRenderPluginUi(windowId, json);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// NativeFunctionEvaluator
+// ---------------------------------------------------------------------------
+
+export class NativeFunctionEvaluator implements PluginEvaluator {
+  async evaluate(
+    code: string,
+    capabilities: Record<string, AnyFunction>,
+  ): Promise<PluginEvaluatorResult> {
+    const keys = Object.keys(capabilities);
+    const vals = Object.values(capabilities);
+    const fn = new Function(...keys, code);
+    const exports: Record<string, unknown> = {};
+    fn.call(exports, ...vals);
+    return { exports, dispose: () => {} };
   }
 }

@@ -368,7 +368,7 @@ export { getJsonBody } from './host-core';
 
 // Export HostCore and PluginEvaluator for platform implementors
 export type { PluginEvaluator, PluginEvaluatorResult, HostCoreOptions } from './host-core';
-export { HostCore } from './host-core';
+export { HostCore, NativeFunctionEvaluator } from './host-core';
 
 // Timeout constants (consumed by tests and extension code)
 export {

@@ -2,17 +2,11 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { PluginWebView, InterceptedRequestHeader } from './PluginWebView';
 import { PluginRenderer, DomJson } from './PluginRenderer';
-import {
-  NativeProver,
-  NativeProverHandle,
-  Handler as NativeHandler,
-  ProveProgress,
-} from './NativeProver';
+import { NativeProver, NativeProverHandle, ProveProgress } from './NativeProver';
 import {
   MobilePluginHost,
   PluginConfig,
-  PluginHandler,
-  translateHandlers,
+  NativeHandler,
   EventEmitter,
   WindowMessage,
 } from '../../lib/MobilePluginHost';
@@ -34,28 +28,38 @@ function extractJsonPath(obj: unknown, path: string): string {
 /**
  * Transform native prover result into extension-compatible { results: [{value}] }
  * by applying each handler to extract specific values from the response.
+ *
+ * Operates on handlers in the *native* (PascalCase) format — the same format
+ * that was forwarded to the tlsn-native module to produce `nativeResult`.
  */
 function buildHandlerResults(
-  handlers: PluginHandler[],
+  handlers: NativeHandler[],
   nativeResult: { status: number; headers?: { name: string; value: string }[]; body: unknown },
-): { results: { value: string }[] } {
+): {
+  results: { value: string }[];
+  response: {
+    status: number;
+    headers?: { name: string; value: string }[];
+    body: unknown;
+  };
+} {
   const results: { value: string }[] = [];
 
   for (const handler of handlers) {
-    if (handler.action !== 'REVEAL') continue;
+    if (handler.action.type !== 'Reveal') continue;
     let value = '';
 
-    if (handler.type === 'RECV') {
-      if (handler.part === 'START_LINE') {
+    if (handler.handlerType === 'Recv') {
+      if (handler.part === 'StartLine') {
         value = `HTTP/1.1 ${nativeResult.status}`;
-      } else if (handler.part === 'HEADERS' && handler.params?.key) {
+      } else if (handler.part === 'Headers' && handler.params?.key) {
         const h = nativeResult.headers?.find(
-          (hdr) => hdr.name.toLowerCase() === (handler.params!.key as string).toLowerCase(),
+          (hdr) => hdr.name.toLowerCase() === handler.params!.key!.toLowerCase(),
         );
         if (h) value = `${h.name}: ${h.value}`;
-      } else if (handler.part === 'BODY') {
-        if (handler.params?.type === 'json' && handler.params?.path) {
-          value = extractJsonPath(nativeResult.body, handler.params.path as string);
+      } else if (handler.part === 'Body') {
+        if (handler.params?.contentType === 'json' && handler.params?.path) {
+          value = extractJsonPath(nativeResult.body, handler.params.path);
         } else {
           value =
             typeof nativeResult.body === 'string'
@@ -63,7 +67,7 @@ function buildHandlerResults(
               : JSON.stringify(nativeResult.body);
         }
       }
-    } else if (handler.type === 'SENT' && handler.part === 'START_LINE') {
+    } else if (handler.handlerType === 'Sent' && handler.part === 'StartLine') {
       // Sent start line not available from native result; skip
     }
 
@@ -172,15 +176,9 @@ export function PluginScreen({
           throw new Error('Native prover not ready');
         }
 
-        // Translate handlers from plugin format to native format
-        const nativeHandlers: NativeHandler[] = translateHandlers(proverOptions.handlers || []).map(
-          (h) => ({
-            handlerType: h.handlerType,
-            part: h.part,
-            action: h.action,
-            params: h.params,
-          }),
-        ) as NativeHandler[];
+        // Handlers arrive already translated to the native (PascalCase) format
+        // by MobilePluginHost; forward them as-is.
+        const nativeHandlers = proverOptions.handlers ?? [];
 
         const nativeResult = await proverRef.current.prove({
           url: requestOptions.url,
@@ -190,17 +188,24 @@ export function PluginScreen({
             verifierUrl: verifierUrlRef.current || proverOptions.verifierUrl,
             maxSentData: proverOptions.maxSentData ?? 4096,
             maxRecvData: proverOptions.maxRecvData ?? 16384,
-            handlers: nativeHandlers,
+            // The tlsn-native Handler type is narrower than the broader
+            // shape MobilePluginHost emits, but the native module accepts
+            // the superset — cast through unknown to bridge.
+            handlers: nativeHandlers as unknown as Parameters<
+              typeof proverRef.current.prove
+            >[0]['proverOptions']['handlers'],
             mode: modeRef.current,
           },
         });
 
         // Transform native result into extension-compatible format
-        return buildHandlerResults(proverOptions.handlers || [], nativeResult);
+        return buildHandlerResults(nativeHandlers, nativeResult);
       },
 
       onRenderPluginUi: (_windowId, json) => {
-        setDomJson(json);
+        // Plugin-sdk's DomJson permits 'input' nodes; PluginRenderer renders
+        // only div/button/strings, so unsupported nodes degrade gracefully.
+        setDomJson(json as DomJson);
       },
 
       onOpenWindow: async (url, _options) => {
