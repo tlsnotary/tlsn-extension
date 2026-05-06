@@ -10,6 +10,10 @@
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
     },
+    "./host-core": {
+      "import": "./dist/host-core.js",
+      "types": "./dist/host-core.d.ts"
+    },
     "./styles": {
       "import": "./dist/styles.js",
       "types": "./dist/styles.d.ts"
