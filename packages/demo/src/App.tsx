@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { SystemChecks } from './components/SystemChecks';
-import { ConsoleOutput } from './components/Console';
+import { ConsoleOutput, ConsoleActions } from './components/Console';
 import { PluginButtons } from './components/PluginButtons';
 import { StatusBar } from './components/StatusBar';
 import { CollapsibleSection } from './components/CollapsibleSection';
 import { HowItWorks } from './components/HowItWorks';
+import { WhatAndWhy } from './components/WhatAndWhy';
 import { WhyPlugins } from './components/WhyPlugins';
 import { BuildYourOwn } from './components/BuildYourOwn';
 import { OnchainDemo } from './components/OnchainDemo';
@@ -301,11 +302,29 @@ export function App() {
   return (
     <div className="app-container">
       <div className="hero-section">
-        <h1 className="hero-title">TLSNotary Plugin Demo</h1>
+        <h1 className="hero-title">Prove anything from the web. Privacy on your terms.</h1>
         <p className="hero-subtitle">
-          zkTLS in action — secure, private data verification from any website
+          TLSNotary lets users prove facts from any HTTPS site, like a bank balance, a paid
+          subscription, or an age. They share only the fields the plugin discloses, or use
+          zero-knowledge proofs to prove a fact without revealing any data.
         </p>
+        <div className="hero-ctas">
+          <a href="#what-and-why" className="hero-cta hero-cta-secondary">
+            How it works →
+          </a>
+          <a href="#try-it" className="hero-cta hero-cta-secondary">
+            Try a plugin →
+          </a>
+          <a href="#onchain-demo" className="hero-cta hero-cta-secondary">
+            Onchain demo →
+          </a>
+          <a href="#build-your-own" className="hero-cta hero-cta-secondary">
+            Build your own →
+          </a>
+        </div>
       </div>
+
+      <WhatAndWhy />
 
       <HowItWorks />
 
@@ -315,22 +334,19 @@ export function App() {
         verifierOk={verifierCheck.status === 'success'}
         onRecheck={handleRecheck}
         detailsContent={
-          <div className="checks-section">
-            <div className="checks-title">System Status Details</div>
-            <SystemChecks
-              checks={{
-                browser: browserCheck,
-                extension: extensionCheck,
-                verifier: verifierCheck,
-              }}
-              onRecheck={handleRecheck}
-              showBrowserWarning={showBrowserWarning}
-            />
-          </div>
+          <SystemChecks
+            checks={{
+              browser: browserCheck,
+              extension: extensionCheck,
+              verifier: verifierCheck,
+            }}
+            onRecheck={handleRecheck}
+            showBrowserWarning={showBrowserWarning}
+          />
         }
       />
 
-      <div className="content-card">
+      <div id="try-it" className="content-card">
         <h2 className="section-title">Try It: Demo Plugins</h2>
         <p className="section-subtitle">
           Run a plugin to see TLSNotary in action. Click "View Source" to see how each plugin works.
@@ -359,12 +375,19 @@ export function App() {
 
       <BuildYourOwn />
 
-      <CollapsibleSection title="Console Output" expanded={consoleExpanded}>
-        <ConsoleOutput
-          entries={consoleEntries}
-          onClear={handleClearConsole}
-          onOpenExtensionLogs={handleOpenExtensionLogs}
-        />
+      <CollapsibleSection
+        title="Console Output"
+        className="console-collapsible"
+        expanded={consoleExpanded}
+        onToggle={setConsoleExpanded}
+        actions={
+          <ConsoleActions
+            onClear={handleClearConsole}
+            onOpenExtensionLogs={handleOpenExtensionLogs}
+          />
+        }
+      >
+        <ConsoleOutput entries={consoleEntries} />
       </CollapsibleSection>
 
       <footer className="app-footer">
