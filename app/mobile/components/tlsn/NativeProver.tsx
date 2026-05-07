@@ -19,9 +19,20 @@ import type {
   ProverOptions,
   ProveResult,
   ProveProgress,
+  RevealPreparation,
+  RevealRangeDescriptor,
 } from '../../modules/tlsn-native/src';
 
-export type { HandlerType, HandlerPart, HandlerAction, HandlerParams, Handler, ProveProgress };
+export type {
+  HandlerType,
+  HandlerPart,
+  HandlerAction,
+  HandlerParams,
+  Handler,
+  ProveProgress,
+  RevealPreparation,
+  RevealRangeDescriptor,
+};
 
 export interface NativeProveParams {
   url: string;
@@ -37,7 +48,20 @@ export interface NativeProveParams {
 }
 
 export interface NativeProverHandle {
+  /**
+   * Legacy one-shot prove (auto-approves the reveal). Kept for callers that
+   * don't need the user-approval gate.
+   */
   prove: (params: NativeProveParams) => Promise<ProveResult>;
+  /**
+   * Phase A: run the protocol up through `compute_reveal`, return descriptors
+   * with real byte previews. Pair with `finalizeReveal`.
+   */
+  prepareReveal: (params: NativeProveParams) => Promise<RevealPreparation>;
+  /**
+   * Phase B: complete or drop the prepared session.
+   */
+  finalizeReveal: (sessionId: string, approved: boolean) => Promise<ProveResult>;
   isReady: boolean;
 }
 
@@ -51,6 +75,11 @@ interface NativeProverProps {
 let TlsnNative: {
   initialize: () => void;
   prove: (request: ProveRequest, options: ProverOptions) => Promise<ProveResult>;
+  proveUntilReveal: (
+    request: ProveRequest,
+    options: ProverOptions,
+  ) => Promise<RevealPreparation>;
+  proveFinalize: (sessionId: string, approved: boolean) => Promise<ProveResult>;
   isAvailable: () => boolean;
   addProgressListener: (callback: (event: ProveProgress) => void) => { remove: () => void };
 } | null = null;
@@ -126,6 +155,22 @@ function NativeProverComponent(
     return () => subscription.remove();
   }, []);
 
+  const buildRequestAndOptions = useCallback((params: NativeProveParams) => {
+    const request: ProveRequest = {
+      url: params.url,
+      method: params.method,
+      headers: params.headers,
+    };
+    const options: ProverOptions = {
+      verifierUrl: params.proverOptions.verifierUrl,
+      maxSentData: params.proverOptions.maxSentData,
+      maxRecvData: params.proverOptions.maxRecvData,
+      handlers: params.proverOptions.handlers || [],
+      mode: params.proverOptions.mode,
+    };
+    return { request, options };
+  }, []);
+
   const prove = useCallback(
     async (params: NativeProveParams): Promise<ProveResult> => {
       const module = getNativeModule();
@@ -133,40 +178,58 @@ function NativeProverComponent(
         throw new Error('Native prover not ready');
       }
 
-      console.log('[NativeProver] Starting proof generation...');
-      console.log('[NativeProver] URL:', params.url);
-
-      const request: ProveRequest = {
-        url: params.url,
-        method: params.method,
-        headers: params.headers,
-      };
-
-      const options: ProverOptions = {
-        verifierUrl: params.proverOptions.verifierUrl,
-        maxSentData: params.proverOptions.maxSentData,
-        maxRecvData: params.proverOptions.maxRecvData,
-        handlers: params.proverOptions.handlers || [],
-        mode: params.proverOptions.mode,
-      };
-
-      console.log(
-        '[NativeProver] Handlers being passed to native:',
-        JSON.stringify(options.handlers, null, 2),
-      );
-      console.log('[NativeProver] Full options:', JSON.stringify(options, null, 2));
-
+      console.log('[NativeProver] Starting one-shot proof for', params.url);
+      const { request, options } = buildRequestAndOptions(params);
       try {
         const result = await module.prove(request, options);
         console.log('[NativeProver] Proof generation complete');
-        console.log('[NativeProver] Transcript:', JSON.stringify(result.transcript));
-        console.log(
-          '[NativeProver] Debug info:',
-          JSON.stringify((result as { debug?: unknown }).debug),
-        );
         return result;
       } catch (e) {
         console.error('[NativeProver] Proof generation failed:', e);
+        throw e;
+      }
+    },
+    [isReady, buildRequestAndOptions],
+  );
+
+  const prepareReveal = useCallback(
+    async (params: NativeProveParams): Promise<RevealPreparation> => {
+      const module = getNativeModule();
+      if (!module || !isReady) {
+        throw new Error('Native prover not ready');
+      }
+
+      console.log('[NativeProver] proveUntilReveal for', params.url);
+      const { request, options } = buildRequestAndOptions(params);
+      try {
+        const prep = await module.proveUntilReveal(request, options);
+        console.log(
+          '[NativeProver] Prepared reveal: session=',
+          prep.sessionId,
+          'descriptors=',
+          prep.descriptors.length,
+        );
+        return prep;
+      } catch (e) {
+        console.error('[NativeProver] proveUntilReveal failed:', e);
+        throw e;
+      }
+    },
+    [isReady, buildRequestAndOptions],
+  );
+
+  const finalizeReveal = useCallback(
+    async (sessionId: string, approved: boolean): Promise<ProveResult> => {
+      const module = getNativeModule();
+      if (!module || !isReady) {
+        throw new Error('Native prover not ready');
+      }
+
+      console.log('[NativeProver] proveFinalize session=', sessionId, 'approved=', approved);
+      try {
+        return await module.proveFinalize(sessionId, approved);
+      } catch (e) {
+        console.error('[NativeProver] proveFinalize failed:', e);
         throw e;
       }
     },
@@ -177,9 +240,11 @@ function NativeProverComponent(
     ref,
     () => ({
       prove,
+      prepareReveal,
+      finalizeReveal,
       isReady,
     }),
-    [prove, isReady],
+    [prove, prepareReveal, finalizeReveal, isReady],
   );
 
   // This component has no UI

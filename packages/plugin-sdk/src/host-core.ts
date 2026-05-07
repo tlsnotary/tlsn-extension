@@ -96,6 +96,14 @@ export interface HostCoreOptions {
   logLevel?: LogLevel;
   reRenderEvent?: string;
   enableTimeout?: boolean;
+  /**
+   * If set, the host calls this when the plugin enters its
+   * `TIMEOUT_WARNING_LEAD_MS` window — instead of decorating the plugin's
+   * DomJson with the built-in timeout warning overlay. Lets platforms render
+   * a native warning UI (e.g. a bottom sheet on mobile). The callback is
+   * fired at most once per warning cycle; calling `extend` resets the cycle.
+   */
+  onTimeoutWarning?: (callbacks: { extend: () => void; dismiss: () => void }) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -1006,6 +1014,7 @@ export class HostCore {
   private _activeUuid: string | null = null;
   private reRenderEvent: string;
   private enableTimeout: boolean;
+  private onTimeoutWarning?: HostCoreOptions['onTimeoutWarning'];
 
   constructor(options: HostCoreOptions) {
     this.evaluator = options.evaluator;
@@ -1015,6 +1024,7 @@ export class HostCore {
     this.onOpenWindow = options.onOpenWindow;
     this.reRenderEvent = options.reRenderEvent ?? 'TO_BG_RE_RENDER_PLUGIN_UI';
     this.enableTimeout = options.enableTimeout ?? true;
+    this.onTimeoutWarning = options.onTimeoutWarning;
 
     logger.init(options.logLevel ?? DEFAULT_LOG_LEVEL);
   }
@@ -1367,7 +1377,9 @@ export class HostCore {
           if (ctx?.revealApprovalDescriptors) {
             overlays.push(createRevealApprovalOverlay(ctx.revealApprovalDescriptors));
           }
-          if (timeoutWarningShown) {
+          // Skip the DomJson overlay if a native warning handler is registered;
+          // the platform will render its own UI via onTimeoutWarning.
+          if (timeoutWarningShown && !this.onTimeoutWarning) {
             overlays.push(createTimeoutWarningOverlay());
           }
           json = decorateJson(result, overlays);
@@ -1459,11 +1471,21 @@ export class HostCore {
         updateTimeoutState();
 
         if (remaining <= TIMEOUT_WARNING_LEAD_MS && remaining > 0 && !timeoutWarningShown) {
-          timeoutWarningShown = true;
-          eventEmitter.emit({
-            type: reRenderEvent,
-            windowId: executionContextRegistry.get(uuid)?.windowId || 0,
-          } as WindowMessage);
+          if (this.onTimeoutWarning) {
+            // Native warning path: don't flip the DomJson decorator flag, but
+            // still mark that the warning fired so we don't re-fire each tick.
+            timeoutWarningShown = true;
+            this.onTimeoutWarning({
+              extend: extendTimeout,
+              dismiss: dismissTimeoutWarning,
+            });
+          } else {
+            timeoutWarningShown = true;
+            eventEmitter.emit({
+              type: reRenderEvent,
+              windowId: executionContextRegistry.get(uuid)?.windowId || 0,
+            } as WindowMessage);
+          }
         }
 
         if (remaining <= 0) {

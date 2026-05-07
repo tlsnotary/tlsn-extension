@@ -26,8 +26,13 @@ import type {
   InterceptedRequestHeader,
   InterceptedRequest,
   ProveProgressData,
-  RevealRangeDescriptor,
+  RevealRangeDescriptor as PluginSdkRevealRangeDescriptor,
 } from '@tlsn/plugin-sdk';
+// Mobile reveal-approval descriptors come from the native two-phase prove
+// (with real transcript byte previews), so we use the native type — distinct
+// from plugin-sdk's RevealRangeDescriptor which uses SCREAMING_SNAKE_CASE
+// algorithm names.
+import type { RevealRangeDescriptor } from '../modules/tlsn-native/src';
 
 import { translateHandler, type NativeHandler } from './handlerTranslation';
 
@@ -47,6 +52,8 @@ export type {
   PluginConfig,
   WindowMessage,
 } from '@tlsn/plugin-sdk';
+
+export type { RevealRangeDescriptor } from '../modules/tlsn-native/src';
 
 // ---------------------------------------------------------------------------
 // EventEmitter shape — mobile owns its emitter implementation, so we just
@@ -74,15 +81,37 @@ interface NativeProverOptions {
   handlers: NativeHandler[];
 }
 
+/**
+ * Pre-execution approval modes — mirrors the extension's `ApprovalMode` and
+ * the plugin-approval bottom sheet. Set via `setApprovalMode()` after the
+ * user picks one. Must be set before the plugin's first `prove()` call.
+ */
+export type ApprovalMode = 'manual' | 'all-session' | 'rejected';
+
+interface RevealApprovalRequest {
+  descriptors: RevealRangeDescriptor[];
+  approve: () => void;
+  reject: (err: Error) => void;
+}
+
 interface MobilePluginHostOptions {
   /**
-   * Called when the plugin invokes prove(). Receives handlers in the *native*
+   * Phase A of the prove split. Called when the plugin invokes prove().
+   * Should run the native prover up through `compute_reveal` and return
+   * the descriptors + opaque session id. Receives handlers in the *native*
    * (PascalCase) format ready to forward to the tlsn-native module.
    */
-  onProve: (
+  onProveUntilReveal: (
     requestOptions: { url: string; method: string; headers: Record<string, string>; body?: string },
     proverOptions: NativeProverOptions,
-  ) => Promise<unknown>;
+  ) => Promise<{ sessionId: string; descriptors: RevealRangeDescriptor[] }>;
+
+  /**
+   * Phase B of the prove split. Approve or reject the session prepared by
+   * `onProveUntilReveal`. On approve, returns the proof result. On reject,
+   * rejects with "User rejected reveal".
+   */
+  onProveFinalize: (sessionId: string, approved: boolean) => Promise<unknown>;
 
   /** Called when the plugin renders UI. */
   onRenderPluginUi: (windowId: number, domJson: DomJson) => void;
@@ -95,6 +124,22 @@ interface MobilePluginHostOptions {
 
   /** Called when the plugin completes or the host needs to close the window. */
   onCloseWindow: (windowId: number) => void;
+
+  /**
+   * Called when HostCore's timeout interval fires its 60-second warning.
+   * The platform should show its own UI; resolve via `extend` (push the
+   * deadline back 5 minutes) or `dismiss` (treat as user-acknowledged but
+   * let the deadline run out).
+   */
+  onTimeoutWarning?: (callbacks: { extend: () => void; dismiss: () => void }) => void;
+
+  /**
+   * Called from the prove pipeline (between `onProveUntilReveal` and
+   * `onProveFinalize`) when the user must approve the reveal. The platform
+   * shows its own UI; resolve `approve()` to continue, or `reject(err)` to
+   * abort. If unset, all reveals are auto-approved.
+   */
+  onRevealApproval?: (request: RevealApprovalRequest) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -112,7 +157,22 @@ export class MobilePluginHost {
   private _activeOnProgress: ((step: string, progress: number, message: string) => void) | null =
     null;
 
+  /** Set by `setApprovalMode()` after the plugin-approval sheet resolves. */
+  private _approvalMode: ApprovalMode = 'manual';
+
+  /**
+   * Tracks whether the user has already approved at least one reveal in this
+   * plugin run. Combined with `_approvalMode === 'all-session'`, suppresses
+   * the reveal sheet for subsequent prove() calls.
+   */
+  private _sessionRevealApproved = false;
+
+  /** External callback to display the reveal-approval sheet. */
+  private _onRevealApproval?: MobilePluginHostOptions['onRevealApproval'];
+
   constructor(options: MobilePluginHostOptions) {
+    this._onRevealApproval = options.onRevealApproval;
+
     const wrappedOnProve = async (
       requestOptions: {
         url: string;
@@ -133,15 +193,45 @@ export class MobilePluginHost {
         ? (step: string, progress: number, message: string) =>
             onProgress({ step, progress, message })
         : null;
+
       try {
         const nativeHandlers = (proverOptions.handlers ?? []).map(translateHandler);
-        return await options.onProve(requestOptions, {
+        const nativeProverOptions: NativeProverOptions = {
           verifierUrl: proverOptions.verifierUrl,
           proxyUrl: proverOptions.proxyUrl,
           maxRecvData: proverOptions.maxRecvData,
           maxSentData: proverOptions.maxSentData,
           handlers: nativeHandlers,
-        });
+        };
+
+        // Phase A: run the protocol up through compute_reveal natively.
+        const prep = await options.onProveUntilReveal(requestOptions, nativeProverOptions);
+
+        // Decide whether the user must approve this reveal.
+        const skipApprovalGate =
+          this._approvalMode === 'all-session' && this._sessionRevealApproved;
+
+        let approved = true;
+        if (!skipApprovalGate && this._onRevealApproval) {
+          try {
+            await new Promise<void>((resolve, reject) => {
+              this._onRevealApproval!({
+                descriptors: prep.descriptors,
+                approve: resolve,
+                reject,
+              });
+            });
+            this._sessionRevealApproved = true;
+          } catch (e) {
+            approved = false;
+            // Surface the rejection up-stack after we drop the native session.
+            void options.onProveFinalize(prep.sessionId, false).catch(() => {});
+            throw e instanceof Error ? e : new Error(String(e));
+          }
+        }
+
+        // Phase B: complete the proof.
+        return await options.onProveFinalize(prep.sessionId, approved);
       } finally {
         this._activeOnProgress = null;
       }
@@ -150,7 +240,8 @@ export class MobilePluginHost {
     this.core = new HostCore({
       evaluator: new NativeFunctionEvaluator(),
       reRenderEvent: 'RE_RENDER_PLUGIN_UI',
-      enableTimeout: false,
+      enableTimeout: true,
+      onTimeoutWarning: options.onTimeoutWarning,
       onProve: wrappedOnProve,
       onRenderPluginUi: options.onRenderPluginUi,
       onOpenWindow: async (url, opts) => {
@@ -162,6 +253,17 @@ export class MobilePluginHost {
       },
       onCloseWindow: options.onCloseWindow,
     });
+  }
+
+  /**
+   * Set the approval mode chosen on the pre-execution approval sheet.
+   * Must be called before the plugin's first prove() call. Setting
+   * `'rejected'` is informational on this side (the caller is expected to
+   * not start the plugin at all in that case).
+   */
+  setApprovalMode(mode: ApprovalMode): void {
+    this._approvalMode = mode;
+    this._sessionRevealApproved = false;
   }
 
   /**
@@ -223,13 +325,15 @@ export class MobilePluginHost {
   }
 
   /**
-   * Register a pending reveal-approval gate. Resolves once the user clicks
-   * Approve in the overlay; rejects on Reject.
+   * Legacy: register a pending reveal-approval gate via HostCore's DomJson
+   * overlay (used by extension parity). Mobile's native flow uses the
+   * `onRevealApproval` constructor option instead, which renders a real
+   * native bottom sheet with byte-level previews.
    */
   registerRevealApproval(
     resolve: () => void,
     reject: (err: Error) => void,
-    descriptors: RevealRangeDescriptor[],
+    descriptors: PluginSdkRevealRangeDescriptor[],
   ): void {
     this.core.registerRevealApproval(resolve, reject, descriptors);
   }

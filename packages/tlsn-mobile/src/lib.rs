@@ -188,6 +188,42 @@ pub struct ProofResult {
     pub handlers_received: u32,
 }
 
+/// One row in the reveal-approval preview.
+///
+/// Returned from [`prove_until_reveal`] for each annotated range that
+/// `compute_reveal` produced. The user inspects these (in a native UI on the
+/// JS side) and approves or rejects before [`prove_finalize`] runs.
+///
+/// `preview` contains the actual transcript bytes for the range, decoded as
+/// UTF-8 lossy. The platform layer is responsible for truncating/escaping
+/// before display.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct RevealRangeDescriptor {
+    /// "SENT" or "RECV"
+    pub direction: String,
+    /// Human-readable label (e.g. "Recv body / JSON 'screen_name'").
+    pub label: String,
+    /// "REVEAL" or "HASH"
+    pub action: String,
+    /// Hash algorithm name when `action == "HASH"` (e.g. "Sha256"). None for REVEAL.
+    pub algorithm: Option<String>,
+    /// UTF-8 lossy slice of the actual transcript bytes covered by this range.
+    pub preview: String,
+}
+
+/// Output of [`prove_until_reveal`] — the prover paused after computing
+/// reveal ranges. Pass [`session_id`] back to [`prove_finalize`] with an
+/// approved bool to either complete the reveal or drop the session.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct RevealPreparation {
+    /// Opaque handle the platform passes back to [`prove_finalize`].
+    pub session_id: String,
+    /// HTTP response received from the target server.
+    pub response: HttpResponse,
+    /// One descriptor per annotated reveal range.
+    pub descriptors: Vec<RevealRangeDescriptor>,
+}
+
 // ---------------------------------------------------------------------------
 // Conversion: mobile UniFFI types → sdk-core types
 // ---------------------------------------------------------------------------
@@ -287,15 +323,60 @@ pub fn initialize() -> Result<(), TlsnError> {
     Ok(())
 }
 
-/// High-level prove function with progress reporting.
+/// Phase A of the two-phase prove flow.
 ///
-/// Handles the entire proof flow:
+/// Runs:
 /// 1. Register session with verifier
 /// 2. Create prover and MPC setup
 /// 3. Send HTTP request through TLS prover
 /// 4. Compute reveal ranges from handlers
-/// 5. Generate and finalize proof
-/// 6. Send reveal config to verifier session
+///
+/// Returns a [`RevealPreparation`] with byte-level previews of every range
+/// the prover is about to reveal/hash. The platform shows the previews to
+/// the user, then calls [`prove_finalize`] with the same `session_id` and an
+/// `approved` bool. State is held in a process-wide map with a 5-minute TTL.
+#[uniffi::export]
+pub fn prove_until_reveal(
+    request: HttpRequest,
+    options: ProverOptions,
+    progress: Option<Box<dyn ProgressCallback>>,
+) -> Result<RevealPreparation, TlsnError> {
+    let rt = tokio::runtime::Runtime::new()
+        .map_err(|e| TlsnError::InitializationFailed(e.to_string()))?;
+
+    rt.block_on(prover::prove_until_reveal_async(
+        request,
+        options,
+        progress.as_deref(),
+    ))
+}
+
+/// Phase B of the two-phase prove flow.
+///
+/// Looks up the session, then either:
+/// - `approved == true`: runs `prover.reveal(...)`, sends `reveal_config` to
+///   the verifier, awaits `session_completed`, returns the [`ProofResult`].
+/// - `approved == false`: drops the session, closes the verifier websocket,
+///   returns `TlsnError::ProofFailed("User rejected reveal")`.
+#[uniffi::export]
+pub fn prove_finalize(
+    session_id: String,
+    approved: bool,
+    progress: Option<Box<dyn ProgressCallback>>,
+) -> Result<ProofResult, TlsnError> {
+    let rt = tokio::runtime::Runtime::new()
+        .map_err(|e| TlsnError::InitializationFailed(e.to_string()))?;
+
+    rt.block_on(prover::prove_finalize_async(
+        session_id,
+        approved,
+        progress.as_deref(),
+    ))
+}
+
+/// Legacy one-shot `prove`. Equivalent to [`prove_until_reveal`] followed by
+/// [`prove_finalize`] with `approved=true`. Kept for backward compatibility
+/// while callers migrate to the two-phase API.
 #[uniffi::export]
 pub fn prove(
     request: HttpRequest,

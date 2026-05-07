@@ -23,14 +23,204 @@ class SwiftProgressCallback: ProgressCallback {
     }
 }
 
+// MARK: - Parsing helpers
+
+private enum ParseError: Error {
+    case missing(String)
+    case invalid(String, String)
+}
+
+private func parseHttpRequest(_ dict: [String: Any]) throws -> HttpRequest {
+    guard let url = dict["url"] as? String else { throw ParseError.missing("url") }
+    guard let method = dict["method"] as? String else { throw ParseError.missing("method") }
+
+    var headers: [HttpHeader] = []
+    if let headersDict = dict["headers"] as? [String: String] {
+        for (name, value) in headersDict {
+            headers.append(HttpHeader(name: name, value: value))
+        }
+    }
+
+    return HttpRequest(
+        url: url,
+        method: method,
+        headers: headers,
+        body: dict["body"] as? String
+    )
+}
+
+private func parseProverOptions(_ dict: [String: Any]) throws -> ProverOptions {
+    guard let verifierUrl = dict["verifierUrl"] as? String else {
+        throw ParseError.missing("verifierUrl")
+    }
+
+    let maxSentData = (dict["maxSentData"] as? NSNumber)?.uint32Value ?? 4096
+    let maxRecvData = (dict["maxRecvData"] as? NSNumber)?.uint32Value ?? 16384
+
+    var handlers: [Handler] = []
+    if let handlersArray = dict["handlers"] as? [[String: Any]] {
+        for (index, handlerDict) in handlersArray.enumerated() {
+            if let h = parseHandler(handlerDict, index: index) {
+                handlers.append(h)
+            }
+        }
+    }
+
+    var mode: Mode? = nil
+    if let modeStr = dict["mode"] as? String {
+        switch modeStr {
+        case "Mpc": mode = .mpc
+        case "Proxy": mode = .proxy
+        default:
+            print("[TlsnNative] unknown mode '\(modeStr)', defaulting to Mpc")
+        }
+    }
+
+    return ProverOptions(
+        verifierUrl: verifierUrl,
+        maxSentData: maxSentData,
+        maxRecvData: maxRecvData,
+        handlers: handlers,
+        mode: mode
+    )
+}
+
+private func parseHandler(_ dict: [String: Any], index: Int) -> Handler? {
+    guard let handlerTypeStr = dict["handlerType"] as? String,
+          let partStr = dict["part"] as? String,
+          let actionDict = dict["action"] as? [String: Any],
+          let actionType = actionDict["type"] as? String else {
+        print("[TlsnNative] Handler \(index): missing required field")
+        return nil
+    }
+
+    let handlerType: HandlerType
+    switch handlerTypeStr {
+    case "Sent": handlerType = .sent
+    case "Recv": handlerType = .recv
+    default: return nil
+    }
+
+    let part: HandlerPart
+    switch partStr {
+    case "StartLine": part = .startLine
+    case "Protocol": part = .protocol
+    case "Method": part = .method
+    case "RequestTarget": part = .requestTarget
+    case "StatusCode": part = .statusCode
+    case "Headers": part = .headers
+    case "Body": part = .body
+    case "All": part = .all
+    default: return nil
+    }
+
+    let action: HandlerAction
+    switch actionType {
+    case "Reveal":
+        action = .reveal
+    case "Hash":
+        guard let algoStr = actionDict["algorithm"] as? String else { return nil }
+        let algorithm: HashAlgorithm
+        switch algoStr {
+        case "Blake3": algorithm = .blake3
+        case "Sha256": algorithm = .sha256
+        case "Keccak256": algorithm = .keccak256
+        default: return nil
+        }
+        action = .hash(algorithm: algorithm)
+    default:
+        return nil
+    }
+
+    var params: HandlerParams? = nil
+    if let paramsDict = dict["params"] as? [String: Any] {
+        params = HandlerParams(
+            key: paramsDict["key"] as? String,
+            hideKey: paramsDict["hideKey"] as? Bool,
+            hideValue: paramsDict["hideValue"] as? Bool,
+            contentType: paramsDict["contentType"] as? String,
+            path: paramsDict["path"] as? String,
+            regex: paramsDict["regex"] as? String,
+            flags: paramsDict["flags"] as? String
+        )
+    }
+
+    return Handler(handlerType: handlerType, part: part, action: action, params: params)
+}
+
+// MARK: - Result serialization
+
+private func proofResultToDict(_ result: ProofResult, handlersPassed: Int) -> [String: Any] {
+    var responseHeaders: [[String: String]] = []
+    for header in result.response.headers {
+        responseHeaders.append(["name": header.name, "value": header.value])
+    }
+
+    var bodyJson: Any = result.response.body
+    if let jsonData = result.response.body.data(using: .utf8),
+       let json = try? JSONSerialization.jsonObject(with: jsonData) {
+        bodyJson = json
+    }
+
+    return [
+        "status": Int(result.response.status),
+        "headers": responseHeaders,
+        "body": bodyJson,
+        "transcript": [
+            "sentLength": result.transcript.sent.count,
+            "recvLength": result.transcript.recv.count
+        ],
+        "debug": [
+            "handlersPassedToRust": handlersPassed,
+            "handlersReceivedByRust": result.handlersReceived
+        ]
+    ]
+}
+
+private func revealPreparationToDict(_ prep: RevealPreparation) -> [String: Any] {
+    var responseHeaders: [[String: String]] = []
+    for header in prep.response.headers {
+        responseHeaders.append(["name": header.name, "value": header.value])
+    }
+
+    var bodyJson: Any = prep.response.body
+    if let jsonData = prep.response.body.data(using: .utf8),
+       let json = try? JSONSerialization.jsonObject(with: jsonData) {
+        bodyJson = json
+    }
+
+    let descriptors: [[String: Any]] = prep.descriptors.map { d in
+        var entry: [String: Any] = [
+            "direction": d.direction,
+            "label": d.label,
+            "action": d.action,
+            "preview": d.preview
+        ]
+        if let alg = d.algorithm {
+            entry["algorithm"] = alg
+        }
+        return entry
+    }
+
+    return [
+        "sessionId": prep.sessionId,
+        "response": [
+            "status": Int(prep.response.status),
+            "headers": responseHeaders,
+            "body": bodyJson
+        ],
+        "descriptors": descriptors
+    ]
+}
+
+// MARK: - Module
+
 public class TlsnNativeModule: Module {
     public func definition() -> ModuleDefinition {
         Name("TlsnNative")
 
-        // Declare events that can be sent to JS
         Events("onProveProgress")
 
-        // Initialize the TLSN library
         Function("initialize") {
             do {
                 try initialize()
@@ -39,217 +229,22 @@ public class TlsnNativeModule: Module {
             }
         }
 
-        // High-level prove function that matches the React Native interface
+        // Legacy one-shot prove. Kept for backward compat.
         AsyncFunction("prove") { (requestDict: [String: Any], optionsDict: [String: Any], promise: Promise) in
-            DispatchQueue.global(qos: .userInitiated).async {
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
                 do {
-                    // Parse HTTP request
-                    guard let url = requestDict["url"] as? String,
-                          let method = requestDict["method"] as? String else {
-                        promise.reject("InvalidRequest", "Missing url or method")
-                        return
-                    }
+                    let request = try parseHttpRequest(requestDict)
+                    let options = try parseProverOptions(optionsDict)
+                    let handlersCount = options.handlers.count
 
-                    var headers: [HttpHeader] = []
-                    if let headersDict = requestDict["headers"] as? [String: String] {
-                        for (name, value) in headersDict {
-                            headers.append(HttpHeader(name: name, value: value))
-                        }
-                    }
-
-                    let body = requestDict["body"] as? String
-
-                    let request = HttpRequest(
-                        url: url,
-                        method: method,
-                        headers: headers,
-                        body: body
-                    )
-
-                    // Parse prover options
-                    guard let verifierUrl = optionsDict["verifierUrl"] as? String else {
-                        promise.reject("InvalidOptions", "Missing verifierUrl")
-                        return
-                    }
-
-                    let maxSentData = (optionsDict["maxSentData"] as? NSNumber)?.uint32Value ?? 4096
-                    let maxRecvData = (optionsDict["maxRecvData"] as? NSNumber)?.uint32Value ?? 16384
-
-                    // Parse handlers for selective disclosure
-                    var handlers: [Handler] = []
-                    print("[TlsnNative] optionsDict keys: \(optionsDict.keys)")
-                    print("[TlsnNative] handlers raw value: \(String(describing: optionsDict["handlers"]))")
-
-                    if let handlersArray = optionsDict["handlers"] as? [[String: Any]] {
-                        print("[TlsnNative] Found \(handlersArray.count) handlers to parse")
-                        for (index, handlerDict) in handlersArray.enumerated() {
-                            print("[TlsnNative] Handler \(index) dict: \(handlerDict)")
-
-                            guard let handlerTypeStr = handlerDict["handlerType"] as? String else {
-                                print("[TlsnNative] Handler \(index): missing handlerType")
-                                continue
-                            }
-                            guard let partStr = handlerDict["part"] as? String else {
-                                print("[TlsnNative] Handler \(index): missing part")
-                                continue
-                            }
-                            guard let actionDict = handlerDict["action"] as? [String: Any],
-                                  let actionType = actionDict["type"] as? String else {
-                                print("[TlsnNative] Handler \(index): missing or malformed action")
-                                continue
-                            }
-
-                            print("[TlsnNative] Handler \(index): type=\(handlerTypeStr), part=\(partStr), action=\(actionType)")
-
-                            // Parse handler type
-                            let handlerType: HandlerType
-                            switch handlerTypeStr {
-                            case "Sent": handlerType = .sent
-                            case "Recv": handlerType = .recv
-                            default:
-                                print("[TlsnNative] Handler \(index): unknown handlerType '\(handlerTypeStr)'")
-                                continue
-                            }
-
-                            // Parse handler part
-                            let part: HandlerPart
-                            switch partStr {
-                            case "StartLine": part = .startLine
-                            case "Protocol": part = .protocol
-                            case "Method": part = .method
-                            case "RequestTarget": part = .requestTarget
-                            case "StatusCode": part = .statusCode
-                            case "Headers": part = .headers
-                            case "Body": part = .body
-                            case "All": part = .all
-                            default:
-                                print("[TlsnNative] Handler \(index): unknown part '\(partStr)'")
-                                continue
-                            }
-
-                            // Parse handler action
-                            let action: HandlerAction
-                            switch actionType {
-                            case "Reveal":
-                                action = .reveal
-                            case "Hash":
-                                guard let algoStr = actionDict["algorithm"] as? String else {
-                                    print("[TlsnNative] Handler \(index): Hash action missing algorithm")
-                                    continue
-                                }
-                                let algorithm: HashAlgorithm
-                                switch algoStr {
-                                case "Blake3": algorithm = .blake3
-                                case "Sha256": algorithm = .sha256
-                                case "Keccak256": algorithm = .keccak256
-                                default:
-                                    print("[TlsnNative] Handler \(index): unknown hash algorithm '\(algoStr)'")
-                                    continue
-                                }
-                                action = .hash(algorithm: algorithm)
-                            default:
-                                print("[TlsnNative] Handler \(index): unknown action type '\(actionType)'")
-                                continue
-                            }
-
-                            // Parse optional params
-                            var params: HandlerParams? = nil
-                            if let paramsDict = handlerDict["params"] as? [String: Any] {
-                                let key = paramsDict["key"] as? String
-                                let hideKey = paramsDict["hideKey"] as? Bool
-                                let hideValue = paramsDict["hideValue"] as? Bool
-                                let contentType = paramsDict["contentType"] as? String
-                                let path = paramsDict["path"] as? String
-                                let regex = paramsDict["regex"] as? String
-                                let flags = paramsDict["flags"] as? String
-                                params = HandlerParams(
-                                    key: key,
-                                    hideKey: hideKey,
-                                    hideValue: hideValue,
-                                    contentType: contentType,
-                                    path: path,
-                                    regex: regex,
-                                    flags: flags
-                                )
-                                print("[TlsnNative] Handler \(index) params: key=\(String(describing: key)), contentType=\(String(describing: contentType)), path=\(String(describing: path))")
-                            }
-
-                            handlers.append(Handler(handlerType: handlerType, part: part, action: action, params: params))
-                            print("[TlsnNative] Handler \(index) successfully parsed")
-                        }
-                    } else {
-                        print("[TlsnNative] Could not parse handlers array - checking raw type")
-                        if let rawHandlers = optionsDict["handlers"] {
-                            print("[TlsnNative] handlers type: \(type(of: rawHandlers))")
-                        } else {
-                            print("[TlsnNative] handlers key not found in optionsDict")
-                        }
-                    }
-
-                    NSLog("[TlsnNative] Final handlers count: %d", handlers.count)
-                    os_log("[TlsnNative] Handlers to Rust: %d", log: logger, type: .info, handlers.count)
-
-                    // Parse optional protocol mode (default Mpc).
-                    var mode: Mode? = nil
-                    if let modeStr = optionsDict["mode"] as? String {
-                        switch modeStr {
-                        case "Mpc": mode = .mpc
-                        case "Proxy": mode = .proxy
-                        default:
-                            print("[TlsnNative] unknown mode '\(modeStr)', defaulting to Mpc")
-                        }
-                    }
-
-                    let options = ProverOptions(
-                        verifierUrl: verifierUrl,
-                        maxSentData: maxSentData,
-                        maxRecvData: maxRecvData,
-                        handlers: handlers,
-                        mode: mode
-                    )
-
-                    // Create progress callback that emits Expo events
-                    let progressCallback = SwiftProgressCallback { [weak self] name, body in
+                    let progressCallback = SwiftProgressCallback { name, body in
                         self?.sendEvent(name, body)
                     }
 
-                    // Call the prove function with progress callback
                     let result = try prove(request: request, options: options, progress: progressCallback)
-
-                    // Convert response headers to dictionary
-                    var responseHeaders: [[String: String]] = []
-                    for header in result.response.headers {
-                        responseHeaders.append(["name": header.name, "value": header.value])
-                    }
-
-                    // Parse response body as JSON if possible
-                    var bodyJson: Any = result.response.body
-                    if let jsonData = result.response.body.data(using: .utf8),
-                       let json = try? JSONSerialization.jsonObject(with: jsonData) {
-                        bodyJson = json
-                    }
-
-                    // Log transcript info
                     NSLog("[TlsnNative] Proof complete! Sent: %d bytes, Recv: %d bytes",
                           result.transcript.sent.count, result.transcript.recv.count)
-
-                    // Build result dictionary
-                    let resultDict: [String: Any] = [
-                        "status": Int(result.response.status),
-                        "headers": responseHeaders,
-                        "body": bodyJson,
-                        "transcript": [
-                            "sentLength": result.transcript.sent.count,
-                            "recvLength": result.transcript.recv.count
-                        ],
-                        "debug": [
-                            "handlersPassedToRust": handlers.count,
-                            "handlersReceivedByRust": result.handlersReceived
-                        ]
-                    ]
-
-                    promise.resolve(resultDict)
-
+                    promise.resolve(proofResultToDict(result, handlersPassed: handlersCount))
                 } catch let error as TlsnError {
                     promise.reject("TlsnError", "\(error)")
                 } catch {
@@ -258,7 +253,58 @@ public class TlsnNativeModule: Module {
             }
         }
 
-        // Check if native module is available
+        // Phase A: prove up to (but not including) reveal. Returns descriptors with
+        // real byte previews of every range about to be revealed/hashed. Pair with
+        // proveFinalize(sessionId, approved).
+        AsyncFunction("proveUntilReveal") { (requestDict: [String: Any], optionsDict: [String: Any], promise: Promise) in
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                do {
+                    let request = try parseHttpRequest(requestDict)
+                    let options = try parseProverOptions(optionsDict)
+
+                    let progressCallback = SwiftProgressCallback { name, body in
+                        self?.sendEvent(name, body)
+                    }
+
+                    let prep = try proveUntilReveal(
+                        request: request,
+                        options: options,
+                        progress: progressCallback
+                    )
+                    NSLog("[TlsnNative] proveUntilReveal complete: session=%@ descriptors=%d",
+                          prep.sessionId, prep.descriptors.count)
+                    promise.resolve(revealPreparationToDict(prep))
+                } catch let error as TlsnError {
+                    promise.reject("TlsnError", "\(error)")
+                } catch {
+                    promise.reject("UnknownError", error.localizedDescription)
+                }
+            }
+        }
+
+        // Phase B: finalize the prove (or drop it). Returns the proof result on
+        // approval, or rejects with "User rejected reveal" on rejection.
+        AsyncFunction("proveFinalize") { (sessionId: String, approved: Bool, promise: Promise) in
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                do {
+                    let progressCallback = SwiftProgressCallback { name, body in
+                        self?.sendEvent(name, body)
+                    }
+
+                    let result = try proveFinalize(
+                        sessionId: sessionId,
+                        approved: approved,
+                        progress: progressCallback
+                    )
+                    promise.resolve(proofResultToDict(result, handlersPassed: -1))
+                } catch let error as TlsnError {
+                    promise.reject("TlsnError", "\(error)")
+                } catch {
+                    promise.reject("UnknownError", error.localizedDescription)
+                }
+            }
+        }
+
         Function("isAvailable") { () -> Bool in
             return true
         }

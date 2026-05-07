@@ -6,17 +6,38 @@
 //! - Direct TCP connection to the target server (no proxy needed on native)
 //! - Verifier session registration (the `/session` → `/verifier` protocol)
 //! - Sending `reveal_config` to the verifier session WebSocket
+//!
+//! # Two-phase API
+//!
+//! [`prove_until_reveal_async`] runs the full protocol up through
+//! `compute_reveal`, then **stashes** the in-flight prover, websocket,
+//! transcript, and computed reveal ranges in a process-wide session map keyed
+//! by a UUID. The caller (mobile app) inspects the descriptors, asks the user
+//! for approval, then calls [`prove_finalize_async`] with the same session id
+//! and an `approved` bool.
+//!
+//! The legacy one-shot [`prove_async`] is preserved as a thin wrapper that
+//! always auto-approves — kept to avoid breaking existing callers.
+
+use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
+use std::time::{Duration, Instant};
 
 use futures::{SinkExt, StreamExt};
 use tlsn_sdk_core::{compute_reveal, config::ProverMode, ProverConfig, SdkProver};
 use tokio::net::TcpStream;
-use tokio_tungstenite::{connect_async, tungstenite::Message};
+use tokio_tungstenite::{
+    connect_async,
+    tungstenite::Message,
+    MaybeTlsStream, WebSocketStream,
+};
 use tokio_util::compat::TokioAsyncReadCompatExt;
 use url::Url;
+use uuid::Uuid;
 
 use crate::{
-    ws_io::WsIoAdapter, HttpHeader, HttpRequest, HttpResponse, Mode, ProofResult, ProgressCallback,
-    ProverOptions, TlsnError, Transcript,
+    ws_io::WsIoAdapter, HttpHeader, HttpRequest, HttpResponse, Mode, ProgressCallback,
+    ProofResult, ProverOptions, RevealPreparation, RevealRangeDescriptor, TlsnError, Transcript,
 };
 
 impl Mode {
@@ -25,6 +46,40 @@ impl Mode {
             Mode::Mpc => ProverMode::Mpc,
             Mode::Proxy => ProverMode::Proxy,
         }
+    }
+}
+
+type SessionWs = WebSocketStream<MaybeTlsStream<TcpStream>>;
+
+/// Sessions older than this are reaped from the map.
+const SESSION_TTL: Duration = Duration::from_secs(5 * 60);
+
+/// In-flight prove state held between [`prove_until_reveal_async`] and
+/// [`prove_finalize_async`]. Lives in [`SESSIONS`] under a UUID.
+struct ProveSession {
+    prover: SdkProver,
+    session_ws: SessionWs,
+    transcript: tlsn_sdk_core::Transcript,
+    compute_output: tlsn_sdk_core::handler::ComputeRevealOutput,
+    sdk_handlers: Vec<tlsn_sdk_core::Handler>,
+    sdk_response: tlsn_sdk_core::HttpResponse,
+    handlers_received: u32,
+    created_at: Instant,
+}
+
+static SESSIONS: OnceLock<Mutex<HashMap<String, ProveSession>>> = OnceLock::new();
+
+fn sessions() -> &'static Mutex<HashMap<String, ProveSession>> {
+    SESSIONS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// Drop sessions that have been pending longer than `SESSION_TTL`. Called
+/// opportunistically each time we touch the map so a JS-side crash can't leak
+/// a session forever.
+fn reap_expired() {
+    if let Ok(mut map) = sessions().lock() {
+        let now = Instant::now();
+        map.retain(|_, s| now.duration_since(s.created_at) < SESSION_TTL);
     }
 }
 
@@ -41,24 +96,25 @@ fn emit_progress(cb: Option<&dyn ProgressCallback>, step: &str, progress: f64, m
     }
 }
 
-/// Main async prove function.
-pub(crate) async fn prove_async(
+/// Phase A: run steps 1–4, build a descriptor preview, stash session state.
+pub(crate) async fn prove_until_reveal_async(
     request: HttpRequest,
     options: ProverOptions,
     progress: Option<&dyn ProgressCallback>,
-) -> Result<ProofResult, TlsnError> {
+) -> Result<RevealPreparation, TlsnError> {
+    reap_expired();
+
     let handlers_received = options.handlers.len() as u32;
     let mode = options.mode.unwrap_or(Mode::Mpc);
 
     tracing::info!(
-        "starting proof for {} ({} handlers, mode={:?})",
+        "starting proof (until reveal) for {} ({} handlers, mode={:?})",
         request.url,
         handlers_received,
         mode,
     );
     emit_progress(progress, "CONNECTING", 0.0, "Connecting to verifier...");
 
-    // Parse URL to extract hostname for ProverConfig.
     let url = Url::parse(&request.url)?;
     let hostname = url
         .host_str()
@@ -83,7 +139,6 @@ pub(crate) async fn prove_async(
         TlsnError::ConnectionFailed(format!("failed to connect to session: {e}"))
     })?;
 
-    // Send register message.
     let register_msg = serde_json::json!({
         "type": "register",
         "maxRecvData": options.max_recv_data,
@@ -95,8 +150,7 @@ pub(crate) async fn prove_async(
         .await
         .map_err(|e| TlsnError::ConnectionFailed(format!("failed to send register: {e}")))?;
 
-    // Wait for session_registered response.
-    let session_id = loop {
+    let session_id_verifier = loop {
         match session_ws.next().await {
             Some(Ok(Message::Text(text))) => {
                 let resp: serde_json::Value = serde_json::from_str(&text)?;
@@ -122,7 +176,7 @@ pub(crate) async fn prove_async(
             }
         }
     };
-    tracing::info!("session registered: {session_id}");
+    tracing::info!("session registered: {session_id_verifier}");
     emit_progress(progress, "SESSION_REGISTERED", 0.1, "Session registered");
 
     // -----------------------------------------------------------------------
@@ -136,7 +190,7 @@ pub(crate) async fn prove_async(
 
     let mut prover = SdkProver::new(config)?;
 
-    let verifier_ws_url = format!("{base_ws_url}/verifier?sessionId={session_id}");
+    let verifier_ws_url = format!("{base_ws_url}/verifier?sessionId={session_id_verifier}");
     tracing::info!("connecting to verifier: {verifier_ws_url}");
 
     let verifier_io = connect_ws(&verifier_ws_url).await?;
@@ -183,7 +237,6 @@ pub(crate) async fn prove_async(
         .collect();
 
     let compute_output = if sdk_handlers.is_empty() {
-        // No handlers → reveal everything.
         tracing::info!("no handlers specified, revealing all data");
         tlsn_sdk_core::handler::ComputeRevealOutput {
             reveal: tlsn_sdk_core::Reveal {
@@ -201,10 +254,84 @@ pub(crate) async fn prove_async(
     };
 
     // -----------------------------------------------------------------------
+    // Build descriptors for the JS approval sheet.
+    // -----------------------------------------------------------------------
+    let descriptors = build_descriptors(&transcript, &compute_output);
+    emit_progress(progress, "AWAITING_APPROVAL", 0.55, "Awaiting reveal approval...");
+
+    // Build response payload now while sdk_response is still owned.
+    let response_headers: Vec<HttpHeader> = sdk_response
+        .headers
+        .iter()
+        .map(|(name, value)| HttpHeader {
+            name: name.clone(),
+            value: String::from_utf8_lossy(value).into_owned(),
+        })
+        .collect();
+    let response_body_str = sdk_response
+        .body
+        .as_ref()
+        .map(|b| String::from_utf8_lossy(b).into_owned())
+        .unwrap_or_default();
+    let response = HttpResponse {
+        status: sdk_response.status,
+        headers: response_headers,
+        body: response_body_str,
+    };
+
+    // Stash and return.
+    let session_id = Uuid::new_v4().to_string();
+    let session = ProveSession {
+        prover,
+        session_ws,
+        transcript,
+        compute_output,
+        sdk_handlers,
+        sdk_response,
+        handlers_received,
+        created_at: Instant::now(),
+    };
+    sessions()
+        .lock()
+        .map_err(|_| TlsnError::ProofFailed("session map poisoned".into()))?
+        .insert(session_id.clone(), session);
+
+    Ok(RevealPreparation {
+        session_id,
+        response,
+        descriptors,
+    })
+}
+
+/// Phase B: complete the prove (send reveal + reveal_config) or drop the session.
+pub(crate) async fn prove_finalize_async(
+    session_id: String,
+    approved: bool,
+    progress: Option<&dyn ProgressCallback>,
+) -> Result<ProofResult, TlsnError> {
+    reap_expired();
+
+    let mut session = sessions()
+        .lock()
+        .map_err(|_| TlsnError::ProofFailed("session map poisoned".into()))?
+        .remove(&session_id)
+        .ok_or_else(|| TlsnError::ProofFailed(format!("unknown session: {session_id}")))?;
+
+    if !approved {
+        tracing::info!("user rejected reveal for session {session_id}; dropping");
+        // Best-effort close the verifier websocket; ignore errors during teardown.
+        let _ = session.session_ws.close(None).await;
+        return Err(TlsnError::ProofFailed("User rejected reveal".into()));
+    }
+
+    // -----------------------------------------------------------------------
     // 5. Reveal and finalize
     // -----------------------------------------------------------------------
     emit_progress(progress, "GENERATING_PROOF", 0.65, "Generating proof...");
-    prover.reveal(compute_output.reveal, compute_output.commit).await?;
+    session
+        .prover
+        .reveal(session.compute_output.reveal.clone(), session.compute_output.commit.clone())
+        .await?;
     tracing::info!("proof generated");
     emit_progress(progress, "REVEAL_COMPLETE", 0.8, "Sending verification data...");
 
@@ -212,22 +339,22 @@ pub(crate) async fn prove_async(
     // 6. Send reveal_config to verifier session
     // -----------------------------------------------------------------------
     let reveal_config = build_reveal_config(
-        &transcript,
-        &sdk_handlers,
-        &compute_output.sent_ranges_with_handlers,
-        &compute_output.recv_ranges_with_handlers,
+        &session.transcript,
+        &session.sdk_handlers,
+        &session.compute_output.sent_ranges_with_handlers,
+        &session.compute_output.recv_ranges_with_handlers,
     );
-    session_ws
+    session
+        .session_ws
         .send(Message::Text(reveal_config.to_string().into()))
         .await
         .map_err(|e| TlsnError::ProofFailed(format!("failed to send reveal_config: {e}")))?;
 
-    // Wait for session_completed (with timeout — proof result is already available).
     let wait_result = tokio::time::timeout(
         std::time::Duration::from_secs(30),
         async {
             loop {
-                match session_ws.next().await {
+                match session.session_ws.next().await {
                     Some(Ok(Message::Text(text))) => {
                         let resp: serde_json::Value = serde_json::from_str(&text)?;
                         tracing::info!("session message: {}", resp["type"]);
@@ -248,8 +375,9 @@ pub(crate) async fn prove_async(
                     }
                 }
             }
-        }
-    ).await;
+        },
+    )
+    .await;
 
     match wait_result {
         Ok(Ok(())) => {}
@@ -261,7 +389,8 @@ pub(crate) async fn prove_async(
     // -----------------------------------------------------------------------
     // 7. Build result
     // -----------------------------------------------------------------------
-    let response_headers = sdk_response
+    let response_headers = session
+        .sdk_response
         .headers
         .into_iter()
         .map(|(name, value)| HttpHeader {
@@ -270,23 +399,115 @@ pub(crate) async fn prove_async(
         })
         .collect();
 
-    let response_body = sdk_response
+    let response_body = session
+        .sdk_response
         .body
         .map(|b| String::from_utf8_lossy(&b).into_owned())
         .unwrap_or_default();
 
     Ok(ProofResult {
         response: HttpResponse {
-            status: sdk_response.status,
+            status: session.sdk_response.status,
             headers: response_headers,
             body: response_body,
         },
         transcript: Transcript {
-            sent: transcript.sent,
-            recv: transcript.recv,
+            sent: session.transcript.sent,
+            recv: session.transcript.recv,
         },
-        handlers_received,
+        handlers_received: session.handlers_received,
     })
+}
+
+/// Legacy one-shot `prove`. Calls phase A then auto-approves into phase B,
+/// preserving the historic behavior for callers that haven't migrated to the
+/// two-phase API yet.
+pub(crate) async fn prove_async(
+    request: HttpRequest,
+    options: ProverOptions,
+    progress: Option<&dyn ProgressCallback>,
+) -> Result<ProofResult, TlsnError> {
+    let prep = prove_until_reveal_async(request, options, progress).await?;
+    prove_finalize_async(prep.session_id, true, progress).await
+}
+
+/// Translate compute_reveal's annotated ranges into platform-friendly
+/// descriptors with real byte previews.
+fn build_descriptors(
+    transcript: &tlsn_sdk_core::Transcript,
+    output: &tlsn_sdk_core::handler::ComputeRevealOutput,
+) -> Vec<RevealRangeDescriptor> {
+    let mut out = Vec::with_capacity(
+        output.sent_ranges_with_handlers.len() + output.recv_ranges_with_handlers.len(),
+    );
+
+    for r in &output.sent_ranges_with_handlers {
+        out.push(descriptor_from_range(r, &transcript.sent, "SENT"));
+    }
+    for r in &output.recv_ranges_with_handlers {
+        out.push(descriptor_from_range(r, &transcript.recv, "RECV"));
+    }
+
+    out
+}
+
+fn descriptor_from_range(
+    r: &tlsn_sdk_core::handler::RangeWithHandler,
+    bytes: &[u8],
+    direction: &str,
+) -> RevealRangeDescriptor {
+    let slice = bytes.get(r.start..r.end).unwrap_or(&[]);
+    let preview = String::from_utf8_lossy(slice).into_owned();
+
+    let (action, algorithm) = match &r.handler.action {
+        tlsn_sdk_core::HandlerAction::Reveal => ("REVEAL".to_string(), None),
+        tlsn_sdk_core::HandlerAction::Hash { algorithm } => {
+            let alg_str = match algorithm {
+                tlsn_sdk_core::HashAlgorithm::Blake3 => "Blake3",
+                tlsn_sdk_core::HashAlgorithm::Sha256 => "Sha256",
+                tlsn_sdk_core::HashAlgorithm::Keccak256 => "Keccak256",
+            };
+            ("HASH".to_string(), Some(alg_str.to_string()))
+        }
+    };
+
+    RevealRangeDescriptor {
+        direction: direction.to_string(),
+        label: handler_label(&r.handler),
+        action,
+        algorithm,
+        preview,
+    }
+}
+
+fn handler_label(h: &tlsn_sdk_core::Handler) -> String {
+    let direction = match h.handler_type {
+        tlsn_sdk_core::HandlerType::Sent => "Sent",
+        tlsn_sdk_core::HandlerType::Recv => "Recv",
+    };
+    let part = match h.part {
+        tlsn_sdk_core::HandlerPart::StartLine => "start line",
+        tlsn_sdk_core::HandlerPart::Protocol => "protocol",
+        tlsn_sdk_core::HandlerPart::Method => "method",
+        tlsn_sdk_core::HandlerPart::RequestTarget => "request target",
+        tlsn_sdk_core::HandlerPart::StatusCode => "status code",
+        tlsn_sdk_core::HandlerPart::Headers => "header",
+        tlsn_sdk_core::HandlerPart::Body => "body",
+        tlsn_sdk_core::HandlerPart::All => "all",
+    };
+    let detail = h.params.as_ref().and_then(|p| {
+        if let Some(key) = &p.key {
+            Some(format!(" '{}'", key))
+        } else if let Some(path) = &p.path {
+            Some(format!(" path '{}'", path))
+        } else {
+            None
+        }
+    });
+    match detail {
+        Some(d) => format!("{direction} {part}{d}"),
+        None => format!("{direction} {part}"),
+    }
 }
 
 /// Build the `reveal_config` JSON message for the verifier session WebSocket.
@@ -296,7 +517,6 @@ fn build_reveal_config(
     sent_ranges: &[tlsn_sdk_core::handler::RangeWithHandler],
     recv_ranges: &[tlsn_sdk_core::handler::RangeWithHandler],
 ) -> serde_json::Value {
-    // If no handlers were specified, reveal everything.
     if handlers.is_empty() {
         return serde_json::json!({
             "type": "reveal_config",
@@ -305,8 +525,6 @@ fn build_reveal_config(
         });
     }
 
-    // Serialize annotated ranges from compute_reveal.
-    // RangeWithHandler and Handler implement Serialize with the correct field names.
     serde_json::json!({
         "type": "reveal_config",
         "sent": sent_ranges,
