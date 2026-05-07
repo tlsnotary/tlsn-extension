@@ -119,6 +119,11 @@ export function PluginScreen({
     verifierUrlRef.current = verifierUrlOverride;
   }, [verifierUrlOverride]);
 
+  const modeRef = useRef(mode);
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
+
   const [domJson, setDomJson] = useState<DomJson | null>(null);
   const [webViewUrl, setWebViewUrl] = useState<string | null>(null);
   const [_windowId, setWindowId] = useState<number>(0);
@@ -186,7 +191,7 @@ export function PluginScreen({
             maxSentData: proverOptions.maxSentData ?? 4096,
             maxRecvData: proverOptions.maxRecvData ?? 16384,
             handlers: nativeHandlers,
-            mode,
+            mode: modeRef.current,
           },
         });
 

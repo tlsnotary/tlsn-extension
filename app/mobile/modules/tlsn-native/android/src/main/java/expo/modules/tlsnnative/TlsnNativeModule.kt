@@ -5,6 +5,7 @@ import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.kotlin.Promise
 import uniffi.tlsn_mobile.HttpHeader
 import uniffi.tlsn_mobile.HttpRequest
+import uniffi.tlsn_mobile.Mode
 import uniffi.tlsn_mobile.ProverOptions
 import uniffi.tlsn_mobile.Handler
 import uniffi.tlsn_mobile.HandlerType
@@ -158,11 +159,23 @@ class TlsnNativeModule : Module() {
 
                     android.util.Log.i("TlsnNative", "Final handlers count: ${handlers.size}")
 
+                    // Parse optional protocol mode (default Mpc).
+                    val mode: Mode? = when (optionsObj.optString("mode", "")) {
+                        "Mpc" -> Mode.MPC
+                        "Proxy" -> Mode.PROXY
+                        "" -> null
+                        else -> {
+                            android.util.Log.w("TlsnNative", "unknown mode '${optionsObj.optString("mode")}', defaulting to Mpc")
+                            null
+                        }
+                    }
+
                     val options = ProverOptions(
                         verifierUrl = verifierUrl,
                         maxSentData = maxSentData,
                         maxRecvData = maxRecvData,
-                        handlers = handlers
+                        handlers = handlers,
+                        mode = mode
                     )
 
                     // Create progress callback that emits Expo events

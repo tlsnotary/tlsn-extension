@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Alert, ScrollView, TouchableOpacity } from 'rea
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { PluginScreen } from '@/components/tlsn/PluginScreen';
 import { getPluginById } from '../../assets/plugins/registry';
-import { useVerifierUrl } from '@/lib/useVerifierUrl';
+import { useVerifierUrl, useProxyMode } from '@/lib/useVerifierUrl';
 
 /**
  * Extract all handler result values from the proof result string.
@@ -62,6 +62,7 @@ function formatRawData(raw: string): string {
 export default function PluginRunnerScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { url: verifierUrl } = useVerifierUrl();
+  const { proxyMode } = useProxyMode();
   const plugin = getPluginById(id, verifierUrl);
   const router = useRouter();
   const [result, setResult] = useState<string | null>(null);
@@ -177,6 +178,7 @@ export default function PluginRunnerScreen() {
           pluginCode={plugin.getPluginCode()}
           pluginConfig={plugin.pluginConfig}
           verifierUrlOverride={verifierUrl}
+          mode={proxyMode ? 'Proxy' : 'Mpc'}
           onComplete={(res) => {
             setResult(typeof res === 'string' ? res : JSON.stringify(res, null, 2));
           }}

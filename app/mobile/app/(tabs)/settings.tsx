@@ -7,16 +7,30 @@ import {
   StyleSheet,
   Alert,
   ScrollView,
+  Switch,
 } from 'react-native';
-import { getVerifierUrl, setVerifierUrl, DEFAULT_VERIFIER_URL } from '@/lib/useVerifierUrl';
+import {
+  getVerifierUrl,
+  setVerifierUrl,
+  getProxyMode,
+  setProxyMode,
+  DEFAULT_VERIFIER_URL,
+} from '@/lib/useVerifierUrl';
 
 export default function SettingsScreen() {
   const [url, setUrl] = useState('');
   const [saved, setSaved] = useState(false);
+  const [proxyMode, setProxyModeState] = useState(false);
 
   useEffect(() => {
     getVerifierUrl().then(setUrl);
+    getProxyMode().then(setProxyModeState);
   }, []);
+
+  const handleToggleProxyMode = async (value: boolean) => {
+    setProxyModeState(value);
+    await setProxyMode(value);
+  };
 
   const handleSave = async () => {
     const trimmed = url.trim();
@@ -61,6 +75,19 @@ export default function SettingsScreen() {
           <TouchableOpacity style={styles.resetButton} onPress={handleReset} activeOpacity={0.7}>
             <Text style={styles.resetButtonText}>Reset to Default</Text>
           </TouchableOpacity>
+        </View>
+      </View>
+
+      <View style={[styles.card, styles.cardSpacing]}>
+        <View style={styles.toggleRow}>
+          <View style={styles.toggleLabelGroup}>
+            <Text style={styles.label}>Proxy mode</Text>
+          </View>
+          <Switch
+            value={proxyMode}
+            onValueChange={handleToggleProxyMode}
+            trackColor={{ false: '#ddd', true: '#243f5f' }}
+          />
         </View>
       </View>
 
@@ -166,5 +193,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#444',
     fontFamily: 'Courier',
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  toggleLabelGroup: {
+    flex: 1,
+  },
+  cardSpacing: {
+    marginTop: 12,
   },
 });

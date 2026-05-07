@@ -8,16 +8,25 @@
 //! - Sending `reveal_config` to the verifier session WebSocket
 
 use futures::{SinkExt, StreamExt};
-use tlsn_sdk_core::{compute_reveal, ProverConfig, SdkProver};
+use tlsn_sdk_core::{compute_reveal, config::ProverMode, ProverConfig, SdkProver};
 use tokio::net::TcpStream;
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use tokio_util::compat::TokioAsyncReadCompatExt;
 use url::Url;
 
 use crate::{
-    ws_io::WsIoAdapter, HttpHeader, HttpRequest, HttpResponse, ProofResult, ProgressCallback,
+    ws_io::WsIoAdapter, HttpHeader, HttpRequest, HttpResponse, Mode, ProofResult, ProgressCallback,
     ProverOptions, TlsnError, Transcript,
 };
+
+impl Mode {
+    fn to_sdk(self) -> ProverMode {
+        match self {
+            Mode::Mpc => ProverMode::Mpc,
+            Mode::Proxy => ProverMode::Proxy,
+        }
+    }
+}
 
 /// Connect to a WebSocket URL and return an [`WsIoAdapter`].
 async fn connect_ws(url: &str) -> Result<WsIoAdapter, TlsnError> {
@@ -39,8 +48,14 @@ pub(crate) async fn prove_async(
     progress: Option<&dyn ProgressCallback>,
 ) -> Result<ProofResult, TlsnError> {
     let handlers_received = options.handlers.len() as u32;
+    let mode = options.mode.unwrap_or(Mode::Mpc);
 
-    tracing::info!("starting proof for {} ({} handlers)", request.url, handlers_received);
+    tracing::info!(
+        "starting proof for {} ({} handlers, mode={:?})",
+        request.url,
+        handlers_received,
+        mode,
+    );
     emit_progress(progress, "CONNECTING", 0.0, "Connecting to verifier...");
 
     // Parse URL to extract hostname for ProverConfig.
@@ -114,6 +129,7 @@ pub(crate) async fn prove_async(
     // 2. Create prover & MPC setup
     // -----------------------------------------------------------------------
     let config = ProverConfig::builder(hostname)
+        .mode(mode.to_sdk())
         .max_sent_data(options.max_sent_data as usize)
         .max_recv_data(options.max_recv_data as usize)
         .build()?;
@@ -129,21 +145,29 @@ pub(crate) async fn prove_async(
     emit_progress(progress, "MPC_SETUP", 0.25, "MPC session established");
 
     // -----------------------------------------------------------------------
-    // 3. Send HTTP request through direct TCP (no proxy needed on native)
+    // 3. Send HTTP request — MPC opens a direct TCP to the server; Proxy
+    //    routes server traffic through the verifier session.
     // -----------------------------------------------------------------------
-    let port = url.port().unwrap_or(443);
-    let server_addr = format!("{}:{}", hostname, port);
-    tracing::info!("connecting directly to server: {server_addr}");
-
-    let tcp_stream = TcpStream::connect(&server_addr).await.map_err(|e| {
-        TlsnError::ConnectionFailed(format!("failed to connect to {server_addr}: {e}"))
-    })?;
-    // Convert tokio TcpStream (tokio::io::AsyncRead) to futures::AsyncRead for sdk-core's Io trait.
-    let server_io = tcp_stream.compat();
-
     emit_progress(progress, "SENDING_REQUEST", 0.35, "Sending request...");
     let sdk_request = request.into_sdk();
-    let sdk_response = prover.send_request_mpc(server_io, sdk_request).await?;
+    let sdk_response = match mode {
+        Mode::Mpc => {
+            let port = url.port().unwrap_or(443);
+            let server_addr = format!("{}:{}", hostname, port);
+            tracing::info!("connecting directly to server: {server_addr}");
+
+            let tcp_stream = TcpStream::connect(&server_addr).await.map_err(|e| {
+                TlsnError::ConnectionFailed(format!("failed to connect to {server_addr}: {e}"))
+            })?;
+            // Convert tokio TcpStream (tokio::io::AsyncRead) to futures::AsyncRead for sdk-core's Io trait.
+            let server_io = tcp_stream.compat();
+            prover.send_request_mpc(server_io, sdk_request).await?
+        }
+        Mode::Proxy => {
+            tracing::info!("proxy mode: server traffic tunneled through verifier session");
+            prover.send_request_proxy(sdk_request).await?
+        }
+    };
     tracing::info!("HTTP response: status {}", sdk_response.status);
     emit_progress(progress, "REQUEST_COMPLETE", 0.5, "Processing transcript...");
 
