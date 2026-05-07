@@ -381,6 +381,9 @@ export function makeOpenWindow(
       }
 
       if (message.windowId !== executionContext.windowId) {
+        logger.warn(
+          `[makeOpenWindow] Dropping ${message.type}: windowId ${message.windowId} != ctx.windowId ${executionContext.windowId}`,
+        );
         return;
       }
 
