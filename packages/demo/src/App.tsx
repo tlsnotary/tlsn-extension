@@ -66,6 +66,7 @@ export function App() {
   const [runningPlugins, setRunningPlugins] = useState<Set<string>>(new Set());
   const [pluginResults, setPluginResults] = useState<Record<string, PluginResultData>>({});
   const [pluginProgress, setPluginProgress] = useState<Record<string, ProgressData>>({});
+  const [proverMode, setProverMode] = useState<'Mpc' | 'Proxy'>('Mpc');
   const [consoleExpanded, setConsoleExpanded] = useState(false);
 
   const addConsoleEntry = useCallback((message: string, type: ConsoleEntry['type'] = 'info') => {
@@ -206,8 +207,11 @@ export function App() {
         const startTime = performance.now();
         const pluginCode = await fetch(plugin.file).then((r) => r.text());
 
-        addConsoleEntry('🔧 Executing plugin code...', 'info');
-        const result = await window.tlsn!.execCode(pluginCode, { requestId });
+        addConsoleEntry(`Running ${plugin.name} in ${proverMode} mode...`, 'info');
+        const result = await window.tlsn!.execCode(pluginCode, {
+          requestId,
+          sessionData: { mode: proverMode },
+        });
         const durationMs = performance.now() - startTime;
         const executionTime = durationMs.toFixed(2);
 
@@ -253,7 +257,7 @@ export function App() {
         });
       }
     },
-    [addConsoleEntry],
+    [addConsoleEntry, proverMode],
   );
 
   // Listen for tlsn_loaded event
@@ -351,6 +355,24 @@ export function App() {
         <p className="section-subtitle">
           Run a plugin to see TLSNotary in action. Click "View Source" to see how each plugin works.
         </p>
+
+        <div className="mode-toggle">
+          <span className="mode-toggle-label">Protocol Mode:</span>
+          <div className="mode-toggle-buttons">
+            <button
+              className={`mode-toggle-btn ${proverMode === 'Mpc' ? 'active' : ''}`}
+              onClick={() => setProverMode('Mpc')}
+            >
+              MPC
+            </button>
+            <button
+              className={`mode-toggle-btn ${proverMode === 'Proxy' ? 'active' : ''}`}
+              onClick={() => setProverMode('Proxy')}
+            >
+              Proxy
+            </button>
+          </div>
+        </div>
 
         {!allChecksPass && (
           <div className="alert-box">

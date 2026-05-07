@@ -124,7 +124,13 @@ export class SessionManager {
           onProgress?.({ step, progress, message });
         };
 
-        emitBoth('CONNECTING', 0.0, 'Connecting to verifier...');
+        // Mode is a user/platform decision, not a plugin decision.
+        // Read from sessionData provided by the caller of execCode().
+        const mode = (sessionData.mode as 'Mpc' | 'Proxy') ?? 'Mpc';
+        const modeLabel = mode === 'Proxy' ? 'Proxy' : 'MPC';
+        logger.debug('[SessionManager] Prove mode:', mode, 'sessionData:', sessionData);
+
+        emitBoth('CONNECTING', 0.0, `Connecting to verifier (${modeLabel} mode)...`);
 
         const proverId = await proveManager.createProver(
           url.hostname,
@@ -132,6 +138,7 @@ export class SessionManager {
           proverOptions.maxRecvData,
           proverOptions.maxSentData,
           sessionData,
+          mode,
         );
 
         // Register per-prover WASM progress callback
@@ -142,11 +149,17 @@ export class SessionManager {
         }
 
         try {
-          emitBoth('MPC_SETUP', 0.15, 'MPC session established');
+          emitBoth('SESSION_SETUP', 0.15, `${modeLabel} session established`);
+
+          // In Proxy mode the prover↔server traffic is tunneled through the
+          // verifier session multiplexer, so no separate WebSocket to the
+          // websockify proxy is opened. In MPC mode we pass the websockify URL
+          // through to the worker, which will create a JsIo channel for it.
+          const workerProxyUrl = mode === 'Proxy' ? undefined : proverOptions.proxyUrl;
 
           // Send request via ProveManager which handles IoChannel creation in the worker.
           emitBoth('SENDING_REQUEST', 0.3, 'Sending request...');
-          await proveManager.sendRequest(proverId, proverOptions.proxyUrl, {
+          await this.proveManager.sendRequest(proverId, workerProxyUrl, {
             url: requestOptions.url,
             method: requestOptions.method as Method,
             headers: requestOptions.headers,

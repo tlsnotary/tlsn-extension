@@ -151,6 +151,11 @@ export interface PartialTranscript {
 }
 
 /**
+ * Protocol mode for the prover.
+ */
+export type ProverMode = "Mpc" | "Proxy";
+
+/**
  * Ranges of data to hash-commit.
  */
 export interface Commit {
@@ -214,6 +219,7 @@ export interface LoggingConfig {
 
 export interface ProverConfig {
     server_name: string;
+    mode: ProverMode;
     max_sent_data: number;
     max_sent_records: number | undefined;
     max_recv_data_online: number | undefined;
@@ -222,6 +228,12 @@ export interface ProverConfig {
     defer_decryption_from_start: boolean | undefined;
     network: NetworkSetting;
     client_auth: [number[][], number[]] | undefined;
+    /**
+     * Custom root certificates (DER-encoded) for TLS server verification.
+     *
+     * If not provided, Mozilla root certificates are used.
+     */
+    root_certs: number[][] | undefined;
 }
 
 export interface VerifierConfig {
@@ -229,6 +241,12 @@ export interface VerifierConfig {
     max_recv_data: number;
     max_sent_records: number | undefined;
     max_recv_records_online: number | undefined;
+    /**
+     * Custom root certificates (DER-encoded) for TLS server verification.
+     *
+     * If not provided, Mozilla root certificates are used.
+     */
+    root_certs: number[][] | undefined;
 }
 
 export type LoggingLevel = "Off" | "Trace" | "Debug" | "Info" | "Warn" | "Error";
@@ -261,11 +279,12 @@ export class Prover {
      *
      * # Arguments
      *
-     * * `server_io` - A JavaScript object implementing the IoChannel
-     *   interface, connected to the server (typically via a WebSocket proxy).
+     * * `server_io` - An IoChannel connected to the server. Must be provided
+     *   in MPC mode. Must be `None` in proxy mode, where the connection is
+     *   routed through the verifier.
      * * `request` - The HTTP request to send.
      */
-    send_request(server_io: IoChannel, request: HttpRequest): Promise<HttpResponse>;
+    send_request(server_io: IoChannel | null | undefined, request: HttpRequest): Promise<HttpResponse>;
     /**
      * Sets a progress callback that receives structured progress updates.
      *
@@ -332,6 +351,32 @@ export class Verifier {
      */
     constructor(config: VerifierConfig);
     /**
+     * Runs the verifier until the TLS connection is closed.
+     *
+     * In proxy mode, `set_server_socket()` must be called first.
+     */
+    run(): Promise<void>;
+    /**
+     * Provides the server socket for proxy mode.
+     *
+     * Must be called between `setup()` and `run()` when `setup` returned a
+     * server name.
+     *
+     * # Arguments
+     *
+     * * `server_io` - A JavaScript object implementing the IoChannel
+     *   interface, connected to the server.
+     */
+    set_server_socket(server_io: IoChannel): void;
+    /**
+     * Performs the commitment handshake with the prover.
+     *
+     * Returns the server name in proxy mode, or null/undefined for MPC
+     * mode. When a server name is returned, call `set_server_socket()`
+     * with a connection to that server before calling `run()`.
+     */
+    setup(): Promise<string | undefined>;
+    /**
      * Verifies the connection and finalizes the protocol.
      */
     verify(): Promise<VerifierOutput>;
@@ -387,12 +432,15 @@ export interface InitOutput {
     readonly initialize: (a: number, b: number) => any;
     readonly prover_new: (a: any) => [number, number, number];
     readonly prover_reveal: (a: number, b: any, c: number) => any;
-    readonly prover_send_request: (a: number, b: any, c: any) => any;
+    readonly prover_send_request: (a: number, b: number, c: any) => any;
     readonly prover_set_progress_callback: (a: number, b: any) => void;
     readonly prover_setup: (a: number, b: any) => any;
     readonly prover_transcript: (a: number) => [number, number, number];
     readonly verifier_connect: (a: number, b: any) => any;
-    readonly verifier_new: (a: any) => number;
+    readonly verifier_new: (a: any) => [number, number, number];
+    readonly verifier_run: (a: number) => any;
+    readonly verifier_set_server_socket: (a: number, b: any) => [number, number];
+    readonly verifier_setup: (a: number) => any;
     readonly verifier_verify: (a: number) => any;
     readonly __wbg_spawner_free: (a: number, b: number) => void;
     readonly __wbg_workerdata_free: (a: number, b: number) => void;
@@ -402,12 +450,10 @@ export interface InitOutput {
     readonly web_spawn_recover_spawner: (a: number) => number;
     readonly web_spawn_start_worker: (a: number) => void;
     readonly ring_core_0_17_14__bn_mul_mont: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
-    readonly wasm_bindgen_be5bb63e37a358e___closure__destroy___dyn_core_2b7419d43886a840___ops__function__FnMut__wasm_bindgen_be5bb63e37a358e___JsValue____Output_______: (a: number, b: number) => void;
-    readonly wasm_bindgen_be5bb63e37a358e___closure__destroy___dyn_core_2b7419d43886a840___ops__function__FnMut__wasm_bindgen_be5bb63e37a358e___JsValue____Output___core_2b7419d43886a840___result__Result_____wasm_bindgen_be5bb63e37a358e___JsError___: (a: number, b: number) => void;
-    readonly wasm_bindgen_be5bb63e37a358e___convert__closures_____invoke___wasm_bindgen_be5bb63e37a358e___JsValue__core_2b7419d43886a840___result__Result_____wasm_bindgen_be5bb63e37a358e___JsError___true_: (a: number, b: number, c: any) => [number, number];
-    readonly wasm_bindgen_be5bb63e37a358e___convert__closures_____invoke___js_sys_e6089382e1a6f1c6___Function_fn_wasm_bindgen_be5bb63e37a358e___JsValue_____wasm_bindgen_be5bb63e37a358e___sys__Undefined___js_sys_e6089382e1a6f1c6___Function_fn_wasm_bindgen_be5bb63e37a358e___JsValue_____wasm_bindgen_be5bb63e37a358e___sys__Undefined_______true_: (a: number, b: number, c: any, d: any) => void;
-    readonly wasm_bindgen_be5bb63e37a358e___convert__closures_____invoke___wasm_bindgen_be5bb63e37a358e___JsValue______true_: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen_be5bb63e37a358e___convert__closures_____invoke___web_sys_8ba583b92831bfc___features__gen_MessageEvent__MessageEvent______true_: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_d3df770ca815d2f6___convert__closures_____invoke___wasm_bindgen_d3df770ca815d2f6___JsValue__core_69f2bd47a851c2ee___result__Result_____wasm_bindgen_d3df770ca815d2f6___JsError___true_: (a: number, b: number, c: any) => [number, number];
+    readonly wasm_bindgen_d3df770ca815d2f6___convert__closures_____invoke___js_sys_9ef8e20dc2e1b707___Function_fn_wasm_bindgen_d3df770ca815d2f6___JsValue_____wasm_bindgen_d3df770ca815d2f6___sys__Undefined___js_sys_9ef8e20dc2e1b707___Function_fn_wasm_bindgen_d3df770ca815d2f6___JsValue_____wasm_bindgen_d3df770ca815d2f6___sys__Undefined_______true_: (a: number, b: number, c: any, d: any) => void;
+    readonly wasm_bindgen_d3df770ca815d2f6___convert__closures_____invoke___wasm_bindgen_d3df770ca815d2f6___JsValue______true_: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_d3df770ca815d2f6___convert__closures_____invoke___js_sys_9ef8e20dc2e1b707___futures__task__wait_async_polyfill__MessageEvent______true_: (a: number, b: number, c: any) => void;
     readonly memory: WebAssembly.Memory;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
@@ -415,6 +461,7 @@ export interface InitOutput {
     readonly __externref_table_alloc: () => number;
     readonly __wbindgen_externrefs: WebAssembly.Table;
     readonly __wbindgen_free: (a: number, b: number, c: number) => void;
+    readonly __wbindgen_destroy_closure: (a: number, b: number) => void;
     readonly __externref_table_dealloc: (a: number) => void;
     readonly __wbindgen_thread_destroy: (a?: number, b?: number, c?: number) => void;
     readonly __wbindgen_start: (a: number) => void;

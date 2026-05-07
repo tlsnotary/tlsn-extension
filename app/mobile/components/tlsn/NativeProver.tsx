@@ -32,6 +32,7 @@ export interface NativeProveParams {
     maxSentData: number;
     maxRecvData: number;
     handlers?: Handler[];
+    mode?: 'Mpc' | 'Proxy';
   };
 }
 
@@ -146,6 +147,7 @@ function NativeProverComponent(
         maxSentData: params.proverOptions.maxSentData,
         maxRecvData: params.proverOptions.maxRecvData,
         handlers: params.proverOptions.handlers || [],
+        mode: params.proverOptions.mode,
       };
 
       console.log(

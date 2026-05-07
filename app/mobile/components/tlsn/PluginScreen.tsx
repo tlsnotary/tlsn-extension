@@ -93,6 +93,8 @@ interface PluginScreenProps {
   onError?: (error: Error) => void;
   /** Override the verifier URL used by prove() (from Settings) */
   verifierUrlOverride?: string;
+  /** TLS verification protocol mode (default: 'Mpc') */
+  mode?: 'Mpc' | 'Proxy';
 }
 
 /**
@@ -110,6 +112,7 @@ export function PluginScreen({
   onComplete,
   onError,
   verifierUrlOverride,
+  mode = 'Mpc',
 }: PluginScreenProps) {
   const verifierUrlRef = useRef(verifierUrlOverride);
   useEffect(() => {
@@ -183,6 +186,7 @@ export function PluginScreen({
             maxSentData: proverOptions.maxSentData ?? 4096,
             maxRecvData: proverOptions.maxRecvData ?? 16384,
             handlers: nativeHandlers,
+            mode,
           },
         });
 

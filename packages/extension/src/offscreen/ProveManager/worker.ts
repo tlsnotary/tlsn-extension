@@ -245,13 +245,16 @@ const SEND_REQUEST_TIMEOUT_MS = 60_000;
 
 async function sendRequest(
   proverId: string,
-  proxyUrl: string,
+  proxyUrl: string | undefined,
   request: HttpRequest,
 ): Promise<void> {
   const prover = provers.get(proverId);
   if (!prover) throw new Error(`Prover not found: ${proverId}`);
 
-  const serverIo = await createIoChannel(proxyUrl);
+  // Proxy mode: the WASM prover routes server traffic over the verifier
+  // session mux internally and rejects a server_io. MPC mode: open a
+  // websockify channel to the target server and pass it as server_io.
+  const serverIo = proxyUrl ? await createIoChannel(proxyUrl) : undefined;
   try {
     await Promise.race([
       prover.send_request(serverIo, request),
@@ -266,7 +269,7 @@ async function sendRequest(
       ),
     ]);
   } catch (err) {
-    await serverIo.close();
+    await serverIo?.close();
     throw err;
   }
 }
@@ -296,7 +299,13 @@ async function reveal(
   const prover = provers.get(proverId);
   if (!prover) throw new Error(`Prover not found: ${proverId}`);
 
-  await prover.reveal(revealConfig, commitConfig);
+  // The proxy-approach WASM build only accepts revealConfig; hash commitments
+  // are not yet supported on the upstream proxy branch.
+  if (commitConfig) {
+    await (prover.reveal as (r: Reveal, c: Commit) => Promise<void>)(revealConfig, commitConfig);
+  } else {
+    await prover.reveal(revealConfig);
+  }
 }
 
 /**

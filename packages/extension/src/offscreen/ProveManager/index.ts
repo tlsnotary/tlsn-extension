@@ -5,6 +5,7 @@ import type {
   Reveal,
   Commit,
   Method,
+  ProverMode,
 } from '../../../../tlsn-wasm-pkg/tlsn_wasm';
 import { logger } from '@tlsn/common';
 import type { Handler } from '@tlsn/plugin-sdk';
@@ -32,7 +33,11 @@ const workerApi = Comlink.wrap<{
   }) => Promise<void>;
   createProver: (config: ProverConfig) => Promise<string>;
   setupProver: (proverId: string, verifierUrl: string) => Promise<void>;
-  sendRequest: (proverId: string, proxyUrl: string, request: HttpRequest) => Promise<void>;
+  sendRequest: (
+    proverId: string,
+    proxyUrl: string | undefined,
+    request: HttpRequest,
+  ) => Promise<void>;
   getTranscript: (proverId: string) => { sent: number[]; recv: number[] };
   computeReveal: (
     proverId: string,
@@ -83,6 +88,7 @@ interface SessionState {
   webSocket: WebSocket;
   response: VerificationResponse | null;
   responseReceived: boolean;
+  error: string | null;
 }
 
 /** Progress callback signature for WASM and JS-side progress events. */
@@ -199,6 +205,7 @@ export class ProveManager {
                 webSocket: ws,
                 response: null,
                 responseReceived: false,
+                error: null,
               });
 
               const verifierWsUrl = `${protocol}://${_url.host}${pathname === '/' ? '' : pathname}/verifier?sessionId=${sessionId}`;
@@ -222,7 +229,15 @@ export class ProveManager {
 
             case 'error': {
               logger.error('[ProveManager] Server error for prover:', proverId, data.message);
-              reject(new Error(data.message));
+              // If session is already registered, store the error so getResponse() can throw.
+              // If not yet registered, reject the createSession promise.
+              const session = this.sessions.get(proverId);
+              if (session) {
+                session.error = data.message;
+                session.responseReceived = true;
+              } else {
+                reject(new Error(data.message));
+              }
               break;
             }
 
@@ -239,6 +254,7 @@ export class ProveManager {
                   webSocket: ws,
                   response: null,
                   responseReceived: false,
+                  error: null,
                 });
                 const verifierWsUrl = `${protocol}://${_url.host}${pathname === '/' ? '' : pathname}/verifier?sessionId=${String(legacyData.sessionId)}`;
                 resolve(verifierWsUrl);
@@ -283,18 +299,21 @@ export class ProveManager {
     maxRecvData = 16384,
     maxSentData = 4096,
     sessionData: Record<string, string> = {},
+    mode: ProverMode = 'Mpc',
   ) {
     // Create prover in the worker first to get the ID.
     const proverId = await workerApi.createProver({
       server_name: serverDns,
-      max_recv_data: maxRecvData,
+      mode,
       max_sent_data: maxSentData,
-      network: 'Bandwidth',
       max_sent_records: undefined,
       max_recv_data_online: undefined,
+      max_recv_data: maxRecvData,
       max_recv_records_online: undefined,
       defer_decryption_from_start: undefined,
+      network: 'Bandwidth',
       client_auth: undefined,
+      root_certs: undefined,
     });
 
     try {
@@ -362,7 +381,7 @@ export class ProveManager {
 
   async sendRequest(
     proverId: string,
-    proxyUrl: string,
+    proxyUrl: string | undefined,
     options: {
       url: string;
       method?: Method;
@@ -430,6 +449,10 @@ export class ProveManager {
         return null;
       }
 
+      if (session.error) {
+        throw new Error(session.error);
+      }
+
       if (session.responseReceived && session.response) {
         logger.debug('[ProveManager] Returning response for prover:', proverId);
         return session.response;
@@ -493,5 +516,12 @@ export class ProveManager {
    */
   getActiveSessionCount(): number {
     return this.sessions.size;
+  }
+
+  /**
+   * Get the session ID for a given prover (used to route proxy WS in proxy mode).
+   */
+  getSessionId(proverId: string): string | null {
+    return this.sessions.get(proverId)?.sessionId ?? null;
   }
 }
