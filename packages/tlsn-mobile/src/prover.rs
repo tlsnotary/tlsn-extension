@@ -143,7 +143,7 @@ pub(crate) async fn prove_async(
 
     emit_progress(progress, "SENDING_REQUEST", 0.35, "Sending request...");
     let sdk_request = request.into_sdk();
-    let sdk_response = prover.send_request(server_io, sdk_request).await?;
+    let sdk_response = prover.send_request_mpc(server_io, sdk_request).await?;
     tracing::info!("HTTP response: status {}", sdk_response.status);
     emit_progress(progress, "REQUEST_COMPLETE", 0.5, "Processing transcript...");
 
