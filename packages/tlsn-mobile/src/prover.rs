@@ -26,18 +26,16 @@ use std::time::{Duration, Instant};
 use futures::{SinkExt, StreamExt};
 use tlsn_sdk_core::{compute_reveal, config::ProverMode, ProverConfig, SdkProver};
 use tokio::net::TcpStream;
-use tokio_tungstenite::{
-    connect_async,
-    tungstenite::Message,
-    MaybeTlsStream, WebSocketStream,
-};
+use tokio::sync::oneshot;
+use tokio_tungstenite::{connect_async, tungstenite::Message};
 use tokio_util::compat::TokioAsyncReadCompatExt;
 use url::Url;
 use uuid::Uuid;
 
 use crate::{
-    ws_io::WsIoAdapter, HttpHeader, HttpRequest, HttpResponse, Mode, ProgressCallback,
-    ProofResult, ProverOptions, RevealPreparation, RevealRangeDescriptor, TlsnError, Transcript,
+    shared_runtime, ws_io::WsIoAdapter, HttpHeader, HttpRequest, HttpResponse, Mode,
+    ProgressCallback, ProofResult, ProverOptions, RevealPreparation, RevealRangeDescriptor,
+    TlsnError, Transcript,
 };
 
 impl Mode {
@@ -49,27 +47,25 @@ impl Mode {
     }
 }
 
-type SessionWs = WebSocketStream<MaybeTlsStream<TcpStream>>;
-
 /// Sessions older than this are reaped from the map.
 const SESSION_TTL: Duration = Duration::from_secs(5 * 60);
 
-/// In-flight prove state held between [`prove_until_reveal_async`] and
-/// [`prove_finalize_async`]. Lives in [`SESSIONS`] under a UUID.
-struct ProveSession {
-    prover: SdkProver,
-    session_ws: SessionWs,
-    transcript: tlsn_sdk_core::Transcript,
-    compute_output: tlsn_sdk_core::handler::ComputeRevealOutput,
-    sdk_handlers: Vec<tlsn_sdk_core::Handler>,
-    sdk_response: tlsn_sdk_core::HttpResponse,
-    handlers_received: u32,
+/// Channels we hand the spawned prove task between phase A and phase B.
+///
+/// Phase A spawns a task that runs the entire prove flow. The task pauses
+/// after `compute_reveal` waiting on `approval_rx`. Phase B sends `approved`
+/// over `approval_tx`; the task resumes, completes, and emits the result via
+/// `result_rx`. Spawning is what keeps the prover's websocket future being
+/// polled by tokio worker threads in the gap between FFI calls.
+struct PendingSession {
+    approval_tx: oneshot::Sender<bool>,
+    result_rx: oneshot::Receiver<Result<ProofResult, TlsnError>>,
     created_at: Instant,
 }
 
-static SESSIONS: OnceLock<Mutex<HashMap<String, ProveSession>>> = OnceLock::new();
+static SESSIONS: OnceLock<Mutex<HashMap<String, PendingSession>>> = OnceLock::new();
 
-fn sessions() -> &'static Mutex<HashMap<String, ProveSession>> {
+fn sessions() -> &'static Mutex<HashMap<String, PendingSession>> {
     SESSIONS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
@@ -96,14 +92,79 @@ fn emit_progress(cb: Option<&dyn ProgressCallback>, step: &str, progress: f64, m
     }
 }
 
-/// Phase A: run steps 1–4, build a descriptor preview, stash session state.
+/// Phase A: spawn a prove task on the shared runtime; the task runs steps
+/// 1–4, sends back the descriptors, then suspends on the approval channel.
+/// We block on `descriptor_rx` to return the preview to JS without waiting
+/// for the user.
 pub(crate) async fn prove_until_reveal_async(
     request: HttpRequest,
     options: ProverOptions,
-    progress: Option<&dyn ProgressCallback>,
+    progress: Option<std::sync::Arc<dyn ProgressCallback>>,
 ) -> Result<RevealPreparation, TlsnError> {
     reap_expired();
 
+    let (descriptor_tx, descriptor_rx) =
+        oneshot::channel::<Result<RevealPreparation, TlsnError>>();
+    let (approval_tx, approval_rx) = oneshot::channel::<bool>();
+    let (result_tx, result_rx) = oneshot::channel::<Result<ProofResult, TlsnError>>();
+
+    let session_id = Uuid::new_v4().to_string();
+
+    // Spawn the full prove flow on the shared runtime. The task drives the
+    // websocket futures (kept alive by tokio worker threads) across the gap
+    // between phase A's block_on returning and phase B's block_on starting.
+    shared_runtime().spawn(async move {
+        let progress_ref = progress.as_deref();
+        match run_prove_with_gate(request, options, progress_ref, descriptor_tx, approval_rx).await
+        {
+            Ok(result) => {
+                let _ = result_tx.send(Ok(result));
+            }
+            Err(err) => {
+                let _ = result_tx.send(Err(err));
+            }
+        }
+    });
+
+    // Wait for the spawned task to reach the descriptor handoff point.
+    let prep = match descriptor_rx.await {
+        Ok(Ok(p)) => p,
+        Ok(Err(e)) => return Err(e),
+        Err(_) => {
+            return Err(TlsnError::ProofFailed(
+                "prove task ended before producing descriptors".into(),
+            ))
+        }
+    };
+
+    // Stash the channels under the session_id so phase B can resume the task.
+    let pending = PendingSession {
+        approval_tx,
+        result_rx,
+        created_at: Instant::now(),
+    };
+    sessions()
+        .lock()
+        .map_err(|_| TlsnError::ProofFailed("session map poisoned".into()))?
+        .insert(session_id.clone(), pending);
+
+    Ok(RevealPreparation {
+        session_id,
+        response: prep.response,
+        descriptors: prep.descriptors,
+    })
+}
+
+/// Spawned-task body. Runs the entire prove flow, sending the descriptors via
+/// `descriptor_tx` once `compute_reveal` produces them, then awaiting the
+/// `approval_rx` signal before either revealing or aborting.
+async fn run_prove_with_gate(
+    request: HttpRequest,
+    options: ProverOptions,
+    progress: Option<&dyn ProgressCallback>,
+    descriptor_tx: oneshot::Sender<Result<RevealPreparation, TlsnError>>,
+    approval_rx: oneshot::Receiver<bool>,
+) -> Result<ProofResult, TlsnError> {
     let handlers_received = options.handlers.len() as u32;
     let mode = options.mode.unwrap_or(Mode::Mpc);
 
@@ -279,48 +340,22 @@ pub(crate) async fn prove_until_reveal_async(
         body: response_body_str,
     };
 
-    // Stash and return.
-    let session_id = Uuid::new_v4().to_string();
-    let session = ProveSession {
-        prover,
-        session_ws,
-        transcript,
-        compute_output,
-        sdk_handlers,
-        sdk_response,
-        handlers_received,
-        created_at: Instant::now(),
-    };
-    sessions()
-        .lock()
-        .map_err(|_| TlsnError::ProofFailed("session map poisoned".into()))?
-        .insert(session_id.clone(), session);
-
-    Ok(RevealPreparation {
-        session_id,
+    // Hand the descriptors back to phase A's block_on. session_id is
+    // assigned by the caller; we don't include it here.
+    let _ = descriptor_tx.send(Ok(RevealPreparation {
+        session_id: String::new(),
         response,
         descriptors,
-    })
-}
+    }));
 
-/// Phase B: complete the prove (send reveal + reveal_config) or drop the session.
-pub(crate) async fn prove_finalize_async(
-    session_id: String,
-    approved: bool,
-    progress: Option<&dyn ProgressCallback>,
-) -> Result<ProofResult, TlsnError> {
-    reap_expired();
-
-    let mut session = sessions()
-        .lock()
-        .map_err(|_| TlsnError::ProofFailed("session map poisoned".into()))?
-        .remove(&session_id)
-        .ok_or_else(|| TlsnError::ProofFailed(format!("unknown session: {session_id}")))?;
+    // Wait for phase B to send the approval signal.
+    let mut prover = prover;
+    let mut session_ws = session_ws;
+    let approved = approval_rx.await.unwrap_or(false);
 
     if !approved {
-        tracing::info!("user rejected reveal for session {session_id}; dropping");
-        // Best-effort close the verifier websocket; ignore errors during teardown.
-        let _ = session.session_ws.close(None).await;
+        tracing::info!("user rejected reveal; dropping session");
+        let _ = session_ws.close(None).await;
         return Err(TlsnError::ProofFailed("User rejected reveal".into()));
     }
 
@@ -328,9 +363,8 @@ pub(crate) async fn prove_finalize_async(
     // 5. Reveal and finalize
     // -----------------------------------------------------------------------
     emit_progress(progress, "GENERATING_PROOF", 0.65, "Generating proof...");
-    session
-        .prover
-        .reveal(session.compute_output.reveal.clone(), session.compute_output.commit.clone())
+    prover
+        .reveal(compute_output.reveal.clone(), compute_output.commit.clone())
         .await?;
     tracing::info!("proof generated");
     emit_progress(progress, "REVEAL_COMPLETE", 0.8, "Sending verification data...");
@@ -339,13 +373,12 @@ pub(crate) async fn prove_finalize_async(
     // 6. Send reveal_config to verifier session
     // -----------------------------------------------------------------------
     let reveal_config = build_reveal_config(
-        &session.transcript,
-        &session.sdk_handlers,
-        &session.compute_output.sent_ranges_with_handlers,
-        &session.compute_output.recv_ranges_with_handlers,
+        &transcript,
+        &sdk_handlers,
+        &compute_output.sent_ranges_with_handlers,
+        &compute_output.recv_ranges_with_handlers,
     );
-    session
-        .session_ws
+    session_ws
         .send(Message::Text(reveal_config.to_string().into()))
         .await
         .map_err(|e| TlsnError::ProofFailed(format!("failed to send reveal_config: {e}")))?;
@@ -354,7 +387,7 @@ pub(crate) async fn prove_finalize_async(
         std::time::Duration::from_secs(30),
         async {
             loop {
-                match session.session_ws.next().await {
+                match session_ws.next().await {
                     Some(Ok(Message::Text(text))) => {
                         let resp: serde_json::Value = serde_json::from_str(&text)?;
                         tracing::info!("session message: {}", resp["type"]);
@@ -389,8 +422,7 @@ pub(crate) async fn prove_finalize_async(
     // -----------------------------------------------------------------------
     // 7. Build result
     // -----------------------------------------------------------------------
-    let response_headers = session
-        .sdk_response
+    let response_headers = sdk_response
         .headers
         .into_iter()
         .map(|(name, value)| HttpHeader {
@@ -399,24 +431,53 @@ pub(crate) async fn prove_finalize_async(
         })
         .collect();
 
-    let response_body = session
-        .sdk_response
+    let response_body = sdk_response
         .body
         .map(|b| String::from_utf8_lossy(&b).into_owned())
         .unwrap_or_default();
 
     Ok(ProofResult {
         response: HttpResponse {
-            status: session.sdk_response.status,
+            status: sdk_response.status,
             headers: response_headers,
             body: response_body,
         },
         transcript: Transcript {
-            sent: session.transcript.sent,
-            recv: session.transcript.recv,
+            sent: transcript.sent,
+            recv: transcript.recv,
         },
-        handlers_received: session.handlers_received,
+        handlers_received,
     })
+}
+
+/// Phase B: send the approval signal to the spawned task and await its result.
+///
+/// `_progress` here is a no-op — the spawned task already holds its own
+/// progress reference from phase A. We accept it on the FFI surface for
+/// symmetry but don't forward it.
+pub(crate) async fn prove_finalize_async(
+    session_id: String,
+    approved: bool,
+    _progress: Option<std::sync::Arc<dyn ProgressCallback>>,
+) -> Result<ProofResult, TlsnError> {
+    reap_expired();
+
+    let pending = sessions()
+        .lock()
+        .map_err(|_| TlsnError::ProofFailed("session map poisoned".into()))?
+        .remove(&session_id)
+        .ok_or_else(|| TlsnError::ProofFailed(format!("unknown session: {session_id}")))?;
+
+    // Wake the spawned task. If `send` fails the task is already gone (likely
+    // panicked or aborted); we'll discover that via `result_rx`.
+    let _ = pending.approval_tx.send(approved);
+
+    match pending.result_rx.await {
+        Ok(r) => r,
+        Err(_) => Err(TlsnError::ProofFailed(
+            "prove task ended without producing a result".into(),
+        )),
+    }
 }
 
 /// Legacy one-shot `prove`. Calls phase A then auto-approves into phase B,
@@ -425,9 +486,9 @@ pub(crate) async fn prove_finalize_async(
 pub(crate) async fn prove_async(
     request: HttpRequest,
     options: ProverOptions,
-    progress: Option<&dyn ProgressCallback>,
+    progress: Option<std::sync::Arc<dyn ProgressCallback>>,
 ) -> Result<ProofResult, TlsnError> {
-    let prep = prove_until_reveal_async(request, options, progress).await?;
+    let prep = prove_until_reveal_async(request, options, progress.clone()).await?;
     prove_finalize_async(prep.session_id, true, progress).await
 }
 

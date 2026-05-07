@@ -7,7 +7,26 @@
 mod prover;
 mod ws_io;
 
+use std::sync::OnceLock;
+
 uniffi::setup_scaffolding!();
+
+/// Process-wide tokio runtime.
+///
+/// FFI calls share this runtime so async resources (websockets, TCP streams)
+/// stashed by `prove_until_reveal` survive across multiple FFI calls — a
+/// per-call `Runtime::new()` would be dropped on return, killing every future
+/// it owns and breaking the two-phase prove flow with
+/// "connection is closed".
+fn shared_runtime() -> &'static tokio::runtime::Runtime {
+    static RT: OnceLock<tokio::runtime::Runtime> = OnceLock::new();
+    RT.get_or_init(|| {
+        tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .expect("failed to build shared tokio runtime")
+    })
+}
 
 // ---------------------------------------------------------------------------
 // Error
@@ -341,13 +360,11 @@ pub fn prove_until_reveal(
     options: ProverOptions,
     progress: Option<Box<dyn ProgressCallback>>,
 ) -> Result<RevealPreparation, TlsnError> {
-    let rt = tokio::runtime::Runtime::new()
-        .map_err(|e| TlsnError::InitializationFailed(e.to_string()))?;
-
-    rt.block_on(prover::prove_until_reveal_async(
+    let progress_arc = progress.map(std::sync::Arc::<dyn ProgressCallback>::from);
+    shared_runtime().block_on(prover::prove_until_reveal_async(
         request,
         options,
-        progress.as_deref(),
+        progress_arc,
     ))
 }
 
@@ -364,13 +381,11 @@ pub fn prove_finalize(
     approved: bool,
     progress: Option<Box<dyn ProgressCallback>>,
 ) -> Result<ProofResult, TlsnError> {
-    let rt = tokio::runtime::Runtime::new()
-        .map_err(|e| TlsnError::InitializationFailed(e.to_string()))?;
-
-    rt.block_on(prover::prove_finalize_async(
+    let progress_arc = progress.map(std::sync::Arc::<dyn ProgressCallback>::from);
+    shared_runtime().block_on(prover::prove_finalize_async(
         session_id,
         approved,
-        progress.as_deref(),
+        progress_arc,
     ))
 }
 
@@ -383,8 +398,6 @@ pub fn prove(
     options: ProverOptions,
     progress: Option<Box<dyn ProgressCallback>>,
 ) -> Result<ProofResult, TlsnError> {
-    let rt = tokio::runtime::Runtime::new()
-        .map_err(|e| TlsnError::InitializationFailed(e.to_string()))?;
-
-    rt.block_on(prover::prove_async(request, options, progress.as_deref()))
+    let progress_arc = progress.map(std::sync::Arc::<dyn ProgressCallback>::from);
+    shared_runtime().block_on(prover::prove_async(request, options, progress_arc))
 }
