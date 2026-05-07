@@ -406,6 +406,9 @@ export function makeOpenWindow(
 
         if (message.type === 'HEADER_INTERCEPTED') {
           const header = message.header;
+          logger.warn(
+            `[makeOpenWindow] HEADER_INTERCEPTED: ${header.url} (total=${(executionContext.headers?.length ?? 0) + 1})`,
+          );
           updateExecutionContext(uuid, {
             headers: [...(executionContext.headers || []), header],
           });
