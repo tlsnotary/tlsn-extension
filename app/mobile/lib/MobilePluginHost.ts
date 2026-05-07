@@ -201,12 +201,6 @@ export class MobilePluginHost {
     windowId: number,
     header: InterceptedRequestHeader,
   ): void {
-    console.log(
-      '[MobilePluginHost] emitHeaderIntercepted windowId=',
-      windowId,
-      'url=',
-      header.url,
-    );
     eventEmitter.emit({ type: 'HEADER_INTERCEPTED', header, windowId });
   }
 

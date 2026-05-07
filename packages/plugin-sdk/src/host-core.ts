@@ -381,9 +381,6 @@ export function makeOpenWindow(
       }
 
       if (message.windowId !== executionContext.windowId) {
-        logger.warn(
-          `[makeOpenWindow] Dropping ${message.type}: windowId ${message.windowId} != ctx.windowId ${executionContext.windowId}`,
-        );
         return;
       }
 
@@ -406,9 +403,6 @@ export function makeOpenWindow(
 
         if (message.type === 'HEADER_INTERCEPTED') {
           const header = message.header;
-          logger.warn(
-            `[makeOpenWindow] HEADER_INTERCEPTED: ${header.url} (total=${(executionContext.headers?.length ?? 0) + 1})`,
-          );
           updateExecutionContext(uuid, {
             headers: [...(executionContext.headers || []), header],
           });
@@ -478,7 +472,11 @@ export function makeOpenWindow(
 
         if (message.type === 'RE_RENDER_PLUGIN_UI') {
           logger.debug('[makeOpenWindow] RE_RENDER_PLUGIN_UI', message.windowId);
-          executionContext.main(true);
+          // Defer to a microtask so a setState() that fires synchronously from
+          // within main() runs the re-render AFTER the current main() returns.
+          // Otherwise the inner re-render's DOM gets overwritten by the outer
+          // run's stale DOM via the closure-captured `json` reference.
+          Promise.resolve().then(() => executionContext.main(true));
         }
       } catch (error) {
         logger.error(`[makeOpenWindow] Error handling message ${message.type}:`, error);
