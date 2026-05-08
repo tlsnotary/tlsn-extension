@@ -6,7 +6,7 @@ set -e # Exit on error
 cd "$(dirname "$0")"
 SCRIPT_DIR="$(pwd)"
 
-VERSION=${1:-origin/main}
+VERSION=${1:-8a0a12bbb9833ede61b9b62d15ce5d658c6bc95e}
 NO_LOGGING=${2}
 
 TARGET_DIR="${SCRIPT_DIR}/../tlsn-wasm-pkg/"
@@ -33,14 +33,16 @@ elif [ -L "$REPO_DIR" ]; then
 # Check if the directory exists
 elif [ ! -d "$REPO_DIR" ]; then
     # Clone the repository if it does not exist
+    # (separate checkout so VERSION can be a SHA, bare tag, or branch name)
     git clone https://github.com/tlsnotary/tlsn.git "$REPO_DIR"
     cd "$REPO_DIR"
+    git checkout "${VERSION}" --force
 else
     # If the directory exists, just change to it
     cd "$REPO_DIR"
     # Fetch the latest changes in the repo without checkout
     git fetch
-    # Checkout the specific tag
+    # Checkout the pinned commit
     git checkout "${VERSION}" --force
     git reset --hard
 fi

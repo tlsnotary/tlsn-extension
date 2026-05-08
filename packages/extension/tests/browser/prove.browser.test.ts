@@ -21,7 +21,7 @@ const MAX_SENT_DATA = 4096;
 const MAX_RECV_DATA = 16384;
 const SERVER_NAME = 'raw.githubusercontent.com';
 const REQUEST_PATH =
-  '/tlsnotary/tlsn/refs/heads/main/crates/server-fixture/server/src/data/4kb.json';
+  '/tlsnotary/tlsn/8a0a12bbb9833ede61b9b62d15ce5d658c6bc95e/crates/server-fixture/server/src/data/4kb.json';
 
 // ============================================================================
 // Worker communication helper

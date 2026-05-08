@@ -17,7 +17,7 @@ path = "uniffi-bindgen.rs"
 # For local development, override with a path in Cargo.toml:
 #   [patch."https://github.com/tlsnotary/tlsn.git"]
 #   tlsn-sdk-core = { path = "../tlsn-wasm/tlsn/crates/sdk-core" }
-tlsn-sdk-core = { git = "https://github.com/tlsnotary/tlsn.git", branch = "main", features = ["mozilla-certs"] }
+tlsn-sdk-core = { git = "https://github.com/tlsnotary/tlsn.git", rev = "8a0a12bbb9833ede61b9b62d15ce5d658c6bc95e", features = ["mozilla-certs"] }
 
 # UniFFI for Swift/Kotlin bindings
 uniffi = { version = "0.28", features = ["cli"] }

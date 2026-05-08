@@ -29,6 +29,10 @@ ANDROID_SO="$SCRIPT_DIR/modules/tlsn-native/android/src/main/jniLibs/arm64-v8a/l
 TLSN_REPO_DIR="$ROOT_DIR/packages/tlsn-wasm/tlsn"
 SDK_CORE_DIR="$TLSN_REPO_DIR/crates/sdk-core"
 
+# Pinned tlsn revision — keep in sync with packages/tlsn-mobile/Cargo.toml,
+# packages/verifier/Cargo.toml and packages/tlsn-wasm/build.sh.
+TLSN_REV="8a0a12bbb9833ede61b9b62d15ce5d658c6bc95e"
+
 # Defaults
 PLATFORM="ios"
 SKIP_DEPS=false
@@ -95,8 +99,8 @@ fi
 ########################################
 ensure_tlsn_repo() {
   if [ ! -d "$TLSN_REPO_DIR" ]; then
-    step "Cloning tlsn repository (needed for native library)"
-    git clone https://github.com/tlsnotary/tlsn.git "$TLSN_REPO_DIR"
+    step "Cloning tlsn repository at $TLSN_REV (needed for native library)"
+    git clone --revision "$TLSN_REV" --depth 1 https://github.com/tlsnotary/tlsn.git "$TLSN_REPO_DIR"
     ok "Cloned tlsn repository"
   fi
 
@@ -105,14 +109,14 @@ ensure_tlsn_repo() {
     cd "$TLSN_REPO_DIR"
     git fetch origin
     git stash -q 2>/dev/null || true
-    git checkout origin/main
+    git checkout "$TLSN_REV"
     cd "$SCRIPT_DIR"
     if [ ! -d "$SDK_CORE_DIR" ]; then
-      fail "sdk-core crate still not found after updating to origin/main"
+      fail "sdk-core crate still not found after checking out $TLSN_REV"
       hint "Check https://github.com/tlsnotary/tlsn for crates/sdk-core"
       exit 1
     fi
-    ok "Updated tlsn to origin/main — sdk-core found"
+    ok "Updated tlsn to $TLSN_REV — sdk-core found"
   fi
 }
 
