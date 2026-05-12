@@ -159,12 +159,12 @@ export function PluginScreen({
         }
       },
     };
-    eventEmitterRef.current = emitter; // eslint-disable-line react-hooks/refs
+    eventEmitterRef.current = emitter;
     return emitter;
   }, []);
 
   // Create host
-  /* eslint-disable react-hooks/refs */
+
   const host = useMemo(() => {
     const h = new MobilePluginHost({
       onProve: async (requestOptions, proverOptions) => {
@@ -220,7 +220,6 @@ export function PluginScreen({
     hostRef.current = h;
     return h;
   }, []);
-  /* eslint-enable react-hooks/refs */
 
   // Handle header interception from WebView
   const handleHeaderIntercepted = useCallback(

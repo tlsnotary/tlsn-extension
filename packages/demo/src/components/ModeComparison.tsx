@@ -91,10 +91,11 @@ export function ModeComparison({
     <div id="mode-comparison" className="content-card">
       <h2 className="section-title">MPC vs Proxy</h2>
       <p className="section-subtitle">
-        MPC is the most secure protocol. It remains secure even if the prover is fully malicious. However, it is sensitive to
-        network latency and bandwidth. Proxy mode is much faster, but it is only secure if an adversary
-        cannot both compromise the prover and intercept the verifier’s network traffic at the same
-        time. If that assumption matches your deployment, try the difference on your own connection.
+        MPC is the most secure protocol. It remains secure even if the prover is fully malicious.
+        However, it is sensitive to network latency and bandwidth. Proxy mode is much faster, but it
+        is only secure if an adversary cannot both compromise the prover and intercept the
+        verifier’s network traffic at the same time. If that assumption matches your deployment, try
+        the difference on your own connection.
       </p>
 
       <div className="compare-plugin-picker">
