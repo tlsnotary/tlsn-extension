@@ -355,8 +355,10 @@ export function PluginScreen({
         </View>
       )}
 
-      {/* Plugin UI overlay */}
-      {domJson && (
+      {/* Plugin UI overlay — hidden while any bottom-sheet gate is active so
+          the sheet (absolute-positioned) is always visually on top without
+          relying on z-index competition against plugin CSS. */}
+      {domJson && revealApproval == null && timeoutWarning == null && (
         <View style={styles.pluginUiContainer}>
           <PluginRenderer domJson={domJson} onPluginAction={handlePluginAction} />
         </View>
