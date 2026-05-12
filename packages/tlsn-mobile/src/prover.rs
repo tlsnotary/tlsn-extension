@@ -384,7 +384,7 @@ async fn run_prove_with_gate(
         .map_err(|e| TlsnError::ProofFailed(format!("failed to send reveal_config: {e}")))?;
 
     let wait_result = tokio::time::timeout(
-        std::time::Duration::from_secs(30),
+        std::time::Duration::from_secs(10),
         async {
             loop {
                 match session_ws.next().await {
