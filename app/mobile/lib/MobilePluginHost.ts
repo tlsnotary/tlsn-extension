@@ -160,13 +160,6 @@ export class MobilePluginHost {
   /** Set by `setApprovalMode()` after the plugin-approval sheet resolves. */
   private _approvalMode: ApprovalMode = 'manual';
 
-  /**
-   * Tracks whether the user has already approved at least one reveal in this
-   * plugin run. Combined with `_approvalMode === 'all-session'`, suppresses
-   * the reveal sheet for subsequent prove() calls.
-   */
-  private _sessionRevealApproved = false;
-
   /** External callback to display the reveal-approval sheet. */
   private _onRevealApproval?: MobilePluginHostOptions['onRevealApproval'];
 
@@ -208,8 +201,7 @@ export class MobilePluginHost {
         const prep = await options.onProveUntilReveal(requestOptions, nativeProverOptions);
 
         // Decide whether the user must approve this reveal.
-        const skipApprovalGate =
-          this._approvalMode === 'all-session' && this._sessionRevealApproved;
+        const skipApprovalGate = this._approvalMode === 'all-session';
 
         let approved = true;
         if (!skipApprovalGate && this._onRevealApproval) {
@@ -221,7 +213,6 @@ export class MobilePluginHost {
                 reject,
               });
             });
-            this._sessionRevealApproved = true;
           } catch (e) {
             approved = false;
             // Surface the rejection up-stack after we drop the native session.
@@ -263,7 +254,6 @@ export class MobilePluginHost {
    */
   setApprovalMode(mode: ApprovalMode): void {
     this._approvalMode = mode;
-    this._sessionRevealApproved = false;
   }
 
   /**
