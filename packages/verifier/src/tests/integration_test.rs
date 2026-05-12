@@ -427,9 +427,9 @@ where
     tokio::spawn(connection);
 
     // 8. Send HTTP GET request
-    info!("[Prover] Sending GET /tlsnotary/tlsn/8a0a12bbb9833ede61b9b62d15ce5d658c6bc95e/crates/server-fixture/server/src/data/1kb.json");
+    info!("[Prover] Sending GET /tlsnotary/tlsn/ceadf458f6f75909eda013aa50108f9f94956188/crates/server-fixture/server/src/data/1kb.json");
     let request = Request::builder()
-        .uri("/tlsnotary/tlsn/8a0a12bbb9833ede61b9b62d15ce5d658c6bc95e/crates/server-fixture/server/src/data/1kb.json")
+        .uri("/tlsnotary/tlsn/ceadf458f6f75909eda013aa50108f9f94956188/crates/server-fixture/server/src/data/1kb.json")
         .header("Host", "raw.githubusercontent.com")
         .header("Accept", "application/json")
         .header("Connection", "close")

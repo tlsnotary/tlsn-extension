@@ -6,7 +6,7 @@ set -e # Exit on error
 cd "$(dirname "$0")"
 SCRIPT_DIR="$(pwd)"
 
-VERSION=${1:-8a0a12bbb9833ede61b9b62d15ce5d658c6bc95e}
+VERSION=${1:-ceadf458f6f75909eda013aa50108f9f94956188}
 NO_LOGGING=${2}
 
 TARGET_DIR="${SCRIPT_DIR}/../tlsn-wasm-pkg/"

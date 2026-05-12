@@ -31,7 +31,7 @@ SDK_CORE_DIR="$TLSN_REPO_DIR/crates/sdk-core"
 
 # Pinned tlsn revision — keep in sync with packages/tlsn-mobile/Cargo.toml,
 # packages/verifier/Cargo.toml and packages/tlsn-wasm/build.sh.
-TLSN_REV="8a0a12bbb9833ede61b9b62d15ce5d658c6bc95e"
+TLSN_REV="ceadf458f6f75909eda013aa50108f9f94956188"
 
 # Defaults
 PLATFORM="ios"

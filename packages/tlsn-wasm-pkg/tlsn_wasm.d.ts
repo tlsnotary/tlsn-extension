@@ -111,6 +111,25 @@ export type HashAlgorithm = "BLAKE3" | "SHA256" | "KECCAK256";
 export type NetworkSetting = "Bandwidth" | "Latency";
 
 /**
+ * Opening for a single hash-committed range.
+ *
+ * Pairs the commitment hash with the blinder used to produce it, so the
+ * caller can later prove `H(plaintext || blinder) == hash` without rerunning
+ * MPC-TLS. Range and algorithm are not repeated — they live on the input
+ * `CommitRange` at the same index.
+ */
+export interface HashOpening {
+    /**
+     * The commitment hash digest.
+     */
+    hash: number[];
+    /**
+     * The blinder (16 bytes) used to compute the commitment.
+     */
+    blinder: number[];
+}
+
+/**
  * Output from the verifier.
  */
 export interface VerifierOutput {
@@ -126,6 +145,23 @@ export interface VerifierOutput {
      * Partial transcript (if revealed).
      */
     transcript: PartialTranscript | undefined;
+}
+
+/**
+ * Output of `Prover.reveal()`.
+ *
+ * Mirrors the input `Commit`: `sent[i]` opens `commit.sent[i]`, likewise for
+ * `recv`. Both arrays are empty when no commit was supplied.
+ */
+export interface RevealOutput {
+    /**
+     * Openings for `commit.sent`, in input order.
+     */
+    sent: HashOpening[];
+    /**
+     * Openings for `commit.recv`, in input order.
+     */
+    recv: HashOpening[];
 }
 
 /**
@@ -272,8 +308,13 @@ export class Prover {
      *
      * Optionally accepts a `Commit` object with ranges to hash-commit.
      * Pass `undefined` or omit the second argument for reveal-only proofs.
+     *
+     * Returns a `RevealOutput` with one `CommitmentOpening` per
+     * hash-committed range (`{ direction, ranges, algorithm, hash, blinder
+     * }`), in the same order as the input `Commit`. The `commitments`
+     * array is empty when no commit was supplied.
      */
-    reveal(reveal: Reveal, commit?: Commit | null): Promise<void>;
+    reveal(reveal: Reveal, commit?: Commit | null): Promise<RevealOutput>;
     /**
      * Sends an HTTP request to the server.
      *
@@ -450,10 +491,10 @@ export interface InitOutput {
     readonly web_spawn_recover_spawner: (a: number) => number;
     readonly web_spawn_start_worker: (a: number) => void;
     readonly ring_core_0_17_14__bn_mul_mont: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
-    readonly wasm_bindgen_d3df770ca815d2f6___convert__closures_____invoke___wasm_bindgen_d3df770ca815d2f6___JsValue__core_69f2bd47a851c2ee___result__Result_____wasm_bindgen_d3df770ca815d2f6___JsError___true_: (a: number, b: number, c: any) => [number, number];
-    readonly wasm_bindgen_d3df770ca815d2f6___convert__closures_____invoke___js_sys_9ef8e20dc2e1b707___Function_fn_wasm_bindgen_d3df770ca815d2f6___JsValue_____wasm_bindgen_d3df770ca815d2f6___sys__Undefined___js_sys_9ef8e20dc2e1b707___Function_fn_wasm_bindgen_d3df770ca815d2f6___JsValue_____wasm_bindgen_d3df770ca815d2f6___sys__Undefined_______true_: (a: number, b: number, c: any, d: any) => void;
-    readonly wasm_bindgen_d3df770ca815d2f6___convert__closures_____invoke___wasm_bindgen_d3df770ca815d2f6___JsValue______true_: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen_d3df770ca815d2f6___convert__closures_____invoke___js_sys_9ef8e20dc2e1b707___futures__task__wait_async_polyfill__MessageEvent______true_: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_3f9c84d5c33bce5b___convert__closures_____invoke___wasm_bindgen_3f9c84d5c33bce5b___JsValue__core_7b091948c3237a2d___result__Result_____wasm_bindgen_3f9c84d5c33bce5b___JsError___true_: (a: number, b: number, c: any) => [number, number];
+    readonly wasm_bindgen_3f9c84d5c33bce5b___convert__closures_____invoke___js_sys_137138b200345c1a___Function_fn_wasm_bindgen_3f9c84d5c33bce5b___JsValue_____wasm_bindgen_3f9c84d5c33bce5b___sys__Undefined___js_sys_137138b200345c1a___Function_fn_wasm_bindgen_3f9c84d5c33bce5b___JsValue_____wasm_bindgen_3f9c84d5c33bce5b___sys__Undefined_______true_: (a: number, b: number, c: any, d: any) => void;
+    readonly wasm_bindgen_3f9c84d5c33bce5b___convert__closures_____invoke___wasm_bindgen_3f9c84d5c33bce5b___JsValue______true_: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_3f9c84d5c33bce5b___convert__closures_____invoke___js_sys_137138b200345c1a___futures__task__wait_async_polyfill__MessageEvent______true_: (a: number, b: number, c: any) => void;
     readonly memory: WebAssembly.Memory;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
