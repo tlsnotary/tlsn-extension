@@ -78,13 +78,18 @@ fi
 if [ "$NO_LOGGING" = "--no-logging" ]; then
     echo "Applying no-logging configuration..."
     
-    # Add it to the wasm32 target section (after the section header)
-    sed -i.bak '/^\[target\.\x27cfg(target_arch = "wasm32")\x27\.dependencies\]$/a\
-# Disable tracing events as a workaround for issue 959.\
-tracing = { workspace = true, features = ["release_max_level_off"] }' Cargo.toml
-    
-    # Clean up backup file
-    rm Cargo.toml.bak
+    # Add it to the wasm32 target section (after the section header).
+    # Uses awk for portability — BSD sed (macOS) drops the trailing newline
+    # after `a\` text, jamming the inserted key into the next existing key.
+    awk '
+/^\[target\.'"'"'cfg\(target_arch = "wasm32"\)'"'"'\.dependencies\]$/ {
+  print
+  print "# Disable tracing events as a workaround for issue 959."
+  print "tracing = { workspace = true, features = [\"release_max_level_off\"] }"
+  next
+}
+{ print }
+' Cargo.toml > Cargo.toml.tmp && mv Cargo.toml.tmp Cargo.toml
 fi
 
 # On NixOS, the wrapped clang injects host glibc headers when cross-compiling
