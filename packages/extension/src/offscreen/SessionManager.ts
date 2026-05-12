@@ -184,9 +184,19 @@ export class SessionManager {
             recv: recvRangesWithHandlers,
           });
 
-          // Reveal the ranges (and hash-commit ranges if any handlers use action: HASH)
+          // Reveal the ranges (and hash-commit ranges if any handlers use action: HASH).
+          // openings.sent[i] / openings.recv[i] expose { hash, blinder } for each
+          // hash-committed range, so callers can later prove H(plaintext || blinder)
+          // == hash without rerunning MPC-TLS. Empty when no commit was supplied.
           emitBoth('GENERATING_PROOF', 0.7, 'Generating proof...');
-          await proveManager.reveal(proverId, { sent: sentRanges, recv: recvRanges }, commit);
+          const openings = await proveManager.reveal(
+            proverId,
+            { sent: sentRanges, recv: recvRanges },
+            commit,
+          );
+          if (commit) {
+            logger.debug('reveal openings', openings);
+          }
 
           // Get structured response from verifier (now includes handler results)
           emitBoth('WAITING_FOR_VERIFICATION', 0.85, 'Waiting for verification...');

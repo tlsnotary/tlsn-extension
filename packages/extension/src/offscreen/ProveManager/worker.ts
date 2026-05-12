@@ -10,6 +10,7 @@ import initWasm, {
   HttpRequest,
   Reveal,
   Commit,
+  RevealOutput,
   compute_reveal as wasmComputeReveal,
 } from '../../../../tlsn-wasm-pkg/tlsn_wasm';
 
@@ -290,22 +291,18 @@ function getTranscript(proverId: string): { sent: number[]; recv: number[] } {
 
 /**
  * Reveals data to the verifier, optionally with hash-committed ranges.
+ * Returns the per-range openings (hash + blinder) for any hash commitments;
+ * sent/recv are empty arrays when no commit was supplied.
  */
 async function reveal(
   proverId: string,
   revealConfig: Reveal,
   commitConfig?: Commit,
-): Promise<void> {
+): Promise<RevealOutput> {
   const prover = provers.get(proverId);
   if (!prover) throw new Error(`Prover not found: ${proverId}`);
 
-  // The proxy-approach WASM build only accepts revealConfig; hash commitments
-  // are not yet supported on the upstream proxy branch.
-  if (commitConfig) {
-    await (prover.reveal as (r: Reveal, c: Commit) => Promise<void>)(revealConfig, commitConfig);
-  } else {
-    await prover.reveal(revealConfig);
-  }
+  return prover.reveal(revealConfig, commitConfig ?? null);
 }
 
 /**

@@ -24,7 +24,7 @@ const mockWorkerApi = {
     sentRangesWithHandlers: [],
     recvRangesWithHandlers: [],
   }),
-  reveal: vi.fn().mockResolvedValue(undefined),
+  reveal: vi.fn().mockResolvedValue({ sent: [], recv: [] }),
   freeProver: vi.fn().mockResolvedValue(undefined),
 };
 
@@ -151,6 +151,44 @@ describe('ProveManager', () => {
     await expect(pm.sendRevealConfig('nonexistent', { sent: [], recv: [] })).rejects.toThrow(
       /Session not found/,
     );
+  });
+
+  // -----------------------------------------------------------------------
+  // RevealOutput plumbing — openings (hash + blinder) propagate from worker
+  // -----------------------------------------------------------------------
+  describe('reveal() returns RevealOutput', () => {
+    it('forwards openings from the worker when a commit is supplied', async () => {
+      const openings = {
+        sent: [{ hash: [0xaa, 0xbb, 0xcc], blinder: Array(16).fill(0x11) }],
+        recv: [],
+      };
+      mockWorkerApi.reveal.mockResolvedValueOnce(openings);
+
+      const result = await pm.reveal('prover-0', { sent: [{ start: 0, end: 4 }], recv: [] }, {
+        sent: [],
+        recv: [],
+      } as never);
+
+      expect(result).toEqual(openings);
+      expect(mockWorkerApi.reveal).toHaveBeenCalledWith(
+        'prover-0',
+        { sent: [{ start: 0, end: 4 }], recv: [], server_identity: true },
+        { sent: [], recv: [] },
+      );
+    });
+
+    it('returns empty openings when no commit is supplied', async () => {
+      mockWorkerApi.reveal.mockResolvedValueOnce({ sent: [], recv: [] });
+
+      const result = await pm.reveal('prover-0', { sent: [], recv: [] });
+
+      expect(result).toEqual({ sent: [], recv: [] });
+      expect(mockWorkerApi.reveal).toHaveBeenCalledWith(
+        'prover-0',
+        { sent: [], recv: [], server_identity: true },
+        undefined,
+      );
+    });
   });
 
   // -----------------------------------------------------------------------
