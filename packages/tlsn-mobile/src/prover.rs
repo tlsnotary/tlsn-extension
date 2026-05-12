@@ -571,6 +571,50 @@ fn handler_label(h: &tlsn_sdk_core::Handler) -> String {
     }
 }
 
+/// Convert a single `RangeWithHandler` to the verifier's expected JSON format.
+///
+/// The verifier uses `#[serde(tag = "kind")]` for `HandlerAction`, producing
+/// `{"kind":"REVEAL"}`. The sdk-core crate uses `#[serde(tag = "action")]`,
+/// producing `{"action":"REVEAL"}`. Serializing sdk-core types directly would
+/// therefore emit the wrong tag key and cause the verifier to reject the
+/// message. We manually construct the JSON here to guarantee the correct shape.
+fn range_to_verifier_json(r: &tlsn_sdk_core::handler::RangeWithHandler) -> serde_json::Value {
+    let handler_type = match r.handler.handler_type {
+        tlsn_sdk_core::HandlerType::Sent => "SENT",
+        tlsn_sdk_core::HandlerType::Recv => "RECV",
+    };
+    let part = match r.handler.part {
+        tlsn_sdk_core::HandlerPart::StartLine => "START_LINE",
+        tlsn_sdk_core::HandlerPart::Protocol => "PROTOCOL",
+        tlsn_sdk_core::HandlerPart::Method => "METHOD",
+        tlsn_sdk_core::HandlerPart::RequestTarget => "REQUEST_TARGET",
+        tlsn_sdk_core::HandlerPart::StatusCode => "STATUS_CODE",
+        tlsn_sdk_core::HandlerPart::Headers => "HEADERS",
+        tlsn_sdk_core::HandlerPart::Body => "BODY",
+        tlsn_sdk_core::HandlerPart::All => "ALL",
+    };
+    let action = match &r.handler.action {
+        tlsn_sdk_core::HandlerAction::Reveal => serde_json::json!({"kind": "REVEAL"}),
+        tlsn_sdk_core::HandlerAction::Hash { algorithm } => {
+            let alg = match algorithm {
+                tlsn_sdk_core::HashAlgorithm::Blake3 => "BLAKE3",
+                tlsn_sdk_core::HashAlgorithm::Sha256 => "SHA256",
+                tlsn_sdk_core::HashAlgorithm::Keccak256 => "KECCAK256",
+            };
+            serde_json::json!({"kind": "HASH", "algorithm": alg})
+        }
+    };
+    serde_json::json!({
+        "start": r.start,
+        "end": r.end,
+        "handler": {
+            "type": handler_type,
+            "part": part,
+            "action": action,
+        }
+    })
+}
+
 /// Build the `reveal_config` JSON message for the verifier session WebSocket.
 fn build_reveal_config(
     transcript: &tlsn_sdk_core::Transcript,
@@ -581,14 +625,16 @@ fn build_reveal_config(
     if handlers.is_empty() {
         return serde_json::json!({
             "type": "reveal_config",
-            "sent": [{ "start": 0, "end": transcript.sent.len(), "handler": { "type": "SENT", "part": "ALL" } }],
-            "recv": [{ "start": 0, "end": transcript.recv.len(), "handler": { "type": "RECV", "part": "ALL" } }],
+            "sent": [{ "start": 0, "end": transcript.sent.len(), "handler": { "type": "SENT", "part": "ALL", "action": {"kind": "REVEAL"} } }],
+            "recv": [{ "start": 0, "end": transcript.recv.len(), "handler": { "type": "RECV", "part": "ALL", "action": {"kind": "REVEAL"} } }],
         });
     }
 
+    let sent: Vec<serde_json::Value> = sent_ranges.iter().map(range_to_verifier_json).collect();
+    let recv: Vec<serde_json::Value> = recv_ranges.iter().map(range_to_verifier_json).collect();
     serde_json::json!({
         "type": "reveal_config",
-        "sent": sent_ranges,
-        "recv": recv_ranges,
+        "sent": sent,
+        "recv": recv,
     })
 }
