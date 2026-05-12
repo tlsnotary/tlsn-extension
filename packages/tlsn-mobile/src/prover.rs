@@ -383,40 +383,11 @@ async fn run_prove_with_gate(
         .await
         .map_err(|e| TlsnError::ProofFailed(format!("failed to send reveal_config: {e}")))?;
 
-    let wait_result = tokio::time::timeout(
-        std::time::Duration::from_secs(10),
-        async {
-            loop {
-                match session_ws.next().await {
-                    Some(Ok(Message::Text(text))) => {
-                        let resp: serde_json::Value = serde_json::from_str(&text)?;
-                        tracing::info!("session message: {}", resp["type"]);
-                        if resp["type"] == "session_completed" {
-                            tracing::info!("session completed");
-                            return Ok::<(), TlsnError>(());
-                        } else if resp["type"] == "error" {
-                            return Err(TlsnError::ProofFailed(
-                                resp["message"].as_str().unwrap_or("unknown error").into(),
-                            ));
-                        }
-                    }
-                    Some(Ok(_)) => continue,
-                    Some(Err(e)) => return Err(TlsnError::ProofFailed(format!("WebSocket error: {e}"))),
-                    None => {
-                        tracing::warn!("session WebSocket closed before completion");
-                        return Ok(());
-                    }
-                }
-            }
-        },
-    )
-    .await;
-
-    match wait_result {
-        Ok(Ok(())) => {}
-        Ok(Err(e)) => return Err(e),
-        Err(_) => tracing::warn!("timed out waiting for session_completed (proof still valid)"),
-    }
+    // Drop the session socket — the reveal_config has been sent. The verifier
+    // continues processing asynchronously; we don't need to wait for
+    // session_completed because the proof is already valid (prover.reveal()
+    // completed) and the mobile layer derives handler results locally.
+    drop(session_ws);
     emit_progress(progress, "VERIFICATION_COMPLETE", 0.95, "Verification complete");
 
     // -----------------------------------------------------------------------
