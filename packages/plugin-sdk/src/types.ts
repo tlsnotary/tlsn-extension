@@ -160,10 +160,13 @@ export type HandlerPart =
 
 export type HashAlgorithm = 'BLAKE3' | 'SHA256' | 'KECCAK256';
 
+/** String action kind used in reveal-range previews and descriptors. */
+export type HandlerActionKind = 'REVEAL' | 'HASH';
+
 export type RevealRangeDescriptor = {
-  direction: 'SENT' | 'RECV';
+  direction: HandlerType;
   label: string;
-  action: 'REVEAL' | 'HASH';
+  action: HandlerActionKind;
   algorithm?: HashAlgorithm;
   preview: string;
 };

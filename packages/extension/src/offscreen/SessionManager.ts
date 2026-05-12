@@ -376,7 +376,7 @@ export class SessionManager {
     // Chrome's messaging API. The plugin listener (makeOpenWindow's onMessage)
     // is async, so it always returns a Promise. If added directly to
     // chrome.runtime.onMessage, Chrome may use its Promise<undefined> as the
-    // response to unrelated messages (e.g. EXTRACT_CONFIG), racing with the
+    // response to unrelated messages (e.g. GET_PLUGIN_STATS_OFFSCREEN), racing with the
     // offscreen's main listener that returns the actual result.
     const listenerWrappers = new Map<
       (message: WindowMessage) => void,

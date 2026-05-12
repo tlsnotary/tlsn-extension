@@ -7,6 +7,12 @@
 
 import type { DomJson } from '@tlsn/plugin-sdk';
 
+/**
+ * Controls how reveal approvals are handled during a plugin execution.
+ * - `'manual'`      — user approves each `prove()` call before data is sent
+ * - `'all-session'` — all reveals in this session are auto-approved
+ * - `'rejected'`    — user denied the plugin; it does not run
+ */
 export type ApprovalMode = 'manual' | 'all-session' | 'rejected';
 
 // ---------------------------------------------------------------------------
@@ -62,7 +68,6 @@ export type ContentMessage =
 /** Messages handled by the Offscreen document */
 export type OffscreenMessage =
   | { type: 'PROCESS_DATA' }
-  | { type: 'EXTRACT_CONFIG'; code: string }
   | {
       type: 'EXEC_CODE_OFFSCREEN';
       code: string;

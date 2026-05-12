@@ -377,14 +377,14 @@ const ConfirmPopup: React.FC = () => {
           [
             {
               key: '1',
-              label: 'Yes, manually approve actions',
+              label: 'Yes, approve before any data is shared',
               badge: count === 0 ? '(Recommended)' : undefined,
               handler: handleManual,
               isDeny: false,
             },
             {
               key: '2',
-              label: 'Yes, allow all actions during this session',
+              label: 'Yes, allow all data sharing this session',
               badge: undefined,
               handler: handleAllSession,
               isDeny: false,
