@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Dimensions,
+  Modal,
   PanResponder,
   Pressable,
   StyleSheet,
@@ -30,9 +31,11 @@ const SWIPE_DISMISS_THRESHOLD = 80;
 /**
  * A slide-up bottom card with a tappable backdrop and optional swipe-down dismiss.
  *
+ * Rendered inside a React Native Modal so it always sits above the entire view
+ * hierarchy — plugin DomJson z-index values cannot overlap it.
+ *
  * Uses the legacy `Animated` + `PanResponder` API (matching the existing
- * `DraggableView` in PluginRenderer) rather than Reanimated worklets — simpler
- * context, no worklet boundaries, sufficient for this UI.
+ * `DraggableView` in PluginRenderer) rather than Reanimated worklets.
  */
 export function BottomSheetCard({
   visible,
@@ -46,8 +49,14 @@ export function BottomSheetCard({
   const backdropOpacity = useRef(new Animated.Value(0)).current;
   const cardHeight = useRef(0);
 
+  // Keep the Modal mounted until the exit animation finishes so the slide-down
+  // plays before the Modal disappears. Set true immediately when visible becomes
+  // true; set false only in the exit animation's completion callback.
+  const [modalMounted, setModalMounted] = useState(visible);
+
   useEffect(() => {
     if (visible) {
+      setModalMounted(true);
       Animated.parallel([
         Animated.spring(translateY, { ...SPRING_CONFIG, toValue: 0 }),
         Animated.timing(backdropOpacity, {
@@ -68,7 +77,7 @@ export function BottomSheetCard({
           duration: 200,
           useNativeDriver: true,
         }),
-      ]).start();
+      ]).start(() => setModalMounted(false));
     }
   }, [visible, translateY, backdropOpacity]);
 
@@ -94,50 +103,45 @@ export function BottomSheetCard({
     [dismissible, onClose, translateY],
   );
 
-  if (!visible) {
-    // Keep mounted briefly during exit animation by checking translateY's resting state isn't reached.
-    // Simplification: unmount immediately when visible flips false. The exit animation runs but the
-    // tree disappears once visible=false because parent stops rendering the component. Acceptable trade-off.
-  }
-
   return (
-    <View style={styles.fill} pointerEvents={visible ? 'auto' : 'none'}>
-      <Animated.View
-        style={[styles.backdrop, { opacity: backdropOpacity }]}
-        pointerEvents={dismissible ? 'auto' : 'none'}
-      >
-        {dismissible ? (
-          <Pressable style={styles.fill} onPress={onClose} accessibilityLabel="Dismiss" />
-        ) : null}
-      </Animated.View>
+    <Modal
+      transparent
+      visible={modalMounted}
+      onRequestClose={dismissible ? onClose : undefined}
+      statusBarTranslucent
+    >
+      <View style={styles.fill}>
+        <Animated.View
+          style={[styles.backdrop, { opacity: backdropOpacity }]}
+          pointerEvents={dismissible ? 'auto' : 'none'}
+        >
+          {dismissible ? (
+            <Pressable style={styles.fill} onPress={onClose} accessibilityLabel="Dismiss" />
+          ) : null}
+        </Animated.View>
 
-      <Animated.View
-        style={[
-          styles.card,
-          { paddingBottom: Math.max(insets.bottom, 16), transform: [{ translateY }] },
-          cardStyle,
-        ]}
-        onLayout={(e) => {
-          cardHeight.current = e.nativeEvent.layout.height;
-        }}
-        {...panResponder.panHandlers}
-      >
-        {dismissible ? <View style={styles.handle} /> : null}
-        {children}
-      </Animated.View>
-    </View>
+        <Animated.View
+          style={[
+            styles.card,
+            { paddingBottom: Math.max(insets.bottom, 16), transform: [{ translateY }] },
+            cardStyle,
+          ]}
+          onLayout={(e) => {
+            cardHeight.current = e.nativeEvent.layout.height;
+          }}
+          {...panResponder.panHandlers}
+        >
+          {dismissible ? <View style={styles.handle} /> : null}
+          {children}
+        </Animated.View>
+      </View>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
   fill: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 99999,
-    elevation: 100,
+    flex: 1,
   },
   backdrop: {
     position: 'absolute',
