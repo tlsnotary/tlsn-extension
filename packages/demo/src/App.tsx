@@ -11,7 +11,14 @@ import { BuildYourOwn } from './components/BuildYourOwn';
 import { OnchainDemo } from './components/OnchainDemo';
 import { ModeComparison, CompareDurations } from './components/ModeComparison';
 import { plugins } from './plugins';
-import { checkBrowserCompatibility, checkExtension, checkVerifier, formatTimestamp } from './utils';
+import {
+  checkBrowserCompatibility,
+  checkExtension,
+  checkVerifier,
+  formatTimestamp,
+  ExtensionStatus,
+} from './utils';
+import { MIN_EXTENSION_VERSION } from './config';
 import { ConsoleEntry, CheckStatus, PluginResult as PluginResultType, ProgressData } from './types';
 import {
   trackBrowserCheck,
@@ -47,9 +54,15 @@ export function App() {
     message: 'Checking...',
   });
 
-  const [extensionCheck, setExtensionCheck] = useState<{ status: CheckStatus; message: string }>({
+  const [extensionCheck, setExtensionCheck] = useState<{
+    status: CheckStatus;
+    message: string;
+    extStatus: ExtensionStatus;
+    version?: string;
+  }>({
     status: 'checking',
     message: 'Checking...',
+    extStatus: 'missing',
   });
 
   const [verifierCheck, setVerifierCheck] = useState<{
@@ -130,12 +143,31 @@ export function App() {
     }
 
     // Extension check
-    const extensionOk = await checkExtension();
-    trackExtensionCheck(extensionOk);
-    if (extensionOk) {
-      setExtensionCheck({ status: 'success', message: '✅ Extension installed' });
+    const extResult = await checkExtension();
+    trackExtensionCheck(extResult.status, extResult.version);
+    const extensionOk = extResult.status === 'ok';
+    if (extResult.status === 'ok') {
+      setExtensionCheck({
+        status: 'success',
+        message: `✅ Extension installed (v${extResult.version})`,
+        extStatus: 'ok',
+        version: extResult.version,
+      });
+    } else if (extResult.status === 'outdated') {
+      setExtensionCheck({
+        status: 'error',
+        message: extResult.version
+          ? `⚠️ Extension v${extResult.version} is outdated (requires ≥ ${extResult.minVersion})`
+          : `⚠️ Extension is outdated (requires ≥ ${extResult.minVersion})`,
+        extStatus: 'outdated',
+        version: extResult.version,
+      });
     } else {
-      setExtensionCheck({ status: 'error', message: '❌ Extension not found' });
+      setExtensionCheck({
+        status: 'error',
+        message: '❌ Extension not found',
+        extStatus: 'missing',
+      });
     }
 
     // Verifier check
@@ -163,13 +195,32 @@ export function App() {
   const handleRecheck = useCallback(async () => {
     trackRecheck();
     // Recheck extension
-    setExtensionCheck({ status: 'checking', message: 'Checking...' });
-    const extensionOk = await checkExtension();
-    trackExtensionCheck(extensionOk);
-    if (extensionOk) {
-      setExtensionCheck({ status: 'success', message: '✅ Extension installed' });
+    setExtensionCheck({ status: 'checking', message: 'Checking...', extStatus: 'missing' });
+    const extResult = await checkExtension();
+    trackExtensionCheck(extResult.status, extResult.version);
+    const extensionOk = extResult.status === 'ok';
+    if (extResult.status === 'ok') {
+      setExtensionCheck({
+        status: 'success',
+        message: `✅ Extension installed (v${extResult.version})`,
+        extStatus: 'ok',
+        version: extResult.version,
+      });
+    } else if (extResult.status === 'outdated') {
+      setExtensionCheck({
+        status: 'error',
+        message: extResult.version
+          ? `⚠️ Extension v${extResult.version} is outdated (requires ≥ ${extResult.minVersion})`
+          : `⚠️ Extension is outdated (requires ≥ ${extResult.minVersion})`,
+        extStatus: 'outdated',
+        version: extResult.version,
+      });
     } else {
-      setExtensionCheck({ status: 'error', message: '❌ Extension not found' });
+      setExtensionCheck({
+        status: 'error',
+        message: '❌ Extension not found',
+        extStatus: 'missing',
+      });
     }
 
     // Recheck verifier
@@ -404,7 +455,9 @@ export function App() {
 
       <StatusBar
         browserOk={browserCheck.status === 'success'}
-        extensionOk={extensionCheck.status === 'success'}
+        extensionStatus={extensionCheck.extStatus}
+        extensionVersion={extensionCheck.version}
+        minExtensionVersion={MIN_EXTENSION_VERSION}
         verifierOk={verifierCheck.status === 'success'}
         onRecheck={handleRecheck}
         detailsContent={

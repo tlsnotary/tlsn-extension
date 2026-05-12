@@ -33,8 +33,14 @@ export function trackBrowserCheck(compatible: boolean) {
   track('system_check', compatible ? 'browser_compatible' : 'browser_incompatible');
 }
 
-export function trackExtensionCheck(installed: boolean) {
-  track('system_check', installed ? 'extension_installed' : 'extension_missing');
+export function trackExtensionCheck(status: 'ok' | 'outdated' | 'missing', version?: string) {
+  const action =
+    status === 'ok'
+      ? 'extension_installed'
+      : status === 'outdated'
+        ? 'extension_outdated'
+        : 'extension_missing';
+  track('system_check', action, version);
 }
 
 export function trackVerifierCheck(running: boolean) {

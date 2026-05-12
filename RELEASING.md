@@ -7,6 +7,7 @@
 ## Prerequisites
 
 The following GitHub secrets must be configured for automated Chrome Web Store publishing:
+
 - `OAUTH_CLIENT_ID`
 - `OAUTH_CLIENT_SECRET`
 - `OAUTH_REFRESH_TOKEN`
@@ -24,10 +25,15 @@ Update the version in **both** files (they must match):
 
 Then run `npm install` from the root to update `package-lock.json`.
 
+**If this release changes the extension's public API** or behavior the demo relies on, also bump `MIN_EXTENSION_VERSION` in `packages/demo/src/config.ts` to `0.1.0.XXXX` in the same commit. The demo deploys on every push to `main`, so this must land together with the extension version bump — otherwise the demo will use new APIs without enforcing the minimum, and users on the old extension hit confusing failures instead of a clear "update extension" message.
+
+During the Chrome Web Store approval window, users on the old extension will see the "update extension" warning. That's the intended behavior — the StatusBar message already tells them the store update can take a while to roll out.
+
 ### 2. Commit the version bump
 
 ```bash
 git add packages/extension/package.json packages/extension/src/manifest.json package-lock.json
+# Plus packages/demo/src/config.ts if you bumped MIN_EXTENSION_VERSION
 git commit -m "chore(extension): version 0.1.0.XXXX"
 ```
 

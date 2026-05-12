@@ -37,6 +37,7 @@ export interface ProgressData {
 declare global {
   interface Window {
     tlsn?: {
+      version?: string;
       execCode: (
         code: string,
         options?: { requestId?: string; sessionData?: Record<string, string> },

@@ -169,6 +169,7 @@ var options = {
     new webpack.DefinePlugin({
       'process.env': '{}',
       global: 'globalThis',
+      __EXTENSION_VERSION__: JSON.stringify(require('./package.json').version),
     }),
     new CopyWebpackPlugin({
       patterns: [

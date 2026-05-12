@@ -1,8 +1,11 @@
 import { useState } from 'react';
+import { ExtensionStatus } from '../utils';
 
 interface StatusBarProps {
   browserOk: boolean;
-  extensionOk: boolean;
+  extensionStatus: ExtensionStatus;
+  extensionVersion?: string;
+  minExtensionVersion: string;
   verifierOk: boolean;
   onRecheck: () => void;
   detailsContent?: React.ReactNode;
@@ -10,14 +13,19 @@ interface StatusBarProps {
 
 export function StatusBar({
   browserOk,
-  extensionOk,
+  extensionStatus,
+  extensionVersion,
+  minExtensionVersion,
   verifierOk,
   onRecheck,
   detailsContent,
 }: StatusBarProps) {
   const [showDetails, setShowDetails] = useState(false);
+  const extensionOk = extensionStatus === 'ok';
   const allOk = browserOk && extensionOk && verifierOk;
   const someIssues = !allOk;
+  const extensionBadgeLabel =
+    extensionStatus === 'ok' ? '✓' : extensionStatus === 'outdated' ? '⚠ outdated' : '✗';
 
   return (
     <div className={`status-bar ${allOk ? 'status-ready' : 'status-issues'}`}>
@@ -41,7 +49,7 @@ export function StatusBar({
             Browser: {browserOk ? '✓' : '✗'}
           </div>
           <div className={`status-badge ${extensionOk ? 'ok' : 'error'}`}>
-            Extension: {extensionOk ? '✓' : '✗'}
+            Extension: {extensionBadgeLabel}
           </div>
           <div className={`status-badge ${verifierOk ? 'ok' : 'error'}`}>
             Verifier: {verifierOk ? '✓' : '✗'}
@@ -67,7 +75,7 @@ export function StatusBar({
       {someIssues && (
         <div className="status-help">
           {!browserOk && <div>Please use a Chrome-based browser (Chrome, Edge, Brave)</div>}
-          {!extensionOk && (
+          {extensionStatus === 'missing' && (
             <div>
               TLSNotary extension not detected.{' '}
               <a
@@ -76,6 +84,22 @@ export function StatusBar({
                 rel="noopener noreferrer"
               >
                 Install extension
+              </a>{' '}
+              then <strong>refresh this page</strong>.
+            </div>
+          )}
+          {extensionStatus === 'outdated' && (
+            <div>
+              TLSNotary extension is outdated
+              {extensionVersion ? ` (installed ${extensionVersion}, ` : ' ('}
+              requires ≥ {minExtensionVersion}). The Chrome Web Store update can take a while to
+              roll out after a release.{' '}
+              <a
+                href="https://chromewebstore.google.com/detail/tlsnotary/gnoglgpcamodhflknhmafmjdahcejcgg?authuser=2&hl=en"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Update extension
               </a>{' '}
               then <strong>refresh this page</strong>.
             </div>
