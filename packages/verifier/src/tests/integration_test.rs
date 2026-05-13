@@ -7,6 +7,7 @@
 //! 4. Webhook delivery to test server
 
 use std::collections::HashMap;
+use std::future::IntoFuture;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -29,10 +30,11 @@ use ws_stream_tungstenite::WsStream;
 
 use tlsn::{
     config::{
-        prove::ProveConfig, prover::ProverConfig, tls::TlsClientConfig, tls_commit::TlsCommitConfig,
+        prove::ProveConfig, prover::ProverConfig, tls::TlsClientConfig,
+        tls_commit::mpc::MpcTlsConfig,
     },
     prover::Prover,
-    Session,
+    Mpc, Session,
 };
 
 // ============================================================================
@@ -390,21 +392,21 @@ async fn connect_wss(
 /// Helper function that performs MPC-TLS and HTTP request with a given proxy stream
 async fn run_prover_with_stream<S>(
     prover: Prover,
-    tls_commit_config: TlsCommitConfig,
+    mpc_tls_config: MpcTlsConfig,
     tls_client_config: TlsClientConfig,
     proxy_stream: S,
 ) -> Result<(Vec<u8>, Vec<u8>), Box<dyn std::error::Error + Send + Sync>>
 where
     S: AsyncRead + AsyncWrite + Send + Unpin + 'static,
 {
-    // 5. Start the TLS commitment protocol
-    let prover = prover
-        .commit(tls_commit_config)
+    // 5. Start the TLS commitment protocol (MPC mode).
+    let prover: Prover<tlsn::prover::state::CommitAccepted<Mpc>> = prover
+        .commit(mpc_tls_config)
         .await
         .map_err(|e| format!("Commitment failed: {}", e))?;
 
     // 6. Pass proxy connection into the prover for TLS
-    let (mpc_tls_connection, prover_fut) = prover
+    let (mpc_tls_connection, connected_prover) = prover
         .connect(tls_client_config, proxy_stream)
         .map_err(|e| format!("TLS connect failed: {}", e))?;
 
@@ -413,8 +415,8 @@ where
     // Wrap for hyper compatibility
     let mpc_tls_connection = TokioIo::new(mpc_tls_connection.compat());
 
-    // Spawn the prover task
-    let prover_task = tokio::spawn(prover_fut);
+    // Spawn the prover task — Prover<Connected<S>> is IntoFuture, not Future.
+    let prover_task = tokio::spawn(connected_prover.into_future());
 
     // 7. HTTP handshake
     let (mut request_sender, connection) =
@@ -425,9 +427,9 @@ where
     tokio::spawn(connection);
 
     // 8. Send HTTP GET request
-    info!("[Prover] Sending GET /tlsnotary/tlsn/refs/heads/main/crates/server-fixture/server/src/data/1kb.json");
+    info!("[Prover] Sending GET /tlsnotary/tlsn/ceadf458f6f75909eda013aa50108f9f94956188/crates/server-fixture/server/src/data/1kb.json");
     let request = Request::builder()
-        .uri("/tlsnotary/tlsn/refs/heads/main/crates/server-fixture/server/src/data/1kb.json")
+        .uri("/tlsnotary/tlsn/ceadf458f6f75909eda013aa50108f9f94956188/crates/server-fixture/server/src/data/1kb.json")
         .header("Host", "raw.githubusercontent.com")
         .header("Accept", "application/json")
         .header("Connection", "close")
@@ -513,17 +515,11 @@ async fn run_prover(
     let driver_task = tokio::spawn(driver);
 
     // 3. Create TLS commit config for MPC protocol
-    use tlsn::config::tls_commit::{mpc::MpcTlsConfig, TlsCommitProtocolConfig};
-    let mpc_config = MpcTlsConfig::builder()
+    let mpc_tls_config = MpcTlsConfig::builder()
         .max_sent_data(max_sent_data)
         .max_recv_data(max_recv_data)
         .build()
         .map_err(|e| format!("Failed to build MPC TLS config: {}", e))?;
-
-    let tls_commit_config = TlsCommitConfig::builder()
-        .protocol(TlsCommitProtocolConfig::Mpc(mpc_config))
-        .build()
-        .map_err(|e| format!("Failed to build TLS commit config: {}", e))?;
 
     // 4. Create prover config
     let prover_config = ProverConfig::builder()
@@ -554,12 +550,12 @@ async fn run_prover(
         let proxy_ws = connect_wss(&proxy_url).await?;
         info!("[Prover] Connected to proxy (wss)");
         let proxy_stream = WsStream::new(proxy_ws);
-        run_prover_with_stream(prover, tls_commit_config, tls_client_config, proxy_stream).await
+        run_prover_with_stream(prover, mpc_tls_config, tls_client_config, proxy_stream).await
     } else {
         let proxy_ws = connect_ws(&proxy_url).await?;
         info!("[Prover] Connected to proxy (ws)");
         let proxy_stream = WsStream::new(proxy_ws);
-        run_prover_with_stream(prover, tls_commit_config, tls_client_config, proxy_stream).await
+        run_prover_with_stream(prover, mpc_tls_config, tls_client_config, proxy_stream).await
     };
 
     // 8. Close the session handle

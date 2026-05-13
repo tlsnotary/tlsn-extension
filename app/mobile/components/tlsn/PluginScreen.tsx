@@ -93,6 +93,8 @@ interface PluginScreenProps {
   onError?: (error: Error) => void;
   /** Override the verifier URL used by prove() (from Settings) */
   verifierUrlOverride?: string;
+  /** TLS verification protocol mode (default: 'Mpc') */
+  mode?: 'Mpc' | 'Proxy';
 }
 
 /**
@@ -110,11 +112,17 @@ export function PluginScreen({
   onComplete,
   onError,
   verifierUrlOverride,
+  mode = 'Mpc',
 }: PluginScreenProps) {
   const verifierUrlRef = useRef(verifierUrlOverride);
   useEffect(() => {
     verifierUrlRef.current = verifierUrlOverride;
   }, [verifierUrlOverride]);
+
+  const modeRef = useRef(mode);
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
 
   const [domJson, setDomJson] = useState<DomJson | null>(null);
   const [webViewUrl, setWebViewUrl] = useState<string | null>(null);
@@ -151,12 +159,12 @@ export function PluginScreen({
         }
       },
     };
-    eventEmitterRef.current = emitter; // eslint-disable-line react-hooks/refs
+    eventEmitterRef.current = emitter;
     return emitter;
   }, []);
 
   // Create host
-  /* eslint-disable react-hooks/refs */
+
   const host = useMemo(() => {
     const h = new MobilePluginHost({
       onProve: async (requestOptions, proverOptions) => {
@@ -183,6 +191,7 @@ export function PluginScreen({
             maxSentData: proverOptions.maxSentData ?? 4096,
             maxRecvData: proverOptions.maxRecvData ?? 16384,
             handlers: nativeHandlers,
+            mode: modeRef.current,
           },
         });
 
@@ -211,7 +220,6 @@ export function PluginScreen({
     hostRef.current = h;
     return h;
   }, []);
-  /* eslint-enable react-hooks/refs */
 
   // Handle header interception from WebView
   const handleHeaderIntercepted = useCallback(

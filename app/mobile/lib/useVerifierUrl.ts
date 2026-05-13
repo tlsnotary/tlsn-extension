@@ -3,39 +3,60 @@ import { File, Paths } from 'expo-file-system/next';
 
 const configFile = new File(Paths.document, 'verifier-config.json');
 const DEFAULT_VERIFIER_URL = 'https://demo.tlsnotary.org';
+const DEFAULT_PROXY_MODE = false;
 
-export { DEFAULT_VERIFIER_URL };
+export { DEFAULT_VERIFIER_URL, DEFAULT_PROXY_MODE };
 
-export async function getVerifierUrl(): Promise<string> {
+interface Config {
+  verifierUrl?: string;
+  proxyMode?: boolean;
+}
+
+async function loadConfig(): Promise<Config> {
   try {
-    const exists = configFile.exists;
-    if (exists) {
-      const content = await configFile.text();
-      const config = JSON.parse(content);
-      if (config.verifierUrl) {
-        console.log('[useVerifierUrl] using override:', config.verifierUrl);
-        return config.verifierUrl;
-      }
-    }
+    if (!configFile.exists) return {};
+    const content = await configFile.text();
+    return JSON.parse(content) as Config;
   } catch (err) {
     console.error('[useVerifierUrl] read error:', err);
+    return {};
+  }
+}
+
+async function patchConfig(patch: Config): Promise<void> {
+  const current = await loadConfig();
+  const next = { ...current, ...patch };
+  // Drop empty config to keep behavior consistent with the original "delete file on reset".
+  const hasAny = Object.values(next).some((v) => v !== undefined && v !== null && v !== '');
+  if (!hasAny) {
+    if (configFile.exists) configFile.delete();
+    return;
+  }
+  configFile.write(JSON.stringify(next));
+}
+
+export async function getVerifierUrl(): Promise<string> {
+  const config = await loadConfig();
+  if (config.verifierUrl) {
+    console.log('[useVerifierUrl] using override:', config.verifierUrl);
+    return config.verifierUrl;
   }
   return DEFAULT_VERIFIER_URL;
 }
 
 export async function setVerifierUrl(url: string | null): Promise<void> {
   console.log('[useVerifierUrl] setVerifierUrl called with:', url);
-  if (url) {
-    configFile.write(JSON.stringify({ verifierUrl: url }));
-    console.log('[useVerifierUrl] wrote file, exists now:', configFile.exists);
-  } else {
-    try {
-      if (configFile.exists) configFile.delete();
-      console.log('[useVerifierUrl] deleted file');
-    } catch {
-      // Ignore
-    }
-  }
+  await patchConfig({ verifierUrl: url ?? undefined });
+}
+
+export async function getProxyMode(): Promise<boolean> {
+  const config = await loadConfig();
+  return config.proxyMode ?? DEFAULT_PROXY_MODE;
+}
+
+export async function setProxyMode(value: boolean): Promise<void> {
+  console.log('[useVerifierUrl] setProxyMode called with:', value);
+  await patchConfig({ proxyMode: value });
 }
 
 export function useVerifierUrl(): { url: string; loading: boolean } {
@@ -50,4 +71,18 @@ export function useVerifierUrl(): { url: string; loading: boolean } {
   }, []);
 
   return { url, loading };
+}
+
+export function useProxyMode(): { proxyMode: boolean; loading: boolean } {
+  const [proxyMode, setProxyModeState] = useState(DEFAULT_PROXY_MODE);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getProxyMode().then((v) => {
+      setProxyModeState(v);
+      setLoading(false);
+    });
+  }, []);
+
+  return { proxyMode, loading };
 }

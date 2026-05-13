@@ -161,6 +161,15 @@ pub struct Handler {
     pub params: Option<HandlerParams>,
 }
 
+/// Protocol mode for the prover.
+#[derive(Debug, Clone, Copy, uniffi::Enum)]
+pub enum Mode {
+    /// MPC-TLS (default): co-runs the TLS handshake with the verifier.
+    Mpc,
+    /// Proxy: notary observes the TLS session via its proxy endpoint.
+    Proxy,
+}
+
 /// Prover options for the high-level prove function.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct ProverOptions {
@@ -168,6 +177,7 @@ pub struct ProverOptions {
     pub max_sent_data: u32,
     pub max_recv_data: u32,
     pub handlers: Vec<Handler>,
+    pub mode: Option<Mode>,
 }
 
 /// Result of a proof operation.

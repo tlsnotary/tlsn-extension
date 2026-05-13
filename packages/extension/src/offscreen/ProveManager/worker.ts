@@ -10,6 +10,7 @@ import initWasm, {
   HttpRequest,
   Reveal,
   Commit,
+  RevealOutput,
   compute_reveal as wasmComputeReveal,
 } from '../../../../tlsn-wasm-pkg/tlsn_wasm';
 
@@ -245,13 +246,16 @@ const SEND_REQUEST_TIMEOUT_MS = 60_000;
 
 async function sendRequest(
   proverId: string,
-  proxyUrl: string,
+  proxyUrl: string | undefined,
   request: HttpRequest,
 ): Promise<void> {
   const prover = provers.get(proverId);
   if (!prover) throw new Error(`Prover not found: ${proverId}`);
 
-  const serverIo = await createIoChannel(proxyUrl);
+  // Proxy mode: the WASM prover routes server traffic over the verifier
+  // session mux internally and rejects a server_io. MPC mode: open a
+  // websockify channel to the target server and pass it as server_io.
+  const serverIo = proxyUrl ? await createIoChannel(proxyUrl) : undefined;
   try {
     await Promise.race([
       prover.send_request(serverIo, request),
@@ -266,7 +270,7 @@ async function sendRequest(
       ),
     ]);
   } catch (err) {
-    await serverIo.close();
+    await serverIo?.close();
     throw err;
   }
 }
@@ -287,16 +291,18 @@ function getTranscript(proverId: string): { sent: number[]; recv: number[] } {
 
 /**
  * Reveals data to the verifier, optionally with hash-committed ranges.
+ * Returns the per-range openings (hash + blinder) for any hash commitments;
+ * sent/recv are empty arrays when no commit was supplied.
  */
 async function reveal(
   proverId: string,
   revealConfig: Reveal,
   commitConfig?: Commit,
-): Promise<void> {
+): Promise<RevealOutput> {
   const prover = provers.get(proverId);
   if (!prover) throw new Error(`Prover not found: ${proverId}`);
 
-  await prover.reveal(revealConfig, commitConfig);
+  return prover.reveal(revealConfig, commitConfig ?? null);
 }
 
 /**

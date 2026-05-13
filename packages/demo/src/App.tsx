@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { SystemChecks } from './components/SystemChecks';
 import { ConsoleOutput, ConsoleActions } from './components/Console';
 import { PluginButtons } from './components/PluginButtons';
@@ -9,8 +9,16 @@ import { WhatAndWhy } from './components/WhatAndWhy';
 import { WhyPlugins } from './components/WhyPlugins';
 import { BuildYourOwn } from './components/BuildYourOwn';
 import { OnchainDemo } from './components/OnchainDemo';
+import { ModeComparison, CompareDurations } from './components/ModeComparison';
 import { plugins } from './plugins';
-import { checkBrowserCompatibility, checkExtension, checkVerifier, formatTimestamp } from './utils';
+import {
+  checkBrowserCompatibility,
+  checkExtension,
+  checkVerifier,
+  formatTimestamp,
+  ExtensionStatus,
+} from './utils';
+import { MIN_EXTENSION_VERSION } from './config';
 import { ConsoleEntry, CheckStatus, PluginResult as PluginResultType, ProgressData } from './types';
 import {
   trackBrowserCheck,
@@ -46,9 +54,15 @@ export function App() {
     message: 'Checking...',
   });
 
-  const [extensionCheck, setExtensionCheck] = useState<{ status: CheckStatus; message: string }>({
+  const [extensionCheck, setExtensionCheck] = useState<{
+    status: CheckStatus;
+    message: string;
+    extStatus: ExtensionStatus;
+    version?: string;
+  }>({
     status: 'checking',
     message: 'Checking...',
+    extStatus: 'missing',
   });
 
   const [verifierCheck, setVerifierCheck] = useState<{
@@ -66,7 +80,18 @@ export function App() {
   const [runningPlugins, setRunningPlugins] = useState<Set<string>>(new Set());
   const [pluginResults, setPluginResults] = useState<Record<string, PluginResultData>>({});
   const [pluginProgress, setPluginProgress] = useState<Record<string, ProgressData>>({});
+  const [proverMode, setProverMode] = useState<'Mpc' | 'Proxy'>('Mpc');
   const [consoleExpanded, setConsoleExpanded] = useState(false);
+
+  // Comparison section state
+  const pluginKeys = Object.keys(plugins);
+  const [compareSelectedPlugin, setCompareSelectedPlugin] = useState<string>(pluginKeys[0] ?? '');
+  const [compareDurations, setCompareDurations] = useState<
+    Record<string, CompareDurations | undefined>
+  >({});
+  const [compareRunningMode, setCompareRunningMode] = useState<'Mpc' | 'Proxy' | null>(null);
+  // Track per-requestId t0 (when CONNECTING fires) so COMPLETE can compute prove-only duration.
+  const proveStartTimesRef = useRef<Record<string, number>>({});
 
   const addConsoleEntry = useCallback((message: string, type: ConsoleEntry['type'] = 'info') => {
     setConsoleEntries((prev) => [
@@ -118,12 +143,31 @@ export function App() {
     }
 
     // Extension check
-    const extensionOk = await checkExtension();
-    trackExtensionCheck(extensionOk);
-    if (extensionOk) {
-      setExtensionCheck({ status: 'success', message: '✅ Extension installed' });
+    const extResult = await checkExtension();
+    trackExtensionCheck(extResult.status, extResult.version);
+    const extensionOk = extResult.status === 'ok';
+    if (extResult.status === 'ok') {
+      setExtensionCheck({
+        status: 'success',
+        message: `✅ Extension installed (v${extResult.version})`,
+        extStatus: 'ok',
+        version: extResult.version,
+      });
+    } else if (extResult.status === 'outdated') {
+      setExtensionCheck({
+        status: 'error',
+        message: extResult.version
+          ? `⚠️ Extension v${extResult.version} is outdated (requires ≥ ${extResult.minVersion})`
+          : `⚠️ Extension is outdated (requires ≥ ${extResult.minVersion})`,
+        extStatus: 'outdated',
+        version: extResult.version,
+      });
     } else {
-      setExtensionCheck({ status: 'error', message: '❌ Extension not found' });
+      setExtensionCheck({
+        status: 'error',
+        message: '❌ Extension not found',
+        extStatus: 'missing',
+      });
     }
 
     // Verifier check
@@ -151,13 +195,32 @@ export function App() {
   const handleRecheck = useCallback(async () => {
     trackRecheck();
     // Recheck extension
-    setExtensionCheck({ status: 'checking', message: 'Checking...' });
-    const extensionOk = await checkExtension();
-    trackExtensionCheck(extensionOk);
-    if (extensionOk) {
-      setExtensionCheck({ status: 'success', message: '✅ Extension installed' });
+    setExtensionCheck({ status: 'checking', message: 'Checking...', extStatus: 'missing' });
+    const extResult = await checkExtension();
+    trackExtensionCheck(extResult.status, extResult.version);
+    const extensionOk = extResult.status === 'ok';
+    if (extResult.status === 'ok') {
+      setExtensionCheck({
+        status: 'success',
+        message: `✅ Extension installed (v${extResult.version})`,
+        extStatus: 'ok',
+        version: extResult.version,
+      });
+    } else if (extResult.status === 'outdated') {
+      setExtensionCheck({
+        status: 'error',
+        message: extResult.version
+          ? `⚠️ Extension v${extResult.version} is outdated (requires ≥ ${extResult.minVersion})`
+          : `⚠️ Extension is outdated (requires ≥ ${extResult.minVersion})`,
+        extStatus: 'outdated',
+        version: extResult.version,
+      });
     } else {
-      setExtensionCheck({ status: 'error', message: '❌ Extension not found' });
+      setExtensionCheck({
+        status: 'error',
+        message: '❌ Extension not found',
+        extStatus: 'missing',
+      });
     }
 
     // Recheck verifier
@@ -183,6 +246,40 @@ export function App() {
     trackAllChecksPass(allPass);
   }, []);
 
+  const handleRunCompare = useCallback(
+    async (mode: 'Mpc' | 'Proxy') => {
+      const pluginKey = compareSelectedPlugin;
+      const plugin = plugins[pluginKey];
+      if (!plugin) return;
+
+      const requestId = `compare_${mode}_${pluginKey}_${Date.now()}`;
+      setCompareRunningMode(mode);
+      setConsoleExpanded(true);
+
+      trackPluginStarted(plugin.name);
+
+      try {
+        const pluginCode = await fetch(plugin.file).then((r) => r.text());
+        addConsoleEntry(`Running ${plugin.name} in ${mode} mode (comparison)…`, 'info');
+        await window.tlsn!.execCode(pluginCode, {
+          requestId,
+          sessionData: { mode },
+        });
+        addConsoleEntry(`✅ ${plugin.name} (${mode}) comparison run complete`, 'success');
+        // Duration is recorded by the TLSN_PROVE_PROGRESS listener below.
+      } catch (err) {
+        console.error(err);
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        trackPluginError(plugin.name, errorMsg);
+        addConsoleEntry(`❌ Comparison error (${mode}): ${errorMsg}`, 'error');
+      } finally {
+        setCompareRunningMode(null);
+        delete proveStartTimesRef.current[requestId];
+      }
+    },
+    [addConsoleEntry, compareSelectedPlugin],
+  );
+
   const handleRunPlugin = useCallback(
     async (pluginKey: string) => {
       const plugin = plugins[pluginKey];
@@ -206,8 +303,11 @@ export function App() {
         const startTime = performance.now();
         const pluginCode = await fetch(plugin.file).then((r) => r.text());
 
-        addConsoleEntry('🔧 Executing plugin code...', 'info');
-        const result = await window.tlsn!.execCode(pluginCode, { requestId });
+        addConsoleEntry(`Running ${plugin.name} in ${proverMode} mode...`, 'info');
+        const result = await window.tlsn!.execCode(pluginCode, {
+          requestId,
+          sessionData: { mode: proverMode },
+        });
         const durationMs = performance.now() - startTime;
         const executionTime = durationMs.toFixed(2);
 
@@ -253,7 +353,7 @@ export function App() {
         });
       }
     },
-    [addConsoleEntry],
+    [addConsoleEntry, proverMode],
   );
 
   // Listen for tlsn_loaded event
@@ -278,6 +378,31 @@ export function App() {
 
       if (event.data?.type === 'TLSN_PROVE_PROGRESS') {
         const { requestId, step, progress, message } = event.data;
+
+        // Track prove-only duration via the lifecycle bookends.
+        // CONNECTING is the first emit of the prove pipeline; COMPLETE is the last.
+        // Measuring between them gives the proving time alone, excluding any
+        // in-plugin user interaction that may precede the prove() call.
+        if (typeof requestId === 'string') {
+          if (step === 'CONNECTING') {
+            proveStartTimesRef.current[requestId] = performance.now();
+          } else if (step === 'COMPLETE') {
+            const t0 = proveStartTimesRef.current[requestId];
+            if (t0 !== undefined) {
+              const durationMs = performance.now() - t0;
+              const compareMatch = requestId.match(/^compare_(Mpc|Proxy)_(.+)_\d+$/);
+              if (compareMatch) {
+                const mode = compareMatch[1] as 'Mpc' | 'Proxy';
+                const pluginKey = compareMatch[2];
+                setCompareDurations((prev) => ({
+                  ...prev,
+                  [pluginKey]: { ...prev[pluginKey], [mode]: durationMs },
+                }));
+              }
+            }
+          }
+        }
+
         // Extract pluginKey from requestId (format: plugin_<key>_<timestamp>)
         const match = requestId?.match(/^plugin_(.+)_\d+$/);
         if (match) {
@@ -330,7 +455,9 @@ export function App() {
 
       <StatusBar
         browserOk={browserCheck.status === 'success'}
-        extensionOk={extensionCheck.status === 'success'}
+        extensionStatus={extensionCheck.extStatus}
+        extensionVersion={extensionCheck.version}
+        minExtensionVersion={MIN_EXTENSION_VERSION}
         verifierOk={verifierCheck.status === 'success'}
         onRecheck={handleRecheck}
         detailsContent={
@@ -367,7 +494,35 @@ export function App() {
           allChecksPass={allChecksPass}
           onRunPlugin={handleRunPlugin}
         />
+
+        <div className="mode-toggle mode-toggle--footer">
+          <span className="mode-toggle-label">Protocol Mode:</span>
+          <div className="mode-toggle-buttons">
+            <button
+              className={`mode-toggle-btn ${proverMode === 'Mpc' ? 'active' : ''}`}
+              onClick={() => setProverMode('Mpc')}
+            >
+              MPC
+            </button>
+            <button
+              className={`mode-toggle-btn ${proverMode === 'Proxy' ? 'active' : ''}`}
+              onClick={() => setProverMode('Proxy')}
+            >
+              Proxy
+            </button>
+          </div>
+        </div>
       </div>
+
+      <ModeComparison
+        plugins={plugins}
+        selectedPlugin={compareSelectedPlugin}
+        onSelectPlugin={setCompareSelectedPlugin}
+        durations={compareDurations[compareSelectedPlugin] ?? {}}
+        runningMode={compareRunningMode}
+        allChecksPass={allChecksPass}
+        onRun={handleRunCompare}
+      />
 
       <OnchainDemo allChecksPass={allChecksPass} addConsoleEntry={addConsoleEntry} />
 

@@ -124,6 +124,7 @@ async function runProve(config) {
   // 3. Create prover
   const prover = new wasm.Prover({
     server_name: serverName,
+    mode: 'Mpc',
     max_sent_data: maxSentData,
     max_recv_data: maxRecvData,
     network: 'Bandwidth',

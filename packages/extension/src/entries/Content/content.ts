@@ -1,6 +1,9 @@
 // Note: This file runs in page context, not extension context
 // We use console.log here intentionally as @tlsn/common may not be available
 
+// Injected by webpack DefinePlugin from package.json
+declare const __EXTENSION_VERSION__: string;
+
 /**
  * ExtensionAPI - Public API exposed to web pages via window.tlsn
  *
@@ -8,6 +11,10 @@
  * including opening new windows for notarization.
  */
 class ExtensionAPI {
+  // Extension version (matches manifest). Pages can compare against a
+  // minimum required version to detect outdated installs.
+  readonly version: string = __EXTENSION_VERSION__;
+
   /**
    * Execute JavaScript code in a sandboxed environment
    *

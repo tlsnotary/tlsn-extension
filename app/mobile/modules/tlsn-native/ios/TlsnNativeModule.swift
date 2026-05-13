@@ -189,11 +189,23 @@ public class TlsnNativeModule: Module {
                     NSLog("[TlsnNative] Final handlers count: %d", handlers.count)
                     os_log("[TlsnNative] Handlers to Rust: %d", log: logger, type: .info, handlers.count)
 
+                    // Parse optional protocol mode (default Mpc).
+                    var mode: Mode? = nil
+                    if let modeStr = optionsDict["mode"] as? String {
+                        switch modeStr {
+                        case "Mpc": mode = .mpc
+                        case "Proxy": mode = .proxy
+                        default:
+                            print("[TlsnNative] unknown mode '\(modeStr)', defaulting to Mpc")
+                        }
+                    }
+
                     let options = ProverOptions(
                         verifierUrl: verifierUrl,
                         maxSentData: maxSentData,
                         maxRecvData: maxRecvData,
-                        handlers: handlers
+                        handlers: handlers,
+                        mode: mode
                     )
 
                     // Create progress callback that emits Expo events

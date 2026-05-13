@@ -39,6 +39,7 @@ export interface ProverOptions {
   maxSentData?: number;
   maxRecvData?: number;
   handlers?: Handler[];
+  mode?: 'Mpc' | 'Proxy';
 }
 
 export interface ProveResult {

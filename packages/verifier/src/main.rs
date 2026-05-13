@@ -186,18 +186,24 @@ struct HandlerResult {
     value: String,
 }
 
-// Verification result containing handler results
+// Verification result containing handler results or an error
 #[derive(Debug, Clone, Serialize)]
 struct VerificationResult {
     results: Vec<HandlerResult>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
 }
 
-// Type alias for the prover WebSocket sender
+// Type aliases for WebSocket senders
 type ProverSocketSender = oneshot::Sender<TungsteniteStream>;
+type ProxySocketSender = oneshot::Sender<TungsteniteStream>;
 
-// Session data stored in AppState (only prover socket sender - config/sessionData passed directly to verifier task)
+// Session data stored in AppState
 pub(crate) struct SessionData {
-    pub(crate) prover_socket_tx: ProverSocketSender,
+    pub(crate) prover_socket_tx: Option<ProverSocketSender>,
+    /// In proxy mode, the verifier task stores a sender here so the /proxy
+    /// endpoint can route the prover's proxy WebSocket to it.
+    pub(crate) proxy_socket_tx: Option<ProxySocketSender>,
 }
 
 // Application state for sharing data between handlers
@@ -216,10 +222,13 @@ struct VerifierQuery {
 
 // Query parameters for proxy WebSocket connection
 // Supports both `token` (notary.pse.dev compatible) and `host` (legacy)
+// In proxy mode, `session_id` routes the WS to the verifier task.
 #[derive(Debug, Deserialize)]
 struct ProxyQuery {
     #[serde(alias = "host")]
     token: String,
+    #[serde(rename = "sessionId")]
+    session_id: Option<String>,
 }
 
 // ============================================================================
@@ -531,7 +540,13 @@ async fn handle_session_websocket(mut socket: TungsteniteStream, state: Arc<AppS
     // Store session data (so prover can connect)
     {
         let mut sessions = state.sessions.lock().await;
-        sessions.insert(session_id.clone(), SessionData { prover_socket_tx });
+        sessions.insert(
+            session_id.clone(),
+            SessionData {
+                prover_socket_tx: Some(prover_socket_tx),
+                proxy_socket_tx: None,
+            },
+        );
     }
 
     info!(
@@ -628,6 +643,11 @@ async fn handle_session_websocket(mut socket: TungsteniteStream, state: Arc<AppS
 
     // Wait for verification result
     match result_rx.await {
+        Ok(result) if result.error.is_some() => {
+            let err_msg = result.error.as_deref().unwrap_or("Unknown error");
+            error!("[{}] ❌ {}", session_id, err_msg);
+            send_error(&mut socket, err_msg).await;
+        }
         Ok(result) => {
             info!(
                 "[{}] Received verification result, sending to extension",
@@ -670,12 +690,13 @@ pub(crate) async fn verifier_ws_handler(
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
     let session_id = query.session_id;
 
-    // Look up the session and extract the socket sender
+    // Look up the session and extract the prover socket sender.
+    // Don't remove the session — proxy mode needs it for the proxy WS routing.
     let prover_socket_tx = {
         let mut sessions = state.sessions.lock().await;
         sessions
-            .remove(&session_id)
-            .map(|session_data| session_data.prover_socket_tx)
+            .get_mut(&session_id)
+            .and_then(|s| s.prover_socket_tx.take())
     };
 
     match prover_socket_tx {
@@ -711,15 +732,48 @@ pub(crate) async fn verifier_ws_handler(
 
 // WebSocket proxy handler - bridges WebSocket to TCP
 // Compatible with notary.pse.dev: /proxy?token=<host> or legacy /proxy?host=<host>
+// In proxy mode: /proxy?token=<host>&sessionId=<id> routes to verifier task
 pub(crate) async fn proxy_ws_handler(
     ws: WsUpgrade,
     Query(query): Query<ProxyQuery>,
+    State(state): State<Arc<AppState>>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
     let host = query.token;
+    let session_id = query.session_id;
 
-    info!("[Proxy] New proxy request for host: {}", host);
+    info!(
+        "[Proxy] New proxy request for host: {}, sessionId: {:?}",
+        host, session_id
+    );
 
-    Ok(ws.on_upgrade(move |socket| handle_proxy_connection(socket, host)))
+    if let Some(sid) = session_id {
+        // Proxy mode: route this WebSocket to the verifier task
+        Ok(ws.on_upgrade(move |socket| async move {
+            let proxy_tx = {
+                let mut sessions = state.sessions.lock().await;
+                sessions
+                    .get_mut(&sid)
+                    .and_then(|s| s.proxy_socket_tx.take())
+            };
+            match proxy_tx {
+                Some(tx) => {
+                    info!("[Proxy] Routing proxy WS to verifier task for session {}", sid);
+                    if tx.send(socket).is_err() {
+                        error!("[Proxy] Verifier task dropped proxy channel for session {}", sid);
+                    }
+                }
+                None => {
+                    error!(
+                        "[Proxy] No proxy socket channel for session {} (not proxy mode or already connected)",
+                        sid
+                    );
+                }
+            }
+        }))
+    } else {
+        // MPC mode: standard TCP bridge
+        Ok(ws.on_upgrade(move |socket| handle_proxy_connection(socket, host)))
+    }
 }
 
 // Handle the proxy WebSocket connection by bridging to TCP
@@ -927,6 +981,18 @@ async fn run_verifier_task(
         }
     };
 
+    // Set up a channel to receive the prover's proxy WebSocket.
+    // In universal mode the verifier accepts both MPC and Proxy — the prover decides.
+    // If the prover chooses proxy, it connects to /proxy?sessionId=... which routes here.
+    let (proxy_tx, proxy_rx) = oneshot::channel::<TungsteniteStream>();
+    {
+        let mut sessions = state.sessions.lock().await;
+        if let Some(session_data) = sessions.get_mut(&session_id) {
+            session_data.proxy_socket_tx = Some(proxy_tx);
+        }
+    }
+    let proxy_socket_rx = Some(proxy_rx);
+
     // Wrap the WebSocket stream in WsStream for AsyncRead/AsyncWrite compatibility
     let stream = WsStream::new(socket);
     info!("[{}] WebSocket converted to stream", session_id);
@@ -943,7 +1009,7 @@ async fn run_verifier_task(
 
     let verification_result = timeout(
         verification_timeout,
-        verifier(stream, config.max_sent_data, config.max_recv_data),
+        verifier(stream, config.max_sent_data, config.max_recv_data, proxy_socket_rx),
     )
     .await;
 
@@ -1078,6 +1144,7 @@ async fn run_verifier_task(
             // Send result to extension via the result channel
             let result = VerificationResult {
                 results: handler_results,
+                error: None,
             };
 
             if result_tx.send(result).is_err() {
@@ -1090,15 +1157,20 @@ async fn run_verifier_task(
             }
         }
         Ok(Err(e)) => {
-            error!("[{}] ❌ Verification failed: {}", session_id, e);
-            // Note: result_tx will be dropped, causing extension to receive an error
+            let msg = format!("Verification failed: {}", e);
+            error!("[{}] ❌ {}", session_id, msg);
+            let _ = result_tx.send(VerificationResult {
+                results: vec![],
+                error: Some(msg),
+            });
         }
         Err(_) => {
-            error!(
-                "[{}] ⏱️  Verification timed out after {:?}",
-                session_id, verification_timeout
-            );
-            // Note: result_tx will be dropped, causing extension to receive an error
+            let msg = format!("Verification timed out after {:?}", verification_timeout);
+            error!("[{}] ⏱️  {}", session_id, msg);
+            let _ = result_tx.send(VerificationResult {
+                results: vec![],
+                error: Some(msg),
+            });
         }
     }
 
