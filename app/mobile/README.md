@@ -101,8 +101,8 @@ Run `./build.sh --help` for all options. Commonly used:
 Plugins connect to a local verifier server for proof generation:
 
 ```bash
-cd packages/verifier
-cargo run
+cd servers
+cargo run -p tlsn-verifier-server
 ```
 
 The verifier runs on `http://localhost:7047` by default. On iOS simulator this is accessible as-is. On Android emulator, the app automatically rewrites `localhost` to `10.0.2.2`.

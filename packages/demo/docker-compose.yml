@@ -3,8 +3,8 @@ version: '3.8'
 services:
   verifier:
     build:
-      context: ../verifier
-      dockerfile: Dockerfile
+      context: ../../servers
+      dockerfile: verifier/Dockerfile
     ports:
       - '7047:7047'
     volumes:

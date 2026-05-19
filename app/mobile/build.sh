@@ -30,7 +30,7 @@ TLSN_REPO_DIR="$ROOT_DIR/packages/tlsn-wasm/tlsn"
 SDK_CORE_DIR="$TLSN_REPO_DIR/crates/sdk-core"
 
 # Pinned tlsn revision — keep in sync with packages/tlsn-mobile/Cargo.toml,
-# packages/verifier/Cargo.toml and packages/tlsn-wasm/build.sh.
+# servers/verifier/Cargo.toml and packages/tlsn-wasm/build.sh.
 TLSN_REV="ceadf458f6f75909eda013aa50108f9f94956188"
 
 # Defaults

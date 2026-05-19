@@ -44,7 +44,7 @@ export function CheckItem({
       {showInstructions && (
         <div style={{ marginTop: '10px', fontSize: '14px' }}>
           <p>Start the verifier server:</p>
-          <code>cd packages/verifier; cargo run --release</code>
+          <code>cd servers; cargo run --release -p tlsn-verifier-server</code>
           {onRecheck && (
             <button onClick={onRecheck} style={{ marginLeft: '10px', padding: '5px 10px' }}>
               Check Again

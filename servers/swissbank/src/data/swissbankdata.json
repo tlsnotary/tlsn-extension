@@ -1,0 +1,17 @@
+{
+    "bank": "Swiss Bank",
+    "organization": "Ethereum Foundation",
+    "account_id": "ETH-042",
+    "address": {
+        "street": "Zeughausgasse 7a",
+        "postal_code": "6300",
+        "city": "Zug",
+        "country": "Switzerland"
+    },
+    "accounts": {
+        "EUR": "275_000_000",
+        "USD": "125_000_000",
+        "CHF": "50_000_000"
+    },
+    "last_audit": "2025-11-12T12:00:00Z"
+}

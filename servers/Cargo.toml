@@ -1,0 +1,7 @@
+[workspace]
+resolver = "2"
+members = ["verifier", "swissbank"]
+
+[profile.release]
+lto = true
+codegen-units = 1

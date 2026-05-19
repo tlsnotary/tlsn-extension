@@ -107,7 +107,7 @@ export function StatusBar({
           {!verifierOk && (
             <div>
               Verifier server not running. Start it with:{' '}
-              <code>cd packages/verifier; cargo run --release</code>
+              <code>cd servers; cargo run --release -p tlsn-verifier-server</code>
             </div>
           )}
         </div>

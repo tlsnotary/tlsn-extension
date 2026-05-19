@@ -48,23 +48,30 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run lint` - Run all linters (ESLint, Prettier, TypeScript)
 - `npm run lint:fix` - Auto-fix linting issues
 
-### Verifier Server Package Commands
+### Servers Workspace Commands (`servers/`)
 
-- `cargo run` - Run development server on port 7047
-- `cargo build --release` - Build production binary
-- `cargo test` - Run Rust tests
-- `cargo check` - Check compilation without building
+Cargo workspace containing all Rust deployables (verifier, swissbank). Run from
+`servers/`:
+
+- `cargo test --workspace` - Test all crates
+- `cargo build --release -p tlsn-verifier-server` - Build verifier binary
+- `cargo build --release -p swissbank` - Build swissbank binary
+- `cargo run -p tlsn-verifier-server` - Run verifier on port 7047
+- `cargo run -p swissbank` - Run swissbank on port 3000
 
 ## Monorepo Architecture
 
-The project is organized as a monorepo using npm workspaces with the following packages:
+The project is organized as a monorepo with two top-level directories:
 
-- **`packages/common`**: Shared utilities (logging system) used by extension and plugin-sdk
-- **`packages/extension`**: Chrome Extension (Manifest V3) for TLSNotary proof generation
-- **`packages/plugin-sdk`**: SDK for developing and running TLSN plugins using QuickJS sandboxing
-- **`packages/verifier`**: Rust-based WebSocket server for TLSNotary verification
-- **`packages/demo`**: Demo server with Docker setup and example plugins
-- **`packages/tutorial`**: Tutorial examples for learning plugin development
+- **`packages/`** — npm workspaces (TypeScript projects):
+  - **`packages/common`**: Shared utilities (logging system) used by extension and plugin-sdk
+  - **`packages/extension`**: Chrome Extension (Manifest V3) for TLSNotary proof generation
+  - **`packages/plugin-sdk`**: SDK for developing and running TLSN plugins using QuickJS sandboxing
+  - **`packages/demo`**: Demo frontend with Docker setup and example plugins
+  - **`packages/tutorial`**: Tutorial examples for learning plugin development
+- **`servers/`** — Rust Cargo workspace (deployable servers):
+  - **`servers/verifier`**: WebSocket server for TLSNotary verification (port 7047)
+  - **`servers/swissbank`**: Fake Swiss bank with dashboard UI, used as a demo target (port 3000)
 
 **Build Dependencies:**
 The extension depends on `@tlsn/common` and `@tlsn/plugin-sdk`. These must be built before the extension:
@@ -540,9 +547,10 @@ const ranges = parser.ranges.body('screen_name', { type: 'json', hideKey: true }
 - **Testing**: Vitest with coverage reporting
 - **Output**: ESM module in `dist/` directory
 
-## Verifier Server Package (`packages/verifier`)
+## Verifier Server (`servers/verifier`)
 
-Rust-based HTTP/WebSocket server for TLSNotary verification:
+Rust-based HTTP/WebSocket server for TLSNotary verification. Part of the
+`servers/` Cargo workspace.
 
 **Architecture:**
 
@@ -592,10 +600,10 @@ Webhooks receive POST requests with:
 **Running the Server:**
 
 ```bash
-cd packages/verifier
-cargo run                    # Development
-cargo build --release        # Production
-cargo test                   # Tests
+cd servers
+cargo run -p tlsn-verifier-server               # Development
+cargo build --release -p tlsn-verifier-server   # Production
+cargo test -p tlsn-verifier-server              # Tests
 ```
 
 **Session Flow:**
@@ -607,6 +615,38 @@ cargo test                   # Tests
 5. Verifier validates TLS handshake and transcript
 6. Server returns verification result with transcripts
 7. If webhook configured, sends POST to configured endpoint (fire-and-forget)
+
+## Swissbank Server (`servers/swissbank`)
+
+Fake Swiss bank server with a dashboard UI, used as a target for TLSNotary
+demos. Originally built for DevConnect 2025. Part of the `servers/` Cargo
+workspace.
+
+**Endpoints:**
+
+- `GET /` — Dashboard UI with bank reserves and live access log
+- `GET /balances` — Bank balance JSON; logs access as "authorized" / "unauthorized" based on `Authorization` header
+
+**Configuration:**
+
+- `PORT` — listen port (default `3000`)
+- `RUST_LOG` — log level (e.g. `info`)
+
+**Running:**
+
+```bash
+cd servers
+cargo run -p swissbank                  # Development
+cargo build --release -p swissbank      # Production
+```
+
+Local Caddy HTTPS front (internal CA) via `servers/swissbank/docker-compose.yml`:
+
+```bash
+cd servers/swissbank
+docker compose up --build
+# Visit https://localhost
+```
 
 ## Common Package (`packages/common`)
 

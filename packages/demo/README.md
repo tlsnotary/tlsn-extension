@@ -1,6 +1,6 @@
 This folder contains a basic demo for running TLSNotary plugins.
 The demo needs the TLSNotary extension to run the plugins in your browser.
-In this demo, the plugins prove data from a server (e.g. Twitter). Of course you will also need the verifier counterpart. In this demo we will use the verifier server from the `packages/verifier` folder.
+In this demo, the plugins prove data from a server (e.g. Twitter). Of course you will also need the verifier counterpart. In this demo we will use the verifier server from the `servers/verifier` folder.
 
 Prerequisites:
 
@@ -40,8 +40,8 @@ TODO
 Launch the verifier server
 
 ```sh
- cd packages/verifier
- cargo run --release
+ cd servers
+ cargo run --release -p tlsn-verifier-server
 ```
 
 ## 3. Websocket proxy

@@ -142,7 +142,7 @@ The proxy implementation:
 - **Automatic cleanup**: Closes connections when either side disconnects
 - **Logging**: Tracks total bytes forwarded for debugging
 
-**Source:** `packages/verifier/src/main.rs` (`proxy_ws_handler` and `handle_proxy_connection`)
+**Source:** `servers/verifier/src/main.rs` (`proxy_ws_handler` and `handle_proxy_connection`)
 
 ---
 
@@ -493,7 +493,7 @@ Webhooks are sent **asynchronously** and do **not** block the verification proce
 ### Local Development
 
 ```bash
-cd packages/verifier
+cd servers/verifier
 
 # Run in development mode
 cargo run
@@ -602,7 +602,7 @@ server {
 
 ### Server Settings
 
-**Location:** `packages/verifier/src/main.rs`
+**Location:** `servers/verifier/src/main.rs`
 
 **Default Configuration:**
 
@@ -617,7 +617,7 @@ To change the port, modify the `SocketAddr::from()` call or add environment vari
 
 ### Webhook Configuration
 
-**Location:** `packages/verifier/config.yaml`
+**Location:** `servers/verifier/config.yaml`
 
 See [Webhook System](#webhook-system) section for configuration format.
 
@@ -631,7 +631,7 @@ See [Webhook System](#webhook-system) section for configuration format.
 
 **Current:** Permissive (allows all origins)
 
-**Location:** `packages/verifier/src/main.rs`
+**Location:** `servers/verifier/src/main.rs`
 
 ```rust
 .layer(CorsLayer::permissive())
@@ -683,7 +683,7 @@ RUST_LOG=trace cargo run
 ### Project Structure
 
 ```
-packages/verifier/
+servers/verifier/
 ├── src/
 │   ├── main.rs              # HTTP server, routing, WebSocket handlers
 │   ├── verifier.rs          # TLSNotary MPC-TLS verification logic
@@ -766,7 +766,7 @@ cargo test test_name
 1. **Start verifier server:**
 
    ```bash
-   cd packages/verifier
+   cd servers/verifier
    RUST_LOG=debug cargo run
    ```
 
@@ -780,6 +780,7 @@ cargo test test_name
 
 3. **Run a plugin:**
    Use the demo or tutorial page to load and execute plugin code:
+
    ```bash
    npm run demo   # http://localhost:8080
    ```
@@ -828,7 +829,7 @@ lsof -ti:7047 | xargs kill -9
 **Solution:** Create `config.yaml` or run from directory containing it:
 
 ```bash
-cd packages/verifier
+cd servers/verifier
 cargo run
 ```
 

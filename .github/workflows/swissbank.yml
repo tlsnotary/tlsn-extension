@@ -1,0 +1,44 @@
+name: swissbank
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'servers/swissbank/**'
+      - '.github/workflows/swissbank.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+
+jobs:
+  build_and_publish:
+    name: build and publish swissbank image
+    runs-on: ubuntu-latest
+    env:
+      CONTAINER_REGISTRY: ghcr.io
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.CONTAINER_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v7
+        with:
+          context: servers
+          file: servers/swissbank/Dockerfile
+          push: true
+          tags: |
+            ${{ env.CONTAINER_REGISTRY }}/${{ github.repository }}/swissbank:latest
+            ${{ env.CONTAINER_REGISTRY }}/${{ github.repository }}/swissbank:sha-${{ github.sha }}
