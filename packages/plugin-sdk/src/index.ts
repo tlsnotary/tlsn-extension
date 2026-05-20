@@ -14,6 +14,7 @@ import {
   AnyFunction,
   HookContext,
   updateExecutionContext,
+  extractPluginExports,
 } from './host-core';
 import { InterceptedRequest, InterceptedRequestHeader, PluginConfig } from './types';
 
@@ -40,51 +41,14 @@ export {
  *    are silently discarded.
  *
  * This function strips named exports, then re-exports them via `export default { ... }`
- * with arrow function wrappers (arrow functions have no .prototype).
+ * with arrow function wrappers (arrow functions have no .prototype). The parse step
+ * is shared with NativeFunctionEvaluator via `extractPluginExports`; only the
+ * trailer differs (ES module export here, function-body return there).
  */
 export function preprocessPluginCode(code: string): string {
-  // Handle named exports: export function main() / export const config = ...
-  const exportNames: string[] = [];
-  const exportRegex = /export\s+(?:async\s+)?(?:function|const|let|var|class)\s+(\w+)/g;
-  let match;
-
-  while ((match = exportRegex.exec(code)) !== null) {
-    exportNames.push(match[1]);
-  }
-
-  if (exportNames.length > 0) {
-    const strippedCode = code.replace(/^(\s*)export\s+/gm, '$1');
-    const entries = exportNames
-      .map(
-        (name) =>
-          `${name}: typeof ${name} === 'function' ? (...args) => ${name}(...args) : ${name}`,
-      )
-      .join(',\n  ');
-
-    return `${strippedCode}\nexport default { ${entries} };`;
-  }
-
-  // Handle export default { ... } — wrap function references in arrow functions
-  // to avoid QuickJS handleToNative stack overflow on .prototype
-  const defaultExportMatch = code.match(/export\s+default\s+\{([^}]+)\}\s*;?\s*$/);
-
-  if (defaultExportMatch) {
-    const names = defaultExportMatch[1]
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
-    const strippedCode = code.replace(/export\s+default\s+\{[^}]+\}\s*;?\s*$/, '');
-    const entries = names
-      .map(
-        (name) =>
-          `${name}: typeof ${name} === 'function' ? (...args) => ${name}(...args) : ${name}`,
-      )
-      .join(',\n  ');
-
-    return `${strippedCode}\nexport default { ${entries} };`;
-  }
-
-  return code;
+  const parsed = extractPluginExports(code);
+  if (!parsed) return code;
+  return `${parsed.stripped}\nexport default { ${parsed.entries} };`;
 }
 
 // ---------------------------------------------------------------------------

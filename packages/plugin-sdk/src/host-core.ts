@@ -1540,38 +1540,49 @@ export class HostCore {
 // NativeFunctionEvaluator
 // ---------------------------------------------------------------------------
 
-function preprocessForNativeEval(code: string): string {
-  // Collect named exports: export function main() / export const config = ...
+/**
+ * Parse the plugin's `export` declarations and return the source with `export`
+ * keywords stripped, plus a comma-separated `entries` string mapping each
+ * exported name to an arrow-function wrapper (arrow functions have no
+ * `.prototype`, which avoids a QuickJS handleToNative cycle for function
+ * exports). Returns null if the code has no recognized export syntax.
+ *
+ * Both the QuickJS-based and `new Function()`-based evaluators use the same
+ * parse output; they differ only in the trailer they append (ES module
+ * `export default { ... }` vs. function-body `return { ... }`).
+ */
+export function extractPluginExports(code: string): { stripped: string; entries: string } | null {
+  const wrap = (names: string[]) =>
+    names
+      .map((n) => `${n}: typeof ${n} === 'function' ? (...args) => ${n}(...args) : ${n}`)
+      .join(',\n  ');
+
   const exportNames: string[] = [];
   const exportRegex = /export\s+(?:async\s+)?(?:function|const|let|var|class)\s+(\w+)/g;
   let match;
   while ((match = exportRegex.exec(code)) !== null) {
     exportNames.push(match[1]);
   }
-
   if (exportNames.length > 0) {
-    const stripped = code.replace(/^(\s*)export\s+/gm, '$1');
-    const entries = exportNames
-      .map((n) => `${n}: typeof ${n} === 'function' ? (...args) => ${n}(...args) : ${n}`)
-      .join(',\n  ');
-    return `${stripped}\nreturn { ${entries} };`;
+    return {
+      stripped: code.replace(/^(\s*)export\s+/gm, '$1'),
+      entries: wrap(exportNames),
+    };
   }
 
-  // Handle export default { ... }
   const defaultMatch = code.match(/export\s+default\s+\{([^}]+)\}\s*;?\s*$/);
   if (defaultMatch) {
     const names = defaultMatch[1]
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean);
-    const stripped = code.replace(/export\s+default\s+\{[^}]+\}\s*;?\s*$/, '');
-    const entries = names
-      .map((n) => `${n}: typeof ${n} === 'function' ? (...args) => ${n}(...args) : ${n}`)
-      .join(',\n  ');
-    return `${stripped}\nreturn { ${entries} };`;
+    return {
+      stripped: code.replace(/export\s+default\s+\{[^}]+\}\s*;?\s*$/, ''),
+      entries: wrap(names),
+    };
   }
 
-  return code;
+  return null;
 }
 
 export class NativeFunctionEvaluator implements PluginEvaluator {
@@ -1579,7 +1590,8 @@ export class NativeFunctionEvaluator implements PluginEvaluator {
     code: string,
     capabilities: Record<string, AnyFunction>,
   ): Promise<PluginEvaluatorResult> {
-    const processedCode = preprocessForNativeEval(code);
+    const parsed = extractPluginExports(code);
+    const processedCode = parsed ? `${parsed.stripped}\nreturn { ${parsed.entries} };` : code;
     const keys = Object.keys(capabilities);
     const vals = Object.values(capabilities);
     const fn = new Function(...keys, processedCode);

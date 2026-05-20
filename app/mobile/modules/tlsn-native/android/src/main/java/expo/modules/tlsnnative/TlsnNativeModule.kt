@@ -76,10 +76,15 @@ private fun parseProverOptions(optionsObj: JSONObject): ProverOptions {
         }
     }
 
-    val mode: Mode? = when (optionsObj.optString("mode", "")) {
+    val modeStr = optionsObj.optString("mode", "")
+    val mode: Mode? = when (modeStr) {
         "Mpc" -> Mode.MPC
         "Proxy" -> Mode.PROXY
-        else -> null
+        "" -> null
+        else -> {
+            android.util.Log.w("TlsnNative", "unknown mode '$modeStr', defaulting to Mpc")
+            null
+        }
     }
 
     return ProverOptions(
@@ -205,6 +210,16 @@ private fun revealPreparationToMap(prep: RevealPreparation): Map<String, Any> {
 }
 
 class TlsnNativeModule : Module() {
+    private fun makeProgressCallback(): ProgressCallback = object : ProgressCallback {
+        override fun onProgress(step: String, progress: Double, message: String) {
+            sendEvent("onProveProgress", mapOf(
+                "step" to step,
+                "progress" to progress,
+                "message" to message
+            ))
+        }
+    }
+
     override fun definition() = ModuleDefinition {
         Name("TlsnNative")
 
@@ -220,178 +235,24 @@ class TlsnNativeModule : Module() {
         AsyncFunction("prove") { requestJson: String, optionsJson: String, promise: Promise ->
             Thread {
                 try {
-                    val requestObj = JSONObject(requestJson)
-                    val optionsObj = JSONObject(optionsJson)
-
-                    // Parse HTTP request
-                    val url = requestObj.optString("url", "")
-                        .ifEmpty { return@Thread promise.reject("InvalidRequest", "Missing url", null) }
-                    val method = requestObj.optString("method", "")
-                        .ifEmpty { return@Thread promise.reject("InvalidRequest", "Missing method", null) }
-
-                    val headers = mutableListOf<HttpHeader>()
-                    val headersJsonObj = requestObj.optJSONObject("headers")
-                    if (headersJsonObj != null) {
-                        for (name in headersJsonObj.keys()) {
-                            headers.add(HttpHeader(name, headersJsonObj.getString(name)))
-                        }
+                    val request = parseHttpRequest(JSONObject(requestJson))
+                    val options = parseProverOptions(JSONObject(optionsJson))
+                    if (request.url.isEmpty()) {
+                        return@Thread promise.reject("InvalidRequest", "Missing url", null)
+                    }
+                    if (request.method.isEmpty()) {
+                        return@Thread promise.reject("InvalidRequest", "Missing method", null)
+                    }
+                    if (options.verifierUrl.isEmpty()) {
+                        return@Thread promise.reject("InvalidOptions", "Missing verifierUrl", null)
                     }
 
-                    val body: String? = if (requestObj.has("body") && !requestObj.isNull("body")) {
-                        requestObj.getString("body")
-                    } else null
-
-                    val request = HttpRequest(
-                        url = url,
-                        method = method,
-                        headers = headers,
-                        body = body
-                    )
-
-                    // Parse prover options
-                    val verifierUrl = optionsObj.optString("verifierUrl", "")
-                        .ifEmpty { return@Thread promise.reject("InvalidOptions", "Missing verifierUrl", null) }
-
-                    val maxSentData = optionsObj.optInt("maxSentData", 4096).toUInt()
-                    val maxRecvData = optionsObj.optInt("maxRecvData", 16384).toUInt()
-
-                    // Parse handlers for selective disclosure
-                    val handlers = mutableListOf<Handler>()
-                    val handlersArray = optionsObj.optJSONArray("handlers")
-
-                    if (handlersArray != null) {
-                        for (index in 0 until handlersArray.length()) {
-                            val handlerObj = handlersArray.getJSONObject(index)
-                            val handlerTypeStr = handlerObj.optString("handlerType", "")
-                            val partStr = handlerObj.optString("part", "")
-                            val actionObj = handlerObj.optJSONObject("action") ?: continue
-                            val actionType = actionObj.optString("type", "")
-
-                            if (handlerTypeStr.isEmpty() || partStr.isEmpty() || actionType.isEmpty()) continue
-
-                            val handlerType = when (handlerTypeStr) {
-                                "Sent" -> HandlerType.SENT
-                                "Recv" -> HandlerType.RECV
-                                else -> continue
-                            }
-
-                            val part = when (partStr) {
-                                "StartLine" -> HandlerPart.START_LINE
-                                "Protocol" -> HandlerPart.PROTOCOL
-                                "Method" -> HandlerPart.METHOD
-                                "RequestTarget" -> HandlerPart.REQUEST_TARGET
-                                "StatusCode" -> HandlerPart.STATUS_CODE
-                                "Headers" -> HandlerPart.HEADERS
-                                "Body" -> HandlerPart.BODY
-                                "All" -> HandlerPart.ALL
-                                else -> continue
-                            }
-
-                            val action: HandlerAction = when (actionType) {
-                                "Reveal" -> HandlerAction.Reveal
-                                "Hash" -> {
-                                    val algoStr = actionObj.optString("algorithm", "")
-                                    val algorithm = when (algoStr) {
-                                        "Blake3" -> HashAlgorithm.BLAKE3
-                                        "Sha256" -> HashAlgorithm.SHA256
-                                        "Keccak256" -> HashAlgorithm.KECCAK256
-                                        else -> continue
-                                    }
-                                    HandlerAction.Hash(algorithm)
-                                }
-                                else -> continue
-                            }
-
-                            val paramsObj = handlerObj.optJSONObject("params")
-                            val params = if (paramsObj != null) {
-                                HandlerParams(
-                                    key = if (paramsObj.has("key")) paramsObj.optString("key") else null,
-                                    hideKey = if (paramsObj.has("hideKey")) paramsObj.optBoolean("hideKey") else null,
-                                    hideValue = if (paramsObj.has("hideValue")) paramsObj.optBoolean("hideValue") else null,
-                                    contentType = if (paramsObj.has("contentType")) paramsObj.optString("contentType") else null,
-                                    path = if (paramsObj.has("path")) paramsObj.optString("path") else null,
-                                    regex = if (paramsObj.has("regex")) paramsObj.optString("regex") else null,
-                                    flags = if (paramsObj.has("flags")) paramsObj.optString("flags") else null
-                                )
-                            } else {
-                                null
-                            }
-
-                            handlers.add(Handler(handlerType, part, action, params))
-                            android.util.Log.i("TlsnNative", "Handler $index: type=$handlerTypeStr, part=$partStr, action=$actionType")
-                        }
-                    }
-
-                    android.util.Log.i("TlsnNative", "Final handlers count: ${handlers.size}")
-
-                    // Parse optional protocol mode (default Mpc).
-                    val mode: Mode? = when (optionsObj.optString("mode", "")) {
-                        "Mpc" -> Mode.MPC
-                        "Proxy" -> Mode.PROXY
-                        "" -> null
-                        else -> {
-                            android.util.Log.w("TlsnNative", "unknown mode '${optionsObj.optString("mode")}', defaulting to Mpc")
-                            null
-                        }
-                    }
-
-                    val options = ProverOptions(
-                        verifierUrl = verifierUrl,
-                        maxSentData = maxSentData,
-                        maxRecvData = maxRecvData,
-                        handlers = handlers,
-                        mode = mode
-                    )
-
-                    // Create progress callback that emits Expo events
-                    val progressCallback = object : ProgressCallback {
-                        override fun onProgress(step: String, progress: Double, message: String) {
-                            this@TlsnNativeModule.sendEvent("onProveProgress", mapOf(
-                                "step" to step,
-                                "progress" to progress,
-                                "message" to message
-                            ))
-                        }
-                    }
-
-                    // Call the prove function with progress callback
-                    val result = rustProve(request, options, progressCallback)
-
-                    // Convert response headers
-                    val responseHeaders = result.response.headers.map { header ->
-                        mapOf("name" to header.name, "value" to header.value)
-                    }
-
-                    // Parse response body as JSON, converting to native Map/List for Expo bridge
-                    val bodyJson: Any = try {
-                        jsonToNative(JSONObject(result.response.body))!!
-                    } catch (_: Exception) {
-                        try {
-                            jsonToNative(JSONArray(result.response.body))!!
-                        } catch (_: Exception) {
-                            result.response.body
-                        }
-                    }
+                    val result = rustProve(request, options, makeProgressCallback())
 
                     android.util.Log.i("TlsnNative",
                         "Proof complete! Sent: ${result.transcript.sent.size} bytes, Recv: ${result.transcript.recv.size} bytes")
 
-                    // Build result dictionary
-                    val resultMap = mapOf(
-                        "status" to result.response.status.toInt(),
-                        "headers" to responseHeaders,
-                        "body" to bodyJson,
-                        "transcript" to mapOf(
-                            "sentLength" to result.transcript.sent.size,
-                            "recvLength" to result.transcript.recv.size
-                        ),
-                        "debug" to mapOf(
-                            "handlersPassedToRust" to handlers.size,
-                            "handlersReceivedByRust" to result.handlersReceived.toInt()
-                        )
-                    )
-
-                    promise.resolve(resultMap)
+                    promise.resolve(proofResultToMap(result, options.handlers.size))
 
                 } catch (e: uniffi.tlsn_mobile.TlsnException) {
                     promise.reject("TlsnError", "$e", null)
@@ -414,15 +275,7 @@ class TlsnNativeModule : Module() {
                         return@Thread promise.reject("InvalidOptions", "Missing verifierUrl", null)
                     }
 
-                    val progressCallback = object : ProgressCallback {
-                        override fun onProgress(step: String, progress: Double, message: String) {
-                            this@TlsnNativeModule.sendEvent("onProveProgress", mapOf(
-                                "step" to step, "progress" to progress, "message" to message
-                            ))
-                        }
-                    }
-
-                    val prep = rustProveUntilReveal(request, options, progressCallback)
+                    val prep = rustProveUntilReveal(request, options, makeProgressCallback())
                     android.util.Log.i("TlsnNative",
                         "proveUntilReveal complete: session=${prep.sessionId} descriptors=${prep.descriptors.size}")
                     promise.resolve(revealPreparationToMap(prep))
@@ -438,15 +291,7 @@ class TlsnNativeModule : Module() {
         AsyncFunction("proveFinalize") { sessionId: String, approved: Boolean, promise: Promise ->
             Thread {
                 try {
-                    val progressCallback = object : ProgressCallback {
-                        override fun onProgress(step: String, progress: Double, message: String) {
-                            this@TlsnNativeModule.sendEvent("onProveProgress", mapOf(
-                                "step" to step, "progress" to progress, "message" to message
-                            ))
-                        }
-                    }
-
-                    val result = rustProveFinalize(sessionId, approved, progressCallback)
+                    val result = rustProveFinalize(sessionId, approved, makeProgressCallback())
                     promise.resolve(proofResultToMap(result, -1))
                 } catch (e: uniffi.tlsn_mobile.TlsnException) {
                     promise.reject("TlsnError", "$e", null)
