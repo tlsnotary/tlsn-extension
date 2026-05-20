@@ -1,6 +1,6 @@
 # Build stage
 # Build context: the `servers/` Cargo workspace root.
-FROM rust:1.90 AS builder
+FROM rust:latest AS builder
 
 WORKDIR /app
 
