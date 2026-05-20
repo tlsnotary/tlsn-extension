@@ -1,3 +1,8 @@
+/* eslint-disable react-hooks/refs --
+ * Animated.Value refs are captured at mount and intentionally read by the
+ * animation driver and PanResponder. They never change identity across
+ * renders, so React's "refs during render" guidance doesn't apply.
+ */
 import React, { useEffect, useMemo, useRef } from 'react';
 import {
   Animated,
@@ -80,7 +85,8 @@ export function BottomSheetCard({
     () =>
       PanResponder.create({
         onStartShouldSetPanResponder: () => false,
-        onMoveShouldSetPanResponder: (_e, g) => dismissible && g.dy > 5 && Math.abs(g.dy) > Math.abs(g.dx),
+        onMoveShouldSetPanResponder: (_e, g) =>
+          dismissible && g.dy > 5 && Math.abs(g.dy) > Math.abs(g.dx),
         onPanResponderMove: (_e, g) => {
           if (g.dy > 0) translateY.setValue(g.dy);
         },

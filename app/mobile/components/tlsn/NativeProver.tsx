@@ -75,10 +75,7 @@ interface NativeProverProps {
 let TlsnNative: {
   initialize: () => void;
   prove: (request: ProveRequest, options: ProverOptions) => Promise<ProveResult>;
-  proveUntilReveal: (
-    request: ProveRequest,
-    options: ProverOptions,
-  ) => Promise<RevealPreparation>;
+  proveUntilReveal: (request: ProveRequest, options: ProverOptions) => Promise<RevealPreparation>;
   proveFinalize: (sessionId: string, approved: boolean) => Promise<ProveResult>;
   isAvailable: () => boolean;
   addProgressListener: (callback: (event: ProveProgress) => void) => { remove: () => void };

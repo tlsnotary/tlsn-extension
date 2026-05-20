@@ -12,6 +12,7 @@ export default defineConfig(
     ignores: [
       '**/build/',
       '**/dist/',
+      '**/zip/',
       'packages/extension/lib/',
       'packages/extension/webpack.config.js',
       'packages/demo/public/',

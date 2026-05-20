@@ -384,9 +384,7 @@ export function PluginScreen({
       {approvalMode === 'rejected' && (
         <View style={styles.rejectedContainer}>
           <Text style={styles.rejectedTitle}>Plugin not running</Text>
-          <Text style={styles.rejectedSubtitle}>
-            You rejected this plugin. No data was sent.
-          </Text>
+          <Text style={styles.rejectedSubtitle}>You rejected this plugin. No data was sent.</Text>
         </View>
       )}
 

@@ -156,7 +156,10 @@ export async function proveUntilReveal(
       JSON.stringify(options),
     ) as unknown as Promise<RevealPreparation>;
   }
-  return TlsnNativeModule.proveUntilReveal(request, options) as unknown as Promise<RevealPreparation>;
+  return TlsnNativeModule.proveUntilReveal(
+    request,
+    options,
+  ) as unknown as Promise<RevealPreparation>;
 }
 
 /**
@@ -164,10 +167,7 @@ export async function proveUntilReveal(
  * and returns the result. If false, the native side drops the session and
  * rejects with `TlsnError::ProofFailed("User rejected reveal")`.
  */
-export async function proveFinalize(
-  sessionId: string,
-  approved: boolean,
-): Promise<ProveResult> {
+export async function proveFinalize(sessionId: string, approved: boolean): Promise<ProveResult> {
   return TlsnNativeModule.proveFinalize(sessionId, approved) as unknown as Promise<ProveResult>;
 }
 

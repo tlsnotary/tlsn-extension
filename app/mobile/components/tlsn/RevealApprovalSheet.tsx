@@ -46,16 +46,10 @@ export function RevealApprovalSheet({
       </ScrollView>
 
       <View style={styles.footer}>
-        <TouchableOpacity
-          style={[styles.button, styles.buttonReject]}
-          onPress={onReject}
-        >
+        <TouchableOpacity style={[styles.button, styles.buttonReject]} onPress={onReject}>
           <Text style={[styles.buttonText, styles.buttonTextReject]}>Reject</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.button, styles.buttonApprove]}
-          onPress={onApprove}
-        >
+        <TouchableOpacity style={[styles.button, styles.buttonApprove]} onPress={onApprove}>
           <Text style={[styles.buttonText, styles.buttonTextApprove]}>Approve</Text>
         </TouchableOpacity>
       </View>
@@ -63,13 +57,7 @@ export function RevealApprovalSheet({
   );
 }
 
-function DescriptorSection({
-  label,
-  items,
-}: {
-  label: string;
-  items: RevealRangeDescriptor[];
-}) {
+function DescriptorSection({ label, items }: { label: string; items: RevealRangeDescriptor[] }) {
   return (
     <View style={styles.section}>
       <Text style={styles.sectionLabel}>{label}</Text>
@@ -91,26 +79,17 @@ function DescriptorRow({ descriptor }: { descriptor: RevealRangeDescriptor }) {
     <View style={styles.row}>
       <View style={styles.rowHeader}>
         <Text style={styles.rowLabel}>{descriptor.label}</Text>
-        <View
-          style={[
-            styles.badge,
-            isReveal ? styles.badgeReveal : styles.badgeHash,
-          ]}
-        >
+        <View style={[styles.badge, isReveal ? styles.badgeReveal : styles.badgeHash]}>
           <Text
-            style={[
-              styles.badgeText,
-              isReveal ? styles.badgeTextReveal : styles.badgeTextHash,
-            ]}
+            style={[styles.badgeText, isReveal ? styles.badgeTextReveal : styles.badgeTextHash]}
           >
-            {isReveal ? 'REVEAL' : `HASH${descriptor.algorithm ? ' • ' + descriptor.algorithm : ''}`}
+            {isReveal
+              ? 'REVEAL'
+              : `HASH${descriptor.algorithm ? ' • ' + descriptor.algorithm : ''}`}
           </Text>
         </View>
       </View>
-      <Text
-        style={[styles.preview, !isReveal && styles.previewHashed]}
-        numberOfLines={4}
-      >
+      <Text style={[styles.preview, !isReveal && styles.previewHashed]} numberOfLines={4}>
         {preview}
       </Text>
     </View>

@@ -24,6 +24,7 @@ export function TimeoutWarningSheet({
 
   useEffect(() => {
     if (!visible) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setRemainingMs(initialRemainingMs);
     const start = Date.now();
     const id = setInterval(() => {
@@ -48,25 +49,15 @@ export function TimeoutWarningSheet({
           <Text style={styles.countdown}> {display}</Text>
           {'.'}
         </Text>
-        <Text style={styles.hint}>
-          Extend the timeout to keep working, or exit now.
-        </Text>
+        <Text style={styles.hint}>Extend the timeout to keep working, or exit now.</Text>
       </View>
 
       <View style={styles.footer}>
-        <TouchableOpacity
-          style={[styles.button, styles.buttonDismiss]}
-          onPress={onDismiss}
-        >
+        <TouchableOpacity style={[styles.button, styles.buttonDismiss]} onPress={onDismiss}>
           <Text style={[styles.buttonText, styles.buttonTextDismiss]}>Exit now</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.button, styles.buttonExtend]}
-          onPress={onExtend}
-        >
-          <Text style={[styles.buttonText, styles.buttonTextExtend]}>
-            Extend 5 minutes
-          </Text>
+        <TouchableOpacity style={[styles.button, styles.buttonExtend]} onPress={onExtend}>
+          <Text style={[styles.buttonText, styles.buttonTextExtend]}>Extend 5 minutes</Text>
         </TouchableOpacity>
       </View>
     </BottomSheetCard>

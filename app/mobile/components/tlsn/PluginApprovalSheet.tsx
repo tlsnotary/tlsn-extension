@@ -1,11 +1,5 @@
 import React, { useState } from 'react';
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { PluginConfig } from '@tlsn/plugin-sdk';
 import { BottomSheetCard } from './BottomSheetCard';
 
@@ -69,10 +63,7 @@ export function PluginApprovalSheet({
           </View>
         ) : null}
 
-        <TouchableOpacity
-          style={styles.sourceToggle}
-          onPress={() => setSourceExpanded((v) => !v)}
-        >
+        <TouchableOpacity style={styles.sourceToggle} onPress={() => setSourceExpanded((v) => !v)}>
           <Text style={styles.sourceToggleText}>
             {sourceExpanded ? '▾ Hide source' : '▸ View source'}
           </Text>
@@ -80,11 +71,7 @@ export function PluginApprovalSheet({
 
         {sourceExpanded ? (
           <View style={styles.sourceBox}>
-            <ScrollView
-              horizontal
-              style={styles.sourceScroll}
-              showsHorizontalScrollIndicator
-            >
+            <ScrollView horizontal style={styles.sourceScroll} showsHorizontalScrollIndicator>
               <Text style={styles.sourceText}>{pluginCode}</Text>
             </ScrollView>
           </View>
@@ -92,27 +79,20 @@ export function PluginApprovalSheet({
       </ScrollView>
 
       <View style={styles.footer}>
-        <TouchableOpacity
-          style={[styles.button, styles.buttonReject]}
-          onPress={onReject}
-        >
+        <TouchableOpacity style={[styles.button, styles.buttonReject]} onPress={onReject}>
           <Text style={[styles.buttonText, styles.buttonTextReject]}>Reject</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.button, styles.buttonManual]}
           onPress={() => onApprove('manual')}
         >
-          <Text style={[styles.buttonText, styles.buttonTextManual]}>
-            Approve each reveal
-          </Text>
+          <Text style={[styles.buttonText, styles.buttonTextManual]}>Approve each reveal</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.button, styles.buttonAllSession]}
           onPress={() => onApprove('all-session')}
         >
-          <Text style={[styles.buttonText, styles.buttonTextAllSession]}>
-            Approve all reveals
-          </Text>
+          <Text style={[styles.buttonText, styles.buttonTextAllSession]}>Approve all reveals</Text>
         </TouchableOpacity>
       </View>
     </BottomSheetCard>
