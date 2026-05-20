@@ -18,7 +18,7 @@ interface RevealRange {
 }
 
 /** A byte range paired with its handler for the verifier */
-interface RevealRangeWithHandler {
+export interface RevealRangeWithHandler {
   start: number;
   end: number;
   handler: Handler;
@@ -109,6 +109,13 @@ export class ProveManager {
    * executions don't overwrite each other's callback.
    */
   private progressCallbacks: Map<string, ProgressCallback> = new Map();
+
+  /**
+   * Cached transcript bytes per prover. Populated after sendRequest() so the
+   * approval gate can render previews without re-reading from WASM memory
+   * (which may be invalidated between calls).
+   */
+  private transcriptBytes: Map<string, { sent: Uint8Array; recv: Uint8Array }> = new Map();
 
   private listenerAdded = false;
 
@@ -408,10 +415,32 @@ export class ProveManager {
       headers: headerMap,
       body: options.body,
     });
+
+    // Snapshot transcript bytes now so the approval gate can read them
+    // synchronously later without crossing the worker boundary again.
+    try {
+      const transcript = await workerApi.getTranscript(proverId);
+      this.transcriptBytes.set(proverId, {
+        sent: new Uint8Array(transcript.sent),
+        recv: new Uint8Array(transcript.recv),
+      });
+    } catch (err) {
+      logger.warn('[ProveManager] Failed to snapshot transcript bytes for', proverId, ':', err);
+    }
   }
 
   async transcript(proverId: string) {
     return workerApi.getTranscript(proverId);
+  }
+
+  /** Get the cached sent transcript bytes for a prover. Empty if not yet captured. */
+  getSentBytes(proverId: string): Uint8Array {
+    return this.transcriptBytes.get(proverId)?.sent ?? new Uint8Array();
+  }
+
+  /** Get the cached received transcript bytes for a prover. Empty if not yet captured. */
+  getRecvBytes(proverId: string): Uint8Array {
+    return this.transcriptBytes.get(proverId)?.recv ?? new Uint8Array();
   }
 
   /**
@@ -498,9 +527,10 @@ export class ProveManager {
     // Close WebSocket if open
     this.closeSession(proverId);
 
-    // Remove session state and progress callback
+    // Remove session state, progress callback, and transcript snapshot
     this.sessions.delete(proverId);
     this.progressCallbacks.delete(proverId);
+    this.transcriptBytes.delete(proverId);
 
     // Free worker prover
     try {

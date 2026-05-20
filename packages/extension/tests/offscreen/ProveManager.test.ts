@@ -192,6 +192,50 @@ describe('ProveManager', () => {
   });
 
   // -----------------------------------------------------------------------
+  // Transcript byte snapshot for approval gate
+  // -----------------------------------------------------------------------
+  describe('Transcript byte snapshot', () => {
+    it('snapshots transcript bytes after sendRequest', async () => {
+      mockWorkerApi.getTranscript.mockReturnValueOnce({
+        sent: [1, 2, 3],
+        recv: [4, 5, 6, 7],
+      });
+
+      await pm.sendRequest('prover-snap', 'wss://example.com', {
+        url: 'https://example.com/api',
+        method: 'GET',
+      });
+
+      expect(pm.getSentBytes('prover-snap')).toEqual(new Uint8Array([1, 2, 3]));
+      expect(pm.getRecvBytes('prover-snap')).toEqual(new Uint8Array([4, 5, 6, 7]));
+    });
+
+    it('returns empty bytes for unknown prover', () => {
+      expect(pm.getSentBytes('missing')).toEqual(new Uint8Array());
+      expect(pm.getRecvBytes('missing')).toEqual(new Uint8Array());
+    });
+
+    it('clears cached bytes during cleanupProver', async () => {
+      mockWorkerApi.getTranscript.mockReturnValueOnce({
+        sent: [9, 9],
+        recv: [8, 8],
+      });
+
+      await pm.sendRequest('prover-clean', 'wss://example.com', {
+        url: 'https://example.com/api',
+        method: 'GET',
+      });
+
+      expect(pm.getSentBytes('prover-clean')).toEqual(new Uint8Array([9, 9]));
+
+      await pm.cleanupProver('prover-clean');
+
+      expect(pm.getSentBytes('prover-clean')).toEqual(new Uint8Array());
+      expect(pm.getRecvBytes('prover-clean')).toEqual(new Uint8Array());
+    });
+  });
+
+  // -----------------------------------------------------------------------
   // Per-prover progress callbacks (concurrency fix)
   // -----------------------------------------------------------------------
   describe('Per-prover progress callbacks', () => {

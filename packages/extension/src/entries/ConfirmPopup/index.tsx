@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import browser from 'webextension-polyfill';
 import { logger, LogLevel } from '@tlsn/common';
-import type { PluginCodeResponse } from '../../types/messages';
+import type { ApprovalMode, PluginCodeResponse } from '../../types/messages';
 import './index.scss';
 
 // Initialize logger at DEBUG level for popup (no IndexedDB access)
@@ -58,6 +58,7 @@ function parseUrlParams(): {
   pluginInfo: PluginInfo | null;
   requestId: string;
   senderOrigin: string | null;
+  count: number;
   error: string | null;
 } {
   const params = new URLSearchParams(window.location.search);
@@ -69,9 +70,17 @@ function parseUrlParams(): {
   const urlsParam = params.get('urls');
   const senderOriginParam = params.get('senderOrigin');
   const reqId = params.get('requestId');
+  const countStr = params.get('count');
+  const count = countStr !== null ? parseInt(countStr, 10) : 0;
 
   if (!reqId) {
-    return { pluginInfo: null, requestId: '', senderOrigin: null, error: 'Missing request ID' };
+    return {
+      pluginInfo: null,
+      requestId: '',
+      senderOrigin: null,
+      count: 0,
+      error: 'Missing request ID',
+    };
   }
 
   let senderOrigin: string | null = null;
@@ -120,57 +129,75 @@ function parseUrlParams(): {
     };
   }
 
-  return { pluginInfo, requestId: reqId, senderOrigin, error: null };
+  return { pluginInfo, requestId: reqId, senderOrigin, count, error: null };
 }
 
 const ConfirmPopup: React.FC = () => {
-  const { pluginInfo, requestId, senderOrigin, error } = useState(parseUrlParams)[0];
+  const { pluginInfo, requestId, senderOrigin, count, error } = useState(parseUrlParams)[0];
   const [sourceCode, setSourceCode] = useState<string | null>(null);
   const [showDetails, setShowDetails] = useState(false);
+  const [focusedIndex, setFocusedIndex] = useState(0);
 
-  const handleAllow = useCallback(async () => {
-    if (!requestId) return;
+  const sendResponse = useCallback(
+    async (mode: ApprovalMode) => {
+      if (!requestId) return;
 
-    try {
-      await browser.runtime.sendMessage({
-        type: 'PLUGIN_CONFIRM_RESPONSE',
-        requestId,
-        allowed: true,
-      });
-      window.close();
-    } catch (err) {
-      logger.error('Failed to send allow response:', err);
-    }
-  }, [requestId]);
+      try {
+        await browser.runtime.sendMessage({
+          type: 'PLUGIN_CONFIRM_RESPONSE',
+          requestId,
+          mode,
+        });
+        window.close();
+      } catch (err) {
+        logger.error(`Failed to send ${mode} response:`, err);
+      }
+    },
+    [requestId],
+  );
 
-  const handleDeny = useCallback(async () => {
-    if (!requestId) return;
-
-    try {
-      await browser.runtime.sendMessage({
-        type: 'PLUGIN_CONFIRM_RESPONSE',
-        requestId,
-        allowed: false,
-      });
-      window.close();
-    } catch (err) {
-      logger.error('Failed to send deny response:', err);
-    }
-  }, [requestId]);
+  const handleManual = useCallback(() => sendResponse('manual'), [sendResponse]);
+  const handleAllSession = useCallback(() => sendResponse('all-session'), [sendResponse]);
+  const handleDeny = useCallback(() => sendResponse('rejected'), [sendResponse]);
 
   // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        handleDeny();
-      } else if (e.key === 'Enter' && document.activeElement?.id === 'allow-btn') {
-        handleAllow();
+      switch (e.key) {
+        case 'ArrowUp':
+          e.preventDefault();
+          setFocusedIndex((i) => (i + 2) % 3);
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          setFocusedIndex((i) => (i + 1) % 3);
+          break;
+        case '1':
+          e.preventDefault();
+          handleManual();
+          break;
+        case '2':
+          e.preventDefault();
+          handleAllSession();
+          break;
+        case '3':
+          e.preventDefault();
+          handleDeny();
+          break;
+        case 'Enter':
+          e.preventDefault();
+          [handleManual, handleAllSession, handleDeny][focusedIndex]();
+          break;
+        case 'Escape':
+          e.preventDefault();
+          handleDeny();
+          break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleAllow, handleDeny]);
+  }, [handleDeny, handleManual, handleAllSession, focusedIndex]);
 
   const handleViewSource = useCallback(
     async (e: React.MouseEvent) => {
@@ -327,13 +354,6 @@ const ConfirmPopup: React.FC = () => {
 
         {metaLine && <p className="confirm-popup__meta">{metaLine}</p>}
 
-        {isUnknown && (
-          <div className="confirm-popup__warning">
-            <span className="confirm-popup__warning-icon">!</span>
-            <p>This plugin could not be verified. Only allow it if you trust where it came from.</p>
-          </div>
-        )}
-
         <div className="confirm-popup__links">
           <a
             href="#"
@@ -346,30 +366,69 @@ const ConfirmPopup: React.FC = () => {
             More details
           </a>
         </div>
+
+        <p className="confirm-popup__execution-count">
+          {count === 1 ? 'Executed 1 time' : `Executed ${count} times`}
+        </p>
       </div>
 
       <div className="confirm-popup__actions">
-        <button
-          className="confirm-popup__btn confirm-popup__btn--deny"
-          onClick={handleDeny}
-          tabIndex={1}
-        >
-          Deny
-        </button>
-        <button
-          id="allow-btn"
-          className="confirm-popup__btn confirm-popup__btn--allow"
-          onClick={handleAllow}
-          tabIndex={0}
-          autoFocus
-        >
-          Allow
-        </button>
+        {(
+          [
+            {
+              key: '1',
+              label: 'Yes, approve before any data is shared',
+              badge: count === 0 ? '(Recommended)' : undefined,
+              handler: handleManual,
+              isDeny: false,
+            },
+            {
+              key: '2',
+              label: 'Yes, allow all data sharing this session',
+              badge: undefined,
+              handler: handleAllSession,
+              isDeny: false,
+            },
+            {
+              key: '3',
+              label: 'No',
+              badge: undefined,
+              handler: handleDeny,
+              isDeny: true,
+            },
+          ] as Array<{
+            key: string;
+            label: string;
+            badge: string | undefined;
+            handler: () => void;
+            isDeny: boolean;
+          }>
+        ).map(({ key, label, badge, handler, isDeny }, i) => (
+          <button
+            key={key}
+            className={[
+              'confirm-popup__btn',
+              isDeny ? 'confirm-popup__btn--deny' : 'confirm-popup__btn--allow',
+              focusedIndex === i ? 'confirm-popup__btn--focused' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            onClick={handler}
+            onMouseEnter={() => setFocusedIndex(i)}
+          >
+            <span className="confirm-popup__btn-key">{key}</span>
+            <span className="confirm-popup__btn-label">{label}</span>
+            {badge && <span className="confirm-popup__btn-badge">{badge}</span>}
+          </button>
+        ))}
       </div>
 
       <div className="confirm-popup__footer">
         <p className="confirm-popup__hint">
-          Press <kbd>Enter</kbd> to allow or <kbd>Esc</kbd> to deny
+          <kbd>1</kbd>
+          <kbd>2</kbd>
+          <kbd>3</kbd> select · <kbd>↑↓</kbd> navigate · <kbd>Enter</kbd> confirm · <kbd>Esc</kbd>{' '}
+          cancel
         </p>
         <a
           href="https://tlsnotary.org/docs/extension/plugins"

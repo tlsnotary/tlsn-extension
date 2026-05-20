@@ -6,7 +6,7 @@ import type { InterceptedRequest, InterceptedRequestHeader } from '../../types/w
 import { validateUrl } from '../../utils/url-validator';
 import { logger } from '@tlsn/common';
 import { getStoredLogLevel } from '../../utils/logLevelStorage';
-import type { BackgroundMessage } from '../../types/messages';
+import type { ApprovalMode, BackgroundMessage } from '../../types/messages';
 
 const chrome = (global as typeof globalThis).chrome;
 
@@ -129,7 +129,7 @@ browser.runtime.onMessage.addListener((msg: unknown, sender: browser.Runtime.Mes
   }
 
   if (request.type === 'RENDER_PLUGIN_UI') {
-    logger.debug('RENDER_PLUGIN_UI request received:', request.json, request.windowId);
+    logger.debug('RENDER_PLUGIN_UI request received, windowId=%d', request.windowId);
     windowManager.showPluginUI(request.windowId, request.json);
     return; // No response needed
   }
@@ -143,7 +143,7 @@ browser.runtime.onMessage.addListener((msg: unknown, sender: browser.Runtime.Mes
   // Handle plugin confirmation responses from popup
   if (request.type === 'PLUGIN_CONFIRM_RESPONSE') {
     logger.debug('PLUGIN_CONFIRM_RESPONSE received:', request);
-    confirmationManager.handleConfirmationResponse(request.requestId, request.allowed);
+    confirmationManager.handleConfirmationResponse(request.requestId, request.mode);
     return; // No response needed
   }
 
@@ -180,24 +180,34 @@ browser.runtime.onMessage.addListener((msg: unknown, sender: browser.Runtime.Mes
     // than the sendResponse + return true pattern.
     return (async () => {
       try {
-        // Step 1: Extract plugin config for confirmation (via offscreen QuickJS)
+        // Step 1: Look up plugin stats (config, hash, prior execution count) via offscreen
         let pluginConfig: PluginConfig | null = null;
+        let pluginHash = '';
+        let executionCount = 0;
         try {
-          pluginConfig = await extractConfigViaOffscreen(request.code);
-          logger.debug('Extracted plugin config:', pluginConfig);
+          const stats = await getPluginStatsViaOffscreen(request.code, request.pageOrigin ?? '');
+          pluginConfig = stats.config;
+          pluginHash = stats.hash;
+          executionCount = stats.count;
+          logger.debug('Plugin stats:', {
+            config: pluginConfig,
+            hash: pluginHash,
+            count: executionCount,
+          });
         } catch (extractError) {
-          logger.warn('Failed to extract plugin config:', extractError);
-          // Continue with null config - user will see "Unknown Plugin" warning
+          logger.warn('Failed to get plugin stats:', extractError);
+          // Continue with defaults - user will see "Unknown Plugin" warning
         }
 
         // Step 2: Request user confirmation
         const confirmRequestId = `confirm_${Date.now()}_${Math.random()}`;
-        let userAllowed: boolean;
+        let mode: ApprovalMode;
 
         try {
-          userAllowed = await confirmationManager.requestConfirmation(
+          mode = await confirmationManager.requestConfirmation(
             pluginConfig,
             confirmRequestId,
+            executionCount,
             sender.tab?.url,
             request.code,
           );
@@ -210,7 +220,7 @@ browser.runtime.onMessage.addListener((msg: unknown, sender: browser.Runtime.Mes
         }
 
         // Step 3: If user denied, return rejection error
-        if (!userAllowed) {
+        if (mode === 'rejected') {
           logger.info('User rejected plugin execution');
           return {
             success: false,
@@ -224,12 +234,15 @@ browser.runtime.onMessage.addListener((msg: unknown, sender: browser.Runtime.Mes
         // Ensure offscreen document exists
         await createOffscreenDocument();
 
-        // Forward to offscreen document
         const response = await chrome.runtime.sendMessage({
           type: 'EXEC_CODE_OFFSCREEN',
           code: request.code,
           requestId: request.requestId,
-          sessionData: request.sessionData,
+          sessionData: {
+            ...request.sessionData,
+            _approvalMode: mode,
+            _pluginHash: pluginHash,
+          },
         });
         logger.debug('EXEC_CODE_OFFSCREEN response:', response);
         return response;
@@ -461,29 +474,37 @@ async function createOffscreenDocument(): Promise<void> {
 createOffscreenDocument().catch((err) => logger.error('Offscreen document error:', err));
 
 /**
- * Extract plugin config by sending code to offscreen document where QuickJS runs.
- * This is more reliable than regex-based extraction.
+ * Get plugin stats (config, content hash, prior execution count) by sending code
+ * to the offscreen document, where QuickJS, SubtleCrypto and IndexedDB are available.
  */
-async function extractConfigViaOffscreen(code: string): Promise<PluginConfig | null> {
+async function getPluginStatsViaOffscreen(
+  code: string,
+  pageOrigin: string,
+): Promise<{ config: PluginConfig | null; hash: string; count: number }> {
   try {
     // Ensure offscreen document exists
     await createOffscreenDocument();
 
     // Send message to offscreen and wait for response
     const response = await chrome.runtime.sendMessage({
-      type: 'EXTRACT_CONFIG',
+      type: 'GET_PLUGIN_STATS_OFFSCREEN',
       code,
+      pageOrigin,
     });
 
-    if (response?.success && response.config) {
-      return response.config as PluginConfig;
+    if (response?.success) {
+      return {
+        config: (response.config as PluginConfig | null) ?? null,
+        hash: (response.hash as string) ?? '',
+        count: (response.count as number) ?? 0,
+      };
     }
 
-    logger.warn('Config extraction returned no config:', response?.error);
-    return null;
+    logger.warn('Plugin stats lookup returned no data:', response?.error);
+    return { config: null, hash: '', count: 0 };
   } catch (error) {
-    logger.error('Failed to extract config via offscreen:', error);
-    return null;
+    logger.error('Failed to get plugin stats via offscreen:', error);
+    return { config: null, hash: '', count: 0 };
   }
 }
 

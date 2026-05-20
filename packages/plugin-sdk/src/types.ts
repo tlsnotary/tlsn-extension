@@ -58,6 +58,9 @@ export type ExecutionContext = {
   callbacks: {
     [callbackName: string]: () => Promise<void>;
   };
+  revealApproval?: { resolve: () => void; reject: (err: Error) => void } | null;
+  revealApprovalDescriptors?: RevealRangeDescriptor[] | null;
+  revealWasRejected?: boolean;
 };
 
 export type DomOptions = {
@@ -156,6 +159,17 @@ export type HandlerPart =
   | 'ALL';
 
 export type HashAlgorithm = 'BLAKE3' | 'SHA256' | 'KECCAK256';
+
+/** String action kind used in reveal-range previews and descriptors. */
+export type HandlerActionKind = 'REVEAL' | 'HASH';
+
+export type RevealRangeDescriptor = {
+  direction: HandlerType;
+  label: string;
+  action: HandlerActionKind;
+  algorithm?: HashAlgorithm;
+  preview: string;
+};
 
 /**
  * What to do with the matched ranges.

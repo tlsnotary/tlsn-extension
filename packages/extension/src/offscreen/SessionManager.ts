@@ -1,12 +1,15 @@
-import Host from '@tlsn/plugin-sdk';
+import Host, { canonicalizeHandler } from '@tlsn/plugin-sdk';
 import { ProveManager } from './ProveManager';
+import type { RevealRangeWithHandler } from './ProveManager';
 import type { Method } from '../../../tlsn-wasm-pkg/tlsn_wasm';
 import type {
+  CanonicalHandler,
   DomJson,
   Handler,
   OpenWindowResponse,
   PluginConfig,
   ProveProgressData,
+  RevealRangeDescriptor,
   WindowMessage,
 } from '@tlsn/plugin-sdk';
 import { logger } from '@tlsn/common';
@@ -24,6 +27,58 @@ interface ChromeRuntimeLike {
   };
 }
 import { validateProvePermission, validateOpenWindowPermission } from './permissionValidator';
+
+/** Maximum number of preview characters shown per reveal range. */
+const PREVIEW_MAX_CHARS = 256;
+
+function buildLabel(handler: CanonicalHandler): string {
+  const part =
+    handler.part.charAt(0).toUpperCase() + handler.part.slice(1).toLowerCase().replace(/_/g, ' ');
+  if ('params' in handler && handler.params && 'path' in handler.params && handler.params.path) {
+    return `${part}: ${handler.params.path}`;
+  }
+  if (
+    'params' in handler &&
+    handler.params &&
+    'key' in handler.params &&
+    typeof handler.params.key === 'string'
+  ) {
+    return `${part}: ${handler.params.key}`;
+  }
+  return part;
+}
+
+function makeDescriptor(
+  direction: 'SENT' | 'RECV',
+  range: RevealRangeWithHandler,
+  bytes: Uint8Array,
+  decoder: TextDecoder,
+): RevealRangeDescriptor {
+  const canonical = canonicalizeHandler(range.handler);
+  const safeStart = Math.max(0, Math.min(range.start, bytes.length));
+  const safeEnd = Math.max(safeStart, Math.min(range.end, bytes.length));
+  const slice = bytes.subarray(safeStart, safeEnd);
+  const action: 'REVEAL' | 'HASH' = canonical.action.kind === 'HASH' ? 'HASH' : 'REVEAL';
+  const algorithm = canonical.action.kind === 'HASH' ? canonical.action.algorithm : undefined;
+
+  let preview: string;
+  if (action === 'HASH') {
+    // Blinder is generated inside WASM during proving — we cannot compute the
+    // actual commitment hash ahead of time. Show the algorithm name instead.
+    preview = algorithm ?? 'SHA-256';
+  } else {
+    const raw = decoder.decode(slice);
+    preview = raw.length > PREVIEW_MAX_CHARS ? raw.slice(0, PREVIEW_MAX_CHARS) + '…' : raw;
+  }
+
+  return {
+    direction,
+    label: buildLabel(canonical),
+    action,
+    algorithm,
+    preview,
+  };
+}
 
 export class SessionManager {
   /** Shared Host instance — only used for config extraction (stateless). */
@@ -67,6 +122,11 @@ export class SessionManager {
     execSessionData: Record<string, string> | null,
   ): Host {
     const proveManager = this.proveManager;
+    let hostRef: Host | null = null;
+    // Tracks the active managed window for this execution. Captured from
+    // openWindow() / renderPluginUi callbacks so the approval gate can render
+    // its overlay into the same window without a separate lookup.
+    let activeWindowId = 0;
 
     const emitProgress = (step: string, progress: number, message: string, source = 'js') => {
       if (!requestId) return;
@@ -83,7 +143,7 @@ export class SessionManager {
         .catch((err: unknown) => logger.warn('[SessionManager] emitProgress failed:', err));
     };
 
-    return new Host({
+    const host = new Host({
       onProve: async (
         requestOptions: {
           url: string;
@@ -177,6 +237,38 @@ export class SessionManager {
             logger.debug('commitRanges', commit);
           }
 
+          // Approval gate: in any mode other than 'all-session', show the user
+          // exactly which byte ranges will leave the device before they do.
+          const approvalMode = execSessionData?._approvalMode ?? 'manual';
+          if (approvalMode !== 'all-session') {
+            const decoder = new TextDecoder('utf-8', { fatal: false });
+            const sentBytes = proveManager.getSentBytes(proverId);
+            const recvBytes = proveManager.getRecvBytes(proverId);
+            const descriptors: RevealRangeDescriptor[] = [
+              ...sentRangesWithHandlers.map((r) => makeDescriptor('SENT', r, sentBytes, decoder)),
+              ...recvRangesWithHandlers.map((r) => makeDescriptor('RECV', r, recvBytes, decoder)),
+            ];
+
+            emitBoth('WAITING_FOR_REVEAL_APPROVAL', 0.55, 'Awaiting reveal approval...');
+
+            const explicitWindowId = parseInt(execSessionData?._windowId ?? '0', 10);
+            const targetWindowId = explicitWindowId > 0 ? explicitWindowId : activeWindowId;
+            logger.debug(
+              '[SessionManager] reveal approval: targetWindowId=%d activeWindowId=%d descriptors=%d',
+              targetWindowId,
+              activeWindowId,
+              descriptors.length,
+            );
+
+            await new Promise<void>((resolve, reject) => {
+              if (!hostRef) {
+                reject(new Error('Host not initialized for reveal approval'));
+                return;
+              }
+              hostRef.registerRevealApproval(resolve, (err: Error) => reject(err), descriptors);
+            });
+          }
+
           // Send reveal config (ranges + handlers) to verifier BEFORE calling reveal()
           emitBoth('SENDING_REVEAL_CONFIG', 0.6, 'Configuring selective disclosure...');
           await proveManager.sendRevealConfig(proverId, {
@@ -211,6 +303,9 @@ export class SessionManager {
         }
       },
       onRenderPluginUi: (windowId: number, result: DomJson) => {
+        if (windowId > 0) {
+          activeWindowId = windowId;
+        }
         const chromeRuntime = SessionManager.getChromeRuntime();
         chromeRuntime.sendMessage({
           type: 'RENDER_PLUGIN_UI',
@@ -234,15 +329,23 @@ export class SessionManager {
         validateOpenWindowPermission(url, pluginConfig);
 
         const chromeRuntime = SessionManager.getChromeRuntime();
-        return chromeRuntime.sendMessage({
+        const response = (await chromeRuntime.sendMessage({
           type: 'OPEN_WINDOW',
           url,
           width: options?.width,
           height: options?.height,
           showOverlay: options?.showOverlay,
-        }) as Promise<OpenWindowResponse>;
+        })) as OpenWindowResponse;
+
+        if (response?.type === 'WINDOW_OPENED' && response.payload?.windowId) {
+          activeWindowId = response.payload.windowId;
+        }
+
+        return response;
       },
     });
+    hostRef = host;
+    return host;
   }
 
   async awaitInit(): Promise<SessionManager> {
@@ -273,7 +376,7 @@ export class SessionManager {
     // Chrome's messaging API. The plugin listener (makeOpenWindow's onMessage)
     // is async, so it always returns a Promise. If added directly to
     // chrome.runtime.onMessage, Chrome may use its Promise<undefined> as the
-    // response to unrelated messages (e.g. EXTRACT_CONFIG), racing with the
+    // response to unrelated messages (e.g. GET_PLUGIN_STATS_OFFSCREEN), racing with the
     // offscreen's main listener that returns the actual result.
     const listenerWrappers = new Map<
       (message: WindowMessage) => void,

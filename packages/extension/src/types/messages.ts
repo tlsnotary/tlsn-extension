@@ -7,6 +7,14 @@
 
 import type { DomJson } from '@tlsn/plugin-sdk';
 
+/**
+ * Controls how reveal approvals are handled during a plugin execution.
+ * - `'manual'`      — user approves each `prove()` call before data is sent
+ * - `'all-session'` — all reveals in this session are auto-approved
+ * - `'rejected'`    — user denied the plugin; it does not run
+ */
+export type ApprovalMode = 'manual' | 'all-session' | 'rejected';
+
 // ---------------------------------------------------------------------------
 // Incoming messages (received by onMessage listeners)
 // ---------------------------------------------------------------------------
@@ -17,7 +25,7 @@ export type BackgroundMessage =
   | { type: 'PING' }
   | { type: 'RENDER_PLUGIN_UI'; json: DomJson; windowId: number }
   | { type: 'GET_PLUGIN_CODE'; requestId: string }
-  | { type: 'PLUGIN_CONFIRM_RESPONSE'; requestId: string; allowed: boolean }
+  | { type: 'PLUGIN_CONFIRM_RESPONSE'; requestId: string; mode: ApprovalMode }
   | {
       type: 'PROVE_PROGRESS';
       requestId: string;
@@ -31,6 +39,7 @@ export type BackgroundMessage =
       code: string;
       requestId: string;
       sessionData?: Record<string, unknown>;
+      pageOrigin?: string;
     }
   | { type: 'CLOSE_WINDOW'; windowId: number }
   | {
@@ -59,13 +68,13 @@ export type ContentMessage =
 /** Messages handled by the Offscreen document */
 export type OffscreenMessage =
   | { type: 'PROCESS_DATA' }
-  | { type: 'EXTRACT_CONFIG'; code: string }
   | {
       type: 'EXEC_CODE_OFFSCREEN';
       code: string;
       requestId?: string;
       sessionData?: Record<string, unknown>;
-    };
+    }
+  | { type: 'GET_PLUGIN_STATS_OFFSCREEN'; code: string; pageOrigin: string };
 
 // ---------------------------------------------------------------------------
 // Responses returned from sendMessage calls

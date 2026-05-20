@@ -19,6 +19,7 @@ import {
   Handler,
   PluginConfig,
   ProveProgressData,
+  RevealRangeDescriptor,
   canonicalizeHandlers,
 } from './types';
 import deepEqual from 'fast-deep-equal';
@@ -60,6 +61,9 @@ function updateExecutionContext(
     context?: HookContext;
     currentContext?: string;
     stateStore?: Record<string, unknown>;
+    revealApproval?: { resolve: () => void; reject: (err: Error) => void } | null;
+    revealApprovalDescriptors?: RevealRangeDescriptor[] | null;
+    revealWasRejected?: boolean;
   },
 ): void {
   const context = executionContextRegistry.get(uuid);
@@ -364,6 +368,31 @@ function makeOpenWindow(
 
         if (message.type === 'PLUGIN_UI_CLICK') {
           logger.debug('PLUGIN_UI_CLICK', message);
+          if (message.onclick === '_revealApprove') {
+            const liveCtx = executionContextRegistry.get(uuid);
+            const approval = liveCtx?.revealApproval;
+            if (approval) {
+              updateExecutionContext(uuid, {
+                revealApproval: null,
+                revealApprovalDescriptors: null,
+              });
+              approval.resolve();
+            }
+            return;
+          }
+          if (message.onclick === '_revealReject') {
+            const liveCtx = executionContextRegistry.get(uuid);
+            const approval = liveCtx?.revealApproval;
+            if (approval) {
+              updateExecutionContext(uuid, {
+                revealApproval: null,
+                revealApprovalDescriptors: null,
+                revealWasRejected: true,
+              });
+              approval.reject(new Error('User rejected reveal'));
+            }
+            return;
+          }
           const cb = executionContext.callbacks[message.onclick];
 
           logger.debug('Callback:', cb);
@@ -701,6 +730,199 @@ function createCompletionOverlay(
   };
 }
 
+export function createRevealApprovalOverlay(descriptors: RevealRangeDescriptor[]): DomJson {
+  const sentDescriptors = descriptors.filter((d) => d.direction === 'SENT');
+  const recvDescriptors = descriptors.filter((d) => d.direction === 'RECV');
+
+  const renderDescriptorRow = (descriptor: RevealRangeDescriptor): DomJson => {
+    const isReveal = descriptor.action === 'REVEAL';
+    return {
+      type: 'div',
+      options: {
+        style: {
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '8px',
+          marginBottom: '8px',
+        },
+      },
+      children: [
+        {
+          type: 'div',
+          options: {
+            style: {
+              fontSize: '12px',
+              color: '#374151',
+              minWidth: '120px',
+            },
+          },
+          children: [descriptor.label],
+        },
+        {
+          type: 'div',
+          options: {
+            style: {
+              fontSize: '11px',
+              fontWeight: '600',
+              padding: '2px 6px',
+              borderRadius: '4px',
+              backgroundColor: isReveal ? '#d1fae5' : '#fef3c7',
+              color: isReveal ? '#065f46' : '#92400e',
+            },
+          },
+          children: [descriptor.action],
+        },
+        {
+          type: 'div',
+          options: {
+            style: {
+              fontFamily: 'monospace',
+              fontSize: '11px',
+              color: isReveal ? '#6b7280' : '#9ca3af',
+              fontStyle: isReveal ? 'normal' : 'italic',
+              wordBreak: 'break-all',
+            },
+          },
+          children: [descriptor.preview],
+        },
+      ],
+    };
+  };
+
+  const renderSection = (
+    title: 'Sent' | 'Received',
+    sectionDescriptors: RevealRangeDescriptor[],
+  ): DomJson => ({
+    type: 'div',
+    options: {
+      style: {
+        marginBottom: '16px',
+      },
+    },
+    children: [
+      {
+        type: 'div',
+        options: {
+          style: {
+            fontSize: '12px',
+            fontWeight: '600',
+            color: '#6b7280',
+            textTransform: 'uppercase',
+            marginBottom: '8px',
+          },
+        },
+        children: [title],
+      },
+      ...sectionDescriptors.map(renderDescriptorRow),
+    ],
+  });
+
+  const cardChildren: DomJson[] = [
+    {
+      type: 'div',
+      options: {
+        style: {
+          fontSize: '20px',
+          fontWeight: '700',
+          color: '#111827',
+          marginBottom: '16px',
+        },
+      },
+      children: ['Approve Reveal to Verifier'],
+    },
+  ];
+
+  if (sentDescriptors.length > 0) {
+    cardChildren.push(renderSection('Sent', sentDescriptors));
+  }
+
+  if (recvDescriptors.length > 0) {
+    cardChildren.push(renderSection('Received', recvDescriptors));
+  }
+
+  cardChildren.push({
+    type: 'div',
+    options: {
+      style: {
+        display: 'flex',
+        justifyContent: 'flex-end',
+        gap: '12px',
+        marginTop: '24px',
+      },
+    },
+    children: [
+      {
+        type: 'button',
+        options: {
+          onclick: '_revealReject',
+          style: {
+            backgroundColor: '#fee2e2',
+            color: '#991b1b',
+            border: 'none',
+            padding: '8px 20px',
+            borderRadius: '8px',
+            fontWeight: '600',
+            cursor: 'pointer',
+          },
+        },
+        children: ['Reject'],
+      },
+      {
+        type: 'button',
+        options: {
+          onclick: '_revealApprove',
+          style: {
+            backgroundColor: '#d1fae5',
+            color: '#065f46',
+            border: 'none',
+            padding: '8px 20px',
+            borderRadius: '8px',
+            fontWeight: '600',
+            cursor: 'pointer',
+          },
+        },
+        children: ['Approve'],
+      },
+    ],
+  });
+
+  return {
+    type: 'div',
+    options: {
+      style: {
+        position: 'fixed',
+        top: '0',
+        left: '0',
+        width: '100%',
+        height: '100%',
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: '9999998',
+        fontFamily:
+          '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+      },
+    },
+    children: [
+      {
+        type: 'div',
+        options: {
+          style: {
+            backgroundColor: '#ffffff',
+            borderRadius: '16px',
+            padding: '32px',
+            maxWidth: '520px',
+            width: '90%',
+            boxShadow: '0 24px 48px rgba(0, 0, 0, 0.25)',
+          },
+        },
+        children: cardChildren,
+      },
+    ],
+  };
+}
+
 export function createTimeoutWarningOverlay(): DomJson {
   return {
     type: 'div',
@@ -820,16 +1042,18 @@ export function createTimeoutWarningOverlay(): DomJson {
   };
 }
 
-function wrapWithTimeoutWarning(pluginUi: DomJson): DomJson {
+export function decorateJson(base: DomJson, overlays: DomJson[]): DomJson {
+  if (overlays.length === 0) return base;
   return {
     type: 'div',
     options: { style: {} },
-    children: [pluginUi, createTimeoutWarningOverlay()],
+    children: [base, ...overlays],
   };
 }
 
 export class Host {
   private capabilities: Map<string, AnyFunction> = new Map();
+  private _activeUuid: string | null = null;
   private onProve: (
     requestOptions: {
       url: string;
@@ -1036,6 +1260,7 @@ ${processedCode};
     },
   ): Promise<unknown> {
     const uuid = uuidv4();
+    this._activeUuid = uuid;
 
     const context: HookContext = {};
 
@@ -1097,6 +1322,18 @@ ${processedCode};
 
       // Clean up registry entry
       const ctx = executionContextRegistry.get(uuid);
+
+      // If a reveal approval is pending, reject it so the awaiting onProve
+      // (and any owned resources like transcript bytes) can unwind.
+      const pendingApproval = ctx?.revealApproval;
+      if (pendingApproval) {
+        try {
+          pendingApproval.reject(error);
+        } catch (rejectError) {
+          logger.error('[executePlugin] Error rejecting pending reveal approval:', rejectError);
+        }
+      }
+
       if (ctx?.windowId) {
         try {
           this.onCloseWindow(ctx.windowId);
@@ -1222,9 +1459,18 @@ ${processedCode};
           onCloseWindow(context.windowId);
         }
 
+        // If a reveal was rejected during this execution, treat done() as a
+        // failure so callers can skip success-only side effects (e.g. the
+        // execution counter).
+        const wasRejected = context?.revealWasRejected === true;
+
         const finalize = () => {
           executionContextRegistry.delete(uuid);
-          doneResolve(args);
+          if (wasRejected) {
+            doneReject(new Error('User rejected reveal'));
+          } else {
+            doneResolve(args);
+          }
         };
 
         // If called from within an async callback (e.g. onClick → prove() → done()),
@@ -1251,12 +1497,20 @@ ${processedCode};
 
         const ctx = executionContextRegistry.get(uuid);
         const windowId = ctx?.windowId;
+        const wasRejected = ctx?.revealWasRejected === true;
+        const settle = () => {
+          if (wasRejected) {
+            doneReject(new Error('User rejected reveal'));
+          } else {
+            doneResolve(args);
+          }
+        };
 
         // If there's no window, behave like done() — no overlay or delay needed
         if (!windowId) {
           const finalize = () => {
             executionContextRegistry.delete(uuid);
-            doneResolve(args);
+            settle();
           };
 
           if (lifecycle.pendingCallbacks > 0) {
@@ -1276,7 +1530,7 @@ ${processedCode};
         const closeAndFinalize = () => {
           onCloseWindow(windowId);
           executionContextRegistry.delete(uuid);
-          doneResolve(args);
+          settle();
         };
 
         // Wait for pending callbacks to complete (e.g. the onClick that
@@ -1389,9 +1643,18 @@ ${processedCode};
             executionContextRegistry.get(uuid)?.windowId,
           );
 
-          // If timeout warning is active, layer it on top of the plugin UI.
-          // The plugin UI continues to update underneath (no stale state).
-          json = timeoutWarningShown ? wrapWithTimeoutWarning(result) : result;
+          // Layer overlays on top of the plugin UI using the decorator pattern.
+          // Stack order matters: timeout (z=9999999) is rendered above reveal
+          // approval (z=9999998) so a timeout warning never gets buried.
+          const overlays: DomJson[] = [];
+          const ctx = executionContextRegistry.get(uuid);
+          if (ctx?.revealApprovalDescriptors) {
+            overlays.push(createRevealApprovalOverlay(ctx.revealApprovalDescriptors));
+          }
+          if (timeoutWarningShown) {
+            overlays.push(createTimeoutWarningOverlay());
+          }
+          json = decorateJson(result, overlays);
 
           waitForWindow(async () => executionContextRegistry.get(uuid)?.windowId).then(
             (windowId: number | null) => {
@@ -1500,8 +1763,13 @@ ${processedCode};
     // Use .then(onFulfilled, onRejected) so rejection doesn't produce an
     // unhandled rejection on the chained promise. The original donePromise
     // still rejects to the caller as expected.
-    const clearTimeoutInterval = () => clearInterval(timeoutIntervalId);
-    donePromise.then(clearTimeoutInterval, clearTimeoutInterval);
+    const cleanup = () => {
+      clearInterval(timeoutIntervalId);
+      if (this._activeUuid === uuid) {
+        this._activeUuid = null;
+      }
+    };
+    donePromise.then(cleanup, cleanup);
 
     // Execute initial main() - errors are handled within main() via terminateWithError
     main();
@@ -1520,6 +1788,26 @@ ${processedCode};
   ): DomJson => {
     return createDomJson(type, param1, param2);
   };
+
+  registerRevealApproval(
+    resolve: () => void,
+    reject: (err: Error) => void,
+    descriptors: RevealRangeDescriptor[],
+  ): void {
+    if (!this._activeUuid) return;
+    const uuid = this._activeUuid;
+    updateExecutionContext(uuid, {
+      revealApproval: { resolve, reject },
+      revealApprovalDescriptors: descriptors,
+    });
+    // Trigger a re-render so the decorator applies immediately
+    const ctx = executionContextRegistry.get(uuid);
+    ctx?.main(true);
+  }
+
+  renderUi(windowId: number, json: DomJson): void {
+    this.onRenderPluginUi(windowId, json);
+  }
 }
 
 async function waitForWindow(
@@ -1619,6 +1907,7 @@ export type {
   WindowMessage,
   ExecutionContext,
   ProveProgressData,
+  RevealRangeDescriptor,
 } from './types';
 
 export { canonicalizeHandler, canonicalizeHandlers } from './types';

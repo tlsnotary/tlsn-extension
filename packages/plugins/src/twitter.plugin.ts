@@ -69,7 +69,9 @@ const onClick = async (): Promise<void> => {
       verifierUrl: __VERIFIER_URL__,
       proxyUrl: __PROXY_URL__ + 'api.x.com',
       maxRecvData: 4000,
-      maxSentData: 2000,
+      // Chrome/Brave inject sec-ch-ua, sec-fetch-* and other client-hint
+      // headers that can push the total sent bytes above 2000.
+      maxSentData: 4096,
       handlers: [
         { type: 'SENT', part: 'START_LINE', action: 'REVEAL' } satisfies Handler,
         { type: 'RECV', part: 'START_LINE', action: 'REVEAL' } satisfies Handler,

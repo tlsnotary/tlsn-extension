@@ -4,6 +4,8 @@ import browser from 'webextension-polyfill';
 import { SessionManager } from '../../offscreen/SessionManager';
 import { logger } from '@tlsn/common';
 import { getStoredLogLevel } from '../../utils/logLevelStorage';
+import { sha256 } from '../../utils/cryptoHash';
+import { getPluginCount, incrementPluginCount } from '../../utils/pluginExecutionCounts';
 import type { OffscreenMessage } from '../../types/messages';
 
 const OffscreenApp: React.FC = () => {
@@ -29,28 +31,13 @@ const OffscreenApp: React.FC = () => {
         });
       }
 
-      // Handle config extraction requests (uses QuickJS)
-      if (request.type === 'EXTRACT_CONFIG') {
-        logger.debug('Offscreen extracting config from code');
-
-        if (!sessionManager) {
-          return Promise.resolve({
-            success: false,
-            error: 'SessionManager not initialized',
-          });
-        }
-
-        return sessionManager
-          .awaitInit()
-          .then((sm) => sm.extractConfig(request.code as string))
-          .then((config) => {
-            logger.debug('Extracted config:', config);
-            return { success: true, config };
-          })
-          .catch((error) => {
-            logger.error('Config extraction error:', error);
-            return { success: false, error: error.message };
-          });
+      if (request.type === 'GET_PLUGIN_STATS_OFFSCREEN') {
+        return sessionManager.awaitInit().then(async (sm) => {
+          const config = await sm.extractConfig(request.code as string);
+          const hash = await sha256((request.code as string) + (request.pageOrigin as string));
+          const count = await getPluginCount(hash);
+          return { success: true, config, hash, count };
+        });
       }
 
       // Handle code execution requests
@@ -74,8 +61,13 @@ const OffscreenApp: React.FC = () => {
               request.sessionData as Record<string, string> | undefined,
             ),
           )
-          .then((result) => {
+          .then(async (result) => {
             logger.debug('Plugin execution result:', result);
+            const pluginHash = (request.sessionData as Record<string, string> | undefined)
+              ?._pluginHash;
+            if (pluginHash) {
+              await incrementPluginCount(pluginHash);
+            }
             return {
               success: true,
               result,
