@@ -76,11 +76,18 @@ private fun parseProverOptions(optionsObj: JSONObject): ProverOptions {
         }
     }
 
+    val mode: Mode? = when (optionsObj.optString("mode", "")) {
+        "Mpc" -> Mode.MPC
+        "Proxy" -> Mode.PROXY
+        else -> null
+    }
+
     return ProverOptions(
         verifierUrl = verifierUrl,
         maxSentData = maxSentData,
         maxRecvData = maxRecvData,
-        handlers = handlers
+        handlers = handlers,
+        mode = mode
     )
 }
 
