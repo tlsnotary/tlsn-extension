@@ -1,137 +1,64 @@
 /**
  * MobilePluginHost
  *
- * Analogous to the extension's Host class (packages/plugin-sdk/src/index.ts),
- * but designed for React Native. Uses native QuickJS (via quickjs-native Expo module)
- * instead of WASM-based @sebastianwessel/quickjs.
+ * Thin React Native adapter over `HostCore` from `@tlsn/plugin-sdk/host-core`.
  *
- * Responsibilities:
- * 1. Create QuickJS sandbox context via native module
- * 2. Inject plugin capability functions (prove, openWindow, div, button, hooks)
- * 3. Evaluate plugin code in the sandbox
- * 4. Handle callbacks when sandbox calls host functions
- * 5. Manage execution context (state store, hooks, event handling)
- * 6. Translate handler formats between plugin-sdk and mobile native
+ * The plugin engine itself (hooks, reactive main loop, state store, lifecycle,
+ * reveal approval, …) lives in HostCore. This file only handles the things
+ * specific to the mobile environment:
+ *
+ *   1. Picking the JS evaluator — `NativeFunctionEvaluator` (Hermes-safe;
+ *      no QuickJS WASM since Hermes lacks the WASM features the WASM build
+ *      depends on).
+ *   2. Wiring the host callbacks (onProve / onRenderPluginUi / openWindow /
+ *      closeWindow) supplied by the React layer.
+ *   3. Translating canonical plugin-sdk handlers to the PascalCase shape the
+ *      tlsn-native module expects, before invoking native prove().
+ *   4. Forwarding native progress events into the running plugin via the
+ *      `onProgress` callback HostCore exposes through `onProve`.
  */
 
-// Simple unique ID generator — avoids the `uuid` package which requires
-// crypto.getRandomValues() (unavailable in Hermes).
-let _idCounter = 0;
-function uuidv4(): string {
-  _idCounter++;
-  const ts = Date.now().toString(36);
-  const rand = Math.random().toString(36).substring(2, 10);
-  return `${ts}-${rand}-${_idCounter}`;
-}
+import { HostCore, NativeFunctionEvaluator } from '@tlsn/plugin-sdk/host-core';
+import type {
+  Handler,
+  DomJson,
+  WindowMessage,
+  InterceptedRequestHeader,
+  InterceptedRequest,
+  ProveProgressData,
+  RevealRangeDescriptor as PluginSdkRevealRangeDescriptor,
+} from '@tlsn/plugin-sdk';
+// Mobile reveal-approval descriptors come from the native two-phase prove
+// (with real transcript byte previews), so we use the native type — distinct
+// from plugin-sdk's RevealRangeDescriptor which uses SCREAMING_SNAKE_CASE
+// algorithm names.
+import type { RevealRangeDescriptor } from '../modules/tlsn-native/src';
 
-// ============================================================================
-// Types (mirrors plugin-sdk types, avoids importing plugin-sdk + its WASM deps)
-// ============================================================================
+import { translateHandler, type NativeHandler } from './handlerTranslation';
 
-export type DomOptions = {
-  className?: string;
-  id?: string;
-  style?: Record<string, string>;
-  onclick?: string;
-};
+// Re-export translation helpers and the native handler type so existing
+// callers (PluginScreen) can continue importing them from here.
+export { translateHandler, translateHandlers, type NativeHandler } from './handlerTranslation';
 
-export type DomJson =
-  | {
-      type: 'div' | 'button';
-      options: DomOptions;
-      children: DomJson[];
-    }
-  | string;
+// Re-export types used by other mobile modules so consumers don't need to
+// reach into @tlsn/plugin-sdk directly.
+export type {
+  DomJson,
+  DomOptions,
+  Handler,
+  Handler as PluginHandler,
+  InterceptedRequest,
+  InterceptedRequestHeader,
+  PluginConfig,
+  WindowMessage,
+} from '@tlsn/plugin-sdk';
 
-export interface InterceptedRequest {
-  id: string;
-  method: string;
-  url: string;
-  timestamp: number;
-  tabId: number;
-  requestBody?: unknown;
-}
+export type { RevealRangeDescriptor } from '../modules/tlsn-native/src';
 
-export interface InterceptedRequestHeader {
-  id: string;
-  method: string;
-  url: string;
-  timestamp: number;
-  type: string;
-  requestHeaders: { name: string; value?: string }[];
-  tabId: number;
-}
-
-/**
- * Plugin-sdk handler format (SCREAMING_SNAKE_CASE).
- *
- * The `action` field accepts either the `'REVEAL'` string shorthand or the
- * canonical object form. Plugin-sdk's `prove()` wrapper canonicalizes before
- * handing handlers to the host; the mobile host also tolerates the shorthand
- * defensively since it runs plugin code outside of plugin-sdk.
- */
-export interface PluginHandler {
-  type: 'SENT' | 'RECV';
-  part:
-    | 'START_LINE'
-    | 'PROTOCOL'
-    | 'METHOD'
-    | 'REQUEST_TARGET'
-    | 'STATUS_CODE'
-    | 'HEADERS'
-    | 'BODY'
-    | 'ALL';
-  action:
-    | 'REVEAL'
-    | { kind: 'REVEAL' }
-    | { kind: 'HASH'; algorithm: 'BLAKE3' | 'SHA256' | 'KECCAK256' };
-  params?: Record<string, unknown>;
-}
-
-/** Mobile native handler format (PascalCase) */
-export interface NativeHandler {
-  handlerType: 'Sent' | 'Recv';
-  part:
-    | 'StartLine'
-    | 'Protocol'
-    | 'Method'
-    | 'RequestTarget'
-    | 'StatusCode'
-    | 'Headers'
-    | 'Body'
-    | 'All';
-  action: { type: 'Reveal' } | { type: 'Hash'; algorithm: 'Blake3' | 'Sha256' | 'Keccak256' };
-  params?: {
-    key?: string;
-    hideKey?: boolean;
-    hideValue?: boolean;
-    contentType?: string;
-    path?: string;
-    regex?: string;
-    flags?: string;
-  };
-}
-
-export interface PluginConfig {
-  name: string;
-  description: string;
-  version?: string;
-  author?: string;
-  requests?: {
-    method: string;
-    host: string;
-    pathname: string;
-  }[];
-  urls?: string[];
-  oauthHosts?: string[];
-}
-
-export type WindowMessage =
-  | { type: 'HEADER_INTERCEPTED'; header: InterceptedRequestHeader; windowId: number }
-  | { type: 'REQUEST_INTERCEPTED'; request: InterceptedRequest; windowId: number }
-  | { type: 'PLUGIN_UI_CLICK'; onclick: string; windowId: number }
-  | { type: 'WINDOW_CLOSED'; windowId: number }
-  | { type: 'RE_RENDER_PLUGIN_UI'; windowId: number };
+// ---------------------------------------------------------------------------
+// EventEmitter shape — mobile owns its emitter implementation, so we just
+// describe the interface HostCore consumes.
+// ---------------------------------------------------------------------------
 
 type EventListener = (message: WindowMessage) => void;
 
@@ -141,559 +68,221 @@ export interface EventEmitter {
   emit: (message: WindowMessage) => void;
 }
 
-interface ExecutionContext {
-  id: string;
-  plugin: string;
-  requests: InterceptedRequest[];
-  headers: InterceptedRequestHeader[];
-  windowId: number;
-  context: Record<string, { effects: unknown[][]; selectors: unknown[][] }>;
-  currentContext: string;
-  stateStore: Record<string, unknown>;
-  main: (force?: boolean) => DomJson | null;
-  callbacks: Record<string, () => Promise<void>>;
+// ---------------------------------------------------------------------------
+// MobilePluginHost options — accepts handlers in the *native* format. The
+// host translates the plugin-sdk format to the native format internally.
+// ---------------------------------------------------------------------------
+
+interface NativeProverOptions {
+  verifierUrl: string;
+  proxyUrl: string;
+  maxRecvData?: number;
+  maxSentData?: number;
+  handlers: NativeHandler[];
 }
 
-// ============================================================================
-// Handler format translation
-// ============================================================================
+/**
+ * Pre-execution approval modes — mirrors the extension's `ApprovalMode` and
+ * the plugin-approval bottom sheet. Set via `setApprovalMode()` after the
+ * user picks one. Must be set before the plugin's first `prove()` call.
+ */
+export type ApprovalMode = 'manual' | 'all-session' | 'rejected';
 
-const HANDLER_TYPE_MAP: Record<string, 'Sent' | 'Recv'> = {
-  SENT: 'Sent',
-  RECV: 'Recv',
-};
-
-const HANDLER_PART_MAP: Record<string, NativeHandler['part']> = {
-  START_LINE: 'StartLine',
-  PROTOCOL: 'Protocol',
-  METHOD: 'Method',
-  REQUEST_TARGET: 'RequestTarget',
-  STATUS_CODE: 'StatusCode',
-  HEADERS: 'Headers',
-  BODY: 'Body',
-  ALL: 'All',
-};
-
-const ALGORITHM_MAP: Record<string, 'Blake3' | 'Sha256' | 'Keccak256'> = {
-  BLAKE3: 'Blake3',
-  SHA256: 'Sha256',
-  KECCAK256: 'Keccak256',
-};
-
-function translateAction(handler: PluginHandler): NativeHandler['action'] {
-  const action =
-    typeof handler.action === 'string' ? ({ kind: handler.action } as const) : handler.action;
-  if (action.kind === 'HASH') {
-    return {
-      type: 'Hash',
-      algorithm: ALGORITHM_MAP[action.algorithm],
-    };
-  }
-  return { type: 'Reveal' };
+interface RevealApprovalRequest {
+  descriptors: RevealRangeDescriptor[];
+  approve: () => void;
+  reject: (err: Error) => void;
 }
-
-export function translateHandler(handler: PluginHandler): NativeHandler {
-  const result: NativeHandler = {
-    handlerType: HANDLER_TYPE_MAP[handler.type] || 'Sent',
-    part: HANDLER_PART_MAP[handler.part] || 'StartLine',
-    action: translateAction(handler),
-  };
-
-  if (handler.params) {
-    result.params = {};
-    if (handler.params.key) result.params.key = handler.params.key as string;
-    if (handler.params.hideKey) result.params.hideKey = handler.params.hideKey as boolean;
-    if (handler.params.hideValue) result.params.hideValue = handler.params.hideValue as boolean;
-    if (handler.params.path) result.params.path = handler.params.path as string;
-    if (handler.params.regex) result.params.regex = handler.params.regex as string;
-    if (handler.params.flags) result.params.flags = handler.params.flags as string;
-    // Plugin uses params.type: 'json', native uses params.contentType: 'json'
-    if (handler.params.type) result.params.contentType = handler.params.type as string;
-  }
-
-  return result;
-}
-
-export function translateHandlers(handlers: PluginHandler[]): NativeHandler[] {
-  return handlers.map(translateHandler);
-}
-
-// ============================================================================
-// Execution context registry (same pattern as plugin-sdk)
-// ============================================================================
-
-const contextRegistry = new Map<string, ExecutionContext>();
-
-function updateContext(uuid: string, updates: Partial<ExecutionContext>): void {
-  const ctx = contextRegistry.get(uuid);
-  if (!ctx) throw new Error('Execution context not found: ' + uuid);
-  contextRegistry.set(uuid, { ...ctx, ...updates });
-}
-
-// ============================================================================
-// Hook factories (equivalent to plugin-sdk's makeUseEffect, makeUseHeaders, etc.)
-// ============================================================================
-
-function deepEqual(a: unknown, b: unknown): boolean {
-  if (a === b) return true;
-  if (a === null || b === null) return false;
-  if (typeof a !== typeof b) return false;
-  if (typeof a !== 'object') return false;
-
-  const aObj = a as Record<string, unknown>;
-  const bObj = b as Record<string, unknown>;
-  const aKeys = Object.keys(aObj);
-  const bKeys = Object.keys(bObj);
-  if (aKeys.length !== bKeys.length) return false;
-
-  for (const key of aKeys) {
-    if (!deepEqual(aObj[key], bObj[key])) return false;
-  }
-  return true;
-}
-
-function createDomJson(
-  type: 'div' | 'button',
-  param1: DomOptions | DomJson[] = {},
-  param2: DomJson[] = [],
-): DomJson {
-  let options: DomOptions = {};
-  let children: DomJson[] = [];
-  if (Array.isArray(param1)) {
-    children = param1;
-  } else if (typeof param1 === 'object') {
-    options = param1;
-    children = param2;
-  }
-  return { type, options, children };
-}
-
-function makeUseEffect(
-  uuid: string,
-  hookContext: Record<string, { effects: unknown[][]; selectors: unknown[][] }>,
-) {
-  return (effect: () => void, deps: unknown[]) => {
-    const ctx = contextRegistry.get(uuid);
-    if (!ctx) throw new Error('Execution context not found');
-    const fnName = ctx.currentContext;
-    hookContext[fnName] = hookContext[fnName] || { effects: [], selectors: [] };
-    const effects = hookContext[fnName].effects;
-    const lastDeps = ctx.context[fnName]?.effects[effects.length];
-    effects.push(deps);
-    if (deepEqual(lastDeps, deps)) return;
-    effect();
-  };
-}
-
-function makeUseRequests(
-  uuid: string,
-  hookContext: Record<string, { effects: unknown[][]; selectors: unknown[][] }>,
-) {
-  return (filterFn: (requests: InterceptedRequest[]) => InterceptedRequest[]) => {
-    const ctx = contextRegistry.get(uuid);
-    if (!ctx) throw new Error('Execution context not found');
-    const fnName = ctx.currentContext;
-    hookContext[fnName] = hookContext[fnName] || { effects: [], selectors: [] };
-    const requests = JSON.parse(JSON.stringify(ctx.requests || []));
-    const result = filterFn(requests);
-    hookContext[fnName].selectors.push(result);
-    return result;
-  };
-}
-
-function makeUseHeaders(
-  uuid: string,
-  hookContext: Record<string, { effects: unknown[][]; selectors: unknown[][] }>,
-) {
-  return (filterFn: (headers: InterceptedRequestHeader[]) => InterceptedRequestHeader[]) => {
-    const ctx = contextRegistry.get(uuid);
-    if (!ctx) throw new Error('Execution context not found');
-    const fnName = ctx.currentContext;
-    hookContext[fnName] = hookContext[fnName] || { effects: [], selectors: [] };
-    const headers = JSON.parse(JSON.stringify(ctx.headers || []));
-    const result = filterFn(headers);
-    if (!Array.isArray(result)) {
-      throw new Error('useHeaders: filter function must return an array');
-    }
-    hookContext[fnName].selectors.push(result);
-    return result;
-  };
-}
-
-function makeUseState(uuid: string, stateStore: Record<string, unknown>) {
-  return (key: string, defaultValue: unknown) => {
-    if (stateStore[key] === undefined && defaultValue !== undefined) {
-      stateStore[key] = defaultValue;
-    }
-    return stateStore[key];
-  };
-}
-
-function makeSetState(
-  uuid: string,
-  stateStore: Record<string, unknown>,
-  eventEmitter: EventEmitter,
-) {
-  return (key: string, value: unknown) => {
-    const ctx = contextRegistry.get(uuid);
-    if (!ctx) throw new Error('Execution context not found');
-    const oldStore = { ...stateStore };
-    stateStore[key] = value;
-    if (deepEqual(oldStore, stateStore)) return;
-    // Defer re-render to avoid recursive main() calls when setState is
-    // called from within main(). Without this, the recursive main(true)
-    // renders the correct UI, but then the original main() overwrites it
-    // with stale domJson (where the local variable still had the old value).
-    queueMicrotask(() => {
-      eventEmitter.emit({
-        type: 'RE_RENDER_PLUGIN_UI',
-        windowId: ctx.windowId || 0,
-      });
-    });
-  };
-}
-
-// ============================================================================
-// MobilePluginHost
-// ============================================================================
 
 interface MobilePluginHostOptions {
   /**
-   * Called when the plugin calls prove(requestOptions, proverOptions).
-   * The host should translate handlers and call tlsn-native.
+   * Phase A of the prove split. Called when the plugin invokes prove().
+   * Should run the native prover up through `compute_reveal` and return
+   * the descriptors + opaque session id. Receives handlers in the *native*
+   * (PascalCase) format ready to forward to the tlsn-native module.
    */
-  onProve: (
+  onProveUntilReveal: (
     requestOptions: { url: string; method: string; headers: Record<string, string>; body?: string },
-    proverOptions: {
-      verifierUrl: string;
-      proxyUrl: string;
-      maxRecvData?: number;
-      maxSentData?: number;
-      handlers: PluginHandler[];
-    },
-  ) => Promise<unknown>;
+    proverOptions: NativeProverOptions,
+  ) => Promise<{ sessionId: string; descriptors: RevealRangeDescriptor[] }>;
 
-  /** Called when the plugin renders UI (DomJson) */
+  /**
+   * Phase B of the prove split. Approve or reject the session prepared by
+   * `onProveUntilReveal`. On approve, returns the proof result. On reject,
+   * rejects with "User rejected reveal".
+   */
+  onProveFinalize: (sessionId: string, approved: boolean) => Promise<unknown>;
+
+  /** Called when the plugin renders UI. */
   onRenderPluginUi: (windowId: number, domJson: DomJson) => void;
 
-  /** Called when the plugin calls openWindow(url, options) */
+  /** Called when the plugin opens a managed window. */
   onOpenWindow: (
     url: string,
     options?: { width?: number; height?: number; showOverlay?: boolean },
   ) => Promise<{ windowId: number; uuid: string; tabId: number }>;
 
-  /** Called when the plugin calls done() or closes a window */
+  /** Called when the plugin completes or the host needs to close the window. */
   onCloseWindow: (windowId: number) => void;
-}
-
-/**
- * MobilePluginHost executes plugin code and provides host capabilities.
- *
- * Currently uses direct function evaluation (no sandbox).
- * Phase 1 (QuickJS native module) will add true sandbox isolation.
- *
- * The key insight: plugin code exports functions (main, onClick, etc.) and
- * uses globals (div, button, prove, useState, etc.) that the host provides.
- * This class provides those globals and manages the execution lifecycle.
- */
-export class MobilePluginHost {
-  private onProve: MobilePluginHostOptions['onProve'];
-  private onRenderPluginUi: MobilePluginHostOptions['onRenderPluginUi'];
-  private onOpenWindow: MobilePluginHostOptions['onOpenWindow'];
-  private onCloseWindow: MobilePluginHostOptions['onCloseWindow'];
-
-  // References to the active execution's state, used by setProveProgress()
-  private _activeStateStore: Record<string, unknown> | null = null;
-  private _activeEventEmitter: EventEmitter | null = null;
-  private _activeUuid: string | null = null;
-
-  constructor(options: MobilePluginHostOptions) {
-    this.onProve = options.onProve;
-    this.onRenderPluginUi = options.onRenderPluginUi;
-    this.onOpenWindow = options.onOpenWindow;
-    this.onCloseWindow = options.onCloseWindow;
-  }
 
   /**
-   * Update the _proveProgress state from an external source (e.g. native progress events).
-   * This triggers a UI re-render so the plugin's progress bar updates.
+   * Called when HostCore's timeout interval fires its 60-second warning.
+   * The platform should show its own UI; resolve via `extend` (push the
+   * deadline back 5 minutes) or `dismiss` (treat as user-acknowledged but
+   * let the deadline run out).
    */
-  setProveProgress(data: { step: string; progress: number; message: string } | null): void {
-    if (!this._activeStateStore || !this._activeEventEmitter || !this._activeUuid) return;
-    this._activeStateStore['_proveProgress'] = data;
-    const ctx = contextRegistry.get(this._activeUuid);
-    this._activeEventEmitter.emit({
-      type: 'RE_RENDER_PLUGIN_UI',
-      windowId: ctx?.windowId || 0,
+  onTimeoutWarning?: (callbacks: { extend: () => void; dismiss: () => void }) => void;
+
+  /**
+   * Called from the prove pipeline (between `onProveUntilReveal` and
+   * `onProveFinalize`) when the user must approve the reveal. The platform
+   * shows its own UI; resolve `approve()` to continue, or `reject(err)` to
+   * abort. If unset, all reveals are auto-approved.
+   */
+  onRevealApproval?: (request: RevealApprovalRequest) => void;
+}
+
+// ---------------------------------------------------------------------------
+// MobilePluginHost
+// ---------------------------------------------------------------------------
+
+export class MobilePluginHost {
+  private core: HostCore;
+
+  /**
+   * Captured by the onProve wrapper so external native progress events
+   * (delivered via setProveProgress) can be routed back into the running
+   * plugin's UI state.
+   */
+  private _activeOnProgress: ((step: string, progress: number, message: string) => void) | null =
+    null;
+
+  /** Set by `setApprovalMode()` after the plugin-approval sheet resolves. */
+  private _approvalMode: ApprovalMode = 'manual';
+
+  /** External callback to display the reveal-approval sheet. */
+  private _onRevealApproval?: MobilePluginHostOptions['onRevealApproval'];
+
+  constructor(options: MobilePluginHostOptions) {
+    this._onRevealApproval = options.onRevealApproval;
+
+    const wrappedOnProve = async (
+      requestOptions: {
+        url: string;
+        method: string;
+        headers: Record<string, string>;
+        body?: string;
+      },
+      proverOptions: {
+        verifierUrl: string;
+        proxyUrl: string;
+        maxRecvData?: number;
+        maxSentData?: number;
+        handlers: Handler[];
+      },
+      onProgress?: (data: ProveProgressData) => void,
+    ): Promise<unknown> => {
+      this._activeOnProgress = onProgress
+        ? (step: string, progress: number, message: string) =>
+            onProgress({ step, progress, message })
+        : null;
+
+      try {
+        const nativeHandlers = (proverOptions.handlers ?? []).map(translateHandler);
+        const nativeProverOptions: NativeProverOptions = {
+          verifierUrl: proverOptions.verifierUrl,
+          proxyUrl: proverOptions.proxyUrl,
+          maxRecvData: proverOptions.maxRecvData,
+          maxSentData: proverOptions.maxSentData,
+          handlers: nativeHandlers,
+        };
+
+        // Phase A: run the protocol up through compute_reveal natively.
+        const prep = await options.onProveUntilReveal(requestOptions, nativeProverOptions);
+
+        // Decide whether the user must approve this reveal.
+        const skipApprovalGate = this._approvalMode === 'all-session';
+
+        let approved = true;
+        if (!skipApprovalGate && this._onRevealApproval) {
+          try {
+            await new Promise<void>((resolve, reject) => {
+              this._onRevealApproval!({
+                descriptors: prep.descriptors,
+                approve: resolve,
+                reject,
+              });
+            });
+          } catch (e) {
+            approved = false;
+            // Surface the rejection up-stack after we drop the native session.
+            void options.onProveFinalize(prep.sessionId, false).catch(() => {});
+            throw e instanceof Error ? e : new Error(String(e));
+          }
+        }
+
+        // Phase B: complete the proof.
+        return await options.onProveFinalize(prep.sessionId, approved);
+      } finally {
+        this._activeOnProgress = null;
+      }
+    };
+
+    this.core = new HostCore({
+      evaluator: new NativeFunctionEvaluator(),
+      reRenderEvent: 'RE_RENDER_PLUGIN_UI',
+      enableTimeout: true,
+      onTimeoutWarning: options.onTimeoutWarning,
+      onProve: wrappedOnProve,
+      onRenderPluginUi: options.onRenderPluginUi,
+      onOpenWindow: async (url, opts) => {
+        const response = await options.onOpenWindow(url, opts);
+        return {
+          type: 'WINDOW_OPENED',
+          payload: response,
+        };
+      },
+      onCloseWindow: options.onCloseWindow,
     });
   }
 
-  private _clearActiveRefs(): void {
-    this._activeStateStore = null;
-    this._activeEventEmitter = null;
-    this._activeUuid = null;
+  /**
+   * Set the approval mode chosen on the pre-execution approval sheet.
+   * Must be called before the plugin's first prove() call. Setting
+   * `'rejected'` is informational on this side (the caller is expected to
+   * not start the plugin at all in that case).
+   */
+  setApprovalMode(mode: ApprovalMode): void {
+    this._approvalMode = mode;
+  }
+
+  /**
+   * Push a progress update from the native prover into the active plugin.
+   *
+   * The mobile layer subscribes to native progress events on the tlsn-native
+   * module and forwards them here. While a prove() call is in flight, this
+   * routes through the `onProgress` callback HostCore wired into the prove
+   * pipeline (which updates `_proveProgress` in the plugin's state store and
+   * triggers a UI re-render). Outside of an active prove() call, this is a
+   * no-op.
+   */
+  setProveProgress(data: { step: string; progress: number; message: string } | null): void {
+    if (this._activeOnProgress && data) {
+      this._activeOnProgress(data.step, data.progress, data.message);
+    }
   }
 
   /**
    * Execute a plugin in the host environment.
    *
-   * This evaluates the plugin code, injects capabilities, calls main(),
-   * and returns a promise that resolves when the plugin calls done().
+   * Resolves with the value the plugin passes to `done()`, or rejects when
+   * the plugin throws or terminates abnormally.
    */
   async executePlugin(
     code: string,
     { eventEmitter }: { eventEmitter: EventEmitter },
   ): Promise<unknown> {
-    const uuid = uuidv4();
-    const hookContext: Record<string, { effects: unknown[][]; selectors: unknown[][] }> = {};
-    const stateStore: Record<string, unknown> = {};
-
-    // Store references so setProveProgress() can update state externally
-    this._activeStateStore = stateStore;
-    this._activeEventEmitter = eventEmitter;
-    this._activeUuid = uuid;
-
-    let doneResolve: (result?: unknown) => void;
-    let doneReject: (error: Error) => void;
-    let isCompleted = false;
-
-    const donePromise = new Promise((resolve, reject) => {
-      doneResolve = resolve;
-      doneReject = reject;
-    });
-
-    const onCloseWindow = this.onCloseWindow;
-    const onRenderPluginUi = this.onRenderPluginUi;
-    const onOpenWindow = this.onOpenWindow;
-    const onProve = this.onProve;
-
-    // Build the capability globals that plugin code expects
-    const capabilities = {
-      div: (param1?: DomOptions | DomJson[], param2?: DomJson[]) =>
-        createDomJson('div', param1, param2),
-      button: (param1?: DomOptions | DomJson[], param2?: DomJson[]) =>
-        createDomJson('button', param1, param2),
-      openWindow: async (
-        url: string,
-        options?: { width?: number; height?: number; showOverlay?: boolean },
-      ) => {
-        const response = await onOpenWindow(url, options);
-        updateContext(uuid, { windowId: response.windowId });
-
-        // Set up message listener for this window
-        const onMessage = async (message: WindowMessage) => {
-          if (message.type === 'WINDOW_CLOSED') {
-            eventEmitter.removeListener(onMessage);
-            return;
-          }
-
-          const ctx = contextRegistry.get(uuid);
-          if (!ctx) {
-            eventEmitter.removeListener(onMessage);
-            return;
-          }
-
-          if ('windowId' in message && message.windowId !== ctx.windowId) return;
-
-          try {
-            if (message.type === 'REQUEST_INTERCEPTED') {
-              updateContext(uuid, {
-                requests: [...(ctx.requests || []), message.request],
-              });
-              ctx.main();
-            }
-            if (message.type === 'HEADER_INTERCEPTED') {
-              updateContext(uuid, {
-                headers: [...(ctx.headers || []), message.header],
-              });
-              ctx.main();
-            }
-            if (message.type === 'PLUGIN_UI_CLICK') {
-              const cb = ctx.callbacks[message.onclick];
-              if (cb) {
-                updateContext(uuid, { currentContext: message.onclick });
-                await cb();
-                if (contextRegistry.has(uuid)) {
-                  updateContext(uuid, { currentContext: '' });
-                }
-              }
-            }
-            if (message.type === 'RE_RENDER_PLUGIN_UI') {
-              ctx.main(true);
-            }
-          } catch (error) {
-            console.error(`[MobilePluginHost] Error handling message ${message.type}:`, error);
-            eventEmitter.removeListener(onMessage);
-          }
-        };
-
-        eventEmitter.addListener(onMessage);
-        return response;
-      },
-      useEffect: makeUseEffect(uuid, hookContext),
-      useRequests: makeUseRequests(uuid, hookContext),
-      useHeaders: makeUseHeaders(uuid, hookContext),
-      useState: makeUseState(uuid, stateStore),
-      setState: makeSetState(uuid, stateStore, eventEmitter),
-      prove: async (
-        requestOptions: Parameters<MobilePluginHostOptions['onProve']>[0],
-        proverOptions: Parameters<MobilePluginHostOptions['onProve']>[1],
-      ) => {
-        // Native progress events update _proveProgress via setProveProgress().
-        // The wrapper only handles COMPLETE and error cleanup.
-        try {
-          const result = await onProve(requestOptions, proverOptions);
-          stateStore['_proveProgress'] = { step: 'COMPLETE', progress: 1, message: 'Complete' };
-          eventEmitter.emit({
-            type: 'RE_RENDER_PLUGIN_UI',
-            windowId: contextRegistry.get(uuid)?.windowId || 0,
-          });
-          return result;
-        } catch (err) {
-          stateStore['_proveProgress'] = null;
-          eventEmitter.emit({
-            type: 'RE_RENDER_PLUGIN_UI',
-            windowId: contextRegistry.get(uuid)?.windowId || 0,
-          });
-          throw err;
-        }
-      },
-      done: (result?: unknown) => {
-        if (isCompleted) return;
-        isCompleted = true;
-        const ctx = contextRegistry.get(uuid);
-        if (ctx?.windowId) onCloseWindow(ctx.windowId);
-        contextRegistry.delete(uuid);
-        this._clearActiveRefs();
-        doneResolve(result);
-      },
-      doneWithOverlay: (result?: unknown) => {
-        if (isCompleted) return;
-        isCompleted = true;
-        const ctx = contextRegistry.get(uuid);
-        if (ctx?.windowId) onCloseWindow(ctx.windowId);
-        contextRegistry.delete(uuid);
-        this._clearActiveRefs();
-        doneResolve(result);
-      },
-    };
-
-    // Evaluate the plugin code.
-    //
-    // NOTE: This currently uses Function() constructor (no sandbox isolation).
-    // Phase 1 (QuickJS native Expo module) will replace this with true sandboxed
-    // evaluation via the native QuickJS C engine.
-    let exportedCode: Record<string, unknown>;
-    try {
-      exportedCode = evaluatePluginCode(code, capabilities);
-    } catch (evalError) {
-      const error = evalError instanceof Error ? evalError : new Error(String(evalError));
-      this._clearActiveRefs();
-      doneReject!(new Error(`Plugin evaluation failed: ${error.message}`));
-      return donePromise;
-    }
-
-    const { main: mainFn, ...otherExports } = exportedCode;
-
-    if (typeof mainFn !== 'function') {
-      this._clearActiveRefs();
-      doneReject!(new Error('Main function not found in plugin'));
-      return donePromise;
-    }
-
-    // Collect callback functions (onClick, expandUI, minimizeUI, etc.)
-    const callbacks: Record<string, () => Promise<void>> = {};
-    for (const key in otherExports) {
-      if (typeof otherExports[key] === 'function') {
-        callbacks[key] = otherExports[key] as () => Promise<void>;
-      }
-    }
-
-    let lastJson: DomJson | null = null;
-
-    const main = (force = false) => {
-      try {
-        updateContext(uuid, { currentContext: 'main' });
-
-        let result = (mainFn as () => DomJson)();
-        const lastSelectors = contextRegistry.get(uuid)?.context['main']?.selectors;
-        const selectors = hookContext['main']?.selectors;
-        const lastStateStore = contextRegistry.get(uuid)?.stateStore;
-
-        if (
-          !force &&
-          deepEqual(lastSelectors, selectors) &&
-          deepEqual(lastStateStore, stateStore)
-        ) {
-          result = null as unknown as DomJson;
-        }
-
-        updateContext(uuid, {
-          currentContext: '',
-          context: {
-            ...contextRegistry.get(uuid)?.context,
-            main: {
-              effects: JSON.parse(JSON.stringify(hookContext['main']?.effects || [])),
-              selectors: JSON.parse(JSON.stringify(hookContext['main']?.selectors || [])),
-            },
-          },
-          stateStore: JSON.parse(JSON.stringify(stateStore)),
-        });
-
-        if (hookContext['main']) {
-          hookContext['main'].effects.length = 0;
-          hookContext['main'].selectors.length = 0;
-        }
-
-        if (result) {
-          lastJson = result;
-          // Wait for windowId to be set before rendering
-          const ctx = contextRegistry.get(uuid);
-          if (ctx?.windowId) {
-            onRenderPluginUi(ctx.windowId, lastJson);
-          } else {
-            // Queue render for when window opens
-            waitForWindow(() => contextRegistry.get(uuid)?.windowId).then((windowId) => {
-              if (windowId && lastJson) {
-                onRenderPluginUi(windowId, lastJson);
-              }
-            });
-          }
-        }
-
-        return result;
-      } catch (error) {
-        const err = error instanceof Error ? error : new Error(String(error));
-        if (!isCompleted) {
-          isCompleted = true;
-          const ctx = contextRegistry.get(uuid);
-          if (ctx?.windowId) onCloseWindow(ctx.windowId);
-          contextRegistry.delete(uuid);
-          this._clearActiveRefs();
-          doneReject!(new Error(`Plugin main() error: ${err.message}`));
-        }
-        return null;
-      }
-    };
-
-    // Register execution context
-    contextRegistry.set(uuid, {
-      id: uuid,
-      plugin: code,
-      requests: [],
-      headers: [],
-      windowId: 0,
-      context: {},
-      currentContext: '',
-      stateStore: {},
-      main,
-      callbacks,
-    });
-
-    // Run initial main()
-    main();
-
-    return donePromise;
+    return this.core.executePlugin(code, { eventEmitter });
   }
 
   /**
@@ -704,71 +293,38 @@ export class MobilePluginHost {
     windowId: number,
     header: InterceptedRequestHeader,
   ): void {
-    eventEmitter.emit({
-      type: 'HEADER_INTERCEPTED',
-      header,
-      windowId,
-    });
+    eventEmitter.emit({ type: 'HEADER_INTERCEPTED', header, windowId });
   }
 
   /**
-   * Dispatch a plugin UI button click.
+   * Feed an intercepted request into a running plugin's execution context.
+   */
+  emitRequestIntercepted(
+    eventEmitter: EventEmitter,
+    windowId: number,
+    request: InterceptedRequest,
+  ): void {
+    eventEmitter.emit({ type: 'REQUEST_INTERCEPTED', request, windowId });
+  }
+
+  /**
+   * Dispatch a plugin UI button click into the running plugin.
    */
   emitPluginAction(eventEmitter: EventEmitter, windowId: number, onclick: string): void {
-    eventEmitter.emit({
-      type: 'PLUGIN_UI_CLICK',
-      onclick,
-      windowId,
-    });
+    eventEmitter.emit({ type: 'PLUGIN_UI_CLICK', onclick, windowId });
   }
-}
 
-// ============================================================================
-// Plugin code evaluation
-// ============================================================================
-
-/**
- * Evaluate plugin code with injected capabilities.
- *
- * TEMPORARY: Uses Function() constructor (no sandbox).
- * Will be replaced with native QuickJS evaluation in Phase 1.
- */
-function evaluatePluginCode(
-  code: string,
-  capabilities: Record<string, unknown>,
-): Record<string, unknown> {
-  // Build the preamble that makes capabilities available as globals
-  const capabilityNames = Object.keys(capabilities);
-  const preamble = capabilityNames
-    .map((name) => `const ${name} = __capabilities__.${name};`)
-    .join('\n');
-
-  // The plugin code ends with `export default { config, main, onClick, ... }`
-  // We need to capture that. Transform the export to a return.
-  const transformedCode = code
-    .replace(/export\s+default\s+/, 'return ')
-    // Also handle: export { main, onClick, ... }
-    .replace(/export\s*\{[^}]+\}\s*;?/g, '');
-
-  const wrappedCode = `
-    ${preamble}
-    ${transformedCode}
-  `;
-
-  const fn = new Function('__capabilities__', wrappedCode);
-  return fn(capabilities);
-}
-
-// ============================================================================
-// Utilities
-// ============================================================================
-
-async function waitForWindow(getter: () => number | undefined, retry = 0): Promise<number | null> {
-  const value = getter();
-  if (value) return value;
-  if (retry < 100) {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    return waitForWindow(getter, retry + 1);
+  /**
+   * Legacy: register a pending reveal-approval gate via HostCore's DomJson
+   * overlay (used by extension parity). Mobile's native flow uses the
+   * `onRevealApproval` constructor option instead, which renders a real
+   * native bottom sheet with byte-level previews.
+   */
+  registerRevealApproval(
+    resolve: () => void,
+    reject: (err: Error) => void,
+    descriptors: PluginSdkRevealRangeDescriptor[],
+  ): void {
+    this.core.registerRevealApproval(resolve, reject, descriptors);
   }
-  return null;
 }

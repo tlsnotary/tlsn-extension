@@ -60,6 +60,34 @@ export interface ProveProgress {
   message: string;
 }
 
+/**
+ * Per-range preview returned by `proveUntilReveal`. Each entry describes one
+ * byte range that the prover is about to reveal (or hash-commit) to the
+ * verifier, with the actual transcript bytes as `preview` for user review.
+ */
+export interface RevealRangeDescriptor {
+  direction: 'SENT' | 'RECV';
+  label: string;
+  action: 'REVEAL' | 'HASH';
+  algorithm?: 'Blake3' | 'Sha256' | 'Keccak256';
+  preview: string;
+}
+
+/**
+ * Output of `proveUntilReveal`. Pass `sessionId` back to `proveFinalize`
+ * along with an `approved` bool. State has a 5-minute TTL on the native
+ * side, so the caller must finalize (approve or reject) within that window.
+ */
+export interface RevealPreparation {
+  sessionId: string;
+  response: {
+    status: number;
+    headers: HttpHeader[];
+    body: unknown;
+  };
+  descriptors: RevealRangeDescriptor[];
+}
+
 const emitter = new EventEmitter(TlsnNativeModule);
 
 /**
@@ -100,6 +128,47 @@ export async function prove(request: ProveRequest, options: ProverOptions): Prom
     ) as unknown as Promise<ProveResult>;
   }
   return TlsnNativeModule.prove(request, options) as unknown as Promise<ProveResult>;
+}
+
+/**
+ * Phase A of the two-phase prove: runs MPC + HTTP request + compute_reveal,
+ * then pauses with a list of range descriptors (each with a real byte preview
+ * of the transcript slice it covers). Pair with `proveFinalize`.
+ */
+export async function proveUntilReveal(
+  request: ProveRequest,
+  options: ProverOptions,
+): Promise<RevealPreparation> {
+  const isAndroid = Platform.OS === 'android';
+
+  if (isAndroid && options.verifierUrl) {
+    options = {
+      ...options,
+      verifierUrl: options.verifierUrl
+        .replace('://localhost', '://10.0.2.2')
+        .replace('://127.0.0.1', '://10.0.2.2'),
+    };
+  }
+
+  if (isAndroid) {
+    return TlsnNativeModule.proveUntilReveal(
+      JSON.stringify(request),
+      JSON.stringify(options),
+    ) as unknown as Promise<RevealPreparation>;
+  }
+  return TlsnNativeModule.proveUntilReveal(
+    request,
+    options,
+  ) as unknown as Promise<RevealPreparation>;
+}
+
+/**
+ * Phase B of the two-phase prove. If `approved` is true, completes the proof
+ * and returns the result. If false, the native side drops the session and
+ * rejects with `TlsnError::ProofFailed("User rejected reveal")`.
+ */
+export async function proveFinalize(sessionId: string, approved: boolean): Promise<ProveResult> {
+  return TlsnNativeModule.proveFinalize(sessionId, approved) as unknown as Promise<ProveResult>;
 }
 
 /**

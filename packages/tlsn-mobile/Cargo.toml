@@ -44,5 +44,8 @@ thiserror = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
+# Session ids for the two-phase prove (prove_until_reveal → prove_finalize)
+uuid = { version = "1", features = ["v4"] }
+
 [features]
 default = []

@@ -2,19 +2,17 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { PluginWebView, InterceptedRequestHeader } from './PluginWebView';
 import { PluginRenderer, DomJson } from './PluginRenderer';
-import {
-  NativeProver,
-  NativeProverHandle,
-  Handler as NativeHandler,
-  ProveProgress,
-} from './NativeProver';
+import { NativeProver, NativeProverHandle, ProveProgress } from './NativeProver';
+import { PluginApprovalSheet, ApprovalMode } from './PluginApprovalSheet';
+import { TimeoutWarningSheet } from './TimeoutWarningSheet';
+import { RevealApprovalSheet } from './RevealApprovalSheet';
 import {
   MobilePluginHost,
   PluginConfig,
-  PluginHandler,
-  translateHandlers,
+  NativeHandler,
   EventEmitter,
   WindowMessage,
+  RevealRangeDescriptor,
 } from '../../lib/MobilePluginHost';
 
 /**
@@ -34,28 +32,38 @@ function extractJsonPath(obj: unknown, path: string): string {
 /**
  * Transform native prover result into extension-compatible { results: [{value}] }
  * by applying each handler to extract specific values from the response.
+ *
+ * Operates on handlers in the *native* (PascalCase) format — the same format
+ * that was forwarded to the tlsn-native module to produce `nativeResult`.
  */
 function buildHandlerResults(
-  handlers: PluginHandler[],
+  handlers: NativeHandler[],
   nativeResult: { status: number; headers?: { name: string; value: string }[]; body: unknown },
-): { results: { value: string }[] } {
+): {
+  results: { value: string }[];
+  response: {
+    status: number;
+    headers?: { name: string; value: string }[];
+    body: unknown;
+  };
+} {
   const results: { value: string }[] = [];
 
   for (const handler of handlers) {
-    if (handler.action !== 'REVEAL') continue;
+    if (handler.action.type !== 'Reveal') continue;
     let value = '';
 
-    if (handler.type === 'RECV') {
-      if (handler.part === 'START_LINE') {
+    if (handler.handlerType === 'Recv') {
+      if (handler.part === 'StartLine') {
         value = `HTTP/1.1 ${nativeResult.status}`;
-      } else if (handler.part === 'HEADERS' && handler.params?.key) {
+      } else if (handler.part === 'Headers' && handler.params?.key) {
         const h = nativeResult.headers?.find(
-          (hdr) => hdr.name.toLowerCase() === (handler.params!.key as string).toLowerCase(),
+          (hdr) => hdr.name.toLowerCase() === handler.params!.key!.toLowerCase(),
         );
         if (h) value = `${h.name}: ${h.value}`;
-      } else if (handler.part === 'BODY') {
-        if (handler.params?.type === 'json' && handler.params?.path) {
-          value = extractJsonPath(nativeResult.body, handler.params.path as string);
+      } else if (handler.part === 'Body') {
+        if (handler.params?.contentType === 'json' && handler.params?.path) {
+          value = extractJsonPath(nativeResult.body, handler.params.path);
         } else {
           value =
             typeof nativeResult.body === 'string'
@@ -63,7 +71,7 @@ function buildHandlerResults(
               : JSON.stringify(nativeResult.body);
         }
       }
-    } else if (handler.type === 'SENT' && handler.part === 'START_LINE') {
+    } else if (handler.handlerType === 'Sent' && handler.part === 'StartLine') {
       // Sent start line not available from native result; skip
     }
 
@@ -131,6 +139,22 @@ export function PluginScreen({
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Pre-execution approval gate: null until the user picks a mode.
+  const [approvalMode, setApprovalMode] = useState<ApprovalMode | null>(null);
+
+  // Timeout warning sheet state. Set when HostCore fires onTimeoutWarning.
+  const [timeoutWarning, setTimeoutWarning] = useState<{
+    extend: () => void;
+    dismiss: () => void;
+  } | null>(null);
+
+  // Reveal approval sheet state. Set when wrappedOnProve calls onRevealApproval.
+  const [revealApproval, setRevealApproval] = useState<{
+    descriptors: RevealRangeDescriptor[];
+    approve: () => void;
+    reject: (err: Error) => void;
+  } | null>(null);
+
   const proverRef = useRef<NativeProverHandle>(null);
   const eventEmitterRef = useRef<EventEmitter | null>(null);
   const hostRef = useRef<MobilePluginHost | null>(null);
@@ -163,26 +187,22 @@ export function PluginScreen({
     return emitter;
   }, []);
 
+  // Held across the wrappedOnProve split so the resolved handlers can be
+  // re-applied to the response when phase B returns.
+  const lastNativeHandlersRef = useRef<NativeHandler[]>([]);
+
   // Create host
 
   const host = useMemo(() => {
     const h = new MobilePluginHost({
-      onProve: async (requestOptions, proverOptions) => {
+      onProveUntilReveal: async (requestOptions, proverOptions) => {
         if (!proverRef.current?.isReady) {
           throw new Error('Native prover not ready');
         }
+        const nativeHandlers = proverOptions.handlers ?? [];
+        lastNativeHandlersRef.current = nativeHandlers;
 
-        // Translate handlers from plugin format to native format
-        const nativeHandlers: NativeHandler[] = translateHandlers(proverOptions.handlers || []).map(
-          (h) => ({
-            handlerType: h.handlerType,
-            part: h.part,
-            action: h.action,
-            params: h.params,
-          }),
-        ) as NativeHandler[];
-
-        const nativeResult = await proverRef.current.prove({
+        const prep = await proverRef.current.prepareReveal({
           url: requestOptions.url,
           method: requestOptions.method,
           headers: requestOptions.headers,
@@ -190,17 +210,35 @@ export function PluginScreen({
             verifierUrl: verifierUrlRef.current || proverOptions.verifierUrl,
             maxSentData: proverOptions.maxSentData ?? 4096,
             maxRecvData: proverOptions.maxRecvData ?? 16384,
-            handlers: nativeHandlers,
+            handlers: nativeHandlers as unknown as Parameters<
+              typeof proverRef.current.prepareReveal
+            >[0]['proverOptions']['handlers'],
             mode: modeRef.current,
           },
         });
+        return { sessionId: prep.sessionId, descriptors: prep.descriptors };
+      },
 
-        // Transform native result into extension-compatible format
-        return buildHandlerResults(proverOptions.handlers || [], nativeResult);
+      onProveFinalize: async (sessionId, approved) => {
+        if (!proverRef.current?.isReady) {
+          throw new Error('Native prover not ready');
+        }
+        const nativeResult = await proverRef.current.finalizeReveal(sessionId, approved);
+        return buildHandlerResults(lastNativeHandlersRef.current, nativeResult);
+      },
+
+      onRevealApproval: ({ descriptors, approve, reject }) => {
+        setRevealApproval({ descriptors, approve, reject });
+      },
+
+      onTimeoutWarning: (callbacks) => {
+        setTimeoutWarning(callbacks);
       },
 
       onRenderPluginUi: (_windowId, json) => {
-        setDomJson(json);
+        // Plugin-sdk's DomJson permits 'input' nodes; PluginRenderer renders
+        // only div/button/strings, so unsupported nodes degrade gracefully.
+        setDomJson(json as DomJson);
       },
 
       onOpenWindow: async (url, _options) => {
@@ -259,10 +297,14 @@ export function PluginScreen({
     [host],
   );
 
-  // Start plugin execution when prover is ready
+  // Start plugin execution once the prover is ready AND the user has approved
+  // execution via the pre-execution approval sheet (modes 'manual' or
+  // 'all-session'). 'rejected' or unset blocks execution.
   useEffect(() => {
     if (!proverReady || isRunning) return;
+    if (approvalMode == null || approvalMode === 'rejected') return;
 
+    host.setApprovalMode(approvalMode);
     setIsRunning(true);
     setError(null);
 
@@ -284,7 +326,7 @@ export function PluginScreen({
     // isRunning is intentionally omitted: it guards against double-starts,
     // and re-running when it flips back to false would start the plugin twice.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [proverReady, pluginCode, eventEmitter, host, onComplete, onError]);
+  }, [proverReady, approvalMode, pluginCode, eventEmitter, host, onComplete, onError]);
 
   return (
     <View style={styles.container}>
@@ -313,8 +355,10 @@ export function PluginScreen({
         </View>
       )}
 
-      {/* Plugin UI overlay */}
-      {domJson && (
+      {/* Plugin UI overlay — hidden while any bottom-sheet gate is active so
+          the sheet (absolute-positioned) is always visually on top without
+          relying on z-index competition against plugin CSS. */}
+      {domJson && revealApproval == null && timeoutWarning == null && (
         <View style={styles.pluginUiContainer}>
           <PluginRenderer domJson={domJson} onPluginAction={handlePluginAction} />
         </View>
@@ -334,6 +378,54 @@ export function PluginScreen({
           <Text style={styles.errorText}>{error}</Text>
         </View>
       )}
+
+      {/* "Plugin rejected" surface — shown after the user picks Reject on the
+          pre-execution approval sheet, in lieu of running the plugin. */}
+      {approvalMode === 'rejected' && (
+        <View style={styles.rejectedContainer}>
+          <Text style={styles.rejectedTitle}>Plugin not running</Text>
+          <Text style={styles.rejectedSubtitle}>You rejected this plugin. No data was sent.</Text>
+        </View>
+      )}
+
+      {/* Pre-execution approval sheet — visible until the user picks a mode.
+          Rendered last so it stacks above the rest. */}
+      <PluginApprovalSheet
+        visible={proverReady && approvalMode == null}
+        pluginConfig={pluginConfig}
+        pluginCode={pluginCode}
+        onApprove={(mode) => setApprovalMode(mode)}
+        onReject={() => setApprovalMode('rejected')}
+      />
+
+      {/* Reveal approval sheet — visible when wrappedOnProve is awaiting user
+          consent for the bytes about to be revealed. */}
+      <RevealApprovalSheet
+        visible={revealApproval != null}
+        descriptors={revealApproval?.descriptors ?? []}
+        onApprove={() => {
+          revealApproval?.approve();
+          setRevealApproval(null);
+        }}
+        onReject={() => {
+          revealApproval?.reject(new Error('User rejected reveal'));
+          setRevealApproval(null);
+        }}
+      />
+
+      {/* Timeout warning sheet — fires ~60s before plugin deadline. */}
+      <TimeoutWarningSheet
+        visible={timeoutWarning != null}
+        initialRemainingMs={60_000}
+        onExtend={() => {
+          timeoutWarning?.extend();
+          setTimeoutWarning(null);
+        }}
+        onDismiss={() => {
+          timeoutWarning?.dismiss();
+          setTimeoutWarning(null);
+        }}
+      />
     </View>
   );
 }
@@ -361,6 +453,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.9)',
+  },
+  rejectedContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f9fafb',
+    paddingHorizontal: 32,
+  },
+  rejectedTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  rejectedSubtitle: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
   },
   loadingText: {
     marginTop: 12,
