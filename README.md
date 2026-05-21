@@ -9,16 +9,61 @@ A Chrome Extension for TLSNotary with plugin SDK and verifier server.
 
 ## Table of Contents
 
+- [Demo](#demo)
+- [Tutorial](#tutorial)
 - [Monorepo Structure](#monorepo-structure)
 - [Architecture Overview](#architecture-overview)
 - [Getting Started](#getting-started)
 - [Development](#development)
 - [Production Build](#production-build)
 - [End-to-End Testing](#end-to-end-testing)
-- [Running the Demo](#running-the-demo)
 - [Websockify Integration](#websockify-integration)
 - [Publishing](#publishing)
 - [License](#license)
+
+## Demo
+
+Try TLSNotary live at **[demo.tlsnotary.org](https://demo.tlsnotary.org)**: just install the extension and run any of the bundled plugins against the hosted verifier.
+
+To run the demo locally (verifier + demo site via Docker):
+
+```bash
+npm run docker:up   # verifier on :7047, demo site on :80
+npm run docker:down
+```
+
+Or serve just the demo site against your own verifier:
+
+```bash
+npm run demo        # http://localhost:8080
+```
+
+### Environment Variables
+
+The demo uses `.env` files for configuration:
+
+- `.env` - Local development defaults (`localhost:7047`)
+- `.env.production` - Production settings (`demo.tlsnotary.org`, SSL enabled)
+
+For Docker deployments, override via environment variables:
+
+```bash
+# Local development (default)
+npm run docker:up
+
+# Production with custom verifier
+VITE_VERIFIER_HOST=verifier.example.com VITE_SSL=true docker compose up --build
+```
+
+## Tutorial
+
+Want to write your own plugin? The [`tutorial`](packages/tutorial) package is an interactive 15-30 minute, hands-on walkthrough of building TLSNotary plugins — starting from a working Twitter plugin, then adapting it for a Swiss Bank balance proof (choosing what to reveal vs. redact). An optional "fool the verifier" challenge shows why careful server-side verification matters.
+
+```bash
+npm run tutorial
+
+# Open http://localhost:8080 in your browser
+```
 
 ## Monorepo Structure
 
@@ -410,60 +455,6 @@ When a managed window is opened:
 - **Check Console Logs**: Look for WindowManager logs, request interception logs, and message routing logs
 - **Test Multiple Windows**: Try opening multiple managed windows simultaneously (max 10)
 - **Verifier Connection**: Ensure verifier is accessible at `localhost:7047` before running proofs
-
-## Running the Demo
-
-The demo package provides a complete environment for testing TLSNotary plugins.
-
-### Quick Start with Docker
-
-```bash
-# Start all services (verifier + demo server)
-npm run docker:up
-
-# Stop services
-npm run docker:down
-```
-
-This starts:
-
-- Verifier server on port 7047
-- Demo static files served via nginx on port 80
-
-### Manual Demo Setup
-
-```bash
-# Serve demo files locally
-npm run demo
-
-# Open http://localhost:8080 in your browser
-```
-
-### Environment Variables
-
-The demo uses `.env` files for configuration:
-
-- `.env` - Local development defaults (`localhost:7047`)
-- `.env.production` - Production settings (`verifier.tlsnotary.org`, SSL enabled)
-
-For Docker deployments, override via environment variables:
-
-```bash
-# Local development (default)
-npm run docker:up
-
-# Production with custom verifier
-VITE_VERIFIER_HOST=verifier.example.com VITE_SSL=true docker compose up --build
-```
-
-### Tutorial
-
-```bash
-# Serve tutorial examples
-npm run tutorial
-
-# Open http://localhost:8080 in your browser
-```
 
 ## Websockify Integration
 
