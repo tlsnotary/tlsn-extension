@@ -62,7 +62,7 @@ export default defineConfig(
       'packages/common/src/logger/**',
       'packages/extension/src/offscreen/ProveManager/worker.ts',
       'packages/extension/tests/browser/globalSetup.ts',
-      'packages/verifier/scripts/**',
+      'servers/verifier/scripts/**',
       'packages/demo/**',
       'packages/eas-webhook/**',
       'app/mobile/**',

@@ -45,7 +45,7 @@ async function waitForHealth(url: string, timeoutMs: number): Promise<void> {
  * 2. Pre-built binary in target/release or target/debug
  * 3. Falls back to `cargo run`
  */
-function findVerifierBin(verifierDir: string): { cmd: string; args: string[] } | null {
+function findVerifierBin(serversDir: string): { cmd: string; args: string[] } | null {
   if (process.env.VERIFIER_BIN) {
     const bin = process.env.VERIFIER_BIN;
     if (fs.existsSync(bin)) {
@@ -54,10 +54,10 @@ function findVerifierBin(verifierDir: string): { cmd: string; args: string[] } |
     console.warn(`[globalSetup] VERIFIER_BIN=${bin} does not exist, falling back`);
   }
 
-  // Check for pre-built binaries.
+  // Check for pre-built binaries in the workspace target dir.
   // Prefer the binary whose mtime is newer (most likely to include latest code changes).
-  const releaseBin = path.join(verifierDir, 'target/release/tlsn-verifier-server');
-  const debugBin = path.join(verifierDir, 'target/debug/tlsn-verifier-server');
+  const releaseBin = path.join(serversDir, 'target/release/tlsn-verifier-server');
+  const debugBin = path.join(serversDir, 'target/debug/tlsn-verifier-server');
 
   const releaseExists = fs.existsSync(releaseBin);
   const debugExists = fs.existsSync(debugBin);
@@ -87,11 +87,11 @@ export async function setup(): Promise<void> {
     // Not running yet — proceed to start it
   }
 
-  const verifierDir = path.resolve(__dirname, '../../../verifier');
+  const serversDir = path.resolve(__dirname, '../../../../servers');
 
   console.log(`[globalSetup] Starting verifier server on port ${VERIFIER_PORT}...`);
 
-  const bin = findVerifierBin(verifierDir);
+  const bin = findVerifierBin(serversDir);
 
   const env = {
     ...process.env,
@@ -102,14 +102,14 @@ export async function setup(): Promise<void> {
   if (bin) {
     console.log(`[globalSetup] Using binary: ${bin.cmd}`);
     serverProcess = spawn(bin.cmd, bin.args, {
-      cwd: verifierDir,
+      cwd: serversDir,
       env,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
   } else {
     console.log('[globalSetup] No pre-built binary found, using cargo run');
-    serverProcess = spawn('cargo', ['run'], {
-      cwd: verifierDir,
+    serverProcess = spawn('cargo', ['run', '-p', 'tlsn-verifier-server'], {
+      cwd: serversDir,
       env,
       stdio: ['ignore', 'pipe', 'pipe'],
     });

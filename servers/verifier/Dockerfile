@@ -1,4 +1,5 @@
 # Build stage
+# Build context: the `servers/` Cargo workspace root.
 FROM rust:latest AS builder
 
 WORKDIR /app
@@ -10,21 +11,24 @@ RUN apt-get update && apt-get install -y \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy manifest files first for better caching
+# Copy workspace manifests + all member manifests so cargo can resolve the workspace
 COPY Cargo.toml Cargo.lock ./
+COPY verifier/Cargo.toml ./verifier/
+COPY swissbank/Cargo.toml ./swissbank/
 
-# Create dummy src to fetch dependencies
-RUN mkdir src && echo "fn main() {}" > src/main.rs
+# Create dummy sources for all workspace members so deps can be fetched
+RUN mkdir -p verifier/src swissbank/src && \
+    echo "fn main() {}" > verifier/src/main.rs && \
+    echo "fn main() {}" > swissbank/src/main.rs
 
-# Fetch dependencies (this layer is cached if Cargo.toml/Cargo.lock don't change)
-# Use --locked to respect the lockfile exactly
+# Fetch dependencies (cached if manifests/lockfile unchanged)
 RUN cargo fetch --locked
 
-# Now copy real source code
-COPY src ./src
+# Copy real source for this crate
+COPY verifier/src ./verifier/src
 
-# Touch main.rs to invalidate the dummy build
-RUN touch src/main.rs
+# Invalidate the dummy build
+RUN touch verifier/src/main.rs
 
 # Build release binary
 RUN cargo build --release --bin tlsn-verifier-server
@@ -34,21 +38,16 @@ FROM debian:bookworm-slim
 
 WORKDIR /app
 
-# Accept build argument for git hash and set as environment variable
 ARG GIT_HASH=local
 ENV GIT_HASH=${GIT_HASH}
 
-# Install runtime dependencies
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     libssl3 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy binary from builder
 COPY --from=builder /app/target/release/tlsn-verifier-server /app/tlsn-verifier-server
-
-# Copy production config as default
-COPY config-prod.yaml /app/config.yaml
+COPY verifier/config-prod.yaml /app/config.yaml
 
 EXPOSE 7047
 

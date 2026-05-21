@@ -1,7 +1,7 @@
 /**
  * Browser integration test: real MPC-TLS prove using the tlsn WASM prover.
  *
- * This test mirrors packages/verifier/src/tests/integration_test.rs but runs
+ * This test mirrors servers/verifier/src/tests/integration_test.rs but runs
  * the WASM prover inside Chromium via Playwright. It connects to a real
  * verifier server (auto-started by globalSetup.ts) and performs MPC-TLS
  * against raw.githubusercontent.com through the /proxy endpoint.

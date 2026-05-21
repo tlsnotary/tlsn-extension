@@ -1,0 +1,16 @@
+# Cargo build artifacts (workspace target)
+target/
+
+# Git / editor cruft
+.git
+.gitignore
+.idea/
+.vscode/
+*.swp
+*.swo
+*.bak
+*.tmp
+
+# Markdown / scripts (not needed for the build)
+*.md
+scripts/

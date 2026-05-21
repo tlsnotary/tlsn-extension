@@ -49,12 +49,6 @@ tlsn-extension/
 │   │   │   └── logger/           # Centralized logging with configurable levels
 │   │   └── package.json
 │   │
-│   ├── verifier/            # Rust-based verifier server
-│   │   ├── src/
-│   │   │   └── main.rs           # Server setup, routing, and verification
-│   │   ├── config.yaml           # Webhook configuration
-│   │   └── Cargo.toml
-│   │
 │   ├── demo/                # Demo server with Docker setup
 │   │   ├── *.js                  # Example plugin files
 │   │   └── docker-compose.yml    # Docker services configuration
@@ -65,7 +59,17 @@ tlsn-extension/
 │   └── tlsn-wasm-pkg/       # Pre-built TLSN WebAssembly package
 │       └── (WASM binaries)
 │
-├── package.json             # Root workspace configuration
+├── servers/                 # Rust Cargo workspace (deployable servers)
+│   ├── Cargo.toml                # Workspace root
+│   ├── verifier/                 # WebSocket server for TLSNotary verification
+│   │   ├── src/main.rs           # Server setup, routing, and verification
+│   │   ├── config.yaml           # Webhook configuration
+│   │   └── Cargo.toml
+│   └── swissbank/                # Fake Swiss bank with dashboard UI (demo target)
+│       ├── src/
+│       └── Cargo.toml
+│
+├── package.json             # Root npm workspace configuration
 └── README.md
 ```
 
@@ -240,8 +244,8 @@ This automatically builds all dependencies (common, plugin-sdk) and then starts 
 The verifier server is required for E2E testing. Run it in a separate terminal:
 
 ```bash
-cd packages/verifier
-cargo run
+cd servers
+cargo run -p tlsn-verifier-server
 ```
 
 The server will start on `http://localhost:7047`.
@@ -254,7 +258,7 @@ The server will start on `http://localhost:7047`.
 - `WS /proxy?token=<host>` - WebSocket proxy for TLS connections (compatible with notary.pse.dev)
 
 **Webhook Configuration:**
-Configure `packages/verifier/config.yaml` to receive POST notifications after successful verifications:
+Configure `servers/verifier/config.yaml` to receive POST notifications after successful verifications:
 
 ```yaml
 webhooks:
@@ -295,8 +299,8 @@ npm run lint:fix         # Auto-fix issues
 **Verifier:**
 
 ```bash
-cd packages/verifier
-cargo run                # Development mode
+cd servers
+cargo run -p tlsn-verifier-server                # Development mode
 cargo build --release    # Production build
 cargo test               # Run tests
 ```
@@ -337,11 +341,11 @@ This builds all packages in the monorepo (extension, plugin-sdk).
 ### Build Verifier for Production
 
 ```bash
-cd packages/verifier
-cargo build --release
+cd servers
+cargo build --release -p tlsn-verifier-server
 ```
 
-The binary will be in `target/release/`.
+The binary will be in `servers/target/release/`.
 
 ## End-to-End Testing
 
@@ -352,8 +356,8 @@ To test the complete TLSN workflow:
 In a terminal:
 
 ```bash
-cd packages/verifier
-cargo run
+cd servers
+cargo run -p tlsn-verifier-server
 ```
 
 Verify it's running:
@@ -507,6 +511,7 @@ This repo includes a [Claude Code](https://claude.ai/claude-code) slash command 
 ```
 
 The command will:
+
 1. Research the target service's API endpoints
 2. Plan the auth interception strategy
 3. Generate a complete plugin `.ts` file with UI, proof handlers, and progress bar

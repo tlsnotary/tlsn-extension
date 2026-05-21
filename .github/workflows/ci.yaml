@@ -70,8 +70,8 @@ jobs:
           toolchain: stable
 
       - name: Build verifier server
-        working-directory: packages/verifier
-        run: cargo build --release
+        working-directory: servers
+        run: cargo build --release -p tlsn-verifier-server
 
       - name: Install dependencies
         run: |

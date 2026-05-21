@@ -81,8 +81,8 @@ export const Setup: React.FC = () => {
                 <div className="mt-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
                   <p className="font-medium text-gray-800 mb-2">Start the Verifier Server:</p>
                   <pre className="bg-gray-800 text-white p-3 rounded-sm overflow-x-auto">
-                    cd packages/verifier{'\n'}
-                    cargo run --release
+                    cd servers{'\n'}
+                    cargo run --release -p tlsn-verifier-server
                   </pre>
                   <p className="mt-2 text-sm text-gray-600">
                     Make sure you have Rust installed. If not, install it from{' '}

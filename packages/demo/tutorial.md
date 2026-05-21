@@ -36,7 +36,7 @@ In this extra challenge, you should examine how the verifier checks the balance 
 
 Hint
 
-- Look how naive the check is for "swissbank.tlsnotary.org" in `packages/verifier/main.rs`
+- Look how naive the check is for "swissbank.tlsnotary.org" in `servers/verifier/src/main.rs`
 - Manipulate the existing regex in the prover and add an extra entry to prove a different number
 
 <TODO: Screenshot CHF 275_000_000>
