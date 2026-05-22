@@ -35,7 +35,7 @@
     "react-router": "^6.15.0",
     "react-router-dom": "^6.15.0",
     "stream-browserify": "^3.0.0",
-    "tlsn-wasm": "./lib/tlsn-wasm-pkg/",
+    "tlsn-wasm": "0.1.0-alpha.15",
     "util": "^0.12.5"
   },
   "devDependencies": {

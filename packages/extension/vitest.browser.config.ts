@@ -2,8 +2,10 @@ import { defineConfig, type Plugin } from 'vitest/config';
 import { playwright } from '@vitest/browser-playwright';
 import path from 'node:path';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 
-const wasmPkgDir = path.resolve(__dirname, '../tlsn-wasm-pkg');
+const require = createRequire(import.meta.url);
+const wasmPkgDir = path.dirname(require.resolve('tlsn-wasm/package.json'));
 const commonDistDir = path.resolve(__dirname, '../common/dist');
 const pluginSdkSrc = path.resolve(__dirname, '../plugin-sdk/src');
 

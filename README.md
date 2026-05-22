@@ -56,8 +56,8 @@ tlsn-extension/
 │   ├── tutorial/            # Tutorial examples
 │   │   └── *.js                  # Tutorial plugin files
 │   │
-│   └── tlsn-wasm-pkg/       # Pre-built TLSN WebAssembly package
-│       └── (WASM binaries)
+│   └── tlsn-wasm/           # Local TLSN WebAssembly build (optional, gitignored)
+│       └── build.sh              # Builds `tlsn-wasm` into ../tlsn-wasm-pkg/
 │
 ├── servers/                 # Rust Cargo workspace (deployable servers)
 │   ├── Cargo.toml                # Workspace root
@@ -131,9 +131,9 @@ Docker-based demo environment with:
 - Docker Compose setup with verifier and nginx
 - Configurable verifier URLs via `.env` files or Docker build args
 
-#### 6. **tlsn-wasm-pkg** - TLSN WebAssembly Package
+#### 6. **tlsn-wasm** - TLSN WebAssembly (local build helper)
 
-Pre-built WebAssembly binaries for TLSNotary functionality in the browser.
+The extension depends on the published [`tlsn-wasm`](https://www.npmjs.com/package/tlsn-wasm) npm package by default. For local development against an unreleased `tlsn` revision, `packages/tlsn-wasm/build.sh` clones the `tlsn` repo and builds `packages/tlsn-wasm-pkg/` (gitignored). Run `npm link` from there and `npm link tlsn-wasm` inside `packages/extension` to override the published package.
 
 ## Architecture Overview
 

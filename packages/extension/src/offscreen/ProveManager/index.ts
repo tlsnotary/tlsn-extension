@@ -7,7 +7,7 @@ import type {
   Method,
   ProverMode,
   RevealOutput,
-} from '../../../../tlsn-wasm-pkg/tlsn_wasm';
+} from 'tlsn-wasm';
 import { logger } from '@tlsn/common';
 import type { Handler } from '@tlsn/plugin-sdk';
 

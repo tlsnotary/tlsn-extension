@@ -7,6 +7,8 @@ bin/
 build
 # TLSN submodule in tlsn-wasm
 packages/tlsn-wasm/tlsn/
+# Local WASM build output (populated by `npm run build:wasm`, used to override the npm `tlsn-wasm` dep)
+packages/tlsn-wasm-pkg/
 zip
 .vscode
 .claude/*

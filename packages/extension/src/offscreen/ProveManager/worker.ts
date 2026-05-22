@@ -12,7 +12,7 @@ import initWasm, {
   Commit,
   RevealOutput,
   compute_reveal as wasmComputeReveal,
-} from '../../../../tlsn-wasm-pkg/tlsn_wasm';
+} from 'tlsn-wasm';
 
 // ============================================================================
 // Console interception for WASM progress reporting
