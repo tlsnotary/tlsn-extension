@@ -29,9 +29,11 @@ ANDROID_SO="$SCRIPT_DIR/modules/tlsn-native/android/src/main/jniLibs/arm64-v8a/l
 TLSN_REPO_DIR="$ROOT_DIR/packages/tlsn-wasm/tlsn"
 SDK_CORE_DIR="$TLSN_REPO_DIR/crates/sdk-core"
 
-# Pinned tlsn revision — keep in sync with packages/tlsn-mobile/Cargo.toml,
-# servers/verifier/Cargo.toml and packages/tlsn-wasm/build.sh.
-TLSN_REV="ceadf458f6f75909eda013aa50108f9f94956188"
+# Pinned tlsn revision — read from packages/tlsn-mobile/Cargo.toml so the
+# Cargo manifest stays the single source of truth. Falls back to origin/main
+# if the line can't be parsed.
+TLSN_REV=$(sed -nE 's/^tlsn-sdk-core[^=]*=.*(tag|rev|branch) = "([^"]+)".*/\2/p' "$ROOT_DIR/packages/tlsn-mobile/Cargo.toml")
+TLSN_REV="${TLSN_REV:-origin/main}"
 
 # Defaults
 PLATFORM="ios"
