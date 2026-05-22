@@ -1,6 +1,6 @@
 {
   "name": "@tlsn/ts-plugin-sample",
-  "version": "0.1.0-alpha.14",
+  "version": "0.1.0-alpha.15",
   "description": "TypeScript plugin sample for TLSN extension",
   "type": "module",
   "main": "build/ts-plugin-sample.js",
