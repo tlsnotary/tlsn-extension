@@ -13,4 +13,4 @@ export const config = {
 // Bump this only after a new extension build is approved on the Chrome Web Store,
 // so users with the previously-released extension don't get falsely flagged as outdated.
 // Extensions exposing no `version` field are treated as outdated.
-export const MIN_EXTENSION_VERSION = '0.1.0.1409';
+export const MIN_EXTENSION_VERSION = '0.1.0.1500';

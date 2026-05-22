@@ -220,9 +220,12 @@ var options = {
     new CopyWebpackPlugin({
       patterns: [
         {
-          from: '../../packages/tlsn-wasm-pkg',
+          from: path.dirname(require.resolve('tlsn-wasm/package.json')),
           to: path.join(__dirname, 'build'),
           force: true,
+          globOptions: {
+            ignore: ['**/package.json', '**/README.md'],
+          },
         },
       ],
     }),

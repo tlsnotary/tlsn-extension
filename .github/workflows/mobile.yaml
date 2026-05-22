@@ -83,9 +83,6 @@ jobs:
           restore-keys: |
             mobile-android-rust-
 
-      - name: Clone tlsn repo (for sdk-core)
-        run: git clone --revision ceadf458f6f75909eda013aa50108f9f94956188 --depth 1 https://github.com/tlsnotary/tlsn.git packages/tlsn-wasm/tlsn
-
       - name: Install dependencies
         run: |
           npm ci
@@ -149,9 +146,6 @@ jobs:
           key: mobile-ios-rust-${{ hashFiles('packages/tlsn-mobile/Cargo.lock', 'packages/tlsn-mobile/Cargo.toml') }}
           restore-keys: |
             mobile-ios-rust-
-
-      - name: Clone tlsn repo (for sdk-core)
-        run: git clone --revision ceadf458f6f75909eda013aa50108f9f94956188 --depth 1 https://github.com/tlsnotary/tlsn.git packages/tlsn-wasm/tlsn
 
       - name: Install dependencies
         run: |

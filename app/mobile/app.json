@@ -2,7 +2,7 @@
   "expo": {
     "name": "TLSNotary Mobile",
     "slug": "tlsn-mobile",
-    "version": "0.1.1400",
+    "version": "0.1.1500",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "tlsn-mobile",

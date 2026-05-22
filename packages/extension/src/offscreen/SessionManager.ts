@@ -1,7 +1,7 @@
 import Host, { canonicalizeHandler } from '@tlsn/plugin-sdk';
 import { ProveManager } from './ProveManager';
 import type { RevealRangeWithHandler } from './ProveManager';
-import type { Method } from '../../../tlsn-wasm-pkg/tlsn_wasm';
+import type { Method } from 'tlsn-wasm';
 import type {
   CanonicalHandler,
   DomJson,

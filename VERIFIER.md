@@ -700,7 +700,7 @@ servers/verifier/
 
 **Core TLSNotary:**
 
-- `tlsn` v0.1.0-alpha.14 - TLSNotary protocol implementation
+- `tlsn` - TLSNotary protocol implementation
 
 **Web Framework:**
 
