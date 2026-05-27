@@ -226,7 +226,13 @@ function NativeProverComponent(
       try {
         return await module.proveFinalize(sessionId, approved);
       } catch (e) {
-        console.error('[NativeProver] proveFinalize failed:', e);
+        // When `approved` is false the native side is expected to reject with
+        // ProofFailed("User rejected reveal") — log at info, not error.
+        if (!approved) {
+          console.log('[NativeProver] proveFinalize cancelled by user');
+        } else {
+          console.error('[NativeProver] proveFinalize failed:', e);
+        }
         throw e;
       }
     },

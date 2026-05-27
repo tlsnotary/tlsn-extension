@@ -215,6 +215,10 @@ export class MobilePluginHost {
             });
           } catch (e) {
             approved = false;
+            // Mark the execution context as rejected so done()/doneWithOverlay()
+            // also reject — matches the extension's `_revealReject` path and
+            // guards against plugins that swallow the prove() throw.
+            this.core.markRevealRejected();
             // Surface the rejection up-stack after we drop the native session.
             void options.onProveFinalize(prep.sessionId, false).catch(() => {});
             throw e instanceof Error ? e : new Error(String(e));
