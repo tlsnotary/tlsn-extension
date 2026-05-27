@@ -5,7 +5,7 @@ use std::{
 
 use axum::{
     extract::{ConnectInfo, Form},
-    http::Request,
+    http::{HeaderMap, Request},
     middleware::{self, Next},
     response::{Html, IntoResponse, Redirect},
     routing::{get, post},
@@ -37,6 +37,27 @@ const HARDCODED_USERS: [(&str, &str); 2] = [
 ];
 const DASHBOARD_CSS: &str = include_str!("dashboard.css");
 const HTMX_JS: &str = include_str!("htmx.min.js");
+const SOURCE_URL: &str =
+    "https://github.com/tlsnotary/tlsn-extension/tree/main/servers/swissbank";
+
+/// Single source of truth for authorization: a request is authorized if it
+/// presents either a valid session cookie (set by dashboard login) or a valid
+/// `Authorization: Bearer …` header. Used by both the access-log middleware
+/// and the `AuthenticatedUser` extractor so they can't drift.
+fn is_authorized(headers: &HeaderMap) -> bool {
+    let cookies = CookieJar::from_headers(headers);
+    if cookies
+        .get(SESSION_COOKIE)
+        .is_some_and(|c| c.value() == AUTH_TOKEN)
+    {
+        return true;
+    }
+
+    headers
+        .get(header::AUTHORIZATION)
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|h| h.trim_start_matches("Bearer ") == AUTH_TOKEN)
+}
 
 fn get_local_ip() -> String {
     if let Ok(ip) = local_ip_address::local_ip() {
@@ -168,18 +189,7 @@ async fn access_log_middleware(
                     .unwrap_or_else(|| "<unknown>".to_string())
             });
 
-        // Check authorization header
-        let is_authorized = req
-            .headers()
-            .get("authorization")
-            .and_then(|value| value.to_str().ok())
-            .map(|auth_token| {
-                let token = auth_token.trim_start_matches("Bearer ");
-                token == AUTH_TOKEN
-            })
-            .unwrap_or(false);
-
-        let message = if is_authorized {
+        let message = if is_authorized(req.headers()) {
             format!("✅ Authorized access to /balances from {}", ip)
         } else {
             format!("❌ Unauthorized access attempt to /balances from {}", ip)
@@ -211,28 +221,11 @@ where
         req: axum::extract::Request,
         _state: &S,
     ) -> Result<Self, Self::Rejection> {
-        // First check for session cookie
-        let cookies = CookieJar::from_headers(req.headers());
-        if let Some(session_cookie) = cookies.get(SESSION_COOKIE) {
-            if session_cookie.value() == AUTH_TOKEN {
-                return Ok(AuthenticatedUser);
-            }
+        if is_authorized(req.headers()) {
+            Ok(AuthenticatedUser)
+        } else {
+            Err((StatusCode::UNAUTHORIZED, "Invalid or missing token"))
         }
-
-        // Fallback to Bearer token for API access
-        let auth_header = req
-            .headers()
-            .get(header::AUTHORIZATION)
-            .and_then(|value| value.to_str().ok());
-
-        if let Some(auth_token) = auth_header {
-            let token = auth_token.trim_start_matches("Bearer ");
-            if token == AUTH_TOKEN {
-                return Ok(AuthenticatedUser);
-            }
-        }
-
-        Err((StatusCode::UNAUTHORIZED, "Invalid or missing token"))
     }
 }
 
@@ -402,6 +395,10 @@ pub fn HomePage() -> Element {
                         div { class: "link-title", "Logs" }
                         div { class: "link-desc", "View access logs in JSON format" }
                     }
+                }
+                footer { class: "source-footer",
+                    "Source: "
+                    a { href: SOURCE_URL, target: "_blank", rel: "noopener noreferrer", "{SOURCE_URL}" }
                 }
             }
         }
