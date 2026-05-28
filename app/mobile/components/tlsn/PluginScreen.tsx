@@ -95,6 +95,8 @@ interface PluginScreenProps {
   pluginCode: string;
   /** Plugin configuration (extracted from plugin code) */
   pluginConfig: PluginConfig;
+  /** GitHub URL for the plugin's source — shown on the approval sheet. */
+  sourceUrl?: string;
   /** Called when the plugin completes (calls done()) */
   onComplete?: (result: unknown) => void;
   /** Called when the plugin encounters an error */
@@ -117,6 +119,7 @@ interface PluginScreenProps {
 export function PluginScreen({
   pluginCode,
   pluginConfig,
+  sourceUrl,
   onComplete,
   onError,
   verifierUrlOverride,
@@ -393,7 +396,7 @@ export function PluginScreen({
       <PluginApprovalSheet
         visible={proverReady && approvalMode == null}
         pluginConfig={pluginConfig}
-        pluginCode={pluginCode}
+        sourceUrl={sourceUrl}
         onApprove={(mode) => setApprovalMode(mode)}
         onReject={() => setApprovalMode('rejected')}
       />

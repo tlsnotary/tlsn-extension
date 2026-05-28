@@ -177,6 +177,7 @@ export default function PluginRunnerScreen() {
         <PluginScreen
           pluginCode={plugin.getPluginCode()}
           pluginConfig={plugin.pluginConfig}
+          sourceUrl={plugin.sourceUrl}
           verifierUrlOverride={verifierUrl}
           mode={proxyMode ? 'Proxy' : 'Mpc'}
           onComplete={(res) => {

@@ -12,6 +12,8 @@ export interface PluginEntry {
   accentColor: string;
   pluginConfig: PluginConfig;
   getPluginCode: () => string;
+  /** GitHub URL pointing at the plugin's source on `main`. */
+  sourceUrl: string;
 }
 
 // Static require map — Metro needs static require() calls for bundling.
@@ -32,6 +34,8 @@ const CODE_MAP: Record<string, () => string> = {
 
 const DEFAULT_VERIFIER_URL = 'https://demo.tlsnotary.org';
 
+const SOURCE_BASE = 'https://github.com/tlsnotary/tlsn-extension/blob/main/packages/plugins/src';
+
 function toPluginEntry(meta: PluginMetadata, verifierUrl: string): PluginEntry {
   return {
     id: meta.id,
@@ -51,6 +55,7 @@ function toPluginEntry(meta: PluginMetadata, verifierUrl: string): PluginEntry {
       oauthHosts: meta.pluginConfig.oauthHosts,
     },
     getPluginCode: CODE_MAP[meta.id] || (() => ''),
+    sourceUrl: `${SOURCE_BASE}/${meta.id}.plugin.ts`,
   };
 }
 

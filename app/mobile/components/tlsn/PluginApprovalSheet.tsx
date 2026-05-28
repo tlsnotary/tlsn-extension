@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React from 'react';
+import { Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { PluginConfig } from '@tlsn/plugin-sdk';
 import { BottomSheetCard } from './BottomSheetCard';
 
@@ -15,7 +15,8 @@ export type ApprovalMode = 'manual' | 'all-session' | 'rejected';
 interface PluginApprovalSheetProps {
   visible: boolean;
   pluginConfig: PluginConfig;
-  pluginCode: string;
+  /** GitHub URL of the plugin's source file, opened in the system browser. */
+  sourceUrl?: string;
   onApprove: (mode: 'manual' | 'all-session') => void;
   onReject: () => void;
 }
@@ -27,12 +28,10 @@ interface PluginApprovalSheetProps {
 export function PluginApprovalSheet({
   visible,
   pluginConfig,
-  pluginCode,
+  sourceUrl,
   onApprove,
   onReject,
 }: PluginApprovalSheetProps) {
-  const [sourceExpanded, setSourceExpanded] = useState(false);
-
   const requests = pluginConfig.requests ?? [];
 
   return (
@@ -63,18 +62,10 @@ export function PluginApprovalSheet({
           </View>
         ) : null}
 
-        <TouchableOpacity style={styles.sourceToggle} onPress={() => setSourceExpanded((v) => !v)}>
-          <Text style={styles.sourceToggleText}>
-            {sourceExpanded ? '▾ Hide source' : '▸ View source'}
-          </Text>
-        </TouchableOpacity>
-
-        {sourceExpanded ? (
-          <View style={styles.sourceBox}>
-            <ScrollView horizontal style={styles.sourceScroll} showsHorizontalScrollIndicator>
-              <Text style={styles.sourceText}>{pluginCode}</Text>
-            </ScrollView>
-          </View>
+        {sourceUrl ? (
+          <TouchableOpacity style={styles.sourceToggle} onPress={() => Linking.openURL(sourceUrl)}>
+            <Text style={styles.sourceToggleText}>View source on GitHub ↗</Text>
+          </TouchableOpacity>
         ) : null}
       </ScrollView>
 
@@ -140,14 +131,6 @@ const styles = StyleSheet.create({
   path: { color: '#6b7280' },
   sourceToggle: { marginTop: 16, paddingVertical: 6 },
   sourceToggleText: { fontSize: 14, color: '#2563eb', fontWeight: '500' },
-  sourceBox: {
-    marginTop: 8,
-    backgroundColor: '#f3f4f6',
-    borderRadius: 8,
-    maxHeight: 200,
-  },
-  sourceScroll: { padding: 12 },
-  sourceText: { fontFamily: 'SpaceMono', fontSize: 11, color: '#1f2937' },
   footer: {
     flexDirection: 'column',
     paddingTop: 16,
