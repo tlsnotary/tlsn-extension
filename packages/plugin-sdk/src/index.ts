@@ -18,19 +18,6 @@ import {
 } from './host-core';
 import { InterceptedRequest, InterceptedRequestHeader, PluginConfig } from './types';
 
-// Export Parser and its types
-export {
-  Parser,
-  type Range,
-  type ParsedValue,
-  type ParsedHeader,
-  type JsonFieldEntry,
-  type ParsedRequest,
-  type ParsedResponse,
-  type HeaderRangeOptions,
-  type BodyRangeOptions,
-} from './parser';
-
 /**
  * Preprocess plugin code to work around @sebastianwessel/quickjs serialization bugs.
  *

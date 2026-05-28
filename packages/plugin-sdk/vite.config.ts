@@ -17,7 +17,7 @@ export default defineConfig({
       // Separate entry for styles enables tree-shaking:
       // plugins import styling from '/styles' without pulling in the full SDK.
       entry: {
-        index: path.resolve(__dirname, 'src/index.ts'), // Full SDK: Host, Parser, QuickJS sandbox
+        index: path.resolve(__dirname, 'src/index.ts'), // Full SDK: Host, QuickJS sandbox
         'host-core': path.resolve(__dirname, 'src/host-core.ts'), // Platform-agnostic HostCore
         styles: path.resolve(__dirname, 'src/styles.ts'), // Tailwind-like styling helpers
       },
