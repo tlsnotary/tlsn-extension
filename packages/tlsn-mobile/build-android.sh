@@ -9,6 +9,11 @@ unset NIX_LDFLAGS
 unset NIX_CFLAGS_COMPILE
 
 echo "Building for Android arm64-v8a (aarch64-linux-android)..."
+# Force a fresh build of just this crate. CI caches target/, and cargo can keep
+# a stale cached libtlsn_mobile.so after a source change; uniffi-bindgen reads
+# metadata from that .so, so a stale .so silently produces stale bindings.
+# Cleaning only this package keeps the (expensive) dependency artifacts cached.
+cargo clean -p tlsn-mobile
 cargo ndk -t arm64-v8a build --release
 
 echo "Generating Kotlin bindings..."

@@ -12,6 +12,12 @@ unset SDKROOT
 # Pin iOS deployment target so ring/cc-rs doesn't inherit a wrong version from Nix SDK
 export IPHONEOS_DEPLOYMENT_TARGET="${IPHONEOS_DEPLOYMENT_TARGET:-15.1}"
 
+# Force a fresh build of just this crate. CI caches target/, and cargo can keep
+# a stale cached libtlsn_mobile.a after a source change; uniffi-bindgen reads
+# metadata from that lib, so a stale lib silently produces stale bindings.
+# Cleaning only this package keeps the (expensive) dependency artifacts cached.
+cargo clean -p tlsn-mobile
+
 echo "Building for iOS device (aarch64-apple-ios)..."
 cargo build --target aarch64-apple-ios --release
 
