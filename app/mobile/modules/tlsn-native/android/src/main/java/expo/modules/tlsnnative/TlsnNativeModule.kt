@@ -146,15 +146,24 @@ private fun parseHandler(handlerObj: JSONObject): Handler? {
                 "in" -> AssertOp.IN
                 else -> return null
             }
-            val value = if (actionObj.has("value")) actionObj.optDouble("value") else null
-            val min = if (actionObj.has("min")) actionObj.optDouble("min") else null
-            val max = if (actionObj.has("max")) actionObj.optDouble("max") else null
+            val valueType = when (actionObj.optString("valueType", "")) {
+                "number" -> AssertValueType.NUMBER
+                "bigint" -> AssertValueType.BIGINT
+                "date" -> AssertValueType.DATE
+                "string" -> AssertValueType.STRING
+                else -> null
+            }
+            // Operands arrive as strings; the verifier parses them per valueType.
+            val value = if (actionObj.has("value")) actionObj.optString("value") else null
+            val min = if (actionObj.has("min")) actionObj.optString("min") else null
+            val max = if (actionObj.has("max")) actionObj.optString("max") else null
             val inclusive = if (actionObj.has("inclusive")) actionObj.optBoolean("inclusive") else null
             val values = actionObj.optJSONArray("values")?.let { arr ->
                 (0 until arr.length()).map { arr.get(it).toString() }
             }
             HandlerAction.Assert(
                 op = op,
+                valueType = valueType,
                 value = value,
                 min = min,
                 max = max,

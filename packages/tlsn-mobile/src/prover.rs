@@ -33,9 +33,9 @@ use url::Url;
 use uuid::Uuid;
 
 use crate::{
-    shared_runtime, ws_io::WsIoAdapter, AssertOp, HandlerAction, HttpHeader, HttpRequest,
-    HttpResponse, Mode, ProgressCallback, ProofResult, ProverOptions, RevealPreparation,
-    RevealRangeDescriptor, TlsnError, Transcript,
+    shared_runtime, ws_io::WsIoAdapter, AssertOp, AssertValueType, HandlerAction, HttpHeader,
+    HttpRequest, HttpResponse, Mode, ProgressCallback, ProofResult, ProverOptions,
+    RevealPreparation, RevealRangeDescriptor, TlsnError, Transcript,
 };
 
 impl Mode {
@@ -633,11 +633,21 @@ fn assert_op_str(op: AssertOp) -> &'static str {
     }
 }
 
+fn assert_value_type_str(vt: AssertValueType) -> &'static str {
+    match vt {
+        AssertValueType::Number => "number",
+        AssertValueType::Bigint => "bigint",
+        AssertValueType::Date => "date",
+        AssertValueType::String => "string",
+    }
+}
+
 /// Build the verifier's `action` JSON for an ASSERT handler (`{"kind":"ASSERT",…}`).
 fn assert_action_json(action: &HandlerAction) -> serde_json::Value {
     match action {
         HandlerAction::Assert {
             op,
+            value_type,
             value,
             min,
             max,
@@ -647,6 +657,10 @@ fn assert_action_json(action: &HandlerAction) -> serde_json::Value {
             let mut obj = serde_json::Map::new();
             obj.insert("kind".into(), serde_json::json!("ASSERT"));
             obj.insert("op".into(), serde_json::json!(assert_op_str(*op)));
+            if let Some(vt) = value_type {
+                obj.insert("valueType".into(), serde_json::json!(assert_value_type_str(*vt)));
+            }
+            // Operands are emitted as JSON strings; the verifier parses them per valueType.
             if let Some(v) = value {
                 obj.insert("value".into(), serde_json::json!(v));
             }

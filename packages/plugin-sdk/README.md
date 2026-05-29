@@ -162,12 +162,12 @@ reveal: [
 {
   type: 'RECV',
   part: 'BODY',
-  action: { kind: 'ASSERT', op: 'gte', value: 1000 },
+  action: { kind: 'ASSERT', op: 'gte', value: 1000, valueType: 'number' },
   params: { type: 'json', path: 'accounts.EUR', hideKey: true },
 }
 ```
 
-`ASSERT` supports `op: 'gt' | 'gte' | 'lt' | 'lte'` (with `value`), `op: 'between'` (with `min`, `max`, optional `inclusive`), and `op: 'in'` (with `values`). Ordering/`between` compare numerically; `in` tests membership.
+`ASSERT` supports `op: 'gt' | 'gte' | 'lt' | 'lte'` (with `value`), `op: 'between'` (with `min`, `max`, optional `inclusive`), and `op: 'in'` (with `values`). The ordering ops and `between` require a `valueType` of `'number'` | `'bigint'` | `'date'` | `'string'` that controls the comparison (numeric types ignore `_`/`,` separators; `date` parses RFC 3339 / ISO-8601). Operands may be strings for large bigints or date values. `in` tests membership (separator-tolerant).
 
 ## Architecture
 

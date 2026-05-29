@@ -140,12 +140,23 @@ private func parseHandler(_ dict: [String: Any], index: Int) -> Handler? {
         case "in": op = .`in`
         default: return nil
         }
-        let value = (actionDict["value"] as? NSNumber)?.doubleValue
-        let min = (actionDict["min"] as? NSNumber)?.doubleValue
-        let max = (actionDict["max"] as? NSNumber)?.doubleValue
+        let valueType: AssertValueType?
+        switch actionDict["valueType"] as? String {
+        case "number": valueType = .number
+        case "bigint": valueType = .bigint
+        case "date": valueType = .date
+        case "string": valueType = .string
+        default: valueType = nil
+        }
+        // Operands arrive as strings; the verifier parses them per valueType.
+        let value = actionDict["value"] as? String
+        let min = actionDict["min"] as? String
+        let max = actionDict["max"] as? String
         let inclusive = actionDict["inclusive"] as? Bool
         let values = (actionDict["values"] as? [Any])?.map { String(describing: $0) }
-        action = .assert(op: op, value: value, min: min, max: max, inclusive: inclusive, values: values)
+        action = .assert(
+            op: op, valueType: valueType, value: value, min: min, max: max,
+            inclusive: inclusive, values: values)
     default:
         return nil
     }

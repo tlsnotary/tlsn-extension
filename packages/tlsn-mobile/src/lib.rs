@@ -164,6 +164,16 @@ pub enum AssertOp {
     In,
 }
 
+/// How the verifier types an ASSERT comparison. Required for ordering ops and
+/// `between`.
+#[derive(Debug, Clone, Copy, uniffi::Enum)]
+pub enum AssertValueType {
+    Number,
+    Bigint,
+    Date,
+    String,
+}
+
 /// Handler action (what to do with the part).
 #[derive(Debug, Clone, uniffi::Enum)]
 pub enum HandlerAction {
@@ -176,11 +186,14 @@ pub enum HandlerAction {
     /// the assertion spec is carried to the verifier's `reveal_config`.
     Assert {
         op: AssertOp,
-        value: Option<f64>,
-        min: Option<f64>,
-        max: Option<f64>,
+        /// How to type the comparison (ordering ops + `between`).
+        value_type: Option<AssertValueType>,
+        /// Operands as strings (parsed per `value_type` by the verifier).
+        value: Option<String>,
+        min: Option<String>,
+        max: Option<String>,
         inclusive: Option<bool>,
-        /// Candidate values for `in` (stringified on the native side).
+        /// Candidate values for `in`.
         values: Option<Vec<String>>,
     },
 }

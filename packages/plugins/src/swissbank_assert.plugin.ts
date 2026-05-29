@@ -80,7 +80,7 @@ const onClick = async (): Promise<void> => {
         {
           type: 'RECV',
           part: 'BODY',
-          action: { kind: 'ASSERT', op: 'gte', value: MIN_BALANCE },
+          action: { kind: 'ASSERT', op: 'gte', value: MIN_BALANCE, valueType: 'number' },
           params: { type: 'json', path: 'accounts.EUR', hideKey: true },
         } satisfies Handler,
       ],

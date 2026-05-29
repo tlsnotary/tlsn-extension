@@ -97,11 +97,11 @@ function describeAssert(action: AssertAction): string {
     case 'between':
       return `between ${action.min} and ${action.max}${
         action.inclusive === false ? ' (exclusive)' : ''
-      }`;
+      } [${action.valueType}]`;
     case 'in':
       return `in [${action.values.join(', ')}]`;
     default:
-      return `${action.op} ${action.value}`;
+      return `${action.op} ${action.value} [${action.valueType}]`;
   }
 }
 

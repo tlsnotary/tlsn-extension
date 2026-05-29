@@ -656,14 +656,23 @@ type Handler = {
 An `ASSERT` action reveals the targeted data (exactly like `REVEAL`) and additionally asks the **verifier** to evaluate a comparison against it. The boolean outcome is returned on the handler result as `assert`. A failed assertion does not abort the proof — it is reported as `assert: false`.
 
 ```typescript
+type AssertValueType = 'number' | 'bigint' | 'date' | 'string';
+
 type AssertAction =
-  | { kind: 'ASSERT'; op: 'gt' | 'gte' | 'lt' | 'lte'; value: number }
-  | { kind: 'ASSERT'; op: 'between'; min: number; max: number; inclusive?: boolean } // inclusive defaults to true
+  // `valueType` is REQUIRED for the ordering ops and `between`.
+  | { kind: 'ASSERT'; op: 'gt' | 'gte' | 'lt' | 'lte'; value: string | number; valueType: AssertValueType }
+  | { kind: 'ASSERT'; op: 'between'; min: string | number; max: string | number; inclusive?: boolean; valueType: AssertValueType } // inclusive defaults to true
   | { kind: 'ASSERT'; op: 'in'; values: (string | number)[] };
 ```
 
-- Ordering ops (`gt`/`gte`/`lt`/`lte`) and `between` compare the revealed value **numerically** (the verifier parses it as a number; non-numeric values yield `assert: false`).
-- `in` tests membership against the list (string or numeric match).
+- `valueType` tells the verifier how to compare the revealed value (and the operand):
+  - `number` — parsed as a float; `_` and `,` separators are ignored (so `"275_000_000"` compares as `275000000`).
+  - `bigint` — arbitrary-size integer (separators ignored); use for values beyond float precision.
+  - `date` — RFC 3339 / ISO-8601 timestamp (or `YYYY-MM-DD`), compared chronologically.
+  - `string` — lexicographic.
+- Operands may be a string when a number can't represent them losslessly (large bigints, date strings).
+- `in` tests membership against the list (string or numeric match, separator-tolerant).
+- A parse failure or non-matching type yields `assert: false` (never aborts the proof).
 - Target the bare value — e.g. a JSON body field with `hideKey: true` — so the revealed bytes are exactly the value being compared.
 
 ```javascript
@@ -671,7 +680,7 @@ type AssertAction =
 {
   type: 'RECV',
   part: 'BODY',
-  action: { kind: 'ASSERT', op: 'gte', value: 1000 },
+  action: { kind: 'ASSERT', op: 'gte', value: 1000, valueType: 'number' },
   params: { type: 'json', path: 'accounts.EUR', hideKey: true },
 }
 ```

@@ -274,6 +274,7 @@ export type {
   HandlerAction,
   AssertAction,
   AssertOp,
+  AssertValueType,
   CanonicalHandlerAction,
   CanonicalHandler,
   HashAlgorithm,
