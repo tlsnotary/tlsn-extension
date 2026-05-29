@@ -616,7 +616,9 @@ type Handler = {
     | 'HEADERS'
     | 'BODY'
     | 'ALL';
-  action: 'REVEAL' | 'HASH'; // Reveal plaintext or commit hash
+  // 'REVEAL' (plaintext), { kind: 'HASH', algorithm } (commitment), or
+  // { kind: 'ASSERT', ... } (reveal + verifier-side comparison; see "ASSERT action" below).
+  action: 'REVEAL' | { kind: 'HASH'; algorithm: 'BLAKE3' | 'SHA256' | 'KECCAK256' } | AssertAction;
   params?: {
     // For HEADERS:
     key?: string; // Header name to reveal
@@ -649,6 +651,31 @@ type Handler = {
 | `BODY`           | HTTP body content                                 | SENT, RECV    |
 | `ALL`            | Entire transcript (use with regex)                | SENT, RECV    |
 
+**ASSERT action:**
+
+An `ASSERT` action reveals the targeted data (exactly like `REVEAL`) and additionally asks the **verifier** to evaluate a comparison against it. The boolean outcome is returned on the handler result as `assert`. A failed assertion does not abort the proof — it is reported as `assert: false`.
+
+```typescript
+type AssertAction =
+  | { kind: 'ASSERT'; op: 'gt' | 'gte' | 'lt' | 'lte'; value: number }
+  | { kind: 'ASSERT'; op: 'between'; min: number; max: number; inclusive?: boolean } // inclusive defaults to true
+  | { kind: 'ASSERT'; op: 'in'; values: (string | number)[] };
+```
+
+- Ordering ops (`gt`/`gte`/`lt`/`lte`) and `between` compare the revealed value **numerically** (the verifier parses it as a number; non-numeric values yield `assert: false`).
+- `in` tests membership against the list (string or numeric match).
+- Target the bare value — e.g. a JSON body field with `hideKey: true` — so the revealed bytes are exactly the value being compared.
+
+```javascript
+// Prove the account balance is at least 1000 (and reveal it)
+{
+  type: 'RECV',
+  part: 'BODY',
+  action: { kind: 'ASSERT', op: 'gte', value: 1000 },
+  params: { type: 'json', path: 'accounts.EUR', hideKey: true },
+}
+```
+
 **Returns:** Promise<ProofResponse> - The generated proof data
 
 **ProofResponse Structure:**
@@ -660,9 +687,10 @@ interface ProofResponse {
   results: Array<{
     type: 'SENT' | 'RECV'; // Request or response data
     part: string; // Which part (START_LINE, HEADERS, BODY, etc.)
-    action: 'REVEAL' | 'HASH'; // Reveal or commitment action
+    action: 'REVEAL' | 'HASH' | 'ASSERT'; // Reveal, commitment, or assertion action
     params?: object; // Optional handler parameters
     value: string; // The extracted value
+    assert?: boolean; // Present only for ASSERT handlers: did the comparison hold?
   }>;
 }
 ```

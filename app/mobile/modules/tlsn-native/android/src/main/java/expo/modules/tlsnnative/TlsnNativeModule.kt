@@ -136,6 +136,32 @@ private fun parseHandler(handlerObj: JSONObject): Handler? {
             }
             HandlerAction.Hash(algorithm)
         }
+        "Assert" -> {
+            val op = when (actionObj.optString("op", "")) {
+                "gt" -> AssertOp.GT
+                "gte" -> AssertOp.GTE
+                "lt" -> AssertOp.LT
+                "lte" -> AssertOp.LTE
+                "between" -> AssertOp.BETWEEN
+                "in" -> AssertOp.IN
+                else -> return null
+            }
+            val value = if (actionObj.has("value")) actionObj.optDouble("value") else null
+            val min = if (actionObj.has("min")) actionObj.optDouble("min") else null
+            val max = if (actionObj.has("max")) actionObj.optDouble("max") else null
+            val inclusive = if (actionObj.has("inclusive")) actionObj.optBoolean("inclusive") else null
+            val values = actionObj.optJSONArray("values")?.let { arr ->
+                (0 until arr.length()).map { arr.get(it).toString() }
+            }
+            HandlerAction.Assert(
+                op = op,
+                value = value,
+                min = min,
+                max = max,
+                inclusive = inclusive,
+                values = values
+            )
+        }
         else -> return null
     }
 

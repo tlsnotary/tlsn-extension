@@ -155,6 +155,19 @@ reveal: [
 
 - `REVEAL` - Include in proof as plaintext
 - `HASH` - Commit with hash (default: BLAKE3)
+- `ASSERT` - Reveal the value and have the verifier evaluate a comparison against it; the boolean result is reported as `assert` on the handler result (report-only, never aborts the proof)
+
+```javascript
+// Reveal the balance AND prove it is >= 1000
+{
+  type: 'RECV',
+  part: 'BODY',
+  action: { kind: 'ASSERT', op: 'gte', value: 1000 },
+  params: { type: 'json', path: 'accounts.EUR', hideKey: true },
+}
+```
+
+`ASSERT` supports `op: 'gt' | 'gte' | 'lt' | 'lte'` (with `value`), `op: 'between'` (with `min`, `max`, optional `inclusive`), and `op: 'in'` (with `values`). Ordering/`between` compare numerically; `in` tests membership.
 
 ## Architecture
 

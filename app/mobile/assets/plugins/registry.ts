@@ -26,6 +26,8 @@ const CODE_MAP: Record<string, () => string> = {
   swissbank: () => require('@tlsn/plugins/dist/mobile/swissbank').SWISSBANK_PLUGIN_CODE,
   swissbank_hash: () =>
     require('@tlsn/plugins/dist/mobile/swissbank_hash').SWISSBANK_HASH_PLUGIN_CODE,
+  swissbank_assert: () =>
+    require('@tlsn/plugins/dist/mobile/swissbank_assert').SWISSBANK_ASSERT_PLUGIN_CODE,
   spotify: () => require('@tlsn/plugins/dist/mobile/spotify').SPOTIFY_PLUGIN_CODE,
   duolingo: () => require('@tlsn/plugins/dist/mobile/duolingo').DUOLINGO_PLUGIN_CODE,
   uber: () => require('@tlsn/plugins/dist/mobile/uber').UBER_PLUGIN_CODE,

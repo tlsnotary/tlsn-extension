@@ -161,7 +161,30 @@ export type HandlerPart =
 export type HashAlgorithm = 'BLAKE3' | 'SHA256' | 'KECCAK256';
 
 /** String action kind used in reveal-range previews and descriptors. */
-export type HandlerActionKind = 'REVEAL' | 'HASH';
+export type HandlerActionKind = 'REVEAL' | 'HASH' | 'ASSERT';
+
+/**
+ * Comparison operators for an ASSERT action.
+ *
+ * - Ordering ops (`gt`/`gte`/`lt`/`lte`) and `between` compare the revealed
+ *   value numerically (parsed as a float by the verifier).
+ * - `in` tests membership against a list of values.
+ */
+export type AssertOp = 'gt' | 'gte' | 'lt' | 'lte' | 'between' | 'in';
+
+/**
+ * An assertion over the revealed data, evaluated by the verifier.
+ *
+ * The data is still revealed in plaintext (the prover treats ASSERT exactly
+ * like REVEAL); the verifier additionally computes the comparison and reports
+ * the boolean result on the handler result. The plugin should target the bare
+ * value (e.g. a JSON body field with `hideKey: true`) so the revealed bytes are
+ * the value being compared.
+ */
+export type AssertAction =
+  | { kind: 'ASSERT'; op: 'gt' | 'gte' | 'lt' | 'lte'; value: number }
+  | { kind: 'ASSERT'; op: 'between'; min: number; max: number; inclusive?: boolean }
+  | { kind: 'ASSERT'; op: 'in'; values: (string | number)[] };
 
 export type RevealRangeDescriptor = {
   direction: HandlerType;
@@ -186,7 +209,8 @@ export type RevealRangeDescriptor = {
 export type HandlerAction =
   | 'REVEAL'
   | { kind: 'REVEAL' }
-  | { kind: 'HASH'; algorithm: HashAlgorithm };
+  | { kind: 'HASH'; algorithm: HashAlgorithm }
+  | AssertAction;
 
 export type StartLineHandler = {
   type: HandlerType;
@@ -252,6 +276,11 @@ export function canonicalizeHandler(handler: Handler): CanonicalHandler {
 
 export function canonicalizeHandlers(handlers: Handler[]): CanonicalHandler[] {
   return handlers.map(canonicalizeHandler);
+}
+
+/** True when the action is an ASSERT (in either shorthand or object form). */
+export function isAssertAction(action: HandlerAction): action is AssertAction {
+  return typeof action === 'object' && action.kind === 'ASSERT';
 }
 
 /**

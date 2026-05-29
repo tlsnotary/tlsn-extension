@@ -24,6 +24,7 @@ const plugins = [
   'twitter',
   'swissbank',
   'swissbank_hash',
+  'swissbank_assert',
   'spotify',
   'duolingo',
   'uber',
