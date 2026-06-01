@@ -15,6 +15,8 @@ import {
   setVerifierUrl,
   getProxyMode,
   setProxyMode,
+  getDebugEnabled,
+  setDebugEnabled,
   getLogLevel,
   setLogLevelPref,
   DEFAULT_VERIFIER_URL,
@@ -28,6 +30,7 @@ export default function SettingsScreen() {
   const [url, setUrl] = useState('');
   const [saved, setSaved] = useState(false);
   const [proxyMode, setProxyModeState] = useState(false);
+  const [debugEnabled, setDebugEnabledState] = useState(false);
   const [logLevel, setLogLevelState] = useState<TlsnLogLevel>(DEFAULT_LOG_LEVEL);
   // Don't let the async initial read clobber a tap that lands before it resolves.
   const logLevelTouched = useRef(false);
@@ -35,6 +38,7 @@ export default function SettingsScreen() {
   useEffect(() => {
     getVerifierUrl().then(setUrl);
     getProxyMode().then(setProxyModeState);
+    getDebugEnabled().then(setDebugEnabledState);
     getLogLevel().then((level) => {
       if (!logLevelTouched.current) setLogLevelState(level);
     });
@@ -43,6 +47,11 @@ export default function SettingsScreen() {
   const handleToggleProxyMode = async (value: boolean) => {
     setProxyModeState(value);
     await setProxyMode(value);
+  };
+
+  const handleToggleDebug = async (value: boolean) => {
+    setDebugEnabledState(value);
+    await setDebugEnabled(value);
   };
 
   const handleSelectLogLevel = async (level: TlsnLogLevel) => {
@@ -111,29 +120,47 @@ export default function SettingsScreen() {
       </View>
 
       <View style={[styles.card, styles.cardSpacing]}>
-        <Text style={styles.label}>Prover verbosity</Text>
-        <Text style={styles.description}>
-          How much the tlsn prover logs — captures this level and finer detail (not a display
-          filter). Use Debug or Trace to diagnose proving failures; applies on the next run.
-        </Text>
-        <View style={styles.segment}>
-          {LOG_LEVELS.map((level) => {
-            const active = logLevel === level;
-            return (
-              <TouchableOpacity
-                key={level}
-                style={[styles.segmentButton, active && styles.segmentButtonActive]}
-                onPress={() => handleSelectLogLevel(level)}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.segmentText, active && styles.segmentTextActive]}>
-                  {level.charAt(0).toUpperCase() + level.slice(1)}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+        <View style={styles.toggleRow}>
+          <View style={styles.toggleLabelGroup}>
+            <Text style={styles.label}>Debug</Text>
+            <Text style={styles.linkDescription}>
+              Show prover log detail and a live log drawer while running a plugin.
+            </Text>
+          </View>
+          <Switch
+            value={debugEnabled}
+            onValueChange={handleToggleDebug}
+            trackColor={{ false: '#ddd', true: '#243f5f' }}
+          />
         </View>
       </View>
+
+      {debugEnabled && (
+        <View style={[styles.card, styles.cardSpacing]}>
+          <Text style={styles.label}>Prover verbosity</Text>
+          <Text style={styles.description}>
+            How much the tlsn prover logs — captures this level and finer detail (not a display
+            filter). Use Debug or Trace to diagnose proving failures; applies on the next run.
+          </Text>
+          <View style={styles.segment}>
+            {LOG_LEVELS.map((level) => {
+              const active = logLevel === level;
+              return (
+                <TouchableOpacity
+                  key={level}
+                  style={[styles.segmentButton, active && styles.segmentButtonActive]}
+                  onPress={() => handleSelectLogLevel(level)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.segmentText, active && styles.segmentTextActive]}>
+                    {level.charAt(0).toUpperCase() + level.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      )}
 
       <TouchableOpacity
         style={[styles.card, styles.cardSpacing, styles.linkRow]}

@@ -1,9 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Alert, ScrollView, TouchableOpacity } from 'react-native';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { PluginScreen } from '@/components/tlsn/PluginScreen';
+import { LogDrawer } from '@/components/LogDrawer';
 import { getPluginById } from '../../assets/plugins/registry';
-import { useVerifierUrl, useProxyMode } from '@/lib/useVerifierUrl';
+import { useVerifierUrl, useProxyMode, getDebugEnabled } from '@/lib/useVerifierUrl';
 
 /**
  * Extract all handler result values from the proof result string.
@@ -68,6 +70,12 @@ export default function PluginRunnerScreen() {
   const [result, setResult] = useState<string | null>(null);
   const [provenExpanded, setProvenExpanded] = useState(false);
   const [rawExpanded, setRawExpanded] = useState(false);
+  const [debugEnabled, setDebugEnabled] = useState(false);
+  const [logsOpen, setLogsOpen] = useState(false);
+
+  useEffect(() => {
+    getDebugEnabled().then(setDebugEnabled);
+  }, []);
 
   const results = useMemo(() => (result ? parseResults(result) : []), [result]);
   const keyValue = results.length > 0 ? results[results.length - 1].value : null;
@@ -93,6 +101,18 @@ export default function PluginRunnerScreen() {
           headerStyle: { backgroundColor: '#243f5f' },
           headerTintColor: '#fff',
           headerTitleStyle: { fontWeight: 'bold' },
+          // When Debug is enabled (Settings), expose a live log drawer toggle.
+          headerRight: debugEnabled
+            ? () => (
+                <TouchableOpacity
+                  onPress={() => setLogsOpen((v) => !v)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  activeOpacity={0.7}
+                >
+                  <FontAwesome name="terminal" size={20} color="#fff" />
+                </TouchableOpacity>
+              )
+            : undefined,
         }}
       />
       {result ? (
@@ -188,6 +208,8 @@ export default function PluginRunnerScreen() {
           }}
         />
       )}
+
+      <LogDrawer visible={logsOpen} onClose={() => setLogsOpen(false)} />
     </View>
   );
 }

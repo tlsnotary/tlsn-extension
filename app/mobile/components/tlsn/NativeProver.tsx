@@ -25,7 +25,7 @@ import type {
   RevealRangeDescriptor,
 } from '../../modules/tlsn-native/src';
 import { addLog, type LogLevel } from '@/lib/logStore';
-import { getLogLevel } from '@/lib/useVerifierUrl';
+import { getEffectiveLogLevel } from '@/lib/useVerifierUrl';
 
 export type {
   HandlerType,
@@ -150,9 +150,9 @@ function NativeProverComponent(
         setIsReady(true);
         onReady?.();
 
-        // Apply the persisted native log level so the Logs screen shows the
-        // verbosity the user selected in Settings.
-        getLogLevel()
+        // Apply the effective native log level (the selected verbosity only when
+        // Debug is enabled in Settings, otherwise the quiet default).
+        getEffectiveLogLevel()
           .then((level) => module.setLogLevel(level))
           .catch(() => {});
       } catch (e) {
