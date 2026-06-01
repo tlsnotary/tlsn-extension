@@ -248,6 +248,27 @@ export const PLUGIN_REGISTRY: PluginMetadata[] = [
       urls: ['https://connect.garmin.com/*'],
     },
   },
+  {
+    id: 'chesscom',
+    name: 'Chess.com Rating',
+    description: 'Prove your Chess.com ratings (rapid, blitz, bullet, tactics)',
+    logo: '♟️', // ♟️
+    resultLabel: 'Ratings',
+    accentColor: '#81b64c',
+    platforms: ['demo'],
+    pluginConfig: {
+      name: 'Chess.com Rating',
+      description: 'Prove your Chess.com ratings.',
+      requests: [
+        {
+          method: 'GET',
+          host: 'www.chess.com',
+          pathname: '/callback/stats/overview/*',
+        },
+      ],
+      urls: ['https://www.chess.com/*'],
+    },
+  },
 ];
 
 export function getPluginById(id: string): PluginMetadata | undefined {

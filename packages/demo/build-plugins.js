@@ -34,6 +34,7 @@ const plugins = [
   'discord_profile',
   'idme',
   'garmin_badges',
+  'chesscom',
 ];
 for (const plugin of plugins) {
   fs.copyFileSync(path.join(sourceDir, `${plugin}.js`), path.join(targetDir, `${plugin}.js`));

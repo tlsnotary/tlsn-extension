@@ -31,6 +31,7 @@ const plugins = [
   'discord_profile',
   'idme',
   'garmin_badges',
+  'chesscom',
 ];
 
 // Demo configuration
