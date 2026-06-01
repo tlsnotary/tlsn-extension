@@ -235,6 +235,28 @@ export const PLUGIN_REGISTRY: PluginMetadata[] = [
       urls: ['https://account.id.me/*'],
     },
   },
+  {
+    id: 'chesscom',
+    name: 'Chess.com Rating',
+    description: 'Prove your current Chess.com rating',
+    logo: '♟️', // ♟️
+    resultLabel: 'Rating',
+    accentColor: '#81b64c',
+    platforms: ['demo', 'mobile'],
+    debug: true,
+    pluginConfig: {
+      name: 'Chess.com Rating',
+      description: 'Prove your current Chess.com rating.',
+      requests: [
+        {
+          method: 'GET',
+          host: 'www.chess.com',
+          pathname: '/callback/member/stats/*',
+        },
+      ],
+      urls: ['https://www.chess.com/*'],
+    },
+  },
 ];
 
 export function getPluginById(id: string): PluginMetadata | undefined {

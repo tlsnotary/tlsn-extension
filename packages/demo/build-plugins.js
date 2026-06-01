@@ -33,6 +33,7 @@ const plugins = [
   'discord_dm',
   'discord_profile',
   'idme',
+  'chesscom',
 ];
 for (const plugin of plugins) {
   fs.copyFileSync(path.join(sourceDir, `${plugin}.js`), path.join(targetDir, `${plugin}.js`));
