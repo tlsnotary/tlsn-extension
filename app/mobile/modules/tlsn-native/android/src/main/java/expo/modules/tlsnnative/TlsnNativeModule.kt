@@ -17,6 +17,8 @@ import uniffi.tlsn_mobile.ProgressCallback
 import uniffi.tlsn_mobile.ProofResult
 import uniffi.tlsn_mobile.RevealPreparation
 import uniffi.tlsn_mobile.initialize as rustInitialize
+import uniffi.tlsn_mobile.drainLogs as rustDrainLogs
+import uniffi.tlsn_mobile.setLogLevel as rustSetLogLevel
 import uniffi.tlsn_mobile.prove as rustProve
 import uniffi.tlsn_mobile.proveUntilReveal as rustProveUntilReveal
 import uniffi.tlsn_mobile.proveFinalize as rustProveFinalize
@@ -228,6 +230,19 @@ class TlsnNativeModule : Module() {
 
         Function("initialize") {
             rustInitialize()
+        }
+
+        // Drain buffered native tracing lines for the in-app Logs screen. The JS
+        // side polls this; pulling keeps the prover's threads off the bridge.
+        Function("drainNativeLogs") {
+            rustDrainLogs().map {
+                mapOf("level" to it.level, "target" to it.target, "message" to it.message)
+            }
+        }
+
+        // Set native (tlsn) log verbosity at runtime, e.g. "tlsn_mobile=debug,tlsn=debug".
+        Function("setLogLevel") { filter: String ->
+            rustSetLogLevel(filter)
         }
 
         // Accept JSON strings to avoid Expo Kotlin bridge type conversion issues

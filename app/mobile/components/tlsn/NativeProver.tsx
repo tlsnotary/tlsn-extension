@@ -19,9 +19,13 @@ import type {
   ProverOptions,
   ProveResult,
   ProveProgress,
+  NativeLogLine,
+  TlsnLogLevel,
   RevealPreparation,
   RevealRangeDescriptor,
 } from '../../modules/tlsn-native/src';
+import { addLog, type LogLevel } from '@/lib/logStore';
+import { getLogLevel } from '@/lib/useVerifierUrl';
 
 export type {
   HandlerType,
@@ -71,6 +75,21 @@ interface NativeProverProps {
   onProgress?: (progress: ProveProgress) => void;
 }
 
+/** Map a Rust `tracing` level string to the in-app console's log level. */
+function mapNativeLevel(level: string): LogLevel {
+  switch (level.toUpperCase()) {
+    case 'ERROR':
+      return 'error';
+    case 'WARN':
+      return 'warn';
+    case 'DEBUG':
+    case 'TRACE':
+      return 'debug';
+    default:
+      return 'info';
+  }
+}
+
 // Lazy load the native module to avoid errors during metro bundling
 let TlsnNative: {
   initialize: () => void;
@@ -79,6 +98,8 @@ let TlsnNative: {
   proveFinalize: (sessionId: string, approved: boolean) => Promise<ProveResult>;
   isAvailable: () => boolean;
   addProgressListener: (callback: (event: ProveProgress) => void) => { remove: () => void };
+  drainNativeLogs: () => NativeLogLine[];
+  setLogLevel: (level: TlsnLogLevel) => void;
 } | null = null;
 
 function getNativeModule() {
@@ -128,6 +149,12 @@ function NativeProverComponent(
         console.log('[NativeProver] Native module initialized successfully');
         setIsReady(true);
         onReady?.();
+
+        // Apply the persisted native log level so the Logs screen shows the
+        // verbosity the user selected in Settings.
+        getLogLevel()
+          .then((level) => module.setLogLevel(level))
+          .catch(() => {});
       } catch (e) {
         console.error('[NativeProver] Failed to initialize:', e);
         onError?.(e instanceof Error ? e.message : 'Failed to initialize native module');
@@ -137,19 +164,50 @@ function NativeProverComponent(
     initializeModule();
   }, [onReady, onError]);
 
-  // Subscribe to native progress events
+  // Subscribe to native progress events.
   useEffect(() => {
     const module = getNativeModule();
     if (!module) return;
 
-    const subscription = module.addProgressListener((event: ProveProgress) => {
+    const progressSub = module.addProgressListener((event: ProveProgress) => {
       console.log(
         `[NativeProver] Progress: ${event.step} ${Math.round(event.progress * 100)}% - ${event.message}`,
       );
       onProgressRef.current?.(event);
     });
 
-    return () => subscription.remove();
+    return () => progressSub.remove();
+  }, []);
+
+  // Poll the native log buffer into the in-app Logs screen. These lines carry
+  // the actual MPC/TLS failure detail that progress events can't convey. Pulling
+  // (vs a push callback) keeps the prover's worker threads off the JS bridge.
+  useEffect(() => {
+    const module = getNativeModule();
+    if (!module) return;
+
+    const drain = () => {
+      let lines: NativeLogLine[] = [];
+      try {
+        lines = module.drainNativeLogs();
+      } catch {
+        return;
+      }
+      for (const line of lines) {
+        addLog({
+          source: 'native',
+          level: mapNativeLevel(line.level),
+          tag: line.target,
+          text: line.message,
+        });
+      }
+    };
+
+    const id = setInterval(drain, 400);
+    return () => {
+      clearInterval(id);
+      drain(); // final flush of anything buffered since the last tick
+    };
   }, []);
 
   const buildRequestAndOptions = useCallback((params: NativeProveParams) => {

@@ -1,15 +1,20 @@
 import { useState, useEffect } from 'react';
 import { File, Paths } from 'expo-file-system/next';
+import type { TlsnLogLevel } from '../modules/tlsn-native/src';
 
 const configFile = new File(Paths.document, 'verifier-config.json');
 const DEFAULT_VERIFIER_URL = 'https://demo.tlsnotary.org';
 const DEFAULT_PROXY_MODE = false;
+const DEFAULT_LOG_LEVEL: TlsnLogLevel = 'info';
+const LOG_LEVELS: TlsnLogLevel[] = ['info', 'debug', 'trace'];
 
-export { DEFAULT_VERIFIER_URL, DEFAULT_PROXY_MODE };
+export { DEFAULT_VERIFIER_URL, DEFAULT_PROXY_MODE, DEFAULT_LOG_LEVEL, LOG_LEVELS };
+export type { TlsnLogLevel };
 
 interface Config {
   verifierUrl?: string;
   proxyMode?: boolean;
+  logLevel?: TlsnLogLevel;
 }
 
 async function loadConfig(): Promise<Config> {
@@ -57,6 +62,16 @@ export async function getProxyMode(): Promise<boolean> {
 export async function setProxyMode(value: boolean): Promise<void> {
   console.log('[useVerifierUrl] setProxyMode called with:', value);
   await patchConfig({ proxyMode: value });
+}
+
+export async function getLogLevel(): Promise<TlsnLogLevel> {
+  const config = await loadConfig();
+  return config.logLevel ?? DEFAULT_LOG_LEVEL;
+}
+
+export async function setLogLevelPref(level: TlsnLogLevel): Promise<void> {
+  console.log('[useVerifierUrl] setLogLevelPref called with:', level);
+  await patchConfig({ logLevel: level });
 }
 
 export function useVerifierUrl(): { url: string; loading: boolean } {

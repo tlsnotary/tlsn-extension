@@ -7,7 +7,8 @@
 mod prover;
 mod ws_io;
 
-use std::sync::OnceLock;
+use std::collections::VecDeque;
+use std::sync::{Mutex, OnceLock};
 
 uniffi::setup_scaffolding!();
 
@@ -328,15 +329,158 @@ pub trait ProgressCallback: Send + Sync {
 }
 
 // ---------------------------------------------------------------------------
+// Log buffer (native `tracing` → platform, pull/drain model)
+// ---------------------------------------------------------------------------
+
+/// One buffered native log line, drained by the platform via [`drain_logs`].
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct NativeLogLine {
+    /// Tracing level: "ERROR" | "WARN" | "INFO" | "DEBUG" | "TRACE".
+    pub level: String,
+    /// Tracing target, e.g. "tlsn_mobile::prover".
+    pub target: String,
+    pub message: String,
+}
+
+/// Max lines retained between drains; oldest are dropped once full. Bounds memory
+/// and bridge work when verbose levels (debug/trace) get chatty.
+const LOG_BUFFER_CAPACITY: usize = 1000;
+
+/// Process-wide ring buffer: the tracing layer pushes; the platform drains.
+static LOG_BUFFER: Mutex<VecDeque<NativeLogLine>> = Mutex::new(VecDeque::new());
+
+/// Default tracing directives applied at [`initialize`]; can be overridden at
+/// runtime via [`set_log_level`].
+const DEFAULT_LOG_FILTER: &str = "tlsn_mobile=info,tlsn=info";
+
+/// Type-erased reloader for the env filter, installed by [`initialize`]. Erasing
+/// the type avoids naming the (large) layered-subscriber type in a `static`.
+#[allow(clippy::type_complexity)]
+static RELOAD_FN: OnceLock<Box<dyn Fn(&str) + Send + Sync>> = OnceLock::new();
+
+/// Drain all buffered native log lines (oldest first), clearing the buffer.
+///
+/// The platform polls this and forwards the lines into its in-app Logs screen.
+/// Pulling (rather than a push callback) keeps the prover's worker threads off
+/// the FFI/JS bridge and batches delivery under verbose logging.
+#[uniffi::export]
+pub fn drain_logs() -> Vec<NativeLogLine> {
+    match LOG_BUFFER.lock() {
+        Ok(mut buf) => buf.drain(..).collect(),
+        Err(_) => Vec::new(),
+    }
+}
+
+/// Change native log verbosity at runtime. `filter` is a tracing EnvFilter
+/// directive string, e.g. "tlsn_mobile=debug,tlsn=debug". Invalid directives are
+/// ignored; a no-op if called before [`initialize`].
+#[uniffi::export]
+pub fn set_log_level(filter: String) {
+    if let Some(reload) = RELOAD_FN.get() {
+        reload(&filter);
+    }
+}
+
+/// Visitor that flattens a tracing event's `message` and structured fields into
+/// a single display string.
+#[derive(Default)]
+struct MessageVisitor {
+    message: String,
+    fields: String,
+}
+
+impl MessageVisitor {
+    fn into_text(self) -> String {
+        match (self.message.is_empty(), self.fields.is_empty()) {
+            (false, false) => format!("{} {}", self.message, self.fields),
+            (true, false) => self.fields,
+            _ => self.message,
+        }
+    }
+
+    fn push(&mut self, name: &str, value: String) {
+        if name == "message" {
+            self.message = value;
+        } else {
+            if !self.fields.is_empty() {
+                self.fields.push(' ');
+            }
+            self.fields.push_str(&format!("{name}={value}"));
+        }
+    }
+}
+
+impl tracing::field::Visit for MessageVisitor {
+    fn record_str(&mut self, field: &tracing::field::Field, value: &str) {
+        self.push(field.name(), value.to_string());
+    }
+
+    fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
+        self.push(field.name(), format!("{value:?}"));
+    }
+}
+
+/// A `tracing` layer that appends every (already env-filtered) event to the
+/// bounded [`LOG_BUFFER`]. Cheap and non-blocking — no FFI on the hot path.
+struct BufferLayer;
+
+impl<S: tracing::Subscriber> tracing_subscriber::Layer<S> for BufferLayer {
+    fn on_event(
+        &self,
+        event: &tracing::Event<'_>,
+        _ctx: tracing_subscriber::layer::Context<'_, S>,
+    ) {
+        let meta = event.metadata();
+        let mut visitor = MessageVisitor::default();
+        event.record(&mut visitor);
+        let line = NativeLogLine {
+            level: meta.level().to_string(),
+            target: meta.target().to_string(),
+            message: visitor.into_text(),
+        };
+
+        if let Ok(mut buf) = LOG_BUFFER.lock() {
+            if buf.len() >= LOG_BUFFER_CAPACITY {
+                buf.pop_front();
+            }
+            buf.push_back(line);
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
 /// Initialize the TLSN library. Call this once at app startup.
 #[uniffi::export]
 pub fn initialize() -> Result<(), TlsnError> {
-    let _ = tracing_subscriber::fmt()
-        .with_env_filter("tlsn_mobile=info,tlsn=info")
+    use tracing_subscriber::layer::SubscriberExt;
+    use tracing_subscriber::util::SubscriberInitExt;
+
+    // Wrap the env filter in a reload layer so `set_log_level` can change tlsn
+    // verbosity at runtime (e.g. from the app's Settings) without a restart.
+    let (filter, reload_handle) = tracing_subscriber::reload::Layer::new(
+        tracing_subscriber::EnvFilter::new(DEFAULT_LOG_FILTER),
+    );
+
+    // Layered subscriber:
+    //   - reloadable EnvFilter limits noise to tlsn targets (global, all layers)
+    //   - fmt layer keeps stdout output (Xcode console / logcat) as before
+    //   - BufferLayer appends lines to LOG_BUFFER for the platform to drain
+    let _ = tracing_subscriber::registry()
+        .with(filter)
+        .with(tracing_subscriber::fmt::layer())
+        .with(BufferLayer)
         .try_init();
+
+    // Type-erase the reload handle for `set_log_level`. `set` only succeeds once,
+    // keeping the handle bound to the live subscriber from the first init.
+    let _ = RELOAD_FN.set(Box::new(move |directives: &str| {
+        if let Ok(new_filter) = tracing_subscriber::EnvFilter::try_new(directives) {
+            let _ = reload_handle.reload(new_filter);
+        }
+    }));
 
     tracing::info!("TLSNotary Mobile initialized (sdk-core)");
     Ok(())

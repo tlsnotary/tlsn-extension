@@ -229,6 +229,19 @@ public class TlsnNativeModule: Module {
             }
         }
 
+        // Drain buffered native tracing lines for the in-app Logs screen. The JS
+        // side polls this; pulling keeps the prover's threads off the bridge.
+        Function("drainNativeLogs") { () -> [[String: String]] in
+            drainLogs().map { line in
+                ["level": line.level, "target": line.target, "message": line.message]
+            }
+        }
+
+        // Set native (tlsn) log verbosity at runtime, e.g. "tlsn_mobile=debug,tlsn=debug".
+        Function("setLogLevel") { (filter: String) in
+            setLogLevel(filter: filter)
+        }
+
         // Legacy one-shot prove. Kept for backward compat.
         AsyncFunction("prove") { (requestDict: [String: Any], optionsDict: [String: Any], promise: Promise) in
             DispatchQueue.global(qos: .userInitiated).async { [weak self] in
