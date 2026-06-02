@@ -740,6 +740,10 @@ internal open class UniffiVTableCallbackInterfaceProgressCallback(
 
 
 
+
+
+
+
 // A JNA Library to expose the extern-C FFI definitions.
 // This is an implementation detail which will be called internally by the public API.
 
@@ -758,6 +762,8 @@ internal interface UniffiLib : Library {
 
     fun uniffi_tlsn_mobile_fn_init_callback_vtable_progresscallback(`vtable`: UniffiVTableCallbackInterfaceProgressCallback,
     ): Unit
+    fun uniffi_tlsn_mobile_fn_func_drain_logs(uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     fun uniffi_tlsn_mobile_fn_func_initialize(uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     fun uniffi_tlsn_mobile_fn_func_prove(`request`: RustBuffer.ByValue,`options`: RustBuffer.ByValue,`progress`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
@@ -766,6 +772,8 @@ internal interface UniffiLib : Library {
     ): RustBuffer.ByValue
     fun uniffi_tlsn_mobile_fn_func_prove_until_reveal(`request`: RustBuffer.ByValue,`options`: RustBuffer.ByValue,`progress`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    fun uniffi_tlsn_mobile_fn_func_set_log_level(`filter`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
     fun ffi_tlsn_mobile_rustbuffer_alloc(`size`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun ffi_tlsn_mobile_rustbuffer_from_bytes(`bytes`: ForeignBytes.ByValue,uniffi_out_err: UniffiRustCallStatus, 
@@ -878,6 +886,8 @@ internal interface UniffiLib : Library {
     ): Unit
     fun ffi_tlsn_mobile_rust_future_complete_void(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
+    fun uniffi_tlsn_mobile_checksum_func_drain_logs(
+    ): Short
     fun uniffi_tlsn_mobile_checksum_func_initialize(
     ): Short
     fun uniffi_tlsn_mobile_checksum_func_prove(
@@ -885,6 +895,8 @@ internal interface UniffiLib : Library {
     fun uniffi_tlsn_mobile_checksum_func_prove_finalize(
     ): Short
     fun uniffi_tlsn_mobile_checksum_func_prove_until_reveal(
+    ): Short
+    fun uniffi_tlsn_mobile_checksum_func_set_log_level(
     ): Short
     fun uniffi_tlsn_mobile_checksum_method_progresscallback_on_progress(
     ): Short
@@ -905,6 +917,9 @@ private fun uniffiCheckContractApiVersion(lib: UniffiLib) {
 
 @Suppress("UNUSED_PARAMETER")
 private fun uniffiCheckApiChecksums(lib: UniffiLib) {
+    if (lib.uniffi_tlsn_mobile_checksum_func_drain_logs() != 48822.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_tlsn_mobile_checksum_func_initialize() != 2246.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -915,6 +930,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_tlsn_mobile_checksum_func_prove_until_reveal() != 57369.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_tlsn_mobile_checksum_func_set_log_level() != 29028.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_tlsn_mobile_checksum_method_progresscallback_on_progress() != 49206.toShort()) {
@@ -1347,6 +1365,51 @@ public object FfiConverterTypeHttpResponse: FfiConverterRustBuffer<HttpResponse>
             FfiConverterUShort.write(value.`status`, buf)
             FfiConverterSequenceTypeHttpHeader.write(value.`headers`, buf)
             FfiConverterString.write(value.`body`, buf)
+    }
+}
+
+
+
+/**
+ * One buffered native log line, drained by the platform via [`drain_logs`].
+ */
+data class NativeLogLine (
+    /**
+     * Tracing level: "ERROR" | "WARN" | "INFO" | "DEBUG" | "TRACE".
+     */
+    var `level`: kotlin.String, 
+    /**
+     * Tracing target, e.g. "tlsn_mobile::prover".
+     */
+    var `target`: kotlin.String, 
+    var `message`: kotlin.String
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeNativeLogLine: FfiConverterRustBuffer<NativeLogLine> {
+    override fun read(buf: ByteBuffer): NativeLogLine {
+        return NativeLogLine(
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: NativeLogLine) = (
+            FfiConverterString.allocationSize(value.`level`) +
+            FfiConverterString.allocationSize(value.`target`) +
+            FfiConverterString.allocationSize(value.`message`)
+    )
+
+    override fun write(value: NativeLogLine, buf: ByteBuffer) {
+            FfiConverterString.write(value.`level`, buf)
+            FfiConverterString.write(value.`target`, buf)
+            FfiConverterString.write(value.`message`, buf)
     }
 }
 
@@ -2525,6 +2588,34 @@ public object FfiConverterSequenceTypeHttpHeader: FfiConverterRustBuffer<List<Ht
 /**
  * @suppress
  */
+public object FfiConverterSequenceTypeNativeLogLine: FfiConverterRustBuffer<List<NativeLogLine>> {
+    override fun read(buf: ByteBuffer): List<NativeLogLine> {
+        val len = buf.getInt()
+        return List<NativeLogLine>(len) {
+            FfiConverterTypeNativeLogLine.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<NativeLogLine>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeNativeLogLine.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<NativeLogLine>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeNativeLogLine.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
 public object FfiConverterSequenceTypeRevealRangeDescriptor: FfiConverterRustBuffer<List<RevealRangeDescriptor>> {
     override fun read(buf: ByteBuffer): List<RevealRangeDescriptor> {
         val len = buf.getInt()
@@ -2546,6 +2637,22 @@ public object FfiConverterSequenceTypeRevealRangeDescriptor: FfiConverterRustBuf
         }
     }
 }
+        /**
+         * Drain all buffered native log lines (oldest first), clearing the buffer.
+         *
+         * The platform polls this and forwards the lines into its in-app Logs screen.
+         * Pulling (rather than a push callback) keeps the prover's worker threads off
+         * the FFI/JS bridge and batches delivery under verbose logging.
+         */ fun `drainLogs`(): List<NativeLogLine> {
+            return FfiConverterSequenceTypeNativeLogLine.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_tlsn_mobile_fn_func_drain_logs(
+        _status)
+}
+    )
+    }
+    
+
         /**
          * Initialize the TLSN library. Call this once at app startup.
          */
@@ -2614,6 +2721,19 @@ public object FfiConverterSequenceTypeRevealRangeDescriptor: FfiConverterRustBuf
 }
     )
     }
+    
+
+        /**
+         * Change native log verbosity at runtime. `filter` is a tracing EnvFilter
+         * directive string, e.g. "tlsn_mobile=debug,tlsn=debug". Invalid directives are
+         * ignored; a no-op if called before [`initialize`].
+         */ fun `setLogLevel`(`filter`: kotlin.String)
+        = 
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_tlsn_mobile_fn_func_set_log_level(
+        FfiConverterString.lower(`filter`),_status)
+}
+    
     
 
 

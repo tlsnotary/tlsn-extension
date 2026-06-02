@@ -954,6 +954,95 @@ public func FfiConverterTypeHttpResponse_lower(_ value: HttpResponse) -> RustBuf
 
 
 /**
+ * One buffered native log line, drained by the platform via [`drain_logs`].
+ */
+public struct NativeLogLine {
+    /**
+     * Tracing level: "ERROR" | "WARN" | "INFO" | "DEBUG" | "TRACE".
+     */
+    public var level: String
+    /**
+     * Tracing target, e.g. "tlsn_mobile::prover".
+     */
+    public var target: String
+    public var message: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * Tracing level: "ERROR" | "WARN" | "INFO" | "DEBUG" | "TRACE".
+         */level: String, 
+        /**
+         * Tracing target, e.g. "tlsn_mobile::prover".
+         */target: String, message: String) {
+        self.level = level
+        self.target = target
+        self.message = message
+    }
+}
+
+
+
+extension NativeLogLine: Equatable, Hashable {
+    public static func ==(lhs: NativeLogLine, rhs: NativeLogLine) -> Bool {
+        if lhs.level != rhs.level {
+            return false
+        }
+        if lhs.target != rhs.target {
+            return false
+        }
+        if lhs.message != rhs.message {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(level)
+        hasher.combine(target)
+        hasher.combine(message)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeNativeLogLine: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> NativeLogLine {
+        return
+            try NativeLogLine(
+                level: FfiConverterString.read(from: &buf), 
+                target: FfiConverterString.read(from: &buf), 
+                message: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: NativeLogLine, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.level, into: &buf)
+        FfiConverterString.write(value.target, into: &buf)
+        FfiConverterString.write(value.message, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeNativeLogLine_lift(_ buf: RustBuffer) throws -> NativeLogLine {
+    return try FfiConverterTypeNativeLogLine.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeNativeLogLine_lower(_ value: NativeLogLine) -> RustBuffer {
+    return FfiConverterTypeNativeLogLine.lower(value)
+}
+
+
+/**
  * Result of a proof operation.
  */
 public struct ProofResult {
@@ -2497,6 +2586,31 @@ fileprivate struct FfiConverterSequenceTypeHttpHeader: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterSequenceTypeNativeLogLine: FfiConverterRustBuffer {
+    typealias SwiftType = [NativeLogLine]
+
+    public static func write(_ value: [NativeLogLine], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeNativeLogLine.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [NativeLogLine] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [NativeLogLine]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeNativeLogLine.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterSequenceTypeRevealRangeDescriptor: FfiConverterRustBuffer {
     typealias SwiftType = [RevealRangeDescriptor]
 
@@ -2517,6 +2631,19 @@ fileprivate struct FfiConverterSequenceTypeRevealRangeDescriptor: FfiConverterRu
         }
         return seq
     }
+}
+/**
+ * Drain all buffered native log lines (oldest first), clearing the buffer.
+ *
+ * The platform polls this and forwards the lines into its in-app Logs screen.
+ * Pulling (rather than a push callback) keeps the prover's worker threads off
+ * the FFI/JS bridge and batches delivery under verbose logging.
+ */
+public func drainLogs() -> [NativeLogLine] {
+    return try!  FfiConverterSequenceTypeNativeLogLine.lift(try! rustCall() {
+    uniffi_tlsn_mobile_fn_func_drain_logs($0
+    )
+})
 }
 /**
  * Initialize the TLSN library. Call this once at app startup.
@@ -2581,6 +2708,17 @@ public func proveUntilReveal(request: HttpRequest, options: ProverOptions, progr
     )
 })
 }
+/**
+ * Change native log verbosity at runtime. `filter` is a tracing EnvFilter
+ * directive string, e.g. "tlsn_mobile=debug,tlsn=debug". Invalid directives are
+ * ignored; a no-op if called before [`initialize`].
+ */
+public func setLogLevel(filter: String) {try! rustCall() {
+    uniffi_tlsn_mobile_fn_func_set_log_level(
+        FfiConverterString.lower(filter),$0
+    )
+}
+}
 
 private enum InitializationResult {
     case ok
@@ -2597,6 +2735,9 @@ private var initializationResult: InitializationResult = {
     if bindings_contract_version != scaffolding_contract_version {
         return InitializationResult.contractVersionMismatch
     }
+    if (uniffi_tlsn_mobile_checksum_func_drain_logs() != 48822) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_tlsn_mobile_checksum_func_initialize() != 2246) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -2607,6 +2748,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_tlsn_mobile_checksum_func_prove_until_reveal() != 57369) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_tlsn_mobile_checksum_func_set_log_level() != 29028) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_tlsn_mobile_checksum_method_progresscallback_on_progress() != 49206) {
