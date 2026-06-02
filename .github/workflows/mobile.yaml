@@ -95,6 +95,21 @@ jobs:
         working-directory: app/mobile
         run: ./build.sh android --skip-deps --no-run
 
+      - name: DEBUG — verify Kotlin binding state before EAS
+        working-directory: app/mobile
+        run: |
+          BIND=modules/tlsn-native/android/src/main/java/uniffi/tlsn_mobile/tlsn_mobile.kt
+          echo "=== ls + sha256 ==="
+          ls -la "$BIND" && sha256sum "$BIND"
+          echo "=== AssertOp/AssertValueType/drainLogs counts ==="
+          grep -cE "enum class AssertOp" "$BIND"
+          grep -cE "enum class AssertValueType" "$BIND"
+          grep -cE "fun .?drainLogs.?" "$BIND"
+          echo "=== uniffi files present in tree ==="
+          find modules/tlsn-native -name "tlsn_mobile.kt" -exec ls -la {} \;
+          echo "=== git status of tracked binding ==="
+          git status --short modules/tlsn-native/android/src/main/java/uniffi/ || true
+
       # EAS APK build (optional — requires EXPO_TOKEN secret)
       - name: Install EAS CLI
         if: env.EXPO_TOKEN != ''
