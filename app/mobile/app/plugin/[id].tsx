@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Alert, ScrollView, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import { isUserRejectedRevealError } from '@tlsn/plugin-sdk/host-core';
 import { PluginScreen } from '@/components/tlsn/PluginScreen';
 import { getPluginById } from '../../assets/plugins/registry';
 import { useVerifierUrl, useProxyMode } from '@/lib/useVerifierUrl';
@@ -184,6 +185,9 @@ export default function PluginRunnerScreen() {
             setResult(typeof res === 'string' ? res : JSON.stringify(res, null, 2));
           }}
           onError={(err) => {
+            // PluginScreen surfaces its own graceful cancelled state for
+            // reveal-rejection; defensive check in case it leaks through.
+            if (isUserRejectedRevealError(err)) return;
             Alert.alert('Plugin Error', err.message);
           }}
         />
