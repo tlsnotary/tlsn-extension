@@ -49,11 +49,17 @@ xcodebuild -create-xcframework \
 
 echo "Copying to Expo module..."
 EXPO_MODULE_DIR="../../app/mobile/modules/tlsn-native"
+SWIFT_BINDING_DEST="$EXPO_MODULE_DIR/ios/tlsn_mobile.swift"
 
-# Copy Swift bindings
-cp target/swift/tlsn_mobile.swift "$EXPO_MODULE_DIR/ios/"
+# The Swift binding is checked into git (deterministic from the Rust source).
+# Don't overwrite the committed file on every build — a stale cached `.a` can
+# feed uniffi-bindgen stale metadata and silently produce broken bindings.
+# Regenerate only when missing or explicitly requested via TLSN_REGEN_BINDINGS.
+if [ ! -f "$SWIFT_BINDING_DEST" ] || [ "${TLSN_REGEN_BINDINGS:-false}" = "true" ]; then
+    cp target/swift/tlsn_mobile.swift "$SWIFT_BINDING_DEST"
+fi
 
-# Copy XCFramework
+# Copy XCFramework (binary artifact, always refreshed; gitignored)
 rm -rf "$EXPO_MODULE_DIR/ios/TlsnMobile.xcframework"
 cp -R target/TlsnMobile.xcframework "$EXPO_MODULE_DIR/ios/"
 
