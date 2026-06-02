@@ -1,0 +1,50 @@
+# .easignore — overrides .gitignore for the EAS local build archive.
+#
+# Lists what EAS should EXCLUDE from the project tarball. We deliberately
+# do NOT exclude the regenerated native artifacts under modules/tlsn-native/
+# (libtlsn_mobile.{so,a}, TlsnMobile.xcframework, the uniffi-generated
+# Kotlin/Swift bindings). Those are produced by build-android.sh /
+# build-ios.sh in CI and MUST be in the EAS archive — the hand-written
+# Swift/Kotlin bridge references the uniffi-generated AssertOp /
+# AssertValueType / HandlerAction etc. and gradle/xcodebuild can't compile
+# the bridge without them.
+
+# Dependencies (EAS does its own npm install)
+node_modules/
+
+# Expo / Metro
+.expo/
+.metro-health-check*
+dist/
+web-build/
+expo-env.d.ts
+
+# Native app build outputs (the *app* project, not the tlsn-native module)
+android/build/
+android/.gradle/
+android/app/build/
+ios/build/
+ios/Pods/
+.kotlin/
+
+# Credentials
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+credentials.json
+credentials/
+
+# Debug logs
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS / editor
+.DS_Store
+*.pem
+*.orig.*
+
+# Local env files
+.env*.local
