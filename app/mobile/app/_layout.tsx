@@ -9,6 +9,11 @@ import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { useColorScheme } from '@/components/useColorScheme';
+import { installLogCapture } from '@/lib/installLogCapture';
+
+// Tee console.* into the in-app Logs screen as early as possible, so logs
+// emitted during startup and proving are captured. Idempotent.
+installLogCapture();
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -56,6 +61,7 @@ function RootLayoutNav() {
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false, title: 'Plugins' }} />
           <Stack.Screen name="plugin/[id]" options={{ presentation: 'card' }} />
+          <Stack.Screen name="logs" options={{ presentation: 'card' }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
         </Stack>
       </ThemeProvider>

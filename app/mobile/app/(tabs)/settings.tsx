@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -9,27 +9,55 @@ import {
   ScrollView,
   Switch,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import {
   getVerifierUrl,
   setVerifierUrl,
   getProxyMode,
   setProxyMode,
+  getDebugEnabled,
+  setDebugEnabled,
+  getLogLevel,
+  setLogLevelPref,
   DEFAULT_VERIFIER_URL,
+  DEFAULT_LOG_LEVEL,
+  LOG_LEVELS,
+  type TlsnLogLevel,
 } from '@/lib/useVerifierUrl';
 
 export default function SettingsScreen() {
+  const router = useRouter();
   const [url, setUrl] = useState('');
   const [saved, setSaved] = useState(false);
   const [proxyMode, setProxyModeState] = useState(false);
+  const [debugEnabled, setDebugEnabledState] = useState(false);
+  const [logLevel, setLogLevelState] = useState<TlsnLogLevel>(DEFAULT_LOG_LEVEL);
+  // Don't let the async initial read clobber a tap that lands before it resolves.
+  const logLevelTouched = useRef(false);
 
   useEffect(() => {
     getVerifierUrl().then(setUrl);
     getProxyMode().then(setProxyModeState);
+    getDebugEnabled().then(setDebugEnabledState);
+    getLogLevel().then((level) => {
+      if (!logLevelTouched.current) setLogLevelState(level);
+    });
   }, []);
 
   const handleToggleProxyMode = async (value: boolean) => {
     setProxyModeState(value);
     await setProxyMode(value);
+  };
+
+  const handleToggleDebug = async (value: boolean) => {
+    setDebugEnabledState(value);
+    await setDebugEnabled(value);
+  };
+
+  const handleSelectLogLevel = async (level: TlsnLogLevel) => {
+    logLevelTouched.current = true;
+    setLogLevelState(level);
+    await setLogLevelPref(level);
   };
 
   const handleSave = async () => {
@@ -90,6 +118,63 @@ export default function SettingsScreen() {
           />
         </View>
       </View>
+
+      <View style={[styles.card, styles.cardSpacing]}>
+        <View style={styles.toggleRow}>
+          <View style={styles.toggleLabelGroup}>
+            <Text style={styles.label}>Debug</Text>
+            <Text style={styles.linkDescription}>
+              Show prover log detail and a live log drawer while running a plugin.
+            </Text>
+          </View>
+          <Switch
+            value={debugEnabled}
+            onValueChange={handleToggleDebug}
+            trackColor={{ false: '#ddd', true: '#243f5f' }}
+          />
+        </View>
+      </View>
+
+      {debugEnabled && (
+        <View style={[styles.card, styles.cardSpacing]}>
+          <Text style={styles.label}>Prover verbosity</Text>
+          <Text style={styles.description}>
+            How much the tlsn prover logs — captures this level and finer detail (not a display
+            filter). Use Debug or Trace to diagnose proving failures; applies on the next run.
+          </Text>
+          <View style={styles.segment}>
+            {LOG_LEVELS.map((level) => {
+              const active = logLevel === level;
+              return (
+                <TouchableOpacity
+                  key={level}
+                  style={[styles.segmentButton, active && styles.segmentButtonActive]}
+                  onPress={() => handleSelectLogLevel(level)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.segmentText, active && styles.segmentTextActive]}>
+                    {level.charAt(0).toUpperCase() + level.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      )}
+
+      <TouchableOpacity
+        style={[styles.card, styles.cardSpacing, styles.linkRow]}
+        onPress={() => router.push('/logs')}
+        activeOpacity={0.7}
+      >
+        <View style={styles.toggleLabelGroup}>
+          <Text style={styles.label}>Logs</Text>
+          <Text style={styles.linkDescription}>
+            View app and prover logs. Share them when reporting an issue.
+          </Text>
+        </View>
+        <Text style={styles.chevron}>›</Text>
+      </TouchableOpacity>
 
       <View style={styles.infoCard}>
         <Text style={styles.infoTitle}>Default</Text>
@@ -204,5 +289,46 @@ const styles = StyleSheet.create({
   },
   cardSpacing: {
     marginTop: 12,
+  },
+  linkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  linkDescription: {
+    fontSize: 13,
+    color: '#666',
+    lineHeight: 18,
+    marginTop: 2,
+  },
+  chevron: {
+    fontSize: 24,
+    color: '#999',
+    fontWeight: '400',
+  },
+  segment: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  segmentButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    backgroundColor: '#fafafa',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  segmentButtonActive: {
+    backgroundColor: '#243f5f',
+    borderColor: '#243f5f',
+  },
+  segmentText: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '600',
+  },
+  segmentTextActive: {
+    color: '#fff',
   },
 });

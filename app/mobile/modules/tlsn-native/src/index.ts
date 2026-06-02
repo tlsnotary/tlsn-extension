@@ -61,6 +61,18 @@ export interface ProveProgress {
 }
 
 /**
+ * A single log line from the native Rust prover's `tracing` output, retrieved
+ * by draining the native buffer via `drainNativeLogs`.
+ */
+export interface NativeLogLine {
+  /** Tracing level: "ERROR" | "WARN" | "INFO" | "DEBUG" | "TRACE". */
+  level: string;
+  /** Tracing target, e.g. "tlsn_mobile::prover". */
+  target: string;
+  message: string;
+}
+
+/**
  * Per-range preview returned by `proveUntilReveal`. Each entry describes one
  * byte range that the prover is about to reveal (or hash-commit) to the
  * verifier, with the actual transcript bytes as `preview` for user review.
@@ -182,8 +194,33 @@ export function addProgressListener(callback: (event: ProveProgress) => void): S
 }
 
 /**
+ * Drain buffered native log lines from the Rust prover's `tracing` output,
+ * oldest first, clearing the native buffer. Poll this (e.g. on an interval) to
+ * stream native logs into the in-app Logs screen.
+ */
+export function drainNativeLogs(): NativeLogLine[] {
+  return TlsnNativeModule.drainNativeLogs() as NativeLogLine[];
+}
+
+/**
  * Check if the native TLSN module is available.
  */
 export function isAvailable(): boolean {
   return TlsnNativeModule.isAvailable();
+}
+
+/** User-facing native log verbosity levels. */
+export type TlsnLogLevel = 'info' | 'debug' | 'trace';
+
+/** Build the tracing EnvFilter directive string for a level. */
+export function logLevelDirectives(level: TlsnLogLevel): string {
+  return `tlsn_mobile=${level},tlsn=${level}`;
+}
+
+/**
+ * Set native (tlsn) log verbosity at runtime. Takes effect on the next emitted
+ * log line; a no-op until the native module's `initialize` has run.
+ */
+export function setLogLevel(level: TlsnLogLevel): void {
+  TlsnNativeModule.setLogLevel(logLevelDirectives(level));
 }

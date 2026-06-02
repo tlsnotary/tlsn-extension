@@ -21,6 +21,10 @@ interface TlsnNativeModuleInterface {
    * (`approved=false`).
    */
   proveFinalize(sessionId: string, approved: boolean): Promise<Record<string, unknown>>;
+  /** Drain buffered native log lines (oldest first), clearing the native buffer. */
+  drainNativeLogs(): { level: string; target: string; message: string }[];
+  /** Set native (tlsn) log verbosity at runtime; `filter` is an EnvFilter directive string. */
+  setLogLevel(filter: string): void;
   isAvailable(): boolean;
   addListener(eventName: string): void;
   removeListeners(count: number): void;
