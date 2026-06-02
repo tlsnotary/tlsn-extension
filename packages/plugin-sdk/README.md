@@ -7,7 +7,6 @@ SDK for developing and running TLSN plugins with HTTP request interception, proo
 This package provides:
 
 - **Host Environment**: QuickJS-based sandboxed runtime for executing plugin code
-- **HTTP Parser**: Parse HTTP requests/responses with byte-level range tracking
 - **Plugin Capabilities**: React-like hooks, DOM JSON creation, window management, and proof generation
 - **Type Definitions**: TypeScript types for plugin development
 
@@ -40,29 +39,6 @@ Plugins run in a sandboxed QuickJS environment with access to the following APIs
   - Request: `url`, `method`, `headers`
   - Options: `verifierUrl`, `proxyUrl`, `maxRecvData`, `maxSentData`, `handlers`
   - Automatically manages `_proveProgress` state for real-time progress feedback
-
-### HTTP Parser
-
-Parse and extract byte ranges from HTTP messages:
-
-```typescript
-import Parser from '@tlsn/plugin-sdk/parser';
-
-const parser = new Parser(httpTranscript);
-const json = parser.json();
-
-// Extract specific fields with byte ranges
-const ranges = parser.ranges.body('screen_name', { type: 'json' });
-const valueOnly = parser.ranges.body('screen_name', { type: 'json', hideKey: true });
-```
-
-**Supported Features**:
-
-- Parse HTTP requests and responses
-- Handle chunked transfer encoding
-- Extract header ranges
-- Extract JSON field ranges (top-level fields)
-- Regex-based body pattern matching
 
 ## Installation
 
@@ -206,19 +182,6 @@ Plugins use React-like hooks for state management:
 
 Hooks are evaluated during each `main()` call and compared with previous values to determine if re-rendering is needed.
 
-### HTTP Parser Implementation
-
-The parser handles:
-
-- **Chunked Transfer Encoding**: Dechunks data and tracks original byte offsets
-- **JSON Range Tracking**: Maps JSON fields to transcript byte ranges
-- **Header Parsing**: Case-insensitive header names with range tracking
-
-**Limitations**:
-
-- Nested JSON field access (e.g., `"user.profile.name"`) not yet supported
-- Multi-chunk responses map to first chunk's offset only
-
 ## Testing
 
 ```bash
@@ -226,7 +189,6 @@ The parser handles:
 npm test
 
 # Run specific test suites
-npm test -- src/parser.test.ts
 npm test -- src/executePlugin.test.ts
 
 # Run browser tests
@@ -254,10 +216,6 @@ npm run lint:fix  # Auto-fix issues
 ## Known Limitations
 
 1. **Circular Reference in Node.js Tests**: The QuickJS sandbox serialization encounters circular references when passing hook capabilities in Node.js test environment. This is a test environment artifact and does not affect production code (verified by the extension's SessionManager).
-
-2. **Nested JSON Access**: Parser currently supports only top-level JSON field extraction (e.g., `"screen_name"`). Nested paths (e.g., `"user.profile.name"`) are not yet implemented.
-
-3. **Multi-chunk Range Tracking**: For chunked transfer encoding, byte ranges point to the first chunk's data position. Accurate range tracking across multiple chunks requires additional implementation.
 
 ## License
 

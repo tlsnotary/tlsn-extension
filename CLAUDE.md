@@ -503,34 +503,6 @@ async function handleClick() {
 }
 ```
 
-### Parser Class
-
-HTTP message parser with byte-level range tracking:
-
-```typescript
-import { Parser } from '@tlsn/plugin-sdk';
-
-const parser = new Parser(httpTranscript);
-const json = parser.json();
-
-// Extract byte ranges for selective disclosure
-const ranges = parser.ranges.body('screen_name', { type: 'json', hideKey: true });
-```
-
-**Features:**
-
-- Parse HTTP requests and responses
-- Handle chunked transfer encoding
-- Extract header ranges with case-insensitive names
-- Extract JSON field ranges (top-level only)
-- Regex-based body pattern matching
-- Track byte offsets for TLSNotary selective disclosure
-
-**Limitations:**
-
-- Nested JSON field access (e.g., `"user.profile.name"`) not yet supported
-- Multi-chunk responses map to first chunk's offset only
-
 ### QuickJS Sandboxing
 
 - Uses `@sebastianwessel/quickjs` for secure JavaScript execution
@@ -754,14 +726,6 @@ proverOptions: {
   handlers: [/* handler objects */]  // NOT 'reveal'
 }
 ```
-
-### Test Data Sanitization
-
-Parser tests (`packages/plugin-sdk/src/parser.test.ts`) use redacted sensitive data:
-
-- Authentication tokens: `REDACTED_BEARER_TOKEN`, `REDACTED_CSRF_TOKEN_VALUE`
-- Screen names: `test_user` (not real usernames)
-- Cookie values: `REDACTED_GUEST_ID`, `REDACTED_COOKIE_VALUE`
 
 ### Known Issues
 
