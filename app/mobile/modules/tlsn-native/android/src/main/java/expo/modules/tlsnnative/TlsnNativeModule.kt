@@ -13,6 +13,8 @@ import uniffi.tlsn_mobile.HandlerPart
 import uniffi.tlsn_mobile.HandlerAction
 import uniffi.tlsn_mobile.HandlerParams
 import uniffi.tlsn_mobile.HashAlgorithm
+import uniffi.tlsn_mobile.AssertOp
+import uniffi.tlsn_mobile.AssertValueType
 import uniffi.tlsn_mobile.ProgressCallback
 import uniffi.tlsn_mobile.ProofResult
 import uniffi.tlsn_mobile.RevealPreparation
