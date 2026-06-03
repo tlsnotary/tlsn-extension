@@ -4,6 +4,8 @@ export interface Plugin {
   logo: string;
   file: string;
   parseResult: (json: PluginResult) => string;
+  /** Work-in-progress / experimental plugin — shown with a "WIP" badge. */
+  debug?: boolean;
 }
 
 export interface PluginResult {

@@ -10,6 +10,8 @@ export interface PluginEntry {
   resultLabel: string;
   /** Accent colour for the result header gradient */
   accentColor: string;
+  /** Only listed while the app's Debug mode is enabled. */
+  debug: boolean;
   pluginConfig: PluginConfig;
   getPluginCode: () => string;
   /** GitHub URL pointing at the plugin's source on `main`. */
@@ -44,6 +46,7 @@ function toPluginEntry(meta: PluginMetadata, verifierUrl: string): PluginEntry {
     logo: meta.logo,
     resultLabel: meta.resultLabel,
     accentColor: meta.accentColor,
+    debug: meta.debug ?? false,
     pluginConfig: {
       name: meta.pluginConfig.name,
       description: meta.pluginConfig.description,

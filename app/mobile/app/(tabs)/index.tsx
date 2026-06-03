@@ -1,13 +1,22 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { getPluginRegistry } from '../../assets/plugins/registry';
-import { useVerifierUrl } from '@/lib/useVerifierUrl';
+import { useVerifierUrl, getDebugEnabled } from '@/lib/useVerifierUrl';
 
 export default function PluginGalleryScreen() {
   const router = useRouter();
   const { url: verifierUrl } = useVerifierUrl();
-  const plugins = getPluginRegistry(verifierUrl);
+  const [debugEnabled, setDebugEnabled] = useState(false);
+
+  // Re-read on focus so toggling Debug in Settings updates the list immediately.
+  useFocusEffect(
+    useCallback(() => {
+      getDebugEnabled().then(setDebugEnabled);
+    }, []),
+  );
+
+  const plugins = getPluginRegistry(verifierUrl).filter((p) => debugEnabled || !p.debug);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -20,7 +29,14 @@ export default function PluginGalleryScreen() {
         >
           <Text style={styles.logo}>{plugin.logo}</Text>
           <View style={styles.cardBody}>
-            <Text style={styles.name}>{plugin.name}</Text>
+            <View style={styles.nameRow}>
+              <Text style={styles.name}>{plugin.name}</Text>
+              {plugin.debug && (
+                <View style={styles.wipBadge}>
+                  <Text style={styles.wipText}>WIP</Text>
+                </View>
+              )}
+            </View>
             <Text style={styles.description}>{plugin.description}</Text>
           </View>
         </TouchableOpacity>
@@ -63,7 +79,24 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#243f5f',
+    flexShrink: 1,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     marginBottom: 4,
+  },
+  wipBadge: {
+    backgroundColor: '#fef3c7',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  wipText: {
+    color: '#92400e',
+    fontSize: 11,
+    fontWeight: '700',
   },
   description: {
     fontSize: 14,

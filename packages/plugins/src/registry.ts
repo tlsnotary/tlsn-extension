@@ -19,6 +19,12 @@ export interface PluginMetadata {
   accentColor: string;
   /** Which platforms include this plugin */
   platforms: ('demo' | 'mobile')[];
+  /**
+   * Marks a work-in-progress / experimental plugin. On mobile it is only listed
+   * while the app's Debug mode is enabled; on the demo it is shown with a "WIP"
+   * badge.
+   */
+  debug?: boolean;
   /** Plugin config (mirrors the plugin's internal `config` object) */
   pluginConfig: {
     name: string;
@@ -77,7 +83,7 @@ export const PLUGIN_REGISTRY: PluginMetadata[] = [
       urls: ['https://swissbank.tlsnotary.org/*'],
     },
   },
-   {
+  {
     id: 'swissbank_hash',
     name: 'Swiss Bank (Hashed)',
     description:
@@ -88,7 +94,8 @@ export const PLUGIN_REGISTRY: PluginMetadata[] = [
     platforms: ['demo', 'mobile'],
     pluginConfig: {
       name: 'Swiss Bank Prover (Hashed)',
-      description: 'This plugin will prove a blinded hash of an account balance on a (dummy) Swiss bank.',
+      description:
+        'This plugin will prove a blinded hash of an account balance on a (dummy) Swiss bank.',
       requests: [
         {
           method: 'GET',
@@ -150,6 +157,7 @@ export const PLUGIN_REGISTRY: PluginMetadata[] = [
     resultLabel: 'Profile',
     accentColor: '#000000',
     platforms: ['demo', 'mobile'],
+    debug: true,
     pluginConfig: {
       name: 'Uber Profile Prover',
       description: 'This plugin will prove your Uber rider profile via GraphQL.',
@@ -171,6 +179,7 @@ export const PLUGIN_REGISTRY: PluginMetadata[] = [
     resultLabel: 'Message',
     accentColor: '#5865F2',
     platforms: ['demo', 'mobile'],
+    debug: true,
     pluginConfig: {
       name: 'Discord DM Plugin',
       description: 'This plugin will prove your Discord direct messages.',
