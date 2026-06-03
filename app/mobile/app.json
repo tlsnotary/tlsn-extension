@@ -26,7 +26,14 @@
         "backgroundColor": "#243F5F"
       },
       "edgeToEdgeEnabled": true,
-      "package": "org.tlsnotary.mobile"
+      "package": "org.tlsnotary.mobile",
+      "permissions": [],
+      "blockedPermissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.VIBRATE"
+      ]
     },
     "web": {
       "bundler": "metro",
