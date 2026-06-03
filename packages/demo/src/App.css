@@ -1007,6 +1007,11 @@ body {
   color: #991b1b;
 }
 
+.plugin-badge.plugin-badge--wip {
+  background: #fef3c7;
+  color: #92400e;
+}
+
 .plugin-result--error .plugin-result-title {
   color: #991b1b;
 }

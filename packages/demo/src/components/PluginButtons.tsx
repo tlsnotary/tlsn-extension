@@ -57,6 +57,14 @@ export function PluginButtons({
               <div className="plugin-info">
                 <h3 className="plugin-name">
                   {plugin.name}
+                  {plugin.debug && (
+                    <span
+                      className="plugin-badge plugin-badge--wip"
+                      title="Work in progress — experimental plugin"
+                    >
+                      WIP
+                    </span>
+                  )}
                   {hasResult && !result.isError && <span className="plugin-badge">✓ Verified</span>}
                   {result?.isError && (
                     <span className="plugin-badge plugin-badge--error">&#x2717; Failed</span>

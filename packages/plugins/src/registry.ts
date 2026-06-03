@@ -20,8 +20,9 @@ export interface PluginMetadata {
   /** Which platforms include this plugin */
   platforms: ('demo' | 'mobile')[];
   /**
-   * When true, the plugin is only listed on mobile while the app's Debug mode
-   * is enabled. Use for work-in-progress / experimental plugins.
+   * Marks a work-in-progress / experimental plugin. On mobile it is only listed
+   * while the app's Debug mode is enabled; on the demo it is shown with a "WIP"
+   * badge.
    */
   debug?: boolean;
   /** Plugin config (mirrors the plugin's internal `config` object) */
