@@ -1,13 +1,22 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { getPluginRegistry } from '../../assets/plugins/registry';
-import { useVerifierUrl } from '@/lib/useVerifierUrl';
+import { useVerifierUrl, getDebugEnabled } from '@/lib/useVerifierUrl';
 
 export default function PluginGalleryScreen() {
   const router = useRouter();
   const { url: verifierUrl } = useVerifierUrl();
-  const plugins = getPluginRegistry(verifierUrl);
+  const [debugEnabled, setDebugEnabled] = useState(false);
+
+  // Re-read on focus so toggling Debug in Settings updates the list immediately.
+  useFocusEffect(
+    useCallback(() => {
+      getDebugEnabled().then(setDebugEnabled);
+    }, []),
+  );
+
+  const plugins = getPluginRegistry(verifierUrl).filter((p) => debugEnabled || !p.debug);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
