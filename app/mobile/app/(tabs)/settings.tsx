@@ -133,48 +133,52 @@ export default function SettingsScreen() {
             trackColor={{ false: '#ddd', true: '#243f5f' }}
           />
         </View>
+
+        {debugEnabled && (
+          <>
+            <View style={styles.debugDivider} />
+
+            <Text style={styles.label}>Prover verbosity</Text>
+            <Text style={styles.description}>
+              How much the tlsn prover logs — captures this level and finer detail (not a display
+              filter). Use Debug or Trace to diagnose proving failures; applies on the next run.
+            </Text>
+            <View style={styles.segment}>
+              {LOG_LEVELS.map((level) => {
+                const active = logLevel === level;
+                return (
+                  <TouchableOpacity
+                    key={level}
+                    style={[styles.segmentButton, active && styles.segmentButtonActive]}
+                    onPress={() => handleSelectLogLevel(level)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.segmentText, active && styles.segmentTextActive]}>
+                      {level.charAt(0).toUpperCase() + level.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <View style={styles.debugDivider} />
+
+            <TouchableOpacity
+              style={styles.linkRow}
+              onPress={() => router.push('/logs')}
+              activeOpacity={0.7}
+            >
+              <View style={styles.toggleLabelGroup}>
+                <Text style={styles.label}>Logs</Text>
+                <Text style={styles.linkDescription}>
+                  View app and prover logs. Share them when reporting an issue.
+                </Text>
+              </View>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
-
-      {debugEnabled && (
-        <View style={[styles.card, styles.cardSpacing]}>
-          <Text style={styles.label}>Prover verbosity</Text>
-          <Text style={styles.description}>
-            How much the tlsn prover logs — captures this level and finer detail (not a display
-            filter). Use Debug or Trace to diagnose proving failures; applies on the next run.
-          </Text>
-          <View style={styles.segment}>
-            {LOG_LEVELS.map((level) => {
-              const active = logLevel === level;
-              return (
-                <TouchableOpacity
-                  key={level}
-                  style={[styles.segmentButton, active && styles.segmentButtonActive]}
-                  onPress={() => handleSelectLogLevel(level)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.segmentText, active && styles.segmentTextActive]}>
-                    {level.charAt(0).toUpperCase() + level.slice(1)}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-      )}
-
-      <TouchableOpacity
-        style={[styles.card, styles.cardSpacing, styles.linkRow]}
-        onPress={() => router.push('/logs')}
-        activeOpacity={0.7}
-      >
-        <View style={styles.toggleLabelGroup}>
-          <Text style={styles.label}>Logs</Text>
-          <Text style={styles.linkDescription}>
-            View app and prover logs. Share them when reporting an issue.
-          </Text>
-        </View>
-        <Text style={styles.chevron}>›</Text>
-      </TouchableOpacity>
 
       <View style={styles.infoCard}>
         <Text style={styles.infoTitle}>Default</Text>
@@ -289,6 +293,11 @@ const styles = StyleSheet.create({
   },
   cardSpacing: {
     marginTop: 12,
+  },
+  debugDivider: {
+    height: 1,
+    backgroundColor: '#eee',
+    marginVertical: 16,
   },
   linkRow: {
     flexDirection: 'row',
