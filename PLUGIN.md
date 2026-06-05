@@ -30,6 +30,24 @@ The TLSN Extension features a **secure plugin system** that allows developers to
 - ✅ **React-like Hooks** - Familiar patterns with `useEffect`, `useRequests`, `useHeaders`
 - ✅ **Type-Safe** - Full TypeScript support with declaration files
 
+### Cross-Platform: Extension and Mobile
+
+The same plugins run on **both** TLSNotary clients — the browser extension and the
+[mobile app](./app/mobile) (iOS + Android). Plugin sources and their shared registry live
+in [`packages/plugins`](./packages/plugins), which builds two targets:
+
+- **demo** (`dist/demo/`) — ESM bundles loaded by the extension, sandboxed in QuickJS WASM.
+- **mobile** (`dist/mobile/`) — bundles compiled to `es2016` and wrapped as a string the
+  mobile app evaluates with `new Function()` (sandboxed in native QuickJS).
+
+Write plugins normally in TypeScript; both targets are produced by `npm run build:plugins`.
+
+> **Mobile constraint (Hermes):** the mobile runtime evaluates plugin code dynamically, and
+> Hermes cannot parse `async`/`await` in dynamically-evaluated code. The mobile build
+> transpiles to `es2016` to handle this, so you can still author with `async`/`await` — just
+> rebuild with `npm run build:plugins` after changes. Avoid runtime-only APIs that assume a
+> browser DOM, since the same code must also run under React Native.
+
 ### Verifier Integration
 
 Plugins generate TLS proofs by communicating with a **verifier server** (see [VERIFIER.md](./VERIFIER.md) for implementation details). The verifier:
