@@ -616,7 +616,9 @@ type Handler = {
     | 'HEADERS'
     | 'BODY'
     | 'ALL';
-  action: 'REVEAL' | 'HASH'; // Reveal plaintext or commit hash
+  // 'REVEAL' (plaintext), { kind: 'HASH', algorithm } (commitment), or
+  // { kind: 'ASSERT', ... } (reveal + verifier-side comparison; see "ASSERT action" below).
+  action: 'REVEAL' | { kind: 'HASH'; algorithm: 'BLAKE3' | 'SHA256' | 'KECCAK256' } | AssertAction;
   params?: {
     // For HEADERS:
     key?: string; // Header name to reveal
@@ -649,6 +651,40 @@ type Handler = {
 | `BODY`           | HTTP body content                                 | SENT, RECV    |
 | `ALL`            | Entire transcript (use with regex)                | SENT, RECV    |
 
+**ASSERT action:**
+
+An `ASSERT` action reveals the targeted data (exactly like `REVEAL`) and additionally asks the **verifier** to evaluate a comparison against it. The boolean outcome is returned on the handler result as `assert`. A failed assertion does not abort the proof — it is reported as `assert: false`.
+
+```typescript
+type AssertValueType = 'number' | 'bigint' | 'date' | 'string';
+
+type AssertAction =
+  // `valueType` is REQUIRED for the ordering ops and `between`.
+  | { kind: 'ASSERT'; op: 'gt' | 'gte' | 'lt' | 'lte'; value: string | number; valueType: AssertValueType }
+  | { kind: 'ASSERT'; op: 'between'; min: string | number; max: string | number; inclusive?: boolean; valueType: AssertValueType } // inclusive defaults to true
+  | { kind: 'ASSERT'; op: 'in'; values: (string | number)[] };
+```
+
+- `valueType` tells the verifier how to compare the revealed value (and the operand):
+  - `number` — parsed as a float; `_` and `,` separators are ignored (so `"275_000_000"` compares as `275000000`).
+  - `bigint` — arbitrary-size integer (separators ignored); use for values beyond float precision.
+  - `date` — RFC 3339 / ISO-8601 timestamp (or `YYYY-MM-DD`), compared chronologically.
+  - `string` — lexicographic.
+- Operands may be a string when a number can't represent them losslessly (large bigints, date strings).
+- `in` tests membership against the list (string or numeric match, separator-tolerant).
+- A parse failure or non-matching type yields `assert: false` (never aborts the proof).
+- Target the bare value — e.g. a JSON body field with `hideKey: true` — so the revealed bytes are exactly the value being compared.
+
+```javascript
+// Prove the account balance is at least 1000 (and reveal it)
+{
+  type: 'RECV',
+  part: 'BODY',
+  action: { kind: 'ASSERT', op: 'gte', value: 1000, valueType: 'number' },
+  params: { type: 'json', path: 'accounts.EUR', hideKey: true },
+}
+```
+
 **Returns:** Promise<ProofResponse> - The generated proof data
 
 **ProofResponse Structure:**
@@ -660,9 +696,10 @@ interface ProofResponse {
   results: Array<{
     type: 'SENT' | 'RECV'; // Request or response data
     part: string; // Which part (START_LINE, HEADERS, BODY, etc.)
-    action: 'REVEAL' | 'HASH'; // Reveal or commitment action
+    action: 'REVEAL' | 'HASH' | 'ASSERT'; // Reveal, commitment, or assertion action
     params?: object; // Optional handler parameters
     value: string; // The extracted value
+    assert?: boolean; // Present only for ASSERT handlers: did the comparison hold?
   }>;
 }
 ```

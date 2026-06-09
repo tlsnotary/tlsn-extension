@@ -322,6 +322,37 @@ interface RevealRangeWithHandler {
   handler: Handler;
 }
 
+/** True when the handler's action is ASSERT (object form). */
+function isAssertHandler(handler: Handler): boolean {
+  return typeof handler.action === 'object' && handler.action.kind === 'ASSERT';
+}
+
+/**
+ * Stable identity for a handler, independent of its action and of param key
+ * ordering (the WASM round-trip reorders params). Used to re-attach the ASSERT
+ * action onto WASM's output ranges. Two handlers identical in type/part/params
+ * but differing only in action are not distinguishable here — that combination
+ * is redundant and unsupported.
+ */
+function handlerSignature(handler: Handler): string {
+  const params = (handler as { params?: Record<string, unknown> }).params;
+  const canonParams = params
+    ? Object.keys(params)
+        .sort()
+        .map((k) => `${k}=${JSON.stringify(params[k])}`)
+        .join('&')
+    : '';
+  return `${handler.type}|${handler.part}|${canonParams}`;
+}
+
+/** Downgrade an ASSERT action to REVEAL (compute_reveal only reveals the range). */
+function toWasmSafeHandler(handler: Handler): Handler {
+  if (typeof handler.action === 'object' && handler.action.kind === 'ASSERT') {
+    return { ...handler, action: { kind: 'REVEAL' } } as Handler;
+  }
+  return handler;
+}
+
 function computeReveal(
   proverId: string,
   handlers: Handler[],
@@ -341,9 +372,19 @@ function computeReveal(
   const sent = new Uint8Array(transcript.sent);
   const recv = new Uint8Array(transcript.recv);
 
+  // ASSERT is semantically REVEAL at the prover: the external compute_reveal
+  // only knows REVEAL/HASH and would reject an ASSERT action. Downgrade ASSERT
+  // to REVEAL for the WASM call, then re-attach the original ASSERT action onto
+  // the output ranges so the verifier receives the assertion spec.
+  const assertOriginals = new Map<string, Handler>();
+  for (const handler of handlers) {
+    if (isAssertHandler(handler)) assertOriginals.set(handlerSignature(handler), handler);
+  }
+  const wasmHandlers = assertOriginals.size > 0 ? handlers.map(toWasmSafeHandler) : handlers;
+
   // WASM returns snake_case fields from serde; validate shape at the boundary
   // since wasm-bindgen returns `any` and Rust format changes would be silent.
-  const output: unknown = wasmComputeReveal(sent, recv, handlers);
+  const output: unknown = wasmComputeReveal(sent, recv, wasmHandlers);
 
   if (
     !output ||
@@ -362,11 +403,19 @@ function computeReveal(
     recv_ranges_with_handlers: RevealRangeWithHandler[];
   };
 
+  const reattachAssert = (ranges: RevealRangeWithHandler[]): RevealRangeWithHandler[] => {
+    if (assertOriginals.size === 0) return ranges;
+    return ranges.map((range) => {
+      const original = assertOriginals.get(handlerSignature(range.handler));
+      return original ? { ...range, handler: original } : range;
+    });
+  };
+
   return {
     sentRanges: typed.reveal.sent,
     recvRanges: typed.reveal.recv,
-    sentRangesWithHandlers: typed.sent_ranges_with_handlers,
-    recvRangesWithHandlers: typed.recv_ranges_with_handlers,
+    sentRangesWithHandlers: reattachAssert(typed.sent_ranges_with_handlers),
+    recvRangesWithHandlers: reattachAssert(typed.recv_ranges_with_handlers),
     commit: typed.commit as Commit | undefined,
   };
 }

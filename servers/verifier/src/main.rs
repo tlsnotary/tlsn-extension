@@ -130,12 +130,61 @@ pub(crate) enum HashAlgorithm {
     Keccak256,
 }
 
+/// Comparison operator for an ASSERT action. Evaluated by the verifier against
+/// the revealed value.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum AssertOp {
+    Gt,
+    Gte,
+    Lt,
+    Lte,
+    Between,
+    In,
+}
+
+/// How the verifier interprets the revealed value and the operand(s) when
+/// evaluating an ASSERT comparison. Required for the ordering ops and `between`.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum AssertValueType {
+    Number,
+    Bigint,
+    Date,
+    String,
+}
+
+// Not `Copy`: the `Assert` variant holds a `Vec`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "UPPERCASE")]
 pub(crate) enum HandlerAction {
     Reveal,
     Hash {
         algorithm: HashAlgorithm,
+    },
+    /// Reveal the data (like `Reveal`) and have the verifier evaluate a
+    /// comparison against it. The boolean outcome is reported on `HandlerResult`.
+    Assert {
+        op: AssertOp,
+        /// How to type the comparison. Required for ordering ops and `between`;
+        /// absent for `in`.
+        #[serde(default, rename = "valueType", skip_serializing_if = "Option::is_none")]
+        value_type: Option<AssertValueType>,
+        /// Operand for `gt`/`gte`/`lt`/`lte`. JSON number or string.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        value: Option<serde_json::Value>,
+        /// Lower bound for `between`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        min: Option<serde_json::Value>,
+        /// Upper bound for `between`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        max: Option<serde_json::Value>,
+        /// Whether `between` bounds are inclusive (default true).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        inclusive: Option<bool>,
+        /// Candidate values for `in` membership.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        values: Option<Vec<serde_json::Value>>,
     },
 }
 
@@ -184,6 +233,9 @@ struct HandlerResult {
     #[serde(flatten)]
     handler: Handler,
     value: String,
+    /// Outcome of an ASSERT action. `None` for REVEAL/HASH handlers.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    assert: Option<bool>,
 }
 
 // Verification result containing handler results or an error
@@ -1255,52 +1307,399 @@ fn process_ranges(
     ranges
         .iter()
         .map(|range_with_handler| {
-            let value = match range_with_handler.handler.action {
-                HandlerAction::Hash { .. } => find_hash_digest(
-                    transcript_commitments,
-                    direction,
-                    range_with_handler.start,
-                    range_with_handler.end,
-                )
-                .unwrap_or_else(|| {
+            // Revealed plaintext for this range (shared by REVEAL and ASSERT).
+            let revealed = || {
+                if range_with_handler.start < bytes.len()
+                    && range_with_handler.end <= bytes.len()
+                    && range_with_handler.start < range_with_handler.end
+                {
+                    String::from_utf8_lossy(
+                        &bytes[range_with_handler.start..range_with_handler.end],
+                    )
+                    .to_string()
+                } else {
                     format!(
-                        "ERROR: No hash commitment for [{}, {})",
+                        "ERROR: Invalid range [{}, {})",
                         range_with_handler.start, range_with_handler.end
                     )
-                }),
-                HandlerAction::Reveal => {
-                    if range_with_handler.start < bytes.len()
-                        && range_with_handler.end <= bytes.len()
-                        && range_with_handler.start < range_with_handler.end
-                    {
-                        let extracted_bytes =
-                            &bytes[range_with_handler.start..range_with_handler.end];
-                        String::from_utf8_lossy(extracted_bytes).to_string()
-                    } else {
+                }
+            };
+
+            let (value, assert) = match &range_with_handler.handler.action {
+                HandlerAction::Hash { .. } => (
+                    find_hash_digest(
+                        transcript_commitments,
+                        direction,
+                        range_with_handler.start,
+                        range_with_handler.end,
+                    )
+                    .unwrap_or_else(|| {
                         format!(
-                            "ERROR: Invalid range [{}, {})",
+                            "ERROR: No hash commitment for [{}, {})",
                             range_with_handler.start, range_with_handler.end
                         )
-                    }
+                    }),
+                    None,
+                ),
+                HandlerAction::Reveal => (revealed(), None),
+                HandlerAction::Assert {
+                    op,
+                    value_type,
+                    value,
+                    min,
+                    max,
+                    inclusive,
+                    values,
+                } => {
+                    let revealed_value = revealed();
+                    let passed = evaluate_assert(
+                        &revealed_value,
+                        *op,
+                        *value_type,
+                        value.as_ref(),
+                        min.as_ref(),
+                        max.as_ref(),
+                        *inclusive,
+                        values.as_deref(),
+                    );
+                    (revealed_value, Some(passed))
                 }
             };
 
             debug!(
-                "[{}] Mapped {} range [{}, {}) to handler {:?}: {} bytes",
+                "[{}] Mapped {} range [{}, {}) to handler {:?}: {} bytes (assert={:?})",
                 session_id,
                 direction_label,
                 range_with_handler.start,
                 range_with_handler.end,
                 range_with_handler.handler.part,
-                value.len()
+                value.len(),
+                assert,
             );
 
             HandlerResult {
                 handler: range_with_handler.handler.clone(),
                 value,
+                assert,
             }
         })
         .collect()
+}
+
+/// Trim whitespace and strip a single pair of surrounding double quotes (JSON
+/// string values are often revealed with quotes).
+fn dequote(value: &str) -> &str {
+    let trimmed = value.trim();
+    trimmed
+        .strip_prefix('"')
+        .and_then(|s| s.strip_suffix('"'))
+        .unwrap_or(trimmed)
+}
+
+/// Parse a value as a float, ignoring `_` and `,` separators (so `"275_000_000"`
+/// parses as `275000000`).
+fn parse_number(value: &str) -> Option<f64> {
+    dequote(value).replace('_', "").replace(',', "").trim().parse::<f64>().ok()
+}
+
+/// Parse a value as an arbitrary-size integer (`i128`), ignoring separators.
+fn parse_bigint(value: &str) -> Option<i128> {
+    dequote(value).replace('_', "").replace(',', "").trim().parse::<i128>().ok()
+}
+
+/// Parse a value as a UTC instant. Accepts RFC 3339 / ISO-8601 timestamps and
+/// bare `YYYY-MM-DD` dates (treated as midnight UTC).
+fn parse_date(value: &str) -> Option<chrono::DateTime<chrono::Utc>> {
+    let s = dequote(value).trim();
+    if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(s) {
+        return Some(dt.with_timezone(&chrono::Utc));
+    }
+    if let Ok(d) = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d") {
+        let ndt = d.and_hms_opt(0, 0, 0)?;
+        return Some(chrono::TimeZone::from_utc_datetime(&chrono::Utc, &ndt));
+    }
+    None
+}
+
+/// String form of a JSON operand (inner string for `String`, else its JSON repr).
+fn coerce_str(value: &serde_json::Value) -> String {
+    match value {
+        serde_json::Value::String(s) => s.clone(),
+        other => other.to_string(),
+    }
+}
+
+/// Interpret a JSON operand as a float (number, or separator-tolerant string).
+fn operand_number(value: &serde_json::Value) -> Option<f64> {
+    match value {
+        serde_json::Value::Number(n) => n.as_f64(),
+        serde_json::Value::String(s) => parse_number(s),
+        _ => None,
+    }
+}
+
+/// Interpret a JSON operand as an `i128` (number, or separator-tolerant string).
+fn operand_bigint(value: &serde_json::Value) -> Option<i128> {
+    match value {
+        serde_json::Value::Number(n) => n
+            .as_i64()
+            .map(i128::from)
+            .or_else(|| n.as_u64().map(i128::from)),
+        serde_json::Value::String(s) => parse_bigint(s),
+        _ => None,
+    }
+}
+
+/// Compare the revealed value against an operand under the given value type.
+/// Returns `None` if either side fails to parse for that type.
+fn cmp_typed(
+    revealed: &str,
+    operand: &serde_json::Value,
+    value_type: AssertValueType,
+) -> Option<std::cmp::Ordering> {
+    match value_type {
+        AssertValueType::Number => parse_number(revealed)?.partial_cmp(&operand_number(operand)?),
+        AssertValueType::Bigint => Some(parse_bigint(revealed)?.cmp(&operand_bigint(operand)?)),
+        AssertValueType::Date => Some(parse_date(revealed)?.cmp(&parse_date(&coerce_str(operand))?)),
+        AssertValueType::String => Some(dequote(revealed).cmp(coerce_str(operand).as_str())),
+    }
+}
+
+/// Evaluate an ASSERT comparison against the revealed value. Returns `false`
+/// for any malformed/missing operand, missing `valueType`, or unparseable value
+/// (report-only: never aborts verification).
+fn evaluate_assert(
+    value: &str,
+    op: AssertOp,
+    value_type: Option<AssertValueType>,
+    operand: Option<&serde_json::Value>,
+    min: Option<&serde_json::Value>,
+    max: Option<&serde_json::Value>,
+    inclusive: Option<bool>,
+    values: Option<&[serde_json::Value]>,
+) -> bool {
+    use std::cmp::Ordering;
+    match op {
+        AssertOp::Gt | AssertOp::Gte | AssertOp::Lt | AssertOp::Lte => {
+            let (Some(vt), Some(operand)) = (value_type, operand) else {
+                return false;
+            };
+            let Some(ord) = cmp_typed(value, operand, vt) else {
+                return false;
+            };
+            match op {
+                AssertOp::Gt => ord == Ordering::Greater,
+                AssertOp::Gte => ord != Ordering::Less,
+                AssertOp::Lt => ord == Ordering::Less,
+                AssertOp::Lte => ord != Ordering::Greater,
+                _ => unreachable!(),
+            }
+        }
+        AssertOp::Between => {
+            let (Some(vt), Some(min), Some(max)) = (value_type, min, max) else {
+                return false;
+            };
+            // lo = cmp(value, min); hi = cmp(value, max).
+            let (Some(lo), Some(hi)) = (cmp_typed(value, min, vt), cmp_typed(value, max, vt)) else {
+                return false;
+            };
+            if inclusive.unwrap_or(true) {
+                lo != Ordering::Less && hi != Ordering::Greater
+            } else {
+                lo == Ordering::Greater && hi == Ordering::Less
+            }
+        }
+        AssertOp::In => {
+            let Some(candidates) = values else {
+                return false;
+            };
+            let needle = dequote(value);
+            let needle_num = parse_number(value);
+            candidates.iter().any(|candidate| {
+                if coerce_str(candidate) == needle {
+                    return true;
+                }
+                // Separator-aware numeric fallback so "275_000_000" matches 275000000.
+                match (needle_num, operand_number(candidate)) {
+                    (Some(a), Some(b)) => a == b,
+                    _ => false,
+                }
+            })
+        }
+    }
+}
+
+#[cfg(test)]
+mod assert_eval_tests {
+    use super::{evaluate_assert, AssertOp, AssertValueType};
+    use serde_json::json;
+
+    fn num(op: AssertOp, value: &str, operand: serde_json::Value) -> bool {
+        evaluate_assert(
+            value,
+            op,
+            Some(AssertValueType::Number),
+            Some(&operand),
+            None,
+            None,
+            None,
+            None,
+        )
+    }
+
+    #[test]
+    fn number_ignores_separators() {
+        // Regression: "275_000_000" must compare numerically, not fail to parse.
+        assert!(num(AssertOp::Gt, "275_000_000", json!(1000)));
+        assert!(num(AssertOp::Gte, "275_000_000", json!(275000000)));
+        assert!(!num(AssertOp::Lt, "275_000_000", json!(1000)));
+        assert!(num(AssertOp::Lte, "1,000", json!(1000)));
+    }
+
+    #[test]
+    fn number_basic_and_string_operand() {
+        assert!(num(AssertOp::Gt, "1500", json!(1000)));
+        assert!(!num(AssertOp::Gt, "500", json!(1000)));
+        assert!(num(AssertOp::Gte, "1000", json!("1000"))); // operand given as string
+        assert!(num(AssertOp::Gte, "  \"1500\" ", json!(1000))); // quoted + whitespace
+    }
+
+    #[test]
+    fn missing_value_type_or_operand_is_false() {
+        // No valueType.
+        assert!(!evaluate_assert("5", AssertOp::Gt, None, Some(&json!(1)), None, None, None, None));
+        // No operand.
+        assert!(!evaluate_assert(
+            "5",
+            AssertOp::Gt,
+            Some(AssertValueType::Number),
+            None,
+            None,
+            None,
+            None,
+            None
+        ));
+        // Non-numeric value.
+        assert!(!num(AssertOp::Gt, "abc", json!(1)));
+    }
+
+    #[test]
+    fn bigint_beyond_float_precision() {
+        let vt = Some(AssertValueType::Bigint);
+        // 2^53 + 1 vs 2^53 — indistinguishable as f64, correct as i128.
+        assert!(evaluate_assert(
+            "9007199254740993",
+            AssertOp::Gt,
+            vt,
+            Some(&json!("9007199254740992")),
+            None,
+            None,
+            None,
+            None
+        ));
+        assert!(evaluate_assert(
+            "275_000_000",
+            AssertOp::Gte,
+            vt,
+            Some(&json!(1000)),
+            None,
+            None,
+            None,
+            None
+        ));
+    }
+
+    #[test]
+    fn date_ordering() {
+        let vt = Some(AssertValueType::Date);
+        assert!(evaluate_assert(
+            "2025-11-12T12:00:00Z",
+            AssertOp::Gt,
+            vt,
+            Some(&json!("2025-01-01T00:00:00Z")),
+            None,
+            None,
+            None,
+            None
+        ));
+        // Date-only operand (midnight UTC), quoted revealed value.
+        assert!(evaluate_assert(
+            "\"2025-11-12T12:00:00Z\"",
+            AssertOp::Gte,
+            vt,
+            Some(&json!("2025-11-12")),
+            None,
+            None,
+            None,
+            None
+        ));
+        // Unparseable date -> false.
+        assert!(!evaluate_assert(
+            "not-a-date",
+            AssertOp::Gt,
+            vt,
+            Some(&json!("2025-01-01")),
+            None,
+            None,
+            None,
+            None
+        ));
+    }
+
+    #[test]
+    fn string_lexicographic() {
+        let vt = Some(AssertValueType::String);
+        assert!(evaluate_assert(
+            "banana",
+            AssertOp::Gt,
+            vt,
+            Some(&json!("apple")),
+            None,
+            None,
+            None,
+            None
+        ));
+        assert!(evaluate_assert(
+            "\"apple\"",
+            AssertOp::Lt,
+            vt,
+            Some(&json!("banana")),
+            None,
+            None,
+            None,
+            None
+        ));
+    }
+
+    #[test]
+    fn between_typed() {
+        let vt = Some(AssertValueType::Number);
+        // Inclusive (default).
+        assert!(evaluate_assert("10", AssertOp::Between, vt, None, Some(&json!(10)), Some(&json!(20)), None, None));
+        assert!(evaluate_assert("20", AssertOp::Between, vt, None, Some(&json!(10)), Some(&json!(20)), None, None));
+        // Exclusive.
+        assert!(!evaluate_assert("10", AssertOp::Between, vt, None, Some(&json!(10)), Some(&json!(20)), Some(false), None));
+        assert!(evaluate_assert("15", AssertOp::Between, vt, None, Some(&json!(10)), Some(&json!(20)), Some(false), None));
+        // Separators in the revealed value.
+        assert!(evaluate_assert("1_500", AssertOp::Between, vt, None, Some(&json!(1000)), Some(&json!(2000)), None, None));
+        // Missing bound / missing valueType -> false.
+        assert!(!evaluate_assert("15", AssertOp::Between, vt, None, Some(&json!(10)), None, None, None));
+        assert!(!evaluate_assert("15", AssertOp::Between, None, None, Some(&json!(10)), Some(&json!(20)), None, None));
+    }
+
+    #[test]
+    fn membership_in() {
+        let strs = [json!("active"), json!("pending")];
+        assert!(evaluate_assert("active", AssertOp::In, None, None, None, None, None, Some(&strs)));
+        assert!(evaluate_assert("\"active\"", AssertOp::In, None, None, None, None, None, Some(&strs)));
+        assert!(!evaluate_assert("closed", AssertOp::In, None, None, None, None, None, Some(&strs)));
+
+        let nums = [json!(200), json!(275000000)];
+        assert!(evaluate_assert("200", AssertOp::In, None, None, None, None, None, Some(&nums)));
+        // Separator-aware numeric membership.
+        assert!(evaluate_assert("275_000_000", AssertOp::In, None, None, None, None, None, Some(&nums)));
+        assert!(!evaluate_assert("404", AssertOp::In, None, None, None, None, None, Some(&nums)));
+    }
 }
 
 /// Finds the hash digest (hex) for a given range+direction from the list of

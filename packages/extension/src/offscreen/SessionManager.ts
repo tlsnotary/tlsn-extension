@@ -3,6 +3,7 @@ import { ProveManager } from './ProveManager';
 import type { RevealRangeWithHandler } from './ProveManager';
 import type { Method } from 'tlsn-wasm';
 import type {
+  AssertAction,
   CanonicalHandler,
   DomJson,
   Handler,
@@ -58,7 +59,9 @@ function makeDescriptor(
   const safeStart = Math.max(0, Math.min(range.start, bytes.length));
   const safeEnd = Math.max(safeStart, Math.min(range.end, bytes.length));
   const slice = bytes.subarray(safeStart, safeEnd);
-  const action: 'REVEAL' | 'HASH' = canonical.action.kind === 'HASH' ? 'HASH' : 'REVEAL';
+  const kind = canonical.action.kind;
+  const action: 'REVEAL' | 'HASH' | 'ASSERT' =
+    kind === 'HASH' ? 'HASH' : kind === 'ASSERT' ? 'ASSERT' : 'REVEAL';
   const algorithm = canonical.action.kind === 'HASH' ? canonical.action.algorithm : undefined;
 
   let preview: string;
@@ -67,17 +70,39 @@ function makeDescriptor(
     // actual commitment hash ahead of time. Show the algorithm name instead.
     preview = algorithm ?? 'SHA-256';
   } else {
+    // REVEAL and ASSERT both reveal the bytes to the verifier.
     const raw = decoder.decode(slice);
     preview = raw.length > PREVIEW_MAX_CHARS ? raw.slice(0, PREVIEW_MAX_CHARS) + '…' : raw;
   }
 
+  // For ASSERT, surface the comparison in the label so the user sees what the
+  // verifier will check against the (revealed) value.
+  const label =
+    canonical.action.kind === 'ASSERT'
+      ? `${buildLabel(canonical)} — assert ${describeAssert(canonical.action)}`
+      : buildLabel(canonical);
+
   return {
     direction,
-    label: buildLabel(canonical),
+    label,
     action,
     algorithm,
     preview,
   };
+}
+
+/** Human-readable summary of an ASSERT comparison for the approval preview. */
+function describeAssert(action: AssertAction): string {
+  switch (action.op) {
+    case 'between':
+      return `between ${action.min} and ${action.max}${
+        action.inclusive === false ? ' (exclusive)' : ''
+      } [${action.valueType}]`;
+    case 'in':
+      return `in [${action.values.join(', ')}]`;
+    default:
+      return `${action.op} ${action.value} [${action.valueType}]`;
+  }
 }
 
 export class SessionManager {

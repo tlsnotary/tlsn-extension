@@ -12,6 +12,12 @@ unset SDKROOT
 # Pin iOS deployment target so ring/cc-rs doesn't inherit a wrong version from Nix SDK
 export IPHONEOS_DEPLOYMENT_TARGET="${IPHONEOS_DEPLOYMENT_TARGET:-15.1}"
 
+# Force a fresh build of just this crate. CI caches target/, and cargo can keep
+# a stale cached libtlsn_mobile.a after a source change; uniffi-bindgen reads
+# metadata from that lib, so a stale lib silently produces stale bindings.
+# Cleaning only this package keeps the (expensive) dependency artifacts cached.
+cargo clean -p tlsn-mobile
+
 echo "Building for iOS device (aarch64-apple-ios)..."
 cargo build --target aarch64-apple-ios --release
 
@@ -43,11 +49,17 @@ xcodebuild -create-xcframework \
 
 echo "Copying to Expo module..."
 EXPO_MODULE_DIR="../../app/mobile/modules/tlsn-native"
+SWIFT_BINDING_DEST="$EXPO_MODULE_DIR/ios/tlsn_mobile.swift"
 
-# Copy Swift bindings
-cp target/swift/tlsn_mobile.swift "$EXPO_MODULE_DIR/ios/"
+# The Swift binding is checked into git (deterministic from the Rust source).
+# Don't overwrite the committed file on every build — a stale cached `.a` can
+# feed uniffi-bindgen stale metadata and silently produce broken bindings.
+# Regenerate only when missing or explicitly requested via TLSN_REGEN_BINDINGS.
+if [ ! -f "$SWIFT_BINDING_DEST" ] || [ "${TLSN_REGEN_BINDINGS:-false}" = "true" ]; then
+    cp target/swift/tlsn_mobile.swift "$SWIFT_BINDING_DEST"
+fi
 
-# Copy XCFramework
+# Copy XCFramework (binary artifact, always refreshed; gitignored)
 rm -rf "$EXPO_MODULE_DIR/ios/TlsnMobile.xcframework"
 cp -R target/TlsnMobile.xcframework "$EXPO_MODULE_DIR/ios/"
 

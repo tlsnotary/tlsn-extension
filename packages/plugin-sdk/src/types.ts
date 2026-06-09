@@ -161,7 +161,58 @@ export type HandlerPart =
 export type HashAlgorithm = 'BLAKE3' | 'SHA256' | 'KECCAK256';
 
 /** String action kind used in reveal-range previews and descriptors. */
-export type HandlerActionKind = 'REVEAL' | 'HASH';
+export type HandlerActionKind = 'REVEAL' | 'HASH' | 'ASSERT';
+
+/**
+ * Comparison operators for an ASSERT action.
+ *
+ * - Ordering ops (`gt`/`gte`/`lt`/`lte`) and `between` compare the revealed
+ *   value according to the handler's `valueType`.
+ * - `in` tests membership against a list of values.
+ */
+export type AssertOp = 'gt' | 'gte' | 'lt' | 'lte' | 'between' | 'in';
+
+/**
+ * How the verifier interprets the revealed value (and the operand) when
+ * evaluating an ASSERT comparison.
+ *
+ * - `number` — parsed as a float; `_` and `,` separators are ignored.
+ * - `bigint` — parsed as an arbitrary-size integer (separators ignored); use
+ *   for values beyond float precision.
+ * - `date` — parsed as an RFC 3339 / ISO-8601 timestamp (or `YYYY-MM-DD`).
+ * - `string` — compared lexicographically.
+ */
+export type AssertValueType = 'number' | 'bigint' | 'date' | 'string';
+
+/**
+ * An assertion over the revealed data, evaluated by the verifier.
+ *
+ * The data is still revealed in plaintext (the prover treats ASSERT exactly
+ * like REVEAL); the verifier additionally computes the comparison and reports
+ * the boolean result on the handler result. The plugin should target the bare
+ * value (e.g. a JSON body field with `hideKey: true`) so the revealed bytes are
+ * the value being compared.
+ *
+ * `valueType` is required for the ordering ops and `between` so the verifier
+ * knows how to type the comparison. Operands may be given as a string when a
+ * number can't represent them losslessly (large `bigint`s, `date` strings).
+ */
+export type AssertAction =
+  | {
+      kind: 'ASSERT';
+      op: 'gt' | 'gte' | 'lt' | 'lte';
+      value: string | number;
+      valueType: AssertValueType;
+    }
+  | {
+      kind: 'ASSERT';
+      op: 'between';
+      min: string | number;
+      max: string | number;
+      inclusive?: boolean;
+      valueType: AssertValueType;
+    }
+  | { kind: 'ASSERT'; op: 'in'; values: (string | number)[] };
 
 export type RevealRangeDescriptor = {
   direction: HandlerType;
@@ -186,7 +237,8 @@ export type RevealRangeDescriptor = {
 export type HandlerAction =
   | 'REVEAL'
   | { kind: 'REVEAL' }
-  | { kind: 'HASH'; algorithm: HashAlgorithm };
+  | { kind: 'HASH'; algorithm: HashAlgorithm }
+  | AssertAction;
 
 export type StartLineHandler = {
   type: HandlerType;
@@ -252,6 +304,11 @@ export function canonicalizeHandler(handler: Handler): CanonicalHandler {
 
 export function canonicalizeHandlers(handlers: Handler[]): CanonicalHandler[] {
   return handlers.map(canonicalizeHandler);
+}
+
+/** True when the action is an ASSERT (in either shorthand or object form). */
+export function isAssertAction(action: HandlerAction): action is AssertAction {
+  return typeof action === 'object' && action.kind === 'ASSERT';
 }
 
 /**
