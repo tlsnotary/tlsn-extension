@@ -6,13 +6,13 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { WindowManager } from '../../src/background/WindowManager';
+import { WindowManager } from '../../src/background/WindowManager.js';
 import type {
   WindowRegistration,
   InterceptedRequest,
   InterceptedRequestHeader,
-} from '@tlsn/host-extension/types';
-import { REQUEST_BATCH_INTERVAL_MS, REQUEST_BATCH_MAX_SIZE } from '@tlsn/host-extension/util';
+} from '../../src/types/index.js';
+import { REQUEST_BATCH_INTERVAL_MS, REQUEST_BATCH_MAX_SIZE } from '../../src/util/index.js';
 import browser from 'webextension-polyfill';
 
 describe('WindowManager', () => {

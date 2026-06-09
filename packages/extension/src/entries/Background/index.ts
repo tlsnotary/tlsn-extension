@@ -1,13 +1,8 @@
 import browser from 'webextension-polyfill';
-import { WindowManager } from '../../background/WindowManager';
+import { WindowManager, installRequestInterceptor } from '@tlsn/host-extension/background';
 import { confirmationManager } from '../../background/ConfirmationManager';
 import type { PluginConfig } from '@tlsn/plugin-sdk';
-import type {
-  InterceptedRequest,
-  InterceptedRequestHeader,
-  ApprovalMode,
-  BackgroundMessage,
-} from '@tlsn/host-extension/types';
+import type { ApprovalMode, BackgroundMessage } from '@tlsn/host-extension/types';
 import { validateUrl, getStoredLogLevel } from '@tlsn/host-extension/util';
 import { logger } from '@tlsn/common';
 
@@ -32,57 +27,11 @@ browser.runtime.onInstalled.addListener((details) => {
   logger.info('Extension installed/updated:', details.reason);
 });
 
-// Set up webRequest listener to intercept all requests
-browser.webRequest.onBeforeRequest.addListener(
-  (details) => {
-    // Check if this tab belongs to a managed window
-    const managedWindow = windowManager.getWindowByTabId(details.tabId);
-
-    if (managedWindow && details.tabId !== undefined) {
-      const request: InterceptedRequest = {
-        id: `${details.requestId}`,
-        method: details.method,
-        url: details.url,
-        timestamp: Date.now(),
-        tabId: details.tabId,
-        requestBody: details.requestBody,
-      };
-
-      // if (details.requestBody) {
-      //   console.log(details.requestBody);
-      // }
-
-      // Add request to window's request history
-      windowManager.addRequest(managedWindow.id, request);
-    }
-  },
-  { urls: ['<all_urls>'] },
-  ['requestBody', 'extraHeaders'],
-);
-
-browser.webRequest.onBeforeSendHeaders.addListener(
-  (details) => {
-    // Check if this tab belongs to a managed window
-    const managedWindow = windowManager.getWindowByTabId(details.tabId);
-
-    if (managedWindow && details.tabId !== undefined) {
-      const header: InterceptedRequestHeader = {
-        id: `${details.requestId}`,
-        method: details.method,
-        url: details.url,
-        timestamp: details.timeStamp,
-        type: details.type,
-        requestHeaders: details.requestHeaders || [],
-        tabId: details.tabId,
-      };
-
-      // Add request to window's request history
-      windowManager.addHeader(managedWindow.id, header);
-    }
-  },
-  { urls: ['<all_urls>'] },
-  ['requestHeaders', 'extraHeaders'],
-);
+// webRequest interceptor wires onBeforeRequest + onBeforeSendHeaders into
+// the WindowManager. The interceptor exits immediately for any tab the
+// WindowManager doesn't track, scoping the broad <all_urls> permission to
+// windows the plugin explicitly opened.
+installRequestInterceptor({ windowManager });
 
 // Listen for window removal
 browser.windows.onRemoved.addListener(async (windowId) => {

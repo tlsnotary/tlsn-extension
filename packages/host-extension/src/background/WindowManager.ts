@@ -13,7 +13,7 @@ import type {
   ManagedWindow,
   IWindowManager,
   InterceptedRequestHeader,
-} from '@tlsn/host-extension/types';
+} from '../types/index.js';
 import {
   MAX_MANAGED_WINDOWS,
   MAX_REQUESTS_PER_WINDOW,
@@ -21,7 +21,7 @@ import {
   MAX_OVERLAY_RETRY_ATTEMPTS,
   REQUEST_BATCH_INTERVAL_MS,
   REQUEST_BATCH_MAX_SIZE,
-} from '@tlsn/host-extension/util';
+} from '../util/index.js';
 import { logger } from '@tlsn/common';
 
 /**
