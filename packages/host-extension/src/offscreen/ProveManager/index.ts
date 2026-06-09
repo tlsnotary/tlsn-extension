@@ -25,7 +25,7 @@ export interface RevealRangeWithHandler {
 }
 
 // Extract worker reference so we can listen for progress messages alongside Comlink.
-const worker = new Worker(new URL('./worker.ts', import.meta.url));
+const worker = new Worker(new URL('./worker.js', import.meta.url));
 const workerApi = Comlink.wrap<{
   init: (config?: {
     loggingLevel?: string;

@@ -1,6 +1,6 @@
 import Host, { canonicalizeHandler } from '@tlsn/plugin-sdk';
-import { ProveManager } from './ProveManager';
-import type { RevealRangeWithHandler } from './ProveManager';
+import { ProveManager } from './ProveManager/index.js';
+import type { RevealRangeWithHandler } from './ProveManager/index.js';
 import type { Method } from 'tlsn-wasm';
 import type {
   CanonicalHandler,
