@@ -24,7 +24,7 @@ import type {
   RevealPreparation,
   RevealRangeDescriptor,
 } from '../../modules/tlsn-native/src';
-import { addLog, type LogLevel } from '@/lib/logStore';
+import { addLog, type LogLevel } from '@tlsn/host-react-native/logger';
 import { getEffectiveLogLevel } from '@/lib/useVerifierUrl';
 
 export type {

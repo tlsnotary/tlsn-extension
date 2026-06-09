@@ -9,7 +9,7 @@ import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { useColorScheme } from '@/components/useColorScheme';
-import { installLogCapture } from '@/lib/installLogCapture';
+import { installLogCapture } from '@tlsn/host-react-native/logger';
 
 // Tee console.* into the in-app Logs screen as early as possible, so logs
 // emitted during startup and proving are captured. Idempotent.

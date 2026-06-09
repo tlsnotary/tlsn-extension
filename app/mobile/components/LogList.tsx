@@ -20,7 +20,7 @@ import {
   formatLogs,
   type LogEntry,
   type LogLevel,
-} from '@/lib/logStore';
+} from '@tlsn/host-react-native/logger';
 
 type Filter = 'all' | LogLevel;
 
