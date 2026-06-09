@@ -34,11 +34,11 @@ import type {
 // algorithm names.
 import type { RevealRangeDescriptor } from '../modules/tlsn-native/src';
 
-import { translateHandler, type NativeHandler } from './handlerTranslation';
+import { translateHandler, type NativeHandler } from '@tlsn/host-contracts';
 
 // Re-export translation helpers and the native handler type so existing
 // callers (PluginScreen) can continue importing them from here.
-export { translateHandler, translateHandlers, type NativeHandler } from './handlerTranslation';
+export { translateHandler, translateHandlers, type NativeHandler } from '@tlsn/host-contracts';
 
 // Re-export types used by other mobile modules so consumers don't need to
 // reach into @tlsn/plugin-sdk directly.

@@ -24,14 +24,14 @@ interface ChildIO extends ChildProcess {
 import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type {
-  ProveProgressData,
-  ProveRequest,
-  ProverClient,
-  ProverOptions,
-  RevealPreparation,
+import {
+  translateHandlers,
+  type ProveProgressData,
+  type ProveRequest,
+  type ProverClient,
+  type ProverOptions,
+  type RevealPreparation,
 } from '@tlsn/host-contracts';
-import { translateHandlers } from '../handler-translation.js';
 
 export interface RustProverClientOptions {
   /** Path to the tlsn-prover binary; defaults to TLSN_PROVER_BIN or the monorepo target dir. */

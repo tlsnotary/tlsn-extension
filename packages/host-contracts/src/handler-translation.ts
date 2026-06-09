@@ -1,24 +1,24 @@
 /**
  * Handler format translation
  *
- * Plugin-sdk uses canonical SCREAMING_SNAKE_CASE handler descriptors
- * (`type: 'SENT' | 'RECV'`, `part: 'START_LINE' | …`, `action: 'REVEAL' | { kind: 'HASH', algorithm }`).
+ * `@tlsn/plugin-sdk` emits handlers in canonical SCREAMING_SNAKE_CASE form
+ * (`type: 'SENT' | 'RECV'`, `part: 'START_LINE' | …`,
+ * `action: 'REVEAL' | { kind: 'HASH', algorithm }`).
  *
- * The mobile native module (Rust/Kotlin/Swift) uses PascalCase enum variants
- * (`handlerType: 'Sent' | 'Recv'`, `part: 'StartLine' | …`, `action: { type: 'Reveal' } | { type: 'Hash', algorithm }`).
+ * Every native adapter (Rust prover via uniffi for mobile + CLI; tlsn-wasm
+ * for the extension) wants the same PascalCase shape:
+ * `handlerType: 'Sent' | 'Recv'`, `part: 'StartLine' | …`,
+ * `action: { type: 'Reveal' } | { type: 'Hash', algorithm: ... }`.
  *
- * This module bridges those two representations.
+ * Lifted here so every adapter shares one canonical implementation rather
+ * than each carrying its own copy.
  */
 
 import type { Handler } from '@tlsn/plugin-sdk';
 
 /**
- * Mobile native handler format (PascalCase).
- *
- * Mirrors the broader shape accepted by the native side, including the
- * subset of params used by current plugins. The `tlsn-native` package
- * exports a narrower `Handler` type; this superset is what we hand to
- * the native module after translation.
+ * Native handler format (PascalCase). Mirrors the broader shape accepted by
+ * the native side, including the subset of params used by current plugins.
  */
 export interface NativeHandler {
   handlerType: 'Sent' | 'Recv';

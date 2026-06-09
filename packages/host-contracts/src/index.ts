@@ -20,6 +20,9 @@ import type {
 
 export type { Handler, InterceptedRequest, InterceptedRequestHeader, PluginConfig, ProveProgressData, RevealRangeDescriptor };
 
+export { translateHandler, translateHandlers } from './handler-translation.js';
+export type { NativeHandler } from './handler-translation.js';
+
 /** Returned by subscribe/listener APIs. Calling it removes the listener. */
 export type Unsubscribe = () => void;
 
