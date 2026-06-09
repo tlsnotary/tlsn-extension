@@ -15,3 +15,23 @@
  */
 
 export type { HostAdapter } from '@tlsn/host-contracts';
+
+export {
+  MobilePluginHost,
+  translateHandler,
+  translateHandlers,
+  type ApprovalMode,
+  type EventEmitter,
+  type NativeHandler,
+} from './MobilePluginHost.js';
+export type {
+  DomJson,
+  DomOptions,
+  Handler,
+  InterceptedRequest,
+  InterceptedRequestHeader,
+  PluginConfig,
+  WindowMessage,
+  RevealRangeDescriptor,
+} from './MobilePluginHost.js';
+

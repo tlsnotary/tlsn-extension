@@ -32,7 +32,7 @@ import type {
 // (with real transcript byte previews), so we use the native type — distinct
 // from plugin-sdk's RevealRangeDescriptor which uses SCREAMING_SNAKE_CASE
 // algorithm names.
-import type { RevealRangeDescriptor } from '../modules/tlsn-native/src';
+import type { RevealRangeDescriptor } from 'tlsn-native';
 
 import { translateHandler, type NativeHandler } from '@tlsn/host-contracts';
 
@@ -53,7 +53,7 @@ export type {
   WindowMessage,
 } from '@tlsn/plugin-sdk';
 
-export type { RevealRangeDescriptor } from '../modules/tlsn-native/src';
+export type { RevealRangeDescriptor } from 'tlsn-native';
 
 // ---------------------------------------------------------------------------
 // EventEmitter shape — mobile owns its emitter implementation, so we just

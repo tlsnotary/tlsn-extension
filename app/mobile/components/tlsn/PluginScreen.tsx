@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import { PluginWebView, InterceptedRequestHeader } from './PluginWebView';
+import { PluginWebView, InterceptedRequestHeader } from '@tlsn/host-react-native/components';
 import { PluginRenderer, DomJson } from '@tlsn/host-react-native/components';
 import {
   NativeProver,
@@ -17,7 +17,7 @@ import {
   EventEmitter,
   WindowMessage,
   RevealRangeDescriptor,
-} from '../../lib/MobilePluginHost';
+} from '@tlsn/host-react-native';
 import { getEffectiveLogLevel } from '../../lib/useVerifierUrl';
 
 /**
