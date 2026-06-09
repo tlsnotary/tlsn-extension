@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, PanResponder, Animated } from 'react-native';
-import { cssToRN } from '@tlsn/host-react-native/style';
+import { cssToRN } from '../style/index.js';
 
 /**
  * DOM JSON types matching plugin-sdk's DomJson.
@@ -22,7 +22,7 @@ export type DomJson =
     }
   | string;
 
-interface PluginRendererProps {
+export interface PluginRendererProps {
   /** The DOM JSON tree returned by the plugin's main() function */
   domJson: DomJson;
   /** Called when a plugin button with an onclick handler is pressed */

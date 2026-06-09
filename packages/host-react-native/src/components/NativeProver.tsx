@@ -23,9 +23,8 @@ import type {
   TlsnLogLevel,
   RevealPreparation,
   RevealRangeDescriptor,
-} from '../../modules/tlsn-native/src';
-import { addLog, type LogLevel } from '@tlsn/host-react-native/logger';
-import { getEffectiveLogLevel } from '@/lib/useVerifierUrl';
+} from 'tlsn-native';
+import { addLog, type LogLevel } from '../logger/index.js';
 
 export type {
   HandlerType,
@@ -69,10 +68,16 @@ export interface NativeProverHandle {
   isReady: boolean;
 }
 
-interface NativeProverProps {
+export interface NativeProverProps {
   onReady?: () => void;
   onError?: (error: string) => void;
   onProgress?: (progress: ProveProgress) => void;
+  /**
+   * Initial native log level (forwarded to `TlsnNative.setLogLevel` after
+   * initialize). Pass a Promise to compute the level asynchronously from your
+   * app's config; resolve to `null` to skip the call. Defaults to skipping.
+   */
+  getLogLevel?: () => Promise<TlsnLogLevel | null>;
 }
 
 /** Map a Rust `tracing` level string to the in-app console's log level. */
@@ -115,7 +120,7 @@ function getNativeModule() {
 }
 
 function NativeProverComponent(
-  { onReady, onError, onProgress }: NativeProverProps,
+  { onReady, onError, onProgress, getLogLevel }: NativeProverProps,
   ref: React.ForwardedRef<NativeProverHandle>,
 ) {
   const [isReady, setIsReady] = useState(false);
@@ -150,11 +155,14 @@ function NativeProverComponent(
         setIsReady(true);
         onReady?.();
 
-        // Apply the effective native log level (the selected verbosity only when
-        // Debug is enabled in Settings, otherwise the quiet default).
-        getEffectiveLogLevel()
-          .then((level) => module.setLogLevel(level))
-          .catch(() => {});
+        // Forward the consumer's effective log level if one was supplied.
+        if (getLogLevel) {
+          getLogLevel()
+            .then((level) => {
+              if (level) module.setLogLevel(level);
+            })
+            .catch(() => {});
+        }
       } catch (e) {
         console.error('[NativeProver] Failed to initialize:', e);
         onError?.(e instanceof Error ? e.message : 'Failed to initialize native module');
