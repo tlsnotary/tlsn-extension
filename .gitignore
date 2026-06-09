@@ -1,6 +1,7 @@
 /target
 **/*.rs.bk
 bin/
+!packages/tlsn-mobile/src/bin/
 **/node_modules
 **/.DS_Store
 .idea

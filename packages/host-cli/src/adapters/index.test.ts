@@ -10,6 +10,7 @@ import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { createCliAdapter } from './index.js';
+import { NullProverClient } from './null-prover.js';
 import type { HostAdapter, InterceptedRequestHeader } from '@tlsn/host-contracts';
 
 describe('createCliAdapter — contract wiring', () => {
@@ -80,7 +81,12 @@ describe('createCliAdapter — contract wiring', () => {
   });
 
   it('createHost wires through to the stub prover when invoked', async () => {
-    const adapter: HostAdapter = await createCliAdapter({ mode: 'replay' });
+    // Pin to NullProverClient so this test passes regardless of whether the
+    // Rust binary is built on the dev's machine.
+    const adapter: HostAdapter = await createCliAdapter({
+      mode: 'replay',
+      prover: new NullProverClient(),
+    });
     try {
       const host = await adapter.createHost({
         verifierUrl: 'http://localhost:7047',
@@ -88,7 +94,6 @@ describe('createCliAdapter — contract wiring', () => {
         approvalMode: 'all-session',
       });
       expect(host).toBeDefined();
-      // Direct prover.prove() to confirm the stub returns the expected shape.
       const proof = await adapter.prover.prove(
         { url: 'https://example.com/', method: 'GET', headers: {} },
         { verifierUrl: 'http://localhost:7047', proxyUrl: '', handlers: [] },

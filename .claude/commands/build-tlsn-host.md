@@ -118,7 +118,13 @@ Tell the dev what to expect:
 3. The CLI prompts them to approve the proof (`all-session`, `manual`, or `reject`).
 4. If approved, the CLI calls `prove()` and prints the resulting proof JSON to stdout.
 
-**Heads-up:** until the real Rust prover binary ships (Phase 1b), the CLI uses a stub prover that returns `{ stub: true, ... }`. The plugin executes correctly, windows open, headers are intercepted, the approval gate runs — but the proof object is a placeholder, not a real cryptographic attestation. Tell the dev this is expected.
+**Heads-up — Rust prover binary.** `@tlsn/host-cli` ships a `RustProverClient` that spawns a separate `tlsn-prover` binary built from `packages/tlsn-mobile/`. From the monorepo:
+
+```bash
+cd packages/tlsn-mobile && cargo build --bin tlsn-prover --release
+```
+
+`createCliAdapter` auto-detects the binary in `packages/tlsn-mobile/target/release/tlsn-prover` (or via the `TLSN_PROVER_BIN` env var) and uses the Rust prover by default. If neither is found, it falls back to the `NullProverClient` stub that returns `{ stub: true, ... }` — so plugins still run end-to-end for UI / approval / interception testing without needing the binary.
 
 ### Step 6: Tell them where to go next
 

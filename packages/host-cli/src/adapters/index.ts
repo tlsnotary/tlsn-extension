@@ -19,13 +19,18 @@ import type {
   ProverOptions,
 } from '@tlsn/host-contracts';
 
+import { existsSync } from 'node:fs';
 import { PlaywrightState } from './playwright-state.js';
 import { PlaywrightWindowManager } from './playwright-windows.js';
 import { PlaywrightRequestInterceptor } from './playwright-interceptor.js';
 import { NullProverClient } from './null-prover.js';
+import { RustProverClient, resolveBinary } from './rust-prover.js';
 import { JsonRenderer } from './json-renderer.js';
 import { ClackApprovalUi } from './clack-approval.js';
 import { AutoApproveUi } from './auto-approve.js';
+
+export { RustProverClient } from './rust-prover.js';
+export { NullProverClient } from './null-prover.js';
 
 export interface CliAdapterOptions {
   /**
@@ -53,7 +58,7 @@ export async function createCliAdapter(opts: CliAdapterOptions = {}): Promise<Ho
   const state = new PlaywrightState({ browser, context });
   const windows = new PlaywrightWindowManager(state);
   const interceptor = new PlaywrightRequestInterceptor(state);
-  const prover = opts.prover ?? new NullProverClient();
+  const prover = opts.prover ?? defaultProver();
   const renderer = opts.renderer ?? new JsonRenderer();
   const approval = opts.approval ?? new ClackApprovalUi();
 
@@ -64,6 +69,24 @@ export async function createCliAdapter(opts: CliAdapterOptions = {}): Promise<Ho
  * Convenience constructor for fully-headless CI flows. Skips Clack prompts and
  * approves everything. Pair with `--auto-approve` at the CLI layer.
  */
+/**
+ * Default ProverClient selection: prefer the real Rust binary when present
+ * (in `$TLSN_PROVER_BIN` or under `packages/tlsn-mobile/target/release/`),
+ * otherwise fall back to the NullProverClient stub so the rest of the
+ * adapter is still usable.
+ */
+function defaultProver() {
+  const bin = resolveBinary();
+  // resolveBinary returns the literal string 'tlsn-prover' when nothing was
+  // found on disk — that's the "fall back to PATH" signal. Don't auto-pick
+  // Rust mode in that case; fail safe to the stub instead so a missing
+  // binary doesn't surprise a user who didn't ask for it.
+  if (bin === 'tlsn-prover' && !existsSync('/usr/local/bin/tlsn-prover')) {
+    return new NullProverClient();
+  }
+  return new RustProverClient({ binary: bin });
+}
+
 export async function createHeadlessCliAdapter(
   opts: Omit<CliAdapterOptions, 'mode' | 'approval'> = {},
 ): Promise<HostAdapter> {
