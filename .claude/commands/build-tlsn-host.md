@@ -19,7 +19,7 @@ Detect first; ask only if ambiguous.
 | A plain Node `package.json` with `"type": "module"` or no `package.json` at all | `cli` |
 | Multiple of the above | Ask the user which to scaffold |
 
-> **Phase 1 status:** only the `cli` adapter (`@tlsn/host-cli`) is currently published. If the user wants `react-native` or `extension`, tell them that scaffold isn't yet live and offer to scaffold the CLI to get them familiar with the contracts.
+> **Current status:** `cli` (`@tlsn/host-cli`) and `react-native` (`@tlsn/host-react-native`) adapters are published. The `extension` adapter is not yet — offer the CLI in its place if asked.
 
 ### Step 2: Pick a starter plugin
 
@@ -64,6 +64,73 @@ For the **`cli`** platform, write these files into the target directory:
   }
 }
 ```
+
+For the **`react-native`** platform, you scaffold against a fresh Expo app. The lift here is more involved than CLI because RN needs native modules linked. Walk the dev through:
+
+#### 4a. Bootstrap the Expo app (if they don't have one)
+
+```bash
+npx create-expo-app@latest my-tlsn-app --template
+cd my-tlsn-app
+```
+
+#### 4b. Install host-react-native + peer deps
+
+```bash
+npx expo install react-native-webview @react-native-cookies/cookies
+npm install @tlsn/host-react-native @tlsn/plugins
+```
+
+#### 4c. Wire the native modules
+
+`@tlsn/host-react-native`'s NativeProver / MobilePluginHost expect a `tlsn-native` Expo module to be installed. Until the Phase 3 standalone npm package ships, point the dev at the tlsn-extension monorepo:
+
+```bash
+# Option A — git submodule
+git submodule add https://github.com/tlsnotary/tlsn-extension vendor/tlsn-extension
+ln -s ../../vendor/tlsn-extension/app/mobile/modules/tlsn-native modules/tlsn-native
+ln -s ../../vendor/tlsn-extension/app/mobile/modules/quickjs-native modules/quickjs-native
+
+# Then in package.json deps:
+#   "tlsn-native": "file:./modules/tlsn-native",
+#   "quickjs-native": "file:./modules/quickjs-native",
+
+# Build the Rust prover once:
+cd vendor/tlsn-extension/app/mobile && ./build.sh ios --skip-deps --no-run
+```
+
+#### 4d. Scaffold the runner screen
+
+Drop a starter `PluginRunnerScreen.tsx` that wires the package's primitives. The dev owns the styling and the approval-sheet UI; the package provides the protocol/IO plumbing.
+
+```typescript
+// src/screens/PluginRunnerScreen.tsx
+import { useState, useRef, useEffect, useMemo } from 'react';
+import { View, Text } from 'react-native';
+import {
+  MobilePluginHost,
+  PluginRenderer,
+  PluginWebView,
+  NativeProver,
+  type NativeProverHandle,
+  type ApprovalMode,
+  type PluginConfig,
+  type DomJson,
+  type EventEmitter,
+  type WindowMessage,
+} from '@tlsn/host-react-native';
+
+export function PluginRunnerScreen({ pluginCode, pluginConfig }: {
+  pluginCode: string;
+  pluginConfig: PluginConfig;
+}) {
+  // ...wire MobilePluginHost ↔ NativeProver ↔ PluginWebView ↔ PluginRenderer
+  // ...show your own ApprovalSheet / RevealApprovalSheet
+  // ...call onComplete with the proof
+}
+```
+
+For a fuller worked example, point the dev at `app/mobile/components/tlsn/PluginScreen.tsx` in the tlsn-extension repo — that's the reference consumer for the same package.
 
 If the developer wants to write their own JS driver instead of using the bin, also scaffold:
 
