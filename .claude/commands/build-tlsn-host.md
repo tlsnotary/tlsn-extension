@@ -19,7 +19,7 @@ Detect first; ask only if ambiguous.
 | A plain Node `package.json` with `"type": "module"` or no `package.json` at all | `cli` |
 | Multiple of the above | Ask the user which to scaffold |
 
-> **Current status:** `cli` (`@tlsn/host-cli`) and `react-native` (`@tlsn/host-react-native`) adapters are published. The `extension` adapter is not yet — offer the CLI in its place if asked.
+> **Current status:** `cli` (`@tlsn/host-cli`), `react-native` (`@tlsn/host-react-native`), and `extension` (`@tlsn/host-extension`) adapters are all published.
 
 ### Step 2: Pick a starter plugin
 
@@ -132,6 +132,103 @@ export function PluginRunnerScreen({ pluginCode, pluginConfig }: {
 
 For a fuller worked example, point the dev at `app/mobile/components/tlsn/PluginScreen.tsx` in the tlsn-extension repo — that's the reference consumer for the same package.
 
+For the **`extension`** platform, you scaffold a Manifest-V3 Chrome extension with the four required entry points wired to `@tlsn/host-extension`.
+
+#### 4a. Bootstrap
+
+```bash
+mkdir my-tlsn-extension && cd my-tlsn-extension
+npm init -y
+npm install @tlsn/host-extension @tlsn/plugin-sdk @tlsn/plugins comlink webextension-polyfill tlsn-wasm
+npm install --save-dev webpack webpack-cli ts-loader typescript copy-webpack-plugin html-webpack-plugin
+```
+
+#### 4b. Minimum `manifest.json`
+
+```json
+{
+  "manifest_version": 3,
+  "name": "My TLSN Extension",
+  "version": "0.1.0",
+  "permissions": [
+    "offscreen",
+    "webRequest",
+    "storage",
+    "activeTab",
+    "tabs",
+    "windows"
+  ],
+  "host_permissions": ["<all_urls>"],
+  "background": { "service_worker": "background.bundle.js", "type": "module" },
+  "content_scripts": [
+    { "matches": ["http://*/*", "https://*/*"], "js": ["contentScript.bundle.js"] }
+  ],
+  "web_accessible_resources": [
+    { "resources": ["content.bundle.js", "icons/*"], "matches": ["<all_urls>"] }
+  ],
+  "action": { "default_popup": "popup.html" },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  }
+}
+```
+
+#### 4c. Background entry — `src/background.ts`
+
+```typescript
+import browser from 'webextension-polyfill';
+import {
+  WindowManager,
+  installRequestInterceptor,
+  confirmationManager,
+} from '@tlsn/host-extension/background';
+
+const windowManager = new WindowManager();
+installRequestInterceptor({ windowManager });
+
+browser.runtime.onMessage.addListener(async (msg, sender) => {
+  // … route OPEN_WINDOW / CLOSE_WINDOW / EXEC_CODE / RENDER_PLUGIN_UI / PLUGIN_CONFIRM_RESPONSE
+  // (mirror packages/extension/src/entries/Background/index.ts as the reference)
+});
+```
+
+#### 4d. Content script — `src/content.ts`
+
+```typescript
+import browser from 'webextension-polyfill';
+import { renderPluginUI } from '@tlsn/host-extension/content';
+import type { ContentMessage } from '@tlsn/host-extension/types';
+
+browser.runtime.onMessage.addListener((msg: unknown) => {
+  const req = msg as ContentMessage;
+  if (req.type === 'RENDER_PLUGIN_UI') {
+    renderPluginUI(req.json, req.windowId, {
+      onPluginAction: (onclick, windowId) =>
+        browser.runtime.sendMessage({ type: 'PLUGIN_UI_CLICK', onclick, windowId }),
+    });
+  }
+});
+```
+
+#### 4e. Offscreen entry — `src/offscreen.ts`
+
+```typescript
+import browser from 'webextension-polyfill';
+import { SessionManager } from '@tlsn/host-extension/offscreen';
+
+const sessionManager = new SessionManager();
+browser.runtime.onMessage.addListener(async (msg) => {
+  // route GET_PLUGIN_STATS_OFFSCREEN / EXEC_CODE_OFFSCREEN to sessionManager
+  // (mirror packages/extension/src/entries/Offscreen/index.tsx)
+});
+```
+
+#### 4f. Approval popup — `src/confirm-popup.tsx`
+
+The popup is opened by `confirmationManager.requestConfirmation()`; the dev writes the React shell (plugin name, requests list, three buttons). See `packages/extension/src/entries/ConfirmPopup/index.tsx` for the reference layout.
+
+For a fuller worked example, point the dev at `packages/extension/src/entries/Background/index.ts` in the tlsn-extension repo — that's the reference consumer for `@tlsn/host-extension`.
+
 If the developer wants to write their own JS driver instead of using the bin, also scaffold:
 
 #### `run.ts` (optional, for programmatic use)
@@ -198,7 +295,7 @@ cd packages/tlsn-mobile && cargo build --bin tlsn-prover --release
 - **Customize approval UX**: `adapter.approval` is a `ClackApprovalUi` by default. They can replace it with their own via the `approval` option to `createCliAdapter`.
 - **Write a CI-friendly headless run**: `tlsn-cli session save https://swissbank.tlsnotary.org` first to bake in cookies, then `tlsn-cli run swissbank --headless --storage-state ~/.tlsn/sessions/session.json --auto-approve`.
 - **Write a custom plugin**: invoke `/create-plugin` (the existing skill) — its output drops into `packages/plugins/src/` and is auto-discovered.
-- **Switch platforms later**: when the React Native / extension scaffolds land (Phase 2 / Phase 3), the same plugin code runs unchanged — only the adapter swaps.
+- **Switch platforms later**: the same plugin code runs unchanged on CLI / React Native / browser extension — only the adapter swaps.
 
 ## Reference: what each adapter contract does
 
