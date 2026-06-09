@@ -1,7 +1,7 @@
 import browser from 'webextension-polyfill';
 import { logger } from '@tlsn/common';
 import type { PluginConfig } from '@tlsn/plugin-sdk';
-import type { ApprovalMode } from '@tlsn/host-extension/types';
+import type { ApprovalMode } from '../types/index.js';
 
 interface PendingConfirmation {
   requestId: string;

@@ -13,7 +13,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import browser from 'webextension-polyfill';
 
 // Must import after mocks are set up (via setup.ts)
-const { ConfirmationManager } = await import('../../src/background/ConfirmationManager');
+const { ConfirmationManager } = await import('../../src/background/ConfirmationManager.js');
 
 describe('ConfirmationManager', () => {
   let cm: InstanceType<typeof ConfirmationManager>;

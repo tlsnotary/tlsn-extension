@@ -1,6 +1,6 @@
 import browser from 'webextension-polyfill';
 import { WindowManager, installRequestInterceptor } from '@tlsn/host-extension/background';
-import { confirmationManager } from '../../background/ConfirmationManager';
+import { confirmationManager } from '@tlsn/host-extension/background';
 import type { PluginConfig } from '@tlsn/plugin-sdk';
 import type { ApprovalMode, BackgroundMessage } from '@tlsn/host-extension/types';
 import { validateUrl, getStoredLogLevel } from '@tlsn/host-extension/util';
