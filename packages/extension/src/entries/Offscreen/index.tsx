@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import browser from 'webextension-polyfill';
-import { SessionManager } from '../../offscreen/SessionManager';
+import { SessionManager } from '@tlsn/host-extension/offscreen';
 import { logger } from '@tlsn/common';
 import {
   getStoredLogLevel,

@@ -52,7 +52,7 @@ vi.stubGlobal(
 );
 
 // Must import after mocks
-const { ProveManager } = await import('../../src/offscreen/ProveManager/index');
+const { ProveManager } = await import('../../src/offscreen/ProveManager/index.js');
 
 describe('ProveManager', () => {
   let pm: InstanceType<typeof ProveManager>;
