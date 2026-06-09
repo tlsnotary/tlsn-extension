@@ -71,7 +71,49 @@ export class PlaywrightDomRenderer implements PluginRenderer {
       // Best-effort — the page may be mid-navigation. The framenavigated
       // listener will re-fire the cached DomJson once it settles.
     });
+    this.maybeStartCloseCountdown(handle, dom);
   }
+
+  /**
+   * The SDK's doneWithOverlay renders a static "This window will close shortly."
+   * message and fires onCloseWindow after `delayMs` (2s default). We swap the
+   * static text for a ticking "Closing in Ns…" by mutating the DomJson and
+   * re-firing render() each second. Detected by the presence of "close shortly"
+   * anywhere in the tree.
+   */
+  private maybeStartCloseCountdown(handle: WindowHandle, dom: PluginDomJson): void {
+    if (!containsText(dom, 'close shortly')) return;
+    const windowId = handle.id;
+    let remaining = 2;
+    if (this.countdownTimers.has(windowId)) {
+      clearInterval(this.countdownTimers.get(windowId));
+    }
+    const tick = () => {
+      const decorated = replaceText(
+        dom,
+        'This window will close shortly.',
+        `Closing in ${remaining}s…`,
+      );
+      const page = this.state.pages.get(windowId);
+      if (!page || page.isClosed()) {
+        const t = this.countdownTimers.get(windowId);
+        if (t) clearInterval(t);
+        this.countdownTimers.delete(windowId);
+        return;
+      }
+      this.injectInto(page, windowId, decorated).catch(() => {});
+      remaining--;
+      if (remaining < 0) {
+        const t = this.countdownTimers.get(windowId);
+        if (t) clearInterval(t);
+        this.countdownTimers.delete(windowId);
+      }
+    };
+    tick();
+    this.countdownTimers.set(windowId, setInterval(tick, 1000));
+  }
+
+  private countdownTimers = new Map<number, ReturnType<typeof setInterval>>();
 
   unmount(handle: WindowHandle): void {
     this.lastDom.delete(handle.id);
@@ -114,6 +156,29 @@ export class PlaywrightDomRenderer implements PluginRenderer {
   }
 }
 
+/** Walk a DomJson tree and return true if any text node contains `needle`. */
+function containsText(dom: unknown, needle: string): boolean {
+  if (typeof dom === 'string') return dom.includes(needle);
+  if (!dom || typeof dom !== 'object') return false;
+  const node = dom as { children?: unknown[] };
+  if (Array.isArray(node.children)) {
+    for (const child of node.children) if (containsText(child, needle)) return true;
+  }
+  return false;
+}
+
+/** Return a deep-cloned copy of the DomJson tree with `from` text replaced by `to`. */
+function replaceText(dom: unknown, from: string, to: string): unknown {
+  if (typeof dom === 'string') return dom === from ? to : dom;
+  if (!dom || typeof dom !== 'object') return dom;
+  const node = dom as { type?: unknown; options?: unknown; children?: unknown[] };
+  return {
+    type: node.type,
+    options: node.options,
+    children: Array.isArray(node.children) ? node.children.map((c) => replaceText(c, from, to)) : node.children,
+  };
+}
+
 function pageInitScript(renderFnName: string, clickFnName: string): string {
   // Self-contained script. Runs in the page context before any other script.
   return `
@@ -149,7 +214,44 @@ function pageInitScript(renderFnName: string, clickFnName: string): string {
         if (Array.isArray(json.children)) {
           for (const child of json.children) el.appendChild(createNode(child, wid));
         }
+        if (opts.draggable) {
+          el.dataset.tlsnDraggable = '';
+          makeDraggable(el);
+        }
         return el;
+      }
+
+      // Port of the extension's makeDraggable (see packages/extension/src/entries/Content/index.ts).
+      function makeDraggable(el) {
+        const handle = el.firstElementChild;
+        if (!handle) return;
+        handle.style.cursor = 'grab';
+        let offsetX = 0;
+        let offsetY = 0;
+        const onMouseMove = (e) => {
+          const x = Math.max(0, Math.min(e.clientX - offsetX, window.innerWidth - el.offsetWidth));
+          const y = Math.max(0, Math.min(e.clientY - offsetY, window.innerHeight - el.offsetHeight));
+          el.style.left = x + 'px';
+          el.style.top = y + 'px';
+        };
+        const onMouseUp = () => {
+          handle.style.cursor = 'grab';
+          document.removeEventListener('mousemove', onMouseMove);
+          document.removeEventListener('mouseup', onMouseUp);
+        };
+        handle.addEventListener('mousedown', (e) => {
+          if (e.button !== 0 || e.target.closest('button')) return;
+          handle.style.cursor = 'grabbing';
+          const rect = el.getBoundingClientRect();
+          el.style.top = rect.top + 'px';
+          el.style.left = rect.left + 'px';
+          el.style.bottom = 'auto';
+          el.style.right = 'auto';
+          offsetX = e.clientX - rect.left;
+          offsetY = e.clientY - rect.top;
+          document.addEventListener('mousemove', onMouseMove);
+          document.addEventListener('mouseup', onMouseUp);
+        });
       }
 
       function ensureContainer() {
@@ -167,12 +269,26 @@ function pageInitScript(renderFnName: string, clickFnName: string): string {
         const apply = () => {
           const container = ensureContainer();
           if (!container) {
-            // body not ready yet; retry shortly
             setTimeout(apply, 30);
             return;
           }
+          // Preserve drag position across re-renders (extension does the same).
+          const prev = container.querySelector('[data-tlsn-draggable]');
+          const savedPosition =
+            prev && prev.style.bottom === 'auto'
+              ? { top: prev.style.top, left: prev.style.left }
+              : null;
           container.innerHTML = '';
           container.appendChild(createNode(dom, windowId));
+          if (savedPosition) {
+            const el = container.querySelector('[data-tlsn-draggable]');
+            if (el) {
+              el.style.top = savedPosition.top;
+              el.style.left = savedPosition.left;
+              el.style.bottom = 'auto';
+              el.style.right = 'auto';
+            }
+          }
         };
         apply();
       };

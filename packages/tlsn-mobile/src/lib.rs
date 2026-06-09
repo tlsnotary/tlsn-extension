@@ -225,7 +225,7 @@ pub struct ProofResult {
 /// `preview` contains the actual transcript bytes for the range, decoded as
 /// UTF-8 lossy. The platform layer is responsible for truncating/escaping
 /// before display.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, uniffi::Record, serde::Serialize, serde::Deserialize)]
 pub struct RevealRangeDescriptor {
     /// "SENT" or "RECV"
     pub direction: String,
@@ -242,7 +242,8 @@ pub struct RevealRangeDescriptor {
 /// Output of [`prove_until_reveal`] — the prover paused after computing
 /// reveal ranges. Pass [`session_id`] back to [`prove_finalize`] with an
 /// approved bool to either complete the reveal or drop the session.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, uniffi::Record, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RevealPreparation {
     /// Opaque handle the platform passes back to [`prove_finalize`].
     pub session_id: String,

@@ -34,7 +34,10 @@ program
   .option('--out <path>', 'Where to write the storageState JSON', '~/.tlsn/sessions/session.json')
   .action(sessionSaveCommand);
 
-program.parseAsync().catch((err) => {
-  console.error(err instanceof Error ? err.message : err);
-  process.exit(1);
-});
+program
+  .parseAsync()
+  .then(() => process.exit(0))
+  .catch((err) => {
+    console.error(err instanceof Error ? err.message : err);
+    process.exit(1);
+  });
