@@ -26,11 +26,14 @@ import { PlaywrightRequestInterceptor } from './playwright-interceptor.js';
 import { NullProverClient } from './null-prover.js';
 import { RustProverClient, resolveBinary } from './rust-prover.js';
 import { JsonRenderer } from './json-renderer.js';
+import { PlaywrightDomRenderer } from './playwright-renderer.js';
 import { ClackApprovalUi } from './clack-approval.js';
 import { AutoApproveUi } from './auto-approve.js';
 
 export { RustProverClient } from './rust-prover.js';
 export { NullProverClient } from './null-prover.js';
+export { JsonRenderer } from './json-renderer.js';
+export { PlaywrightDomRenderer } from './playwright-renderer.js';
 
 export interface CliAdapterOptions {
   /**
@@ -59,8 +62,13 @@ export async function createCliAdapter(opts: CliAdapterOptions = {}): Promise<Ho
   const windows = new PlaywrightWindowManager(state);
   const interceptor = new PlaywrightRequestInterceptor(state);
   const prover = opts.prover ?? defaultProver();
-  const renderer = opts.renderer ?? new JsonRenderer();
+  const renderer = opts.renderer ?? new PlaywrightDomRenderer(state);
   const approval = opts.approval ?? new ClackApprovalUi();
+  // Renderer wired in-page click → host event. Stash on the context so the
+  // PlaywrightDomRenderer can lazily set it up on the first render.
+  if (renderer instanceof PlaywrightDomRenderer) {
+    await renderer.ensureExposed(context);
+  }
 
   return new CliAdapter(state, windows, interceptor, prover, renderer, approval);
 }
@@ -114,11 +122,23 @@ class CliAdapter implements HostAdapter {
       throw new Error('Plugin approval rejected; refusing to create Host.');
     }
 
+    // Hand the renderer the emitter so click events flow back from the page.
+    if (this.renderer instanceof PlaywrightDomRenderer && opts.eventEmitter) {
+      this.renderer.setEmitter(opts.eventEmitter);
+    }
+
     // We use HostCore (not the QuickJS-backed Host) because the CLI runs in
     // Node — NativeFunctionEvaluator is the right evaluator for the platform.
     // The contract still calls this a `Host` for parity with other adapters.
     return new HostCore({
       evaluator: new NativeFunctionEvaluator(),
+
+      // The SDK's default reRenderEvent ('TO_BG_RE_RENDER_PLUGIN_UI') assumes
+      // an extension background script that translates it to
+      // 'RE_RENDER_PLUGIN_UI'. The CLI has no such translator, so we set the
+      // event name the SDK's own listener already handles — same pattern
+      // mobile uses in app/mobile/lib/MobilePluginHost.ts.
+      reRenderEvent: 'RE_RENDER_PLUGIN_UI',
 
       onProve: async (
         request: ProveRequest,
@@ -148,6 +168,18 @@ class CliAdapter implements HostAdapter {
       onOpenWindow: async (url: string) => {
         try {
           const handle = await this.windows.open(url);
+          // Wire request-interception into the plugin's event emitter so
+          // `useHeaders` / `useRequests` see the captured headers.
+          if (opts.eventEmitter) {
+            const emitter = opts.eventEmitter;
+            this.interceptor.subscribe(handle, (header) => {
+              emitter.emit({
+                type: 'HEADER_INTERCEPTED',
+                header,
+                windowId: handle.id,
+              });
+            });
+          }
           return {
             type: 'WINDOW_OPENED',
             payload: {

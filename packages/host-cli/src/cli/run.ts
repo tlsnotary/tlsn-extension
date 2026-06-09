@@ -17,7 +17,7 @@ export interface RunOptions {
 }
 
 export async function runCommand(pluginRef: string, opts: RunOptions): Promise<void> {
-  const resolved = resolvePlugin(pluginRef);
+  const resolved = await resolvePlugin(pluginRef);
 
   p.intro(`tlsn-cli run ${resolved.id}`);
   p.log.message(`Source: ${resolved.source}`);
@@ -46,15 +46,16 @@ export async function runCommand(pluginRef: string, opts: RunOptions): Promise<v
       return;
     }
 
+    const eventEmitter = new PluginEventEmitter();
     const host = await adapter.createHost({
       verifierUrl: opts.verifier,
       proxyUrl: opts.proxy,
       approvalMode,
       pluginConfig: resolved.config,
+      eventEmitter,
     });
 
     p.log.info('Running plugin…');
-    const eventEmitter = new PluginEventEmitter();
     const result = await host.executePlugin(resolved.code, { eventEmitter });
 
     p.log.success('Plugin completed.');

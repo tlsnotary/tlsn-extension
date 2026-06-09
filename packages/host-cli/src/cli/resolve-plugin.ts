@@ -4,8 +4,8 @@
  */
 
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { resolve as resolvePath } from 'node:path';
-import { createRequire } from 'node:module';
 import type { PluginConfig } from '@tlsn/host-contracts';
 
 export interface ResolvedPlugin {
@@ -22,24 +22,19 @@ export interface ResolvedPlugin {
 /**
  * Resolve a plugin reference:
  *   - if it looks like a path (contains `/` or ends in `.js`) → read that file
- *   - otherwise → look it up in `@tlsn/plugins`'s registry + dist bundles
+ *   - otherwise → look it up in `@tlsn/plugins`'s registry + bundle exports
+ *
+ * Uses dynamic ESM import because `@tlsn/plugins` only declares the `import`
+ * condition in its `exports` map (no `require`), so CJS resolution can't see it.
  */
-export function resolvePlugin(ref: string): ResolvedPlugin {
+export async function resolvePlugin(ref: string): Promise<ResolvedPlugin> {
   if (ref.includes('/') || ref.endsWith('.js')) {
     const path = resolvePath(process.cwd(), ref);
     const code = readFileSync(path, 'utf8');
     return { id: basenameNoExt(path), source: path, code };
   }
 
-  // Resolve from @tlsn/plugins. dist/registry.js exports PLUGIN_REGISTRY +
-  // dist/demo/<id>.js holds the built bundle.
-  const require = createRequire(import.meta.url);
-  const registryPath = require.resolve('@tlsn/plugins/dist/registry.js');
-  const registryUrl = `file://${registryPath}`;
-  // Synchronous read via require is simpler than dynamic import here — the
-  // dist bundle is CJS-compatible and we already have the path.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const registryMod = require(registryPath) as {
+  const registryMod = (await import('@tlsn/plugins')) as unknown as {
     PLUGIN_REGISTRY: Array<{ id: string; pluginConfig: PluginConfig }>;
   };
 
@@ -50,19 +45,33 @@ export function resolvePlugin(ref: string): ResolvedPlugin {
     );
   }
 
-  // Built bundle sits next to the registry file under demo/.
-  const bundlePath = registryPath.replace(/registry\.js$/, `demo/${ref}.js`);
-  let code: string;
+  // Use the mobile bundle — @tlsn/plugin-sdk's NativeFunctionEvaluator (which
+  // we use in the CLI) expects function-body code, not an ESM module with
+  // `export` statements. The mobile build wraps the bundle as
+  // `export const <NAME>_PLUGIN_CODE = ` followed by a template-string body
+  // that already ends with `return …`. The demo build is ESM and would only
+  // work under the QuickJS-backed Host.
+  let bundleSpecifier: string;
   try {
-    code = readFileSync(bundlePath, 'utf8');
+    bundleSpecifier = `@tlsn/plugins/mobile/${ref}.js`;
+    await import.meta.resolve(bundleSpecifier);
   } catch (err) {
     throw new Error(
-      `Plugin "${ref}" is in the registry but no built bundle was found at ${bundlePath}. ` +
-        `Run \`npm run build:plugins\` from the monorepo root and try again.`,
+      `Plugin "${ref}" is in the registry but no built mobile bundle is exported via @tlsn/plugins/mobile/${ref}.js. ` +
+        `Run \`npm run build:plugins\` from the monorepo root and try again. (${
+          err instanceof Error ? err.message : String(err)
+        })`,
     );
   }
-
-  void registryUrl;
+  const mod = (await import(bundleSpecifier)) as Record<string, unknown>;
+  const constantName = `${ref.toUpperCase()}_PLUGIN_CODE`;
+  const code = mod[constantName];
+  if (typeof code !== 'string') {
+    throw new Error(
+      `Plugin "${ref}" mobile bundle did not export ${constantName} as a string. Got: ${Object.keys(mod).join(', ')}`,
+    );
+  }
+  const bundlePath = fileURLToPath(await import.meta.resolve(bundleSpecifier));
   return { id: ref, source: bundlePath, code, config: entry.pluginConfig };
 }
 

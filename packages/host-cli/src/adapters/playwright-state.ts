@@ -42,17 +42,26 @@ export class PlaywrightState {
     this.subscribers.set(id, new Set());
     this.closeListeners.set(id, new Set());
 
-    // Single page-wide route handler fans out to every subscriber.
+
+    // Single page-wide route handler fans out to every subscriber. We use
+    // `allHeaders()` so cookies that Chromium adds late in the network stack
+    // are included, and we canonicalize header names (Title-Case) so plugin
+    // filters that look for `Cookie` / `User-Agent` / etc. match the way
+    // they do in the Chrome extension's `webRequest` API.
     page.route('**/*', async (route, request) => {
       const subs = this.subscribers.get(id);
       if (subs && subs.size > 0) {
+        const all = await request.allHeaders();
+        const requestHeaders = Object.entries(all)
+          .filter(([name]) => !name.startsWith(':')) // strip HTTP/2 pseudo-headers
+          .map(([name, value]) => ({ name: canonicalizeHeaderName(name), value }));
         const header: InterceptedRequestHeader = {
           id: cryptoRandomId(),
           method: request.method(),
           url: request.url(),
           timestamp: Date.now(),
           type: request.resourceType(),
-          requestHeaders: Object.entries(request.headers()).map(([name, value]) => ({ name, value })),
+          requestHeaders,
           tabId: id,
         };
         for (const cb of subs) {
@@ -100,4 +109,16 @@ function cryptoRandomId(): string {
   // node crypto.randomUUID is available since Node 14.17; we'll just use it
   // unconditionally — the CLI requires Node 20+ via @types/node and our build.
   return crypto.randomUUID();
+}
+
+/**
+ * `cookie` → `Cookie`, `user-agent` → `User-Agent`, `accept-encoding` → `Accept-Encoding`.
+ * Matches the canonical casing the Chrome extension's `webRequest` API
+ * surfaces, which is what plugin filters expect.
+ */
+function canonicalizeHeaderName(name: string): string {
+  return name
+    .split('-')
+    .map((part) => (part.length === 0 ? part : part[0].toUpperCase() + part.slice(1).toLowerCase()))
+    .join('-');
 }

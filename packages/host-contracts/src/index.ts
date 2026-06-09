@@ -166,6 +166,15 @@ export interface ApprovalUi {
 // HostAdapter — the umbrella every adapter exports
 // ---------------------------------------------------------------------------
 
+/**
+ * Minimal event emitter shape — `@tlsn/plugin-sdk`'s `executePlugin` takes
+ * one in its options bag. Adapters use it to push intercepted headers and
+ * window events into the running plugin.
+ */
+export interface HostEventEmitter {
+  emit(message: { type: string; [k: string]: unknown }): void;
+}
+
 export interface HostAdapterOptions {
   /**
    * Default verifier URL used when the plugin doesn't specify one.
@@ -184,6 +193,13 @@ export interface HostAdapterOptions {
   approvalMode?: ApprovalMode;
   /** Manifest the plugin shipped (used by the adapter's reveal-approval UI). */
   pluginConfig?: PluginConfig;
+  /**
+   * Event emitter the adapter pushes intercepted headers / window events into
+   * (`{type: 'HEADER_INTERCEPTED', header, windowId}`, etc.). The same emitter
+   * must be passed to `Host.executePlugin({eventEmitter})` so the SDK can
+   * deliver the events to plugin hooks like `useHeaders` / `useRequests`.
+   */
+  eventEmitter?: HostEventEmitter;
 }
 
 export interface HostAdapter {
