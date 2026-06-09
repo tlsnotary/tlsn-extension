@@ -4,7 +4,7 @@ import {
   matchesPathnamePattern,
   validateProvePermission,
   validateOpenWindowPermission,
-} from '../../src/offscreen/permissionValidator';
+} from '../../src/offscreen/permissionValidator.js';
 import type { PluginConfig } from '@tlsn/plugin-sdk';
 
 describe('deriveProxyUrl', () => {

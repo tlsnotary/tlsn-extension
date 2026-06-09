@@ -26,7 +26,7 @@ interface ChromeRuntimeLike {
     removeListener: (listener: (...args: unknown[]) => void) => void;
   };
 }
-import { validateProvePermission, validateOpenWindowPermission } from './permissionValidator';
+import { validateProvePermission, validateOpenWindowPermission } from '@tlsn/host-extension/offscreen';
 
 /** Maximum number of preview characters shown per reveal range. */
 const PREVIEW_MAX_CHARS = 256;

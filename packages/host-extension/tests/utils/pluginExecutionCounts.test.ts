@@ -8,14 +8,14 @@ describe('pluginExecutionCounts', () => {
   });
 
   it('getPluginCount returns 0 for unknown hash', async () => {
-    const { getPluginCount } = await import('../../src/utils/pluginExecutionCounts');
+    const { getPluginCount } = await import('../../src/util/pluginExecutionCounts.js');
     const count = await getPluginCount('nonexistent-hash');
     expect(count).toBe(0);
   });
 
   it('incrementPluginCount then getPluginCount returns 1', async () => {
     const { getPluginCount, incrementPluginCount } =
-      await import('../../src/utils/pluginExecutionCounts');
+      await import('../../src/util/pluginExecutionCounts.js');
     await incrementPluginCount('test-hash');
     const count = await getPluginCount('test-hash');
     expect(count).toBe(1);
@@ -23,7 +23,7 @@ describe('pluginExecutionCounts', () => {
 
   it('second incrementPluginCount returns 2', async () => {
     const { getPluginCount, incrementPluginCount } =
-      await import('../../src/utils/pluginExecutionCounts');
+      await import('../../src/util/pluginExecutionCounts.js');
     await incrementPluginCount('test-hash');
     await incrementPluginCount('test-hash');
     const count = await getPluginCount('test-hash');
@@ -32,7 +32,7 @@ describe('pluginExecutionCounts', () => {
 
   it('different hashes are counted independently', async () => {
     const { getPluginCount, incrementPluginCount } =
-      await import('../../src/utils/pluginExecutionCounts');
+      await import('../../src/util/pluginExecutionCounts.js');
     await incrementPluginCount('hash-a');
     await incrementPluginCount('hash-a');
     await incrementPluginCount('hash-b');

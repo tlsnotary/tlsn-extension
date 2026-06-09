@@ -11,8 +11,8 @@ import type {
   WindowRegistration,
   InterceptedRequest,
   InterceptedRequestHeader,
-} from '../../src/types/window-manager';
-import { REQUEST_BATCH_INTERVAL_MS, REQUEST_BATCH_MAX_SIZE } from '../../src/constants/limits';
+} from '@tlsn/host-extension/types';
+import { REQUEST_BATCH_INTERVAL_MS, REQUEST_BATCH_MAX_SIZE } from '@tlsn/host-extension/util';
 import browser from 'webextension-polyfill';
 
 describe('WindowManager', () => {

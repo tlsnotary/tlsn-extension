@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import browser from 'webextension-polyfill';
 import { logger, LogLevel } from '@tlsn/common';
-import type { ApprovalMode, PluginCodeResponse } from '../../types/messages';
+import type { ApprovalMode, PluginCodeResponse } from '@tlsn/host-extension/types';
 import './index.scss';
 
 // Initialize logger at DEBUG level for popup (no IndexedDB access)

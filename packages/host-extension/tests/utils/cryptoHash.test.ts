@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sha256 } from '../../src/utils/cryptoHash';
+import { sha256 } from '../../src/util/cryptoHash.js';
 
 describe('sha256', () => {
   it('returns the correct hash for "hello"', async () => {

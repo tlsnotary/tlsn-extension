@@ -10,7 +10,7 @@ import {
   sanitizeUrl,
   isHttpUrl,
   getUrlErrorMessage,
-} from '../../src/utils/url-validator';
+} from '../../src/util/url-validator.js';
 
 describe('URL Validator', () => {
   describe('validateUrl', () => {

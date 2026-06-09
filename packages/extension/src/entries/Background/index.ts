@@ -2,11 +2,14 @@ import browser from 'webextension-polyfill';
 import { WindowManager } from '../../background/WindowManager';
 import { confirmationManager } from '../../background/ConfirmationManager';
 import type { PluginConfig } from '@tlsn/plugin-sdk';
-import type { InterceptedRequest, InterceptedRequestHeader } from '../../types/window-manager';
-import { validateUrl } from '../../utils/url-validator';
+import type {
+  InterceptedRequest,
+  InterceptedRequestHeader,
+  ApprovalMode,
+  BackgroundMessage,
+} from '@tlsn/host-extension/types';
+import { validateUrl, getStoredLogLevel } from '@tlsn/host-extension/util';
 import { logger } from '@tlsn/common';
-import { getStoredLogLevel } from '../../utils/logLevelStorage';
-import type { ApprovalMode, BackgroundMessage } from '../../types/messages';
 
 const chrome = (global as typeof globalThis).chrome;
 

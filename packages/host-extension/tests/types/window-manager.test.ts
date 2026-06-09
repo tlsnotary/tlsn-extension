@@ -11,7 +11,7 @@ import type {
   InterceptedRequest,
   ManagedWindow,
   IWindowManager,
-} from '../../src/types/window-manager';
+} from '../../src/types/window-manager.js';
 
 describe('WindowManager Type Definitions', () => {
   describe('WindowRegistration', () => {

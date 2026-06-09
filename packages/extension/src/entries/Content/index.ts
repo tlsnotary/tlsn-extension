@@ -1,6 +1,6 @@
 import browser from 'webextension-polyfill';
 import type { DomJson } from '@tlsn/plugin-sdk';
-import type { ContentMessage, ExecCodeResponse } from '../../types/messages';
+import type { ContentMessage, ExecCodeResponse } from '@tlsn/host-extension/types';
 import { logger, LogLevel } from '@tlsn/common';
 
 // Initialize logger at DEBUG level for content scripts (no IndexedDB access)
