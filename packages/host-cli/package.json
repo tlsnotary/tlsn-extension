@@ -1,0 +1,50 @@
+{
+  "name": "@tlsn/host-cli",
+  "version": "0.1.0",
+  "description": "TLSNotary host adapter for Node CLI / CI. Implements @tlsn/host-contracts via Playwright + a Rust prover binary.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "tlsn-cli": "./dist/cli/index.js"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./adapter": {
+      "import": "./dist/adapters/index.js",
+      "types": "./dist/adapters/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "bin"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "npm run lint:prettier && npm run lint:typescript",
+    "lint:prettier": "prettier --check .",
+    "lint:typescript": "tsc --noEmit",
+    "lint:fix": "prettier --write .",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.11.0",
+    "@tlsn/host-contracts": "*",
+    "@tlsn/plugin-sdk": "*",
+    "commander": "^14.0.0",
+    "playwright": "^1.59.1",
+    "yaml": "^2.6.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "prettier": "^3.8.1",
+    "typescript": "^6.0.2",
+    "vitest": "^4.0.16"
+  }
+}
