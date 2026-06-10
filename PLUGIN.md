@@ -38,7 +38,7 @@ in [`packages/plugins`](./packages/plugins), which builds two targets:
 
 - **demo** (`dist/demo/`) — ESM bundles loaded by the extension, sandboxed in QuickJS WASM.
 - **mobile** (`dist/mobile/`) — bundles compiled to `es2016` and wrapped as a string the
-  mobile app evaluates with `new Function()` (sandboxed in native QuickJS).
+  mobile app evaluates with `new Function()` under Hermes.
 
 Write plugins normally in TypeScript; both targets are produced by `npm run build:plugins`.
 

@@ -34,7 +34,7 @@ This monorepo ships **two TLSNotary clients** that share one plugin system, one 
 | **Browser extension** | [`packages/extension`](packages/extension) | Chrome / Chromium (MV3) | WASM (`tlsn-wasm`) in an offscreen document                                    |
 | **Mobile app**        | [`app/mobile`](app/mobile)                 | iOS + Android           | Native Rust prover ([`packages/tlsn-mobile`](packages/tlsn-mobile)) via UniFFI |
 
-Both run the same sandboxed JavaScript plugins (QuickJS on the extension, QuickJS/Hermes on mobile), capture auth from a logged-in session, and produce selectively-disclosed proofs against a [verifier server](servers/verifier).
+Both run the same JavaScript plugins (sandboxed in QuickJS WASM on the extension; evaluated with `new Function()` under Hermes on mobile), capture auth from a logged-in session, and produce selectively-disclosed proofs against a [verifier server](servers/verifier).
 
 ## Demo
 
@@ -60,7 +60,7 @@ npm run mobile:ios       # build deps + native libs + launch iOS
 npm run mobile:android   # build deps + native libs + launch Android
 ```
 
-The mobile app presents a plugin gallery (Twitter, Swiss Bank, Spotify, Duolingo, Uber, Discord), lets the user log in via an embedded WebView, and generates proofs with the native prover. See [`app/mobile/README.md`](app/mobile/README.md) for the full toolchain and build pipeline.
+The mobile app presents a plugin gallery (Swiss Bank, Spotify, Duolingo, Discord — work-in-progress plugins appear behind the Debug toggle), lets the user log in via an embedded WebView, and generates proofs with the native prover. See [`app/mobile/README.md`](app/mobile/README.md) for the full toolchain and build pipeline.
 
 ### Environment Variables
 
@@ -144,7 +144,7 @@ React Native / Expo client with a native Rust prover. Key features:
 
 - **Plugin gallery**: Select a plugin, log in via embedded WebView, generate a proof
 - **Native prover**: Rust ([`packages/tlsn-mobile`](packages/tlsn-mobile)) bridged via UniFFI — Swift/XCFramework on iOS, Kotlin/`.so` on Android
-- **Native QuickJS**: Vendored C sources in an Expo native module for plugin sandboxing
+- **Plugin execution**: Plugin JS is evaluated with `new Function()` under Hermes via the plugin SDK's `NativeFunctionEvaluator` (a vendored native QuickJS module exists in `modules/quickjs-native` but is not currently in the plugin execution path)
 
 See [`app/mobile/README.md`](app/mobile/README.md) for prerequisites, the build pipeline, and architecture.
 
@@ -206,23 +206,23 @@ Both clients run the same plugins and talk to the same verifier; they differ onl
 The extension uses a message-passing architecture with five entry points:
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     Browser Extension                         │
+┌───────────────────────────────────────────────────────────────┐
+│                       Browser Extension                       │
 │                                                               │
 │  ┌──────────────┐      ┌──────────────┐                       │
-│  │  Background  │◄────►│   Content    │◄──── Page Scripts      │
-│  │    (SW)      │      │   Script     │                        │
+│  │  Background  │◄────►│   Content    │◄──── Page Scripts     │
+│  │    (SW)      │      │   Script     │                       │
 │  └──────┬───────┘      └──────────────┘                       │
-│         │                                                      │
-│         ├─► Window Management (WindowManager)                  │
+│         │                                                     │
+│         ├─► Window Management (WindowManager)                 │
 │         ├─► Request Interception (webRequest API)             │
-│         ├─► Session Management (SessionManager)                │
-│         └─► Message Routing                                    │
+│         ├─► Session Management (SessionManager)               │
+│         └─► Message Routing                                   │
 │                                                               │
 │  ┌──────────────┐                                             │
-│  │   Offscreen  │  ← QuickJS plugin sandbox + WASM prover      │
+│  │   Offscreen  │  ← QuickJS plugin sandbox + WASM prover     │
 │  └──────────────┘                                             │
-└─────────────────────────────────────────────────────────────┘
+└───────────────────────────────────────────────────────────────┘
                           │
                           ▼
                    ┌──────────────┐
@@ -255,15 +255,15 @@ Content Script → Update TLSN overlay UI
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│                  Mobile App (Expo / RN, Hermes)               │
-│                                                                │
-│  PluginScreen ──► MobilePluginHost (runs plugin JS)           │
-│      │                  │                                       │
-│      │  openWindow()    │  prove()                             │
-│      ▼                  ▼                                       │
-│  PluginWebView      NativeProver ──► Rust prover (UniFFI)      │
-│  (login + cookie/   (Swift / Kotlin)   packages/tlsn-mobile   │
-│   header capture)                                              │
+│                Mobile App (Expo / RN, Hermes)                │
+│                                                              │
+│  PluginScreen ──► MobilePluginHost (runs plugin JS)          │
+│      │                  │                                    │
+│      │  openWindow()    │  prove()                           │
+│      ▼                  ▼                                    │
+│  PluginWebView      NativeProver ──► Rust prover (UniFFI)    │
+│  (login + cookie/   (Swift / Kotlin)   packages/tlsn-mobile  │
+│   header capture)                                            │
 └──────────────────────────────────────────────────────────────┘
                           │ MPC-TLS over WebSocket
                           ▼

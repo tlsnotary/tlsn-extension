@@ -2,7 +2,7 @@
 
 React Native/Expo mobile app for iOS and Android with native TLSNotary proof generation.
 
-The app features a plugin gallery where users can select from available plugins (Twitter, Swiss Bank, Spotify, Duolingo, Uber, Discord), log in via an embedded WebView, and generate cryptographic proofs of API responses using MPC-TLS.
+The app features a plugin gallery where users can select from available plugins (Swiss Bank, Spotify, Duolingo, Discord — work-in-progress plugins appear behind the Debug toggle), log in via an embedded WebView, and generate cryptographic proofs of API responses using MPC-TLS.
 
 ## Prerequisites
 
