@@ -9,7 +9,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm install` - Install all dependencies for all packages and set up workspace links
 - `npm run dev` - Start extension development server on port 3000 (auto-builds dependencies)
 - `npm run build` - Build production extension (auto-builds dependencies first)
-- `npm run build:deps` - Build only dependencies (@tlsn/common and @tlsn/plugin-sdk)
+- `npm run build:deps` - Build only dependencies (@tlsn/common, @tlsn/plugin-sdk, @tlsn/plugins)
+- `npm run build:plugins` - Build only the shared plugins (@tlsn/plugins → dist/demo + dist/mobile)
 - `npm run build:extension` - Build only extension (assumes dependencies are built)
 - `npm run build:all` - Build all packages in monorepo
 - `npm run test` - Run tests for all packages
@@ -21,6 +22,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run tutorial` - Serve tutorial page on port 8080
 - `npm run docker:up` - Start demo Docker services (verifier + nginx)
 - `npm run docker:down` - Stop demo Docker services
+- `npm run mobile:ios` - Build deps + native libs and launch the mobile app on iOS
+- `npm run mobile:android` - Build deps + native libs and launch the mobile app on Android
 
 ### Extension Package Commands
 
@@ -48,6 +51,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run lint` - Run all linters (ESLint, Prettier, TypeScript)
 - `npm run lint:fix` - Auto-fix linting issues
 
+### Mobile App Commands (`app/mobile`)
+
+Run from `app/mobile/` (or use the `npm run mobile:*` root scripts):
+
+- `./build.sh ios` - Build JS deps + native libs and launch on iOS
+- `./build.sh android` - Build JS deps + native libs and launch on Android
+- `./build.sh --native` - Rebuild native libraries for both platforms
+- `./build.sh --help` - All options (`--no-run`, `--skip-deps`, `--rebuild-native`, `--clean`)
+- `npm run lint` / `npm run test` - Lint and test the mobile package
+
+The native prover lives in `packages/tlsn-mobile` (`build-ios.sh`, `build-android.sh`);
+`app/mobile/build.sh` invokes these automatically when artifacts are missing.
+
 ### Servers Workspace Commands (`servers/`)
 
 Cargo workspace containing all Rust deployables (verifier, swissbank). Run from
@@ -61,32 +77,43 @@ Cargo workspace containing all Rust deployables (verifier, swissbank). Run from
 
 ## Monorepo Architecture
 
-The project is organized as a monorepo with two top-level directories:
+The project ships **two TLSNotary clients** — the Chrome extension and the mobile
+app — that share one plugin system, one plugin registry (`@tlsn/plugins`), and the
+same verifier server. It is organized as a monorepo with three top-level workspaces:
 
 - **`packages/`** — npm workspaces (TypeScript projects):
-  - **`packages/common`**: Shared utilities (logging system) used by extension and plugin-sdk
-  - **`packages/extension`**: Chrome Extension (Manifest V3) for TLSNotary proof generation
-  - **`packages/plugin-sdk`**: SDK for developing and running TLSN plugins using QuickJS sandboxing
-  - **`packages/demo`**: Demo frontend with Docker setup and example plugins
+  - **`packages/common`**: Shared utilities (logging system) used across packages
+  - **`packages/extension`**: Chrome Extension (Manifest V3) — browser client
+  - **`packages/plugin-sdk`**: SDK for developing/running TLSN plugins using QuickJS sandboxing
+  - **`packages/plugins`**: Shared plugin sources + registry (`src/registry.ts`), built for demo (browser) and mobile (Hermes) targets
+  - **`packages/demo`**: Extension demo frontend with Docker setup
   - **`packages/tutorial`**: Tutorial examples for learning plugin development
+  - **`packages/eas-webhook`**: Demo service turning verifier webhooks into EAS attestations
+  - **`packages/tlsn-mobile`**: Native Rust prover for mobile (iOS `.xcframework` + Android `.so` via UniFFI)
+  - **`packages/tlsn-wasm`** / **`packages/tlsn-wasm-pkg`**: Local TLSN WebAssembly build helper + its (gitignored) output
+  - **`packages/ts-plugin-sample`**: Minimal TypeScript plugin sample
+- **`app/`** — npm workspaces (applications):
+  - **`app/mobile`**: React Native / Expo app (iOS + Android) — mobile client
 - **`servers/`** — Rust Cargo workspace (deployable servers):
   - **`servers/verifier`**: WebSocket server for TLSNotary verification (port 7047)
   - **`servers/swissbank`**: Fake Swiss bank with dashboard UI, used as a demo target (port 3000)
 
 **Build Dependencies:**
-The extension depends on `@tlsn/common` and `@tlsn/plugin-sdk`. These must be built before the extension:
+Both clients depend on `@tlsn/common`, `@tlsn/plugin-sdk`, and `@tlsn/plugins`. These must be built first:
 
 ```bash
 # From root - builds all dependencies automatically
-npm run dev
+npm run dev            # extension
+npm run mobile:ios     # mobile (also builds native libs)
 
 # Or manually build dependencies first
 cd packages/common && npm run build
 cd packages/plugin-sdk && npm run build
+cd packages/plugins && npm run build   # → dist/demo (browser) + dist/mobile (Hermes es2016)
 cd packages/extension && npm run dev
 ```
 
-**Important**: The extension must match the version of the notary server it connects to.
+**Important**: Each client must match the version of the notary/verifier server it connects to.
 
 ## Extension Architecture Overview
 
@@ -658,23 +685,34 @@ logger.setLevel(LogLevel.WARN);
 
 ## Creating New Plugins
 
-Use the Claude Code command `/create-plugin` to interactively build a new demo plugin. The command (defined in `.claude/commands/create-plugin.md`) guides you through:
+Use the Claude Code command `/create-plugin` to interactively build a new plugin. The command (defined in `.claude/commands/create-plugin.md`) guides you through:
 
 1. Researching the target API endpoint
 2. Planning auth interception strategy
-3. Creating the plugin source, build registration, and demo registry entry
+3. Creating the plugin source and registry entry
 4. Building and verifying the output
 
-For manual reference, see `PLUGIN.md` and the existing plugins in `packages/demo/plugins/`.
+For manual reference, see `PLUGIN.md` and the existing plugins in `packages/plugins/src/*.plugin.ts`.
 
-## Demo Package (`packages/demo`)
+## Shared Plugins Package (`packages/plugins`)
 
-Docker-based demo environment for testing plugins:
+Single source of truth for plugin code and metadata, consumed by **both** clients:
 
 **Files:**
 
-- `src/plugins/*.plugin.ts` - Plugin source files (TypeScript)
-- `public/plugins/*.js` - Built plugin files (generated by `build-plugins.js`)
+- `src/*.plugin.ts` - Plugin source files (TypeScript)
+- `src/registry.ts` - Shared registry; each entry declares `platforms: ('demo' | 'mobile')[]`
+- `build.js` - Builds two targets: `dist/demo/` (browser bundle for the extension) and `dist/mobile/` (Hermes-compatible `es2016`, no `async/await` in dynamically-evaluated code)
+
+Build with `npm run build:plugins` from the root.
+
+## Demo Package (`packages/demo`)
+
+Docker-based extension demo environment for testing plugins:
+
+**Files:**
+
+- Plugins come from `@tlsn/plugins` (`dist/demo/`) — not stored in this package
 - `docker-compose.yml` - Docker services configuration
 - `nginx.conf` - Reverse proxy configuration
 
@@ -701,6 +739,29 @@ npm run docker:up
 # Docker with custom verifier
 VITE_VERIFIER_HOST=verifier.example.com VITE_SSL=true docker compose up --build
 ```
+
+## Mobile App (`app/mobile`)
+
+React Native / Expo client (iOS + Android) with a native Rust prover. It runs the
+same `@tlsn/plugins` as the extension. See `app/mobile/README.md` for the full
+toolchain, build pipeline, and troubleshooting.
+
+**Plugin flow:**
+
+1. `PluginScreen` loads the plugin and starts `MobilePluginHost` (runs plugin JS)
+2. Plugin calls `openWindow()` → embedded `PluginWebView` opens the target site
+3. User logs in; plugin captures cookies/headers via `useHeaders()`
+4. Plugin calls `prove()` → `NativeProver` invokes the Rust prover via UniFFI (Swift on iOS, Kotlin on Android)
+5. Rust prover connects to the verifier over WebSocket and performs MPC-TLS
+
+**Key constraints:**
+
+- **Native modules** (`tlsn-native`, `quickjs-native`, cookies) mean Expo Go does not work — always use `expo run:ios` / `expo run:android` (via `build.sh`).
+- **Hermes** cannot parse `async/await` in dynamically-evaluated code (`new Function()`), so mobile plugins are compiled to `es2016` by `packages/plugins/build.js`. Rebuild with `npm run build:plugins` if you see "async functions are unsupported".
+- **Verifier URL**: the iOS simulator reaches `localhost:7047` directly; the Android emulator rewrites `localhost` to `10.0.2.2`. Point at a remote verifier by rebuilding plugins with `MOBILE_VERIFIER_URL`.
+- **Versioning**: mobile uses a 3-part `0.1.AABB` scheme (Apple rejects 4-part `CFBundleShortVersionString`); the extension stays 4-part `0.1.0.AABB`. See `app/mobile/RELEASING.md`.
+
+**Native prover (`packages/tlsn-mobile`):** Rust compiled to an iOS XCFramework and an Android `.so`, bridged via UniFFI. Rebuild only when changing the Rust code (`build-ios.sh` / `build-android.sh`, or `app/mobile/build.sh --native`).
 
 ## Important Implementation Notes
 

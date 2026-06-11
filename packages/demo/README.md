@@ -1,6 +1,11 @@
-This folder contains a basic demo for running TLSNotary plugins.
-The demo needs the TLSNotary extension to run the plugins in your browser.
+This folder contains a basic demo for running TLSNotary plugins **in the browser**.
+It needs the TLSNotary browser extension to run the plugins. (For the mobile
+equivalent, see the [mobile app](../../app/mobile/README.md), which has its own
+built-in plugin gallery and native prover.)
+
 In this demo, the plugins prove data from a server (e.g. Twitter). Of course you will also need the verifier counterpart. In this demo we will use the verifier server from the `servers/verifier` folder.
+
+The plugins themselves come from the shared [`@tlsn/plugins`](../plugins) package (the demo loads its `dist/demo/` build); they are not stored in this folder.
 
 Prerequisites:
 
@@ -16,9 +21,9 @@ To run this demo:
 
 ## 1. Install the browser extension
 
-### Install from the Google Web Store
+### Install from the Chrome Web Store
 
-TODO
+Install the published extension from the [Chrome Web Store](https://chromewebstore.google.com/detail/tlsn-extension/gcfkkledipjbgdbimfpijgbkhajiaaph).
 
 ### Build from source
 
