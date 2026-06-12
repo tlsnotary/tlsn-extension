@@ -13,7 +13,7 @@ packages/tlsn-wasm-pkg/
 zip
 .vscode
 .claude/*
-!.claude/commands/
+!.claude/skills/
 coverage
 servers/target/
 # Mobile native module build artifacts (symlinks created by postinstall)
