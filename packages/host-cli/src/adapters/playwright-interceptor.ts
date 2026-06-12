@@ -1,9 +1,5 @@
 import type { InterceptedRequestHeader } from '@tlsn/plugin-sdk';
-import type {
-  RequestInterceptor,
-  Unsubscribe,
-  WindowHandle,
-} from '@tlsn/host-contracts';
+import type { RequestInterceptor, Unsubscribe, WindowHandle } from '@tlsn/host-contracts';
 import type { PlaywrightState } from './playwright-state';
 
 export class PlaywrightRequestInterceptor implements RequestInterceptor {

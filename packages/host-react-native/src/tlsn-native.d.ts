@@ -92,9 +92,7 @@ declare module 'tlsn-native' {
     options: ProverOptions,
   ): Promise<RevealPreparation>;
   export function proveFinalize(sessionId: string, approved: boolean): Promise<ProveResult>;
-  export function addProgressListener(
-    cb: (event: ProveProgress) => void,
-  ): { remove: () => void };
+  export function addProgressListener(cb: (event: ProveProgress) => void): { remove: () => void };
   export function drainNativeLogs(): NativeLogLine[];
   export function setLogLevel(level: TlsnLogLevel): void;
 }

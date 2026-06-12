@@ -31,10 +31,7 @@ export class NullProverClient implements ProverClient {
     };
   }
 
-  async proveUntilReveal(
-    _req: ProveRequest,
-    _opts: ProverOptions,
-  ): Promise<RevealPreparation> {
+  async proveUntilReveal(_req: ProveRequest, _opts: ProverOptions): Promise<RevealPreparation> {
     return {
       sessionId: 'stub-session',
       descriptors: [],

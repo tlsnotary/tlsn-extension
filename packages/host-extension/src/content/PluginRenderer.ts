@@ -64,11 +64,7 @@ export interface RenderPluginUIOptions {
  * Preserves a previously-dragged position (the user moving the overlay
  * sets `bottom: 'auto'`) across re-renders.
  */
-export function renderPluginUI(
-  json: DomJson,
-  windowId: number,
-  opts: RenderPluginUIOptions,
-): void {
+export function renderPluginUI(json: DomJson, windowId: number, opts: RenderPluginUIOptions): void {
   const containerId = opts.containerId ?? 'tlsn-plugin-container';
   let container = document.getElementById(containerId);
   if (!container) {
@@ -81,9 +77,7 @@ export function renderPluginUI(
   // Preserve drag position across re-renders.
   const prev = container.querySelector('[data-tlsn-draggable]') as HTMLElement | null;
   const savedPosition =
-    prev && prev.style.bottom === 'auto'
-      ? { top: prev.style.top, left: prev.style.left }
-      : null;
+    prev && prev.style.bottom === 'auto' ? { top: prev.style.top, left: prev.style.left } : null;
 
   container.innerHTML = '';
   container.appendChild(createNode(json, windowId, opts.onPluginAction));

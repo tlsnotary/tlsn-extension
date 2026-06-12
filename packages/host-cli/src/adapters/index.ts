@@ -151,14 +151,19 @@ class CliAdapter implements HostAdapter {
           proxyUrl: proverOpts.proxyUrl || opts.proxyUrl || '',
         };
 
-        if (approvalMode === 'manual' && this.prover.proveUntilReveal && this.prover.proveFinalize) {
+        if (
+          approvalMode === 'manual' &&
+          this.prover.proveUntilReveal &&
+          this.prover.proveFinalize
+        ) {
           const prep = await this.prover.proveUntilReveal(request, merged, onProgress);
-          const ok = (await this.approval.requestRevealApproval?.({
-            request,
-            descriptors: prep.descriptors,
-            sessionId: prep.sessionId,
-            response: prep.response,
-          })) ?? false;
+          const ok =
+            (await this.approval.requestRevealApproval?.({
+              request,
+              descriptors: prep.descriptors,
+              sessionId: prep.sessionId,
+              response: prep.response,
+            })) ?? false;
           return this.prover.proveFinalize(prep.sessionId, ok);
         }
 

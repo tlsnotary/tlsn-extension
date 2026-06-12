@@ -43,7 +43,6 @@ export class PlaywrightState {
     this.subscribers.set(id, new Set());
     this.closeListeners.set(id, new Set());
 
-
     // Single page-wide route handler fans out to every subscriber. We use
     // `allHeaders()` so cookies that Chromium adds late in the network stack
     // are included, and we canonicalize header names (Title-Case) so plugin

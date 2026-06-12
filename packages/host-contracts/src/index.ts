@@ -104,7 +104,11 @@ export interface ProverClient {
   /**
    * One-shot prove. Adapters without per-reveal approval implement only this.
    */
-  prove(req: ProveRequest, opts: ProverOptions, onProgress?: (p: ProveProgressData) => void): Promise<unknown>;
+  prove(
+    req: ProveRequest,
+    opts: ProverOptions,
+    onProgress?: (p: ProveProgressData) => void,
+  ): Promise<unknown>;
 
   /**
    * Two-phase prove: stops just before reveal so the approval UI can inspect

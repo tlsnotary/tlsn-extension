@@ -16,7 +16,6 @@ function injectScript() {
   script.onload = () => script.remove();
 }
 
-
 // Listen for messages from the extension
 browser.runtime.onMessage.addListener((msg: unknown) => {
   const request = msg as ContentMessage;

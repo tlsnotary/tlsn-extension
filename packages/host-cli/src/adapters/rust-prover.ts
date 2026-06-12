@@ -97,8 +97,9 @@ export class RustProverClient implements ProverClient {
     this.pendingSessions.set(parsed.sessionId, { child, reader });
     return {
       sessionId: parsed.sessionId,
-      descriptors: (parsed.descriptors as unknown[]) as RevealPreparation['descriptors'],
-      response: typeof parsed.response === 'string' ? parsed.response : JSON.stringify(parsed.response),
+      descriptors: parsed.descriptors as unknown[] as RevealPreparation['descriptors'],
+      response:
+        typeof parsed.response === 'string' ? parsed.response : JSON.stringify(parsed.response),
     };
   }
 
@@ -117,10 +118,7 @@ export class RustProverClient implements ProverClient {
     return parsed;
   }
 
-  private pendingSessions = new Map<
-    string,
-    { child: ChildIO; reader: LineReader }
-  >();
+  private pendingSessions = new Map<string, { child: ChildIO; reader: LineReader }>();
 }
 
 function requestForWire(req: ProveRequest) {
@@ -187,7 +185,10 @@ class LineReader {
 
   readLine(timeoutMs: number): Promise<string> {
     return new Promise<string>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error(`tlsn-prover line read timed out`)), timeoutMs);
+      const timer = setTimeout(
+        () => reject(new Error(`tlsn-prover line read timed out`)),
+        timeoutMs,
+      );
       const wrappedResolve = (l: string) => {
         clearTimeout(timer);
         resolve(l);
@@ -210,7 +211,8 @@ class LineReader {
       const nl = this.buffer.indexOf('\n');
       if (nl === -1) {
         if (this.done) {
-          for (const p of this.pending.splice(0)) p.reject(new Error('tlsn-prover exited without response'));
+          for (const p of this.pending.splice(0))
+            p.reject(new Error('tlsn-prover exited without response'));
         }
         return;
       }
@@ -238,9 +240,7 @@ export function resolveBinary(): string {
  *    (works when running from any monorepo subdirectory)
  */
 function candidatePaths(): string[] {
-  const out: string[] = [
-    resolve(process.cwd(), 'packages/tlsn-mobile/target/release/tlsn-prover'),
-  ];
+  const out: string[] = [resolve(process.cwd(), 'packages/tlsn-mobile/target/release/tlsn-prover')];
   // Walk up from this source file until we find a packages/ sibling.
   let dir = dirname(fileURLToPath(import.meta.url));
   for (let i = 0; i < 8 && dir !== '/'; i++) {

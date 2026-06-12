@@ -146,7 +146,15 @@ export class PlaywrightDomRenderer implements PluginRenderer {
 
   private async injectInto(page: Page, windowId: number, dom: PluginDomJson): Promise<void> {
     await page.evaluate(
-      ({ dom: domArg, windowId: wid, fnName }: { dom: unknown; windowId: number; fnName: string }) => {
+      ({
+        dom: domArg,
+        windowId: wid,
+        fnName,
+      }: {
+        dom: unknown;
+        windowId: number;
+        fnName: string;
+      }) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const render = (window as any)[fnName];
         if (typeof render === 'function') render(domArg, wid);
@@ -175,7 +183,9 @@ function replaceText(dom: unknown, from: string, to: string): unknown {
   return {
     type: node.type,
     options: node.options,
-    children: Array.isArray(node.children) ? node.children.map((c) => replaceText(c, from, to)) : node.children,
+    children: Array.isArray(node.children)
+      ? node.children.map((c) => replaceText(c, from, to))
+      : node.children,
   };
 }
 

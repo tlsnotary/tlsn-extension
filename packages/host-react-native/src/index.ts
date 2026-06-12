@@ -25,4 +25,3 @@ export { MobilePluginHost, type EventEmitter } from './MobilePluginHost';
 // plugin-sdk's RevealRangeDescriptor. Re-exported because tlsn-native is a
 // platform-specific dependency this adapter owns.
 export type { RevealRangeDescriptor } from './MobilePluginHost';
-
