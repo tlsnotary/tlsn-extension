@@ -95,14 +95,14 @@ impl From<url::ParseError> for TlsnError {
 // ---------------------------------------------------------------------------
 
 /// HTTP header key-value pair.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, uniffi::Record, serde::Serialize, serde::Deserialize)]
 pub struct HttpHeader {
     pub name: String,
     pub value: String,
 }
 
 /// HTTP request to prove.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, uniffi::Record, serde::Serialize, serde::Deserialize)]
 pub struct HttpRequest {
     pub url: String,
     pub method: String,
@@ -111,7 +111,7 @@ pub struct HttpRequest {
 }
 
 /// HTTP response from the proven request.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, uniffi::Record, serde::Serialize, serde::Deserialize)]
 pub struct HttpResponse {
     pub status: u16,
     pub headers: Vec<HttpHeader>,
@@ -119,21 +119,21 @@ pub struct HttpResponse {
 }
 
 /// Transcript of the TLS session.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, uniffi::Record, serde::Serialize, serde::Deserialize)]
 pub struct Transcript {
     pub sent: Vec<u8>,
     pub recv: Vec<u8>,
 }
 
 /// Handler type (SENT or RECV).
-#[derive(Debug, Clone, uniffi::Enum)]
+#[derive(Debug, Clone, uniffi::Enum, serde::Serialize, serde::Deserialize)]
 pub enum HandlerType {
     Sent,
     Recv,
 }
 
 /// Handler part (which part of the HTTP message to reveal).
-#[derive(Debug, Clone, uniffi::Enum)]
+#[derive(Debug, Clone, uniffi::Enum, serde::Serialize, serde::Deserialize)]
 pub enum HandlerPart {
     StartLine,
     Protocol,
@@ -146,7 +146,7 @@ pub enum HandlerPart {
 }
 
 /// Hash algorithm for hash-commitment actions.
-#[derive(Debug, Clone, uniffi::Enum)]
+#[derive(Debug, Clone, uniffi::Enum, serde::Serialize, serde::Deserialize)]
 pub enum HashAlgorithm {
     Blake3,
     Sha256,
@@ -154,14 +154,19 @@ pub enum HashAlgorithm {
 }
 
 /// Handler action (what to do with the part).
-#[derive(Debug, Clone, uniffi::Enum)]
+///
+/// JSON wire shape (matches the `NativeHandler.action` form used by the mobile
+/// translation layer): `{"type": "Reveal"}` or `{"type": "Hash", "algorithm": "Blake3"}`.
+#[derive(Debug, Clone, uniffi::Enum, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "type")]
 pub enum HandlerAction {
     Reveal,
     Hash { algorithm: HashAlgorithm },
 }
 
 /// Handler parameters for fine-grained control.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, uniffi::Record, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct HandlerParams {
     pub key: Option<String>,
     pub hide_key: Option<bool>,
@@ -173,7 +178,8 @@ pub struct HandlerParams {
 }
 
 /// Reveal handler — specifies what to reveal in the proof.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, uniffi::Record, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Handler {
     pub handler_type: HandlerType,
     pub part: HandlerPart,
@@ -182,7 +188,7 @@ pub struct Handler {
 }
 
 /// Protocol mode for the prover.
-#[derive(Debug, Clone, Copy, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, uniffi::Enum, serde::Serialize, serde::Deserialize)]
 pub enum Mode {
     /// MPC-TLS (default): co-runs the TLS handshake with the verifier.
     Mpc,
@@ -191,7 +197,8 @@ pub enum Mode {
 }
 
 /// Prover options for the high-level prove function.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, uniffi::Record, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ProverOptions {
     pub verifier_url: String,
     pub max_sent_data: u32,
@@ -201,7 +208,8 @@ pub struct ProverOptions {
 }
 
 /// Result of a proof operation.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, uniffi::Record, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ProofResult {
     pub response: HttpResponse,
     pub transcript: Transcript,
@@ -217,7 +225,7 @@ pub struct ProofResult {
 /// `preview` contains the actual transcript bytes for the range, decoded as
 /// UTF-8 lossy. The platform layer is responsible for truncating/escaping
 /// before display.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, uniffi::Record, serde::Serialize, serde::Deserialize)]
 pub struct RevealRangeDescriptor {
     /// "SENT" or "RECV"
     pub direction: String,
@@ -234,7 +242,8 @@ pub struct RevealRangeDescriptor {
 /// Output of [`prove_until_reveal`] — the prover paused after computing
 /// reveal ranges. Pass [`session_id`] back to [`prove_finalize`] with an
 /// approved bool to either complete the reveal or drop the session.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, uniffi::Record, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RevealPreparation {
     /// Opaque handle the platform passes back to [`prove_finalize`].
     pub session_id: String,

@@ -1,19 +1,19 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import { PluginWebView, InterceptedRequestHeader } from './PluginWebView';
-import { PluginRenderer, DomJson } from './PluginRenderer';
-import { NativeProver, NativeProverHandle, ProveProgress } from './NativeProver';
+import { PluginWebView, InterceptedRequestHeader } from '@tlsn/host-react-native/components';
+import { PluginRenderer, DomJson } from '@tlsn/host-react-native/components';
+import {
+  NativeProver,
+  NativeProverHandle,
+  ProveProgress,
+} from '@tlsn/host-react-native/components';
 import { PluginApprovalSheet, ApprovalMode } from './PluginApprovalSheet';
 import { TimeoutWarningSheet } from './TimeoutWarningSheet';
 import { RevealApprovalSheet } from './RevealApprovalSheet';
-import {
-  MobilePluginHost,
-  PluginConfig,
-  NativeHandler,
-  EventEmitter,
-  WindowMessage,
-  RevealRangeDescriptor,
-} from '../../lib/MobilePluginHost';
+import { MobilePluginHost, EventEmitter, RevealRangeDescriptor } from '@tlsn/host-react-native';
+import type { PluginConfig, WindowMessage } from '@tlsn/plugin-sdk';
+import type { NativeHandler } from '@tlsn/host-contracts';
+import { getEffectiveLogLevel } from '../../lib/useVerifierUrl';
 
 /**
  * Resolve a dot-separated path (e.g. "items.0.name") against a JSON value.
@@ -345,6 +345,7 @@ export function PluginScreen({
           setError(`Prover error: ${err}`);
         }}
         onProgress={handleProveProgress}
+        getLogLevel={getEffectiveLogLevel}
       />
 
       {/* WebView for login/header interception */}

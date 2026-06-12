@@ -1,0 +1,4 @@
+dist
+.tsup
+node_modules
+*.log

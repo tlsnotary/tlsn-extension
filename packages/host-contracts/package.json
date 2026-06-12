@@ -1,0 +1,36 @@
+{
+  "name": "@tlsn/host-contracts",
+  "version": "0.1.0",
+  "description": "Platform-agnostic interfaces and shared types for TLSNotary host adapters",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "clean": "rm -rf dist",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest",
+    "lint": "npm run lint:prettier && npm run lint:typescript",
+    "lint:prettier": "prettier --check .",
+    "lint:typescript": "tsc --noEmit",
+    "lint:fix": "prettier --write ."
+  },
+  "dependencies": {
+    "@tlsn/plugin-sdk": "*"
+  },
+  "devDependencies": {
+    "prettier": "^3.8.1",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.2",
+    "vitest": "^4.0.16"
+  }
+}

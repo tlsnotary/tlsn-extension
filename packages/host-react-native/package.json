@@ -1,0 +1,71 @@
+{
+  "name": "@tlsn/host-react-native",
+  "version": "0.1.0",
+  "description": "TLSNotary host adapter for React Native. Implements @tlsn/host-contracts via react-native-webview (window/header interception) and the tlsn-native Expo module (TLS prover).",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./logger": {
+      "import": "./dist/logger/index.js",
+      "types": "./dist/logger/index.d.ts"
+    },
+    "./style": {
+      "import": "./dist/style/index.js",
+      "types": "./dist/style/index.d.ts"
+    },
+    "./util": {
+      "import": "./dist/util/index.js",
+      "types": "./dist/util/index.d.ts"
+    },
+    "./components": {
+      "import": "./dist/components/index.js",
+      "types": "./dist/components/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "clean": "rm -rf dist",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "npm run lint:prettier && npm run lint:typescript",
+    "lint:prettier": "prettier --check .",
+    "lint:typescript": "tsc --noEmit",
+    "lint:fix": "prettier --write ."
+  },
+  "dependencies": {
+    "@tlsn/host-contracts": "*",
+    "@tlsn/plugin-sdk": "*"
+  },
+  "peerDependencies": {
+    "@react-native-cookies/cookies": ">=6",
+    "react": ">=18",
+    "react-native": ">=0.74",
+    "react-native-webview": ">=13",
+    "tlsn-native": "*"
+  },
+  "peerDependenciesMeta": {
+    "@react-native-cookies/cookies": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/react": "~19.1.0",
+    "prettier": "^3.8.1",
+    "react": "19.1.0",
+    "react-native": "0.81.5",
+    "react-native-webview": "13.15.0",
+    "tinyglobby": "^0.2.17",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.2",
+    "vitest": "^4.0.16"
+  }
+}

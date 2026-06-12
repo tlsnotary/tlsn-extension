@@ -1,12 +1,15 @@
 import { useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import browser from 'webextension-polyfill';
-import { SessionManager } from '../../offscreen/SessionManager';
+import { SessionManager } from '@tlsn/host-extension/offscreen';
 import { logger } from '@tlsn/common';
-import { getStoredLogLevel } from '../../utils/logLevelStorage';
-import { sha256 } from '../../utils/cryptoHash';
-import { getPluginCount, incrementPluginCount } from '../../utils/pluginExecutionCounts';
-import type { OffscreenMessage } from '../../types/messages';
+import {
+  getStoredLogLevel,
+  sha256,
+  getPluginCount,
+  incrementPluginCount,
+} from '@tlsn/host-extension/util';
+import type { OffscreenMessage } from '@tlsn/host-extension/types';
 
 const OffscreenApp: React.FC = () => {
   useEffect(() => {

@@ -14,7 +14,7 @@
   ],
   "scripts": {
     "build": "npm run build:deps && npm run build --workspace=extension",
-    "build:deps": "npm run build --workspace=@tlsn/common && npm run build --workspace=@tlsn/plugin-sdk && npm run build --workspace=@tlsn/plugins",
+    "build:deps": "npm run build --workspace=@tlsn/common && npm run build --workspace=@tlsn/plugin-sdk && npm run build --workspace=@tlsn/plugins && npm run build --workspace=@tlsn/host-contracts && npm run build --workspace=@tlsn/host-extension && npm run build --workspace=@tlsn/host-react-native && npm run build --workspace=@tlsn/host-cli",
     "build:plugins": "npm run build --workspace=@tlsn/plugins",
     "build:extension": "npm run build --workspace=extension",
     "build:all": "npm run build --workspaces --if-present",

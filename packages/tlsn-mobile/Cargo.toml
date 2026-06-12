@@ -5,12 +5,19 @@ edition = "2021"
 description = "TLSNotary mobile bindings for iOS and Android"
 
 [lib]
-crate-type = ["staticlib", "cdylib"]
+crate-type = ["staticlib", "cdylib", "rlib"]
 name = "tlsn_mobile"
 
 [[bin]]
 name = "uniffi-bindgen"
 path = "uniffi-bindgen.rs"
+
+# Host-CLI bin: read a ProveRequest+ProverOptions JSON from stdin and emit a
+# ProofResult JSON on stdout. Lets @tlsn/host-cli spawn the prover without
+# needing uniffi-generated bindings.
+[[bin]]
+name = "tlsn-prover"
+path = "src/bin/tlsn_prover.rs"
 
 [dependencies]
 # Core SDK — shared protocol engine with WASM/browser

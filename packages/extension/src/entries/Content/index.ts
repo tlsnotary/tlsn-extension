@@ -1,6 +1,6 @@
 import browser from 'webextension-polyfill';
-import type { DomJson } from '@tlsn/plugin-sdk';
-import type { ContentMessage, ExecCodeResponse } from '../../types/messages';
+import type { ContentMessage, ExecCodeResponse } from '@tlsn/host-extension/types';
+import { renderPluginUI } from '@tlsn/host-extension/content';
 import { logger, LogLevel } from '@tlsn/common';
 
 // Initialize logger at DEBUG level for content scripts (no IndexedDB access)
@@ -14,177 +14,6 @@ function injectScript() {
   script.type = 'text/javascript';
   (document.head || document.documentElement).appendChild(script);
   script.onload = () => script.remove();
-}
-
-function renderPluginUI(json: DomJson, windowId: number) {
-  let container = document.getElementById('tlsn-plugin-container');
-
-  if (!container) {
-    const el = document.createElement('div');
-    el.id = 'tlsn-plugin-container';
-    document.body.appendChild(el);
-    container = el;
-  }
-
-  // Preserve drag position across re-renders: if the user dragged the element,
-  // its positioning was converted from bottom/right to top/left (bottom becomes 'auto').
-  const prev = container.querySelector('[data-tlsn-draggable]') as HTMLElement | null;
-  const savedPosition =
-    prev && prev.style.bottom === 'auto' ? { top: prev.style.top, left: prev.style.left } : null;
-
-  container.innerHTML = '';
-  container.appendChild(createNode(json, windowId));
-
-  if (savedPosition) {
-    const el = container.querySelector('[data-tlsn-draggable]') as HTMLElement | null;
-    if (el) {
-      el.style.top = savedPosition.top;
-      el.style.left = savedPosition.left;
-      el.style.bottom = 'auto';
-      el.style.right = 'auto';
-    }
-  }
-}
-
-function makeDraggable(el: HTMLElement) {
-  // Use the first child as the drag handle (the header bar)
-  const handle = el.firstElementChild as HTMLElement | null;
-
-  if (!handle) return;
-
-  handle.style.cursor = 'grab';
-
-  let offsetX = 0;
-  let offsetY = 0;
-
-  const onMouseMove = (e: MouseEvent) => {
-    const x = Math.max(0, Math.min(e.clientX - offsetX, window.innerWidth - el.offsetWidth));
-    const y = Math.max(0, Math.min(e.clientY - offsetY, window.innerHeight - el.offsetHeight));
-
-    el.style.left = x + 'px';
-    el.style.top = y + 'px';
-  };
-
-  const onMouseUp = () => {
-    handle.style.cursor = 'grab';
-    document.removeEventListener('mousemove', onMouseMove);
-    document.removeEventListener('mouseup', onMouseUp);
-  };
-
-  handle.addEventListener('mousedown', (e: MouseEvent) => {
-    // Only drag on primary button, ignore clicks on buttons inside the handle
-    if (e.button !== 0 || (e.target as HTMLElement).closest('button')) return;
-
-    handle.style.cursor = 'grabbing';
-
-    // Convert bottom/right positioning to top/left
-    const rect = el.getBoundingClientRect();
-
-    el.style.top = rect.top + 'px';
-    el.style.left = rect.left + 'px';
-    el.style.bottom = 'auto';
-    el.style.right = 'auto';
-
-    offsetX = e.clientX - rect.left;
-    offsetY = e.clientY - rect.top;
-
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
-
-    e.preventDefault();
-  });
-}
-
-const ALLOWED_ELEMENT_TYPES = new Set([
-  'div',
-  'span',
-  'p',
-  'button',
-  'input',
-  'label',
-  'a',
-  'img',
-  'h1',
-  'h2',
-  'h3',
-  'h4',
-  'h5',
-  'h6',
-  'ul',
-  'ol',
-  'li',
-  'table',
-  'tr',
-  'td',
-  'th',
-  'thead',
-  'tbody',
-  'form',
-  'select',
-  'option',
-  'textarea',
-  'pre',
-  'code',
-  'strong',
-  'em',
-  'br',
-  'hr',
-]);
-
-function createNode(json: DomJson, windowId: number): HTMLElement | Text {
-  if (typeof json === 'string') {
-    const node = document.createTextNode(json);
-    return node;
-  }
-
-  if (!ALLOWED_ELEMENT_TYPES.has(json.type)) {
-    logger.warn(`[Content] Blocked disallowed element type: ${json.type}`);
-    return document.createTextNode('');
-  }
-
-  const node = document.createElement(json.type);
-
-  if (json.options.className) {
-    node.className = json.options.className;
-  }
-
-  if (json.options.id) {
-    node.id = json.options.id;
-  }
-
-  if (json.options.style) {
-    Object.entries(json.options.style).forEach(([key, value]) => {
-      (node.style as unknown as Record<string, string>)[key] = value;
-    });
-  }
-
-  if (json.options.inputType) (node as HTMLInputElement).type = json.options.inputType;
-  if (json.options.checked !== undefined) (node as HTMLInputElement).checked = json.options.checked;
-  if (json.options.value !== undefined) (node as HTMLInputElement).value = json.options.value;
-  if (json.options.placeholder) (node as HTMLInputElement).placeholder = json.options.placeholder;
-  if (json.options.disabled !== undefined)
-    (node as HTMLInputElement).disabled = json.options.disabled;
-
-  if (json.options.onclick) {
-    node.addEventListener('click', () => {
-      browser.runtime.sendMessage({
-        type: 'PLUGIN_UI_CLICK',
-        onclick: json.options.onclick,
-        windowId,
-      });
-    });
-  }
-
-  json.children.forEach((child) => {
-    node.appendChild(createNode(child, windowId));
-  });
-
-  if (json.options.draggable) {
-    node.dataset.tlsnDraggable = '';
-    makeDraggable(node);
-  }
-
-  return node;
 }
 
 // Listen for messages from the extension
@@ -230,7 +59,11 @@ browser.runtime.onMessage.addListener((msg: unknown) => {
   }
 
   if (request.type === 'RENDER_PLUGIN_UI') {
-    renderPluginUI(request.json, request.windowId);
+    renderPluginUI(request.json, request.windowId, {
+      onPluginAction: (onclick, windowId) => {
+        browser.runtime.sendMessage({ type: 'PLUGIN_UI_CLICK', onclick, windowId });
+      },
+    });
     return Promise.resolve({ success: true });
   }
 

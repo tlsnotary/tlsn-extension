@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { LogLevel, logLevelToName, logger } from '@tlsn/common';
-import { getStoredLogLevel, setStoredLogLevel } from '../../utils/logLevelStorage';
+import { getStoredLogLevel, setStoredLogLevel } from '@tlsn/host-extension/util';
 import './index.scss';
 
 interface LogLevelOption {

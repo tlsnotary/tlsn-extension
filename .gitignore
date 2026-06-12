@@ -1,6 +1,7 @@
 /target
 **/*.rs.bk
 bin/
+!packages/tlsn-mobile/src/bin/
 **/node_modules
 **/.DS_Store
 .idea
@@ -12,7 +13,6 @@ packages/tlsn-wasm-pkg/
 zip
 .vscode
 .claude/*
-!.claude/commands/
 coverage
 servers/target/
 # Mobile native module build artifacts (symlinks created by postinstall)
