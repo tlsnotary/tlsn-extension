@@ -1,4 +1,9 @@
-# Create a TLSNotary Extension Plugin
+---
+name: create-plugin
+description: Create a TLSNotary plugin — sandboxed JavaScript that targets a web API, intercepts the user's auth, and produces a selective-disclosure proof. Use when the user asks to author a new TLSN plugin, prove data from a specific web service (e.g. Twitter, Spotify, a bank), or add a plugin to the demo gallery.
+---
+
+# Create a TLSNotary plugin
 
 Build a new demo plugin that proves data from a web service using TLSNotary.
 
