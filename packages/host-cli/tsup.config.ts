@@ -19,6 +19,11 @@ export default defineConfig({
   external: [
     '@tlsn/host-contracts',
     '@tlsn/plugin-sdk',
+    // Dynamic `import('@tlsn/plugins')` in cli/resolve-plugin.ts — resolved at
+    // runtime by the consumer's installed deps, not bundled. (host-cli only
+    // imports types from @tlsn/plugins so we don't list it in dependencies
+    // either; the consumer brings it.)
+    '@tlsn/plugins',
     '@clack/prompts',
     'commander',
     'playwright',
