@@ -1,3 +1,8 @@
+---
+name: build-tlsn-host
+description: Scaffold a TLSNotary host app on CLI, React Native, or browser extension. Use when the user asks to build, integrate, or add TLSNotary to a new project — including phrases like "add TLSN to my Expo app", "build a TLSN browser extension", "run TLSN plugins from a CLI", or any time the work involves writing a new consumer of the @tlsn/host-* adapter packages.
+---
+
 # Scaffold a TLSNotary host app
 
 Help a developer build a new application that embeds TLSNotary — a CLI tool, a React Native mobile app, or a browser extension — by scaffolding the right files and wiring them to the appropriate `@tlsn/host-*` adapter.
