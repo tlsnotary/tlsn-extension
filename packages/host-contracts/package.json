@@ -15,7 +15,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsup",
     "clean": "rm -rf dist",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -29,6 +29,7 @@
   },
   "devDependencies": {
     "prettier": "^3.8.1",
+    "tsup": "^8.5.1",
     "typescript": "^6.0.2",
     "vitest": "^4.0.16"
   }

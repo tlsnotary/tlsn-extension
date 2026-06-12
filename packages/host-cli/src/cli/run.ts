@@ -3,10 +3,10 @@
  */
 
 import * as p from '@clack/prompts';
-import { createCliAdapter } from '../adapters/index.js';
-import { AutoApproveUi } from '../adapters/auto-approve.js';
-import { PluginEventEmitter } from '../event-emitter.js';
-import { resolvePlugin } from './resolve-plugin.js';
+import { createCliAdapter } from '../adapters/index';
+import { AutoApproveUi } from '../adapters/auto-approve';
+import { PluginEventEmitter } from '../event-emitter';
+import { resolvePlugin } from './resolve-plugin';
 
 export interface RunOptions {
   verifier: string;

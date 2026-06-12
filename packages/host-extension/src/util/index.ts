@@ -1,13 +1,13 @@
-export { sha256 } from './cryptoHash.js';
+export { sha256 } from './cryptoHash';
 export {
   validateUrl,
   sanitizeUrl,
   isHttpUrl,
   getUrlErrorMessage,
   type UrlValidationResult,
-} from './url-validator.js';
-export { getPluginCount, incrementPluginCount } from './pluginExecutionCounts.js';
-export { getStoredLogLevel, setStoredLogLevel } from './logLevelStorage.js';
+} from './url-validator';
+export { getPluginCount, incrementPluginCount } from './pluginExecutionCounts';
+export { getStoredLogLevel, setStoredLogLevel } from './logLevelStorage';
 export {
   MAX_MANAGED_WINDOWS,
   MAX_REQUESTS_PER_WINDOW,
@@ -17,4 +17,4 @@ export {
   CLEANUP_INTERVAL_MS,
   REQUEST_BATCH_INTERVAL_MS,
   REQUEST_BATCH_MAX_SIZE,
-} from './limits.js';
+} from './limits';

@@ -6,4 +6,4 @@ export {
   ALLOWED_ELEMENT_TYPES,
   type PluginActionHandler,
   type RenderPluginUIOptions,
-} from './PluginRenderer.js';
+} from './PluginRenderer';

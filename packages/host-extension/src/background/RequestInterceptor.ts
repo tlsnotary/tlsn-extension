@@ -10,8 +10,8 @@
 
 import browser from 'webextension-polyfill';
 import { logger } from '@tlsn/common';
-import type { WindowManager } from './WindowManager.js';
-import type { InterceptedRequest, InterceptedRequestHeader } from '../types/index.js';
+import type { WindowManager } from './WindowManager';
+import type { InterceptedRequest, InterceptedRequestHeader } from '../types/index';
 
 export interface ExtensionRequestInterceptorOptions {
   windowManager: WindowManager;

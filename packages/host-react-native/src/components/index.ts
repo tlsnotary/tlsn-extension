@@ -1,8 +1,8 @@
-export { PluginRenderer } from './PluginRenderer.js';
-export type { DomJson, DomOptions, PluginRendererProps } from './PluginRenderer.js';
-export { PluginWebView } from './PluginWebView.js';
-export type { InterceptedRequestHeader } from './PluginWebView.js';
-export { NativeProver } from './NativeProver.js';
+export { PluginRenderer } from './PluginRenderer';
+export type { DomJson, DomOptions, PluginRendererProps } from './PluginRenderer';
+export { PluginWebView } from './PluginWebView';
+export type { InterceptedRequestHeader } from './PluginWebView';
+export { NativeProver } from './NativeProver';
 export type {
   NativeProverHandle,
   NativeProverProps,
@@ -15,4 +15,4 @@ export type {
   ProveProgress,
   RevealPreparation,
   RevealRangeDescriptor,
-} from './NativeProver.js';
+} from './NativeProver';

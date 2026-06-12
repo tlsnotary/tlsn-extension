@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { existsSync } from 'node:fs';
-import { RustProverClient, resolveBinary } from './rust-prover.js';
+import { RustProverClient, resolveBinary } from './rust-prover';
 
 const binary = resolveBinary();
 const binaryAvailable = binary !== 'tlsn-prover' && existsSync(binary);

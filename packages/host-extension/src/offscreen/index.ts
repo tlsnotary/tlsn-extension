@@ -3,7 +3,7 @@ export {
   matchesPathnamePattern,
   validateProvePermission,
   validateOpenWindowPermission,
-} from './permissionValidator.js';
-export { SessionManager } from './SessionManager.js';
-export { ProveManager } from './ProveManager/index.js';
-export type { RevealRangeWithHandler } from './ProveManager/index.js';
+} from './permissionValidator';
+export { SessionManager } from './SessionManager';
+export { ProveManager } from './ProveManager/index';
+export type { RevealRangeWithHandler } from './ProveManager/index';

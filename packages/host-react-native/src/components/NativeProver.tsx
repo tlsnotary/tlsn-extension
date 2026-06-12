@@ -24,7 +24,7 @@ import type {
   RevealPreparation,
   RevealRangeDescriptor,
 } from 'tlsn-native';
-import { addLog, type LogLevel } from '../logger/index.js';
+import { addLog, type LogLevel } from '../logger/index';
 
 export type {
   HandlerType,

@@ -14,5 +14,5 @@
  *     Use this for quick interactive runs and CI.
  */
 
-export { createCliAdapter } from './adapters/index.js';
-export type { CliAdapterOptions } from './adapters/index.js';
+export { createCliAdapter } from './adapters/index';
+export type { CliAdapterOptions } from './adapters/index';

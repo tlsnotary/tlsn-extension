@@ -4,7 +4,7 @@ import type {
   Unsubscribe,
   WindowHandle,
 } from '@tlsn/host-contracts';
-import type { PlaywrightState } from './playwright-state.js';
+import type { PlaywrightState } from './playwright-state';
 
 export class PlaywrightRequestInterceptor implements RequestInterceptor {
   constructor(private readonly state: PlaywrightState) {}

@@ -36,7 +36,7 @@
     "src"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsup",
     "clean": "rm -rf dist",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -46,9 +46,9 @@
     "lint:fix": "prettier --write ."
   },
   "dependencies": {
+    "@tlsn/common": "*",
     "@tlsn/host-contracts": "*",
     "@tlsn/plugin-sdk": "*",
-    "@tlsn/common": "*",
     "uuid": "^13.0.0"
   },
   "peerDependencies": {
@@ -63,6 +63,7 @@
     "fake-indexeddb": "^6.2.5",
     "happy-dom": "^20.0.11",
     "prettier": "^3.8.1",
+    "tsup": "^8.5.1",
     "typescript": "^6.0.2",
     "vitest": "^4.0.16"
   }

@@ -1,6 +1,6 @@
-export { WindowManager } from './WindowManager.js';
+export { WindowManager } from './WindowManager';
 export {
   installRequestInterceptor,
   type ExtensionRequestInterceptorOptions,
-} from './RequestInterceptor.js';
-export { ConfirmationManager, confirmationManager } from './ConfirmationManager.js';
+} from './RequestInterceptor';
+export { ConfirmationManager, confirmationManager } from './ConfirmationManager';

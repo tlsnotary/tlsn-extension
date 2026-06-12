@@ -1,1 +1,1 @@
-export { isOAuthUrl, shouldHandOffToSystemBrowser } from './oauthDetection.js';
+export { isOAuthUrl, shouldHandOffToSystemBrowser } from './oauthDetection';

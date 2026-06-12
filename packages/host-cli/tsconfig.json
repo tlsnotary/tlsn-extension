@@ -6,8 +6,8 @@
     "sourceMap": true,
     "outDir": "./dist",
     "rootDir": "./src",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
     "target": "ES2022",
     "lib": ["ES2022"],
     "types": ["node"]

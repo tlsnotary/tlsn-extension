@@ -9,5 +9,5 @@ export {
   type LogEntry,
   type LogLevel,
   type LogSource,
-} from './logStore.js';
-export { installLogCapture } from './installLogCapture.js';
+} from './logStore';
+export { installLogCapture } from './installLogCapture';

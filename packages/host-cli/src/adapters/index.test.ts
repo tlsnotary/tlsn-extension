@@ -9,8 +9,8 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { createCliAdapter } from './index.js';
-import { NullProverClient } from './null-prover.js';
+import { createCliAdapter } from './index';
+import { NullProverClient } from './null-prover';
 import type { InterceptedRequestHeader } from '@tlsn/plugin-sdk';
 import type { HostAdapter } from '@tlsn/host-contracts';
 

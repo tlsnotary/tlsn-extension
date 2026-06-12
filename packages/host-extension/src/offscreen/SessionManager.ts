@@ -1,6 +1,6 @@
 import Host, { canonicalizeHandler } from '@tlsn/plugin-sdk';
-import { ProveManager } from './ProveManager/index.js';
-import type { RevealRangeWithHandler } from './ProveManager/index.js';
+import { ProveManager } from './ProveManager/index';
+import type { RevealRangeWithHandler } from './ProveManager/index';
 import type { Method } from 'tlsn-wasm';
 import type {
   CanonicalHandler,
@@ -26,7 +26,7 @@ interface ChromeRuntimeLike {
     removeListener: (listener: (...args: unknown[]) => void) => void;
   };
 }
-import { validateProvePermission, validateOpenWindowPermission } from './permissionValidator.js';
+import { validateProvePermission, validateOpenWindowPermission } from './permissionValidator';
 
 /** Maximum number of preview characters shown per reveal range. */
 const PREVIEW_MAX_CHARS = 256;

@@ -21,8 +21,8 @@ import type {
   RevealRangeDescriptor,
 } from '@tlsn/plugin-sdk';
 
-export { translateHandler, translateHandlers } from './handler-translation.js';
-export type { NativeHandler } from './handler-translation.js';
+export { translateHandler, translateHandlers } from './handler-translation';
+export type { NativeHandler } from './handler-translation';
 
 /** Returned by subscribe/listener APIs. Calling it removes the listener. */
 export type Unsubscribe = () => void;

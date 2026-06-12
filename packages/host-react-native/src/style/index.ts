@@ -1,1 +1,1 @@
-export { cssToRN } from './cssToRN.js';
+export { cssToRN } from './cssToRN';

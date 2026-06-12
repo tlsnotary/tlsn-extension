@@ -4,8 +4,8 @@
  */
 
 import { Command } from 'commander';
-import { runCommand } from './run.js';
-import { sessionSaveCommand } from './session.js';
+import { runCommand } from './run';
+import { sessionSaveCommand } from './session';
 
 const program = new Command();
 

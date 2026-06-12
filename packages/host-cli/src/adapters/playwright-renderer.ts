@@ -29,7 +29,7 @@ import type {
   PluginRenderer,
   WindowHandle,
 } from '@tlsn/host-contracts';
-import type { PlaywrightState } from './playwright-state.js';
+import type { PlaywrightState } from './playwright-state';
 
 const EXPOSED_FN = '__tlsnPluginClick';
 const RENDER_FN = '__tlsnRenderPluginUI';

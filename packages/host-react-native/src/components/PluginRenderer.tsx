@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, PanResponder, Animated } from 'react-native';
-import { cssToRN } from '../style/index.js';
+import { cssToRN } from '../style/index';
 
 /**
  * DOM JSON types matching plugin-sdk's DomJson.

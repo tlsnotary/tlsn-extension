@@ -20,20 +20,20 @@ import type {
 } from '@tlsn/host-contracts';
 
 import { existsSync } from 'node:fs';
-import { PlaywrightState } from './playwright-state.js';
-import { PlaywrightWindowManager } from './playwright-windows.js';
-import { PlaywrightRequestInterceptor } from './playwright-interceptor.js';
-import { NullProverClient } from './null-prover.js';
-import { RustProverClient, resolveBinary } from './rust-prover.js';
-import { JsonRenderer } from './json-renderer.js';
-import { PlaywrightDomRenderer } from './playwright-renderer.js';
-import { ClackApprovalUi } from './clack-approval.js';
-import { AutoApproveUi } from './auto-approve.js';
+import { PlaywrightState } from './playwright-state';
+import { PlaywrightWindowManager } from './playwright-windows';
+import { PlaywrightRequestInterceptor } from './playwright-interceptor';
+import { NullProverClient } from './null-prover';
+import { RustProverClient, resolveBinary } from './rust-prover';
+import { JsonRenderer } from './json-renderer';
+import { PlaywrightDomRenderer } from './playwright-renderer';
+import { ClackApprovalUi } from './clack-approval';
+import { AutoApproveUi } from './auto-approve';
 
-export { RustProverClient } from './rust-prover.js';
-export { NullProverClient } from './null-prover.js';
-export { JsonRenderer } from './json-renderer.js';
-export { PlaywrightDomRenderer } from './playwright-renderer.js';
+export { RustProverClient } from './rust-prover';
+export { NullProverClient } from './null-prover';
+export { JsonRenderer } from './json-renderer';
+export { PlaywrightDomRenderer } from './playwright-renderer';
 
 export interface CliAdapterOptions {
   /**

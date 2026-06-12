@@ -19,10 +19,10 @@
 // contract interfaces (HostAdapter, ApprovalMode, NativeHandler, translateHandler)
 // come from @tlsn/host-contracts. Consumers import from each layer directly.
 
-export { MobilePluginHost, type EventEmitter } from './MobilePluginHost.js';
+export { MobilePluginHost, type EventEmitter } from './MobilePluginHost';
 // RevealRangeDescriptor here is the *native* (tlsn-native / uniffi PascalCase)
 // variant the reveal-approval sheet renders byte previews from — distinct from
 // plugin-sdk's RevealRangeDescriptor. Re-exported because tlsn-native is a
 // platform-specific dependency this adapter owns.
-export type { RevealRangeDescriptor } from './MobilePluginHost.js';
+export type { RevealRangeDescriptor } from './MobilePluginHost';
 

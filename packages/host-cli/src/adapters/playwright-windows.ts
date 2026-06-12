@@ -4,7 +4,7 @@ import type {
   WindowHandle,
   WindowManager,
 } from '@tlsn/host-contracts';
-import type { PlaywrightState } from './playwright-state.js';
+import type { PlaywrightState } from './playwright-state';
 
 export class PlaywrightWindowManager implements WindowManager {
   constructor(private readonly state: PlaywrightState) {}
