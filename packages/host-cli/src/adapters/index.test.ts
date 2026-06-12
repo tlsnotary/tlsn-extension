@@ -11,7 +11,8 @@ import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { createCliAdapter } from './index.js';
 import { NullProverClient } from './null-prover.js';
-import type { HostAdapter, InterceptedRequestHeader } from '@tlsn/host-contracts';
+import type { InterceptedRequestHeader } from '@tlsn/plugin-sdk';
+import type { HostAdapter } from '@tlsn/host-contracts';
 
 describe('createCliAdapter — contract wiring', () => {
   let fixtureServer: Server;

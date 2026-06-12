@@ -6,7 +6,7 @@
  * `emit(message)` to push intercepted headers / window events into the plugin.
  */
 
-import type { InterceptedRequestHeader } from '@tlsn/host-contracts';
+import type { InterceptedRequestHeader } from '@tlsn/plugin-sdk';
 
 type WindowMessage =
   | { type: 'HEADER_INTERCEPTED'; header: InterceptedRequestHeader; windowId: number }

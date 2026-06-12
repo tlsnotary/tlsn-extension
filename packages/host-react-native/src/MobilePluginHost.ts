@@ -34,25 +34,11 @@ import type {
 // algorithm names.
 import type { RevealRangeDescriptor } from 'tlsn-native';
 
-import { translateHandler, type NativeHandler } from '@tlsn/host-contracts';
+import { translateHandler, type ApprovalMode, type NativeHandler } from '@tlsn/host-contracts';
 
-// Re-export translation helpers and the native handler type so existing
-// callers (PluginScreen) can continue importing them from here.
-export { translateHandler, translateHandlers, type NativeHandler } from '@tlsn/host-contracts';
-
-// Re-export types used by other mobile modules so consumers don't need to
-// reach into @tlsn/plugin-sdk directly.
-export type {
-  DomJson,
-  DomOptions,
-  Handler,
-  Handler as PluginHandler,
-  InterceptedRequest,
-  InterceptedRequestHeader,
-  PluginConfig,
-  WindowMessage,
-} from '@tlsn/plugin-sdk';
-
+// Native-side RevealRangeDescriptor (PascalCase, from the uniffi-generated
+// tlsn-native module) is the only platform-specific type this adapter
+// re-exports — used by the reveal-approval sheet to render byte previews.
 export type { RevealRangeDescriptor } from 'tlsn-native';
 
 // ---------------------------------------------------------------------------
@@ -80,13 +66,6 @@ interface NativeProverOptions {
   maxSentData?: number;
   handlers: NativeHandler[];
 }
-
-/**
- * Pre-execution approval modes — mirrors the extension's `ApprovalMode` and
- * the plugin-approval bottom sheet. Set via `setApprovalMode()` after the
- * user picks one. Must be set before the plugin's first `prove()` call.
- */
-export type ApprovalMode = 'manual' | 'all-session' | 'rejected';
 
 interface RevealApprovalRequest {
   descriptors: RevealRangeDescriptor[];

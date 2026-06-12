@@ -6,7 +6,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { resolve as resolvePath } from 'node:path';
-import type { PluginConfig } from '@tlsn/host-contracts';
+import type { PluginConfig } from '@tlsn/plugin-sdk';
 
 export interface ResolvedPlugin {
   /** The plugin id, used for display + storageState filename. */

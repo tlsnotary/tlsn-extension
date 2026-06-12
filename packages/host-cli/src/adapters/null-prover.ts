@@ -9,11 +9,11 @@
  * Replaced by `rust-prover.ts` once the binary spawn is implemented.
  */
 
+import type { ProveProgressData } from '@tlsn/plugin-sdk';
 import type {
   ProveRequest,
   ProverClient,
   ProverOptions,
-  ProveProgressData,
   RevealPreparation,
 } from '@tlsn/host-contracts';
 

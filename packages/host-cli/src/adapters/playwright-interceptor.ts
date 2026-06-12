@@ -1,5 +1,5 @@
+import type { InterceptedRequestHeader } from '@tlsn/plugin-sdk';
 import type {
-  InterceptedRequestHeader,
   RequestInterceptor,
   Unsubscribe,
   WindowHandle,

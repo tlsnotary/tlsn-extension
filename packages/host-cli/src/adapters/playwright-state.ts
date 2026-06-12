@@ -7,7 +7,8 @@
  */
 
 import type { Browser, BrowserContext, Page } from 'playwright';
-import type { InterceptedRequestHeader, WindowHandle } from '@tlsn/host-contracts';
+import type { InterceptedRequestHeader } from '@tlsn/plugin-sdk';
+import type { WindowHandle } from '@tlsn/host-contracts';
 
 type HeaderSubscriber = (h: InterceptedRequestHeader) => void;
 type CloseListener = () => void;

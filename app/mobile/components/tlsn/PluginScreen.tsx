@@ -10,14 +10,9 @@ import {
 import { PluginApprovalSheet, ApprovalMode } from './PluginApprovalSheet';
 import { TimeoutWarningSheet } from './TimeoutWarningSheet';
 import { RevealApprovalSheet } from './RevealApprovalSheet';
-import {
-  MobilePluginHost,
-  PluginConfig,
-  NativeHandler,
-  EventEmitter,
-  WindowMessage,
-  RevealRangeDescriptor,
-} from '@tlsn/host-react-native';
+import { MobilePluginHost, EventEmitter, RevealRangeDescriptor } from '@tlsn/host-react-native';
+import type { PluginConfig, WindowMessage } from '@tlsn/plugin-sdk';
+import type { NativeHandler } from '@tlsn/host-contracts';
 import { getEffectiveLogLevel } from '../../lib/useVerifierUrl';
 
 /**

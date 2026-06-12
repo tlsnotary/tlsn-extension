@@ -8,12 +8,12 @@
 
 import { chromium } from 'playwright';
 import { HostCore, NativeFunctionEvaluator } from '@tlsn/plugin-sdk';
+import type { ProveProgressData } from '@tlsn/plugin-sdk';
 import type {
   ApprovalUi,
   HostAdapter,
   HostAdapterOptions,
   PluginRenderer,
-  ProveProgressData,
   ProveRequest,
   ProverClient,
   ProverOptions,

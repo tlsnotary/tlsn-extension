@@ -24,9 +24,9 @@ interface ChildIO extends ChildProcess {
 import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type { ProveProgressData } from '@tlsn/plugin-sdk';
 import {
   translateHandlers,
-  type ProveProgressData,
   type ProveRequest,
   type ProverClient,
   type ProverOptions,

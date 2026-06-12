@@ -9,6 +9,9 @@
  * platforms.
  */
 
+// Protocol types (Handler, PluginConfig, …) are owned by @tlsn/plugin-sdk and
+// imported by consumers directly. They appear here only as type-position
+// references inside the contract interfaces below — not re-exported.
 import type {
   Handler,
   InterceptedRequest,
@@ -17,8 +20,6 @@ import type {
   ProveProgressData,
   RevealRangeDescriptor,
 } from '@tlsn/plugin-sdk';
-
-export type { Handler, InterceptedRequest, InterceptedRequestHeader, PluginConfig, ProveProgressData, RevealRangeDescriptor };
 
 export { translateHandler, translateHandlers } from './handler-translation.js';
 export type { NativeHandler } from './handler-translation.js';

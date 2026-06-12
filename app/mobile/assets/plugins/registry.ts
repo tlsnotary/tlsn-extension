@@ -1,5 +1,5 @@
 import { getPluginsForPlatform, type PluginMetadata } from '@tlsn/plugins';
-import type { PluginConfig } from '@tlsn/host-react-native';
+import type { PluginConfig } from '@tlsn/plugin-sdk';
 
 export interface PluginEntry {
   id: string;

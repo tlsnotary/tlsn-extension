@@ -14,24 +14,15 @@
  * PluginRenderer) extract from app/mobile in subsequent commits.
  */
 
-export type { HostAdapter } from '@tlsn/host-contracts';
+// This package owns ONLY React Native-specific glue. Protocol types
+// (Handler, PluginConfig, DomJson, WindowMessage, …) come from @tlsn/plugin-sdk;
+// contract interfaces (HostAdapter, ApprovalMode, NativeHandler, translateHandler)
+// come from @tlsn/host-contracts. Consumers import from each layer directly.
 
-export {
-  MobilePluginHost,
-  translateHandler,
-  translateHandlers,
-  type ApprovalMode,
-  type EventEmitter,
-  type NativeHandler,
-} from './MobilePluginHost.js';
-export type {
-  DomJson,
-  DomOptions,
-  Handler,
-  InterceptedRequest,
-  InterceptedRequestHeader,
-  PluginConfig,
-  WindowMessage,
-  RevealRangeDescriptor,
-} from './MobilePluginHost.js';
+export { MobilePluginHost, type EventEmitter } from './MobilePluginHost.js';
+// RevealRangeDescriptor here is the *native* (tlsn-native / uniffi PascalCase)
+// variant the reveal-approval sheet renders byte previews from — distinct from
+// plugin-sdk's RevealRangeDescriptor. Re-exported because tlsn-native is a
+// platform-specific dependency this adapter owns.
+export type { RevealRangeDescriptor } from './MobilePluginHost.js';
 
