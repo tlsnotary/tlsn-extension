@@ -1,8 +1,12 @@
-# Releasing tlsn-extension
+# Releasing the browser extension
+
+This guide covers releasing the **Chrome extension** to the Chrome Web Store. For releasing
+the **mobile app** to the App Store and Play Store (EAS builds, the `0.1.AABB` version
+scheme, store submission), see [`app/mobile/RELEASING.md`](app/mobile/RELEASING.md).
 
 ## Version Scheme
 
-`0.1.0.AABB` — `AA` is the TLSNotary alpha version, `BB` is the extension release within that alpha (e.g., `0.1.0.1402` = alpha.14, release 02).
+`0.1.0.AABB` — `AA` is the TLSNotary alpha version, `BB` is the extension release within that alpha (e.g., `0.1.0.1402` = alpha.14, release 02). (The mobile app uses a separate 3-part `0.1.AABB` scheme because iOS rejects 4-part versions.)
 
 ## Prerequisites
 
