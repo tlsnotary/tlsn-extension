@@ -41,6 +41,15 @@ Edit [app.json](app.json):
 
 Only edit the user-facing `version` string — iOS `buildNumber` and Android `versionCode` are auto-bumped by EAS via `autoIncrement` on the production profile (see [One-time setup](#one-time-setup)).
 
+**Also sync the native iOS project.** The build archive includes your local `ios/` directory (gitignored, but not excluded by `.easignore`), and when an `ios/` directory is present EAS builds it as a bare project and ignores `app.json`'s version. If you skip this, the build ships the previous version:
+
+```bash
+cd app/mobile
+plutil -replace CFBundleShortVersionString -string "0.1.XXXX" ios/TLSNotaryMobile/Info.plist
+```
+
+(or regenerate the native project with `npx expo prebuild --platform ios --no-install`). Android has no local `android/` directory, so it picks up `app.json` automatically.
+
 ### 2. Commit the version bump
 
 ```bash

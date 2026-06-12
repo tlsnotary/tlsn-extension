@@ -1,31 +1,46 @@
 <img src="packages/extension/src/assets/img/icon-128.png" width="64"/>
 
-# TLSN Extension Monorepo
+# TLSNotary Apps & Plugin Tooling
 
-A Chrome Extension for TLSNotary with plugin SDK and verifier server.
+The TLSNotary clients — a **Chrome extension** and a native **mobile app** (iOS + Android) that generate cryptographic proofs of API responses — plus a plugin SDK, a shared plugin registry, and a verifier server.
+
+Built on the [TLSNotary protocol](https://github.com/tlsnotary/tlsn) (the core MPC-TLS Rust implementation lives in that repo; this repo consumes it via [`tlsn-wasm`](https://www.npmjs.com/package/tlsn-wasm) and the native mobile prover).
 
 > [!IMPORTANT]
-> When running the extension against a notary server, please ensure that the server's version is the same as the version of this extension.
+> When running a client against a notary/verifier server, ensure the server's version matches the version of the client.
 
 ## Table of Contents
 
+- [Clients](#clients)
 - [Demo](#demo)
 - [Tutorial](#tutorial)
 - [Monorepo Structure](#monorepo-structure)
 - [Architecture Overview](#architecture-overview)
 - [Getting Started](#getting-started)
 - [Development](#development)
-- [Production Build](#production-build)
+- [Production Build & Publishing](#production-build--publishing)
 - [End-to-End Testing](#end-to-end-testing)
 - [Websockify Integration](#websockify-integration)
-- [Publishing](#publishing)
+- [Building Plugins with Claude Code](#building-plugins-with-claude-code)
+- [Resources](#resources)
 - [License](#license)
+
+## Clients
+
+This monorepo ships **two TLSNotary clients** that share one plugin system, one plugin registry ([`@tlsn/plugins`](packages/plugins)), and the same verifier server:
+
+| Client                | Where                                      | Platforms               | Prover                                                                         |
+| --------------------- | ------------------------------------------ | ----------------------- | ------------------------------------------------------------------------------ |
+| **Browser extension** | [`packages/extension`](packages/extension) | Chrome / Chromium (MV3) | WASM (`tlsn-wasm`) in an offscreen document                                    |
+| **Mobile app**        | [`app/mobile`](app/mobile)                 | iOS + Android           | Native Rust prover ([`packages/tlsn-mobile`](packages/tlsn-mobile)) via UniFFI |
+
+Both run the same JavaScript plugins (sandboxed in QuickJS WASM on the extension; evaluated with `new Function()` under Hermes on mobile), capture auth from a logged-in session, and produce selectively-disclosed proofs against a [verifier server](servers/verifier).
 
 ## Demo
 
-Try TLSNotary live at **[demo.tlsnotary.org](https://demo.tlsnotary.org)**: just install the extension and run any of the bundled plugins against the hosted verifier.
+**Browser extension** — try TLSNotary live at **[demo.tlsnotary.org](https://demo.tlsnotary.org)**: install the extension and run any of the bundled plugins against the hosted verifier.
 
-To run the demo locally (verifier + demo site via Docker):
+To run the extension demo locally (verifier + demo site via Docker):
 
 ```bash
 npm run docker:up   # verifier on :7047, demo site on :80
@@ -38,9 +53,18 @@ Or serve just the demo site against your own verifier:
 npm run demo        # http://localhost:8080
 ```
 
+**Mobile app** — build and launch on a simulator/emulator or device:
+
+```bash
+npm run mobile:ios       # build deps + native libs + launch iOS
+npm run mobile:android   # build deps + native libs + launch Android
+```
+
+The mobile app presents a plugin gallery (Swiss Bank, Spotify, Duolingo, Discord — work-in-progress plugins appear behind the Debug toggle), lets the user log in via an embedded WebView, and generates proofs with the native prover. See [`app/mobile/README.md`](app/mobile/README.md) for the full toolchain and build pipeline.
+
 ### Environment Variables
 
-The demo uses `.env` files for configuration:
+The extension demo uses `.env` files for configuration:
 
 - `.env` - Local development defaults (`localhost:7047`)
 - `.env.production` - Production settings (`demo.tlsnotary.org`, SSL enabled)
@@ -55,6 +79,8 @@ npm run docker:up
 VITE_VERIFIER_HOST=verifier.example.com VITE_SSL=true docker compose up --build
 ```
 
+For the mobile app, point plugins at a remote verifier by rebuilding them with `MOBILE_VERIFIER_URL` (see [`app/mobile/README.md`](app/mobile/README.md#running-the-verifier)).
+
 ## Tutorial
 
 Want to write your own plugin? The [`tutorial`](packages/tutorial) package is an interactive 15-30 minute, hands-on walkthrough of building TLSNotary plugins — starting from a working Twitter plugin, then adapting it for a Swiss Bank balance proof (choosing what to reveal vs. redact). An optional "fool the verifier" challenge shows why careful server-side verification matters.
@@ -67,52 +93,33 @@ npm run tutorial
 
 ## Monorepo Structure
 
-This repository is organized as an npm workspaces monorepo with six main packages:
+This repository is an npm workspaces monorepo (`packages/*` and `app/*`) plus a Rust Cargo workspace (`servers/`):
 
 ```
 tlsn-extension/
-├── packages/
-│   ├── extension/           # Chrome Extension (Manifest V3)
-│   │   ├── src/
-│   │   │   ├── entries/
-│   │   │   │   ├── Background/     # Service worker for extension logic
-│   │   │   │   ├── Content/        # Content scripts injected into pages
-│   │   │   │   ├── Popup/          # Extension popup UI (optional)
-│   │   │   │   └── Offscreen/      # Offscreen document for DOM operations
-│   │   │   ├── manifest.json
-│   │   │   └── utils/
-│   │   ├── webpack.config.js
-│   │   └── package.json
-│   │
-│   ├── plugin-sdk/          # SDK for developing TLSN plugins
-│   │   ├── src/
-│   │   ├── examples/
-│   │   └── package.json
-│   │
+├── packages/                # npm workspaces (TypeScript)
+│   ├── extension/           # Chrome Extension (Manifest V3) — browser client
+│   ├── plugin-sdk/          # SDK for developing/running TLSN plugins (QuickJS sandbox)
+│   ├── plugins/             # Shared plugins + registry, built for demo (browser) and mobile (Hermes)
 │   ├── common/              # Shared utilities (logging system)
-│   │   ├── src/
-│   │   │   └── logger/           # Centralized logging with configurable levels
-│   │   └── package.json
-│   │
-│   ├── demo/                # Demo server with Docker setup
-│   │   ├── *.js                  # Example plugin files
-│   │   └── docker-compose.yml    # Docker services configuration
-│   │
-│   ├── tutorial/            # Tutorial examples
-│   │   └── *.js                  # Tutorial plugin files
-│   │
-│   └── tlsn-wasm/           # Local TLSN WebAssembly build (optional, gitignored)
-│       └── build.sh              # Builds `tlsn-wasm` into ../tlsn-wasm-pkg/
+│   ├── demo/                # Extension demo frontend + Docker setup
+│   ├── tutorial/            # Tutorial examples for plugin development
+│   ├── eas-webhook/         # Demo service: turns verifier webhooks into EAS attestations
+│   ├── tlsn-mobile/         # Native Rust prover for mobile (iOS .xcframework + Android .so via UniFFI)
+│   ├── tlsn-wasm/           # Local TLSN WebAssembly build helper (optional)
+│   ├── tlsn-wasm-pkg/       # Output of the local WASM build (gitignored)
+│   └── ts-plugin-sample/    # Minimal TypeScript plugin sample
+│
+├── app/                     # npm workspaces (applications)
+│   └── mobile/              # React Native / Expo app — iOS + Android client
+│       ├── app/             # Expo Router screens (plugin gallery + runner)
+│       ├── components/tlsn/ # WebView login, native prover bridge, plugin renderer
+│       ├── modules/         # Expo native modules: tlsn-native (prover), quickjs-native
+│       └── build.sh         # Unified build script (JS deps + native libs + run)
 │
 ├── servers/                 # Rust Cargo workspace (deployable servers)
-│   ├── Cargo.toml                # Workspace root
-│   ├── verifier/                 # WebSocket server for TLSNotary verification
-│   │   ├── src/main.rs           # Server setup, routing, and verification
-│   │   ├── config.yaml           # Webhook configuration
-│   │   └── Cargo.toml
-│   └── swissbank/                # Fake Swiss bank with dashboard UI (demo target)
-│       ├── src/
-│       └── Cargo.toml
+│   ├── verifier/            # WebSocket server for TLSNotary verification (:7047)
+│   └── swissbank/           # Fake Swiss bank with dashboard UI (demo target, :3000)
 │
 ├── package.json             # Root npm workspace configuration
 └── README.md
@@ -120,116 +127,121 @@ tlsn-extension/
 
 ### Package Details
 
-#### 1. **extension** - Chrome Extension (Manifest V3)
+#### `extension` — Chrome Extension (Manifest V3)
 
-A browser extension that enables TLSNotary functionality with the following key features:
+The browser client. Key features:
 
 - **Multi-Window Management**: Track multiple browser windows with request interception
 - **Request Interception**: Capture HTTP/HTTPS requests from managed windows
-- **Plugin Execution**: Run sandboxed JavaScript plugins using QuickJS
+- **Plugin Execution**: Run sandboxed JavaScript plugins using QuickJS (in an offscreen document)
 - **TLSN Overlay**: Visual display of intercepted requests
 
-**Key Entry Points:**
+Entry points: `Background` (service worker), `Content` (page injection + overlay), `Popup`, and `Offscreen` (DOM operations + WASM prover).
 
-- `Background`: Service worker for extension logic, window management, and message routing
-- `Content`: Scripts injected into pages for communication and overlay display
-- `Popup`: Optional extension popup UI
-- `Offscreen`: Background DOM operations for service worker limitations
+#### `app/mobile` — Mobile App (iOS + Android)
 
-#### 2. **plugin-sdk** - Plugin Development SDK
+React Native / Expo client with a native Rust prover. Key features:
 
-SDK for developing and running TLSN WebAssembly plugins with QuickJS sandboxing:
+- **Plugin gallery**: Select a plugin, log in via embedded WebView, generate a proof
+- **Native prover**: Rust ([`packages/tlsn-mobile`](packages/tlsn-mobile)) bridged via UniFFI — Swift/XCFramework on iOS, Kotlin/`.so` on Android
+- **Plugin execution**: Plugin JS is evaluated with `new Function()` under Hermes via the plugin SDK's `NativeFunctionEvaluator` (a vendored native QuickJS module exists in `modules/quickjs-native` but is not currently in the plugin execution path)
 
-- Secure JavaScript execution in isolated WebAssembly environment
+See [`app/mobile/README.md`](app/mobile/README.md) for prerequisites, the build pipeline, and architecture.
+
+#### `plugins` — Shared Plugins & Registry
+
+Single source of truth for plugin code and metadata, consumed by both clients:
+
+- Plugin sources in `src/*.plugin.ts` and a shared `src/registry.ts` (per-plugin `platforms: ('demo' | 'mobile')[]`)
+- `build.js` produces two targets: `dist/demo/` (browser bundle for the extension) and `dist/mobile/` (Hermes-compatible `es2016`, no `async/await` in dynamically-evaluated code)
+
+#### `plugin-sdk` — Plugin Development SDK
+
+SDK for developing and running TLSN plugins with QuickJS sandboxing:
+
+- Secure JavaScript execution in an isolated environment
 - Host capability system for controlled plugin access
 - React-like hooks: `useHeaders()`, `useRequests()`, `useEffect()`, `useState()`, `setState()`
-- Isomorphic package for Node.js and browser environments
-- TypeScript support with full type declarations
+- Isomorphic package for Node.js and browser environments, with full TypeScript declarations
 
-#### 3. **common** - Shared Utilities
+#### `common` — Shared Utilities
 
-Centralized logging system used across packages:
+Centralized logging system used across packages (`DEBUG`/`INFO`/`WARN`/`ERROR`, timestamped output, singleton).
 
-- Configurable log levels: `DEBUG`, `INFO`, `WARN`, `ERROR`
-- Timestamped output with level prefixes
-- Singleton pattern for consistent logging across modules
+#### `tlsn-mobile` — Native Mobile Prover
 
-#### 4. **verifier** - Verifier Server
+Rust prover compiled for mobile and bridged via UniFFI:
 
-Rust-based HTTP/WebSocket server for TLSNotary verification:
+- **iOS**: static library packaged as `TlsnMobile.xcframework` + Swift bindings (`build-ios.sh`)
+- **Android**: shared library `.so` + Kotlin bindings (`build-android.sh`)
 
-- Health check endpoint (`GET /health`)
-- Session creation endpoint (`WS /session`)
-- WebSocket verification endpoint (`WS /verifier?sessionId=<id>`)
-- WebSocket proxy endpoint (`WS /proxy?token=<host>`) - compatible with notary.pse.dev
-- Webhook API for POST notifications to external services
-- YAML configuration for webhook endpoints (`config.yaml`)
-- CORS enabled for cross-origin requests
+Built automatically by `app/mobile/build.sh`; only rebuild when changing the Rust code.
+
+#### `verifier` — Verifier Server (`servers/verifier`)
+
+Rust HTTP/WebSocket server for TLSNotary verification (shared by both clients):
+
+- `GET /health`, `WS /session`, `WS /verifier?sessionId=<id>`, `WS /proxy?token=<host>` (compatible with notary.pse.dev)
+- Webhook API for POST notifications, YAML config (`config.yaml`), CORS enabled
 - Runs on `localhost:7047` by default
 
-#### 5. **demo** - Demo Server
+#### `demo` — Extension Demo Frontend
 
-Docker-based demo environment with:
+React + Vite frontend (with Docker Compose: verifier + nginx) that drives the extension against the bundled plugins.
 
-- Pre-configured example plugins (Twitter, SwissBank)
-- React + Vite frontend with environment-based configuration
-- Docker Compose setup with verifier and nginx
-- Configurable verifier URLs via `.env` files or Docker build args
+#### `eas-webhook` — Demo Attestation Service
 
-#### 6. **tlsn-wasm** - TLSN WebAssembly (local build helper)
+Receives verifier webhooks and creates [EAS](https://attest.sh/) attestations on Sepolia testnet. Demo-only; see [`packages/eas-webhook/README.md`](packages/eas-webhook/README.md).
+
+#### `tlsn-wasm` — TLSN WebAssembly (local build helper)
 
 The extension depends on the published [`tlsn-wasm`](https://www.npmjs.com/package/tlsn-wasm) npm package by default. For local development against an unreleased `tlsn` revision, `packages/tlsn-wasm/build.sh` clones the `tlsn` repo and builds `packages/tlsn-wasm-pkg/` (gitignored). Run `npm link` from there and `npm link tlsn-wasm` inside `packages/extension` to override the published package.
 
 ## Architecture Overview
 
+Both clients run the same plugins and talk to the same verifier; they differ only in how the plugin sandbox and the prover are hosted.
+
 ### Extension Architecture
 
-The extension uses a message-passing architecture with five main entry points:
+The extension uses a message-passing architecture with five entry points:
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     Browser Extension                         │
+┌───────────────────────────────────────────────────────────────┐
+│                       Browser Extension                       │
 │                                                               │
-│  ┌──────────────┐      ┌──────────────┐                      │
-│  │  Background  │◄────►│   Content    │◄──── Page Scripts    │
-│  │    (SW)      │      │   Script     │                      │
-│  └──────┬───────┘      └──────────────┘                      │
+│  ┌──────────────┐      ┌──────────────┐                       │
+│  │  Background  │◄────►│   Content    │◄──── Page Scripts     │
+│  │    (SW)      │      │   Script     │                       │
+│  └──────┬───────┘      └──────────────┘                       │
 │         │                                                     │
-│         ├─► Window Management (WindowManager)                │
-│         ├─► Request Interception (webRequest API)            │
-│         ├─► Session Management (SessionManager)              │
-│         └─► Message Routing                                  │
+│         ├─► Window Management (WindowManager)                 │
+│         ├─► Request Interception (webRequest API)             │
+│         ├─► Session Management (SessionManager)               │
+│         └─► Message Routing                                   │
 │                                                               │
-│  ┌──────────────┐                                            │
-│  │   Offscreen  │                                            │
-│  │  (Background)│                                            │
-│  └──────────────┘                                            │
-└─────────────────────────────────────────────────────────────┘
+│  ┌──────────────┐                                             │
+│  │   Offscreen  │  ← QuickJS plugin sandbox + WASM prover     │
+│  └──────────────┘                                             │
+└───────────────────────────────────────────────────────────────┘
                           │
                           ▼
                    ┌──────────────┐
                    │   Verifier   │
-                   │    Server    │
                    │ (localhost:  │
                    │    7047)     │
                    └──────────────┘
 ```
 
-### Message Flow
-
-**Opening a Managed Window:**
+**Opening a managed window:**
 
 ```
 Page → window.tlsn.open(url)
   ↓ window.postMessage(TLSN_OPEN_WINDOW)
-Content Script → event listener
-  ↓ browser.runtime.sendMessage(OPEN_WINDOW)
-Background → WindowManager.registerWindow()
-  ↓ browser.windows.create()
-  ↓ Returns window info with UUID
+Content Script → browser.runtime.sendMessage(OPEN_WINDOW)
+Background → WindowManager.registerWindow() → browser.windows.create()
 ```
 
-**Request Interception:**
+**Request interception:**
 
 ```
 Browser → HTTP request in managed window
@@ -239,71 +251,78 @@ Background → WindowManager.addRequest()
 Content Script → Update TLSN overlay UI
 ```
 
+### Mobile Architecture
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                Mobile App (Expo / RN, Hermes)                │
+│                                                              │
+│  PluginScreen ──► MobilePluginHost (runs plugin JS)          │
+│      │                  │                                    │
+│      │  openWindow()    │  prove()                           │
+│      ▼                  ▼                                    │
+│  PluginWebView      NativeProver ──► Rust prover (UniFFI)    │
+│  (login + cookie/   (Swift / Kotlin)   packages/tlsn-mobile  │
+│   header capture)                                            │
+└──────────────────────────────────────────────────────────────┘
+                          │ MPC-TLS over WebSocket
+                          ▼
+                   ┌──────────────┐
+                   │   Verifier   │  (localhost:7047;
+                   │              │   10.0.2.2 on Android emulator)
+                   └──────────────┘
+```
+
+See [`app/mobile/README.md`](app/mobile/README.md#architecture) for the full plugin flow and native-bridge details.
+
 ## Getting Started
 
-### Prerequisites
+### Common Prerequisites
 
 - **Node.js** >= 18
-- **Rust** (for verifier server) - Install from [rustup.rs](https://rustup.rs/)
+- **Rust** (for the verifier server and the native mobile prover) — install from [rustup.rs](https://rustup.rs/)
+
+### Extension Prerequisites
+
 - **Chrome/Chromium** browser
 
-### Installation
+### Mobile Prerequisites
 
-1. Clone the repository:
+- **iOS**: Xcode (+ iOS simulator), CocoaPods
+- **Android**: Android Studio (SDK, emulator, JDK) and the **Android NDK**
+- Expo / EAS tooling (used via `npx`)
+
+Rust cross-compilation targets, `cargo-ndk`, and the `tlsn` repo are auto-installed by `app/mobile/build.sh`. See [`app/mobile/README.md`](app/mobile/README.md#prerequisites) for the full tables and environment setup.
+
+### Installation
 
 ```bash
 git clone https://github.com/tlsnotary/tlsn-extension.git
 cd tlsn-extension
-```
-
-2. Install all dependencies:
-
-```bash
 npm install
 ```
 
-This installs dependencies for all packages in the monorepo and automatically sets up workspace links between packages.
+This installs dependencies for all workspaces and sets up package links.
 
 ## Development
 
-### Running the Extension in Development Mode
-
-1. Start the development server:
-
-```bash
-npm run dev
-```
-
-This automatically builds all dependencies (common, plugin-sdk) and then starts webpack-dev-server on port 3000 with hot module replacement. Files are written to `packages/extension/build/`.
-
-2. Load the extension in Chrome:
-   - Navigate to `chrome://extensions/`
-   - Enable "Developer mode" toggle (top right)
-   - Click "Load unpacked"
-   - Select the `packages/extension/build/` folder
-
-3. The extension will auto-reload on file changes (manual refresh needed for manifest changes).
-
 ### Running the Verifier Server
 
-The verifier server is required for E2E testing. Run it in a separate terminal:
+Both clients need a verifier. Run it in a separate terminal:
 
 ```bash
 cd servers
-cargo run -p tlsn-verifier-server
+cargo run -p tlsn-verifier-server   # http://localhost:7047
 ```
 
-The server will start on `http://localhost:7047`.
-
-**Verifier API Endpoints:**
+**Verifier API endpoints:**
 
 - `GET /health` - Health check
 - `WS /session` - Create new verification session
 - `WS /verifier?sessionId=<id>` - WebSocket verification endpoint
 - `WS /proxy?token=<host>` - WebSocket proxy for TLS connections (compatible with notary.pse.dev)
 
-**Webhook Configuration:**
-Configure `servers/verifier/config.yaml` to receive POST notifications after successful verifications:
+**Webhook configuration** — configure `servers/verifier/config.yaml` to receive POST notifications after successful verifications:
 
 ```yaml
 webhooks:
@@ -315,44 +334,61 @@ webhooks:
     url: 'https://your-backend.example.com/webhook/default'
 ```
 
-### Package-Specific Development
+### Extension Development
 
-**Extension:**
+```bash
+npm run dev   # builds deps, then webpack-dev-server on :3000 (HMR)
+```
+
+Then load it in Chrome:
+
+- Navigate to `chrome://extensions/`
+- Enable "Developer mode" (top right)
+- Click "Load unpacked" and select `packages/extension/build/`
+
+The extension auto-reloads on file changes (manual refresh needed for manifest changes).
+
+Package-specific scripts:
 
 ```bash
 cd packages/extension
-npm run dev              # Development mode
-npm run test             # Run tests
-npm run test:watch       # Watch mode
-npm run test:coverage    # Coverage report
-npm run lint             # Lint check
-npm run lint:fix         # Auto-fix linting issues
+npm run dev | test | test:watch | test:coverage | lint | lint:fix
 ```
 
-**Plugin SDK:**
+### Mobile Development
 
 ```bash
-cd packages/plugin-sdk
-npm run build            # Build SDK
-npm run test             # Run tests
-npm run lint             # Run all linters
-npm run lint:fix         # Auto-fix issues
+npm run mobile:ios       # build deps + native libs + launch iOS
+npm run mobile:android   # build deps + native libs + launch Android
 ```
 
-> **Note:** The plugin-SDK builds automatically when the extension is built, so manual building is usually not necessary.
-
-**Verifier:**
+Or run the full pipeline from `app/mobile/` with options (`--no-run`, `--skip-deps`, `--rebuild-native`, `--clean`):
 
 ```bash
-cd servers
-cargo run -p tlsn-verifier-server                # Development mode
-cargo build --release    # Production build
-cargo test               # Run tests
+cd app/mobile
+./build.sh ios
+./build.sh android
 ```
 
-## Production Build
+Notes:
 
-### Build Extension for Production
+- The verifier at `localhost:7047` is reachable as-is on the iOS simulator; on the Android emulator the app rewrites `localhost` to `10.0.2.2`.
+- The app uses native modules, so use `expo run:ios` / `expo run:android` (via `build.sh`) — **not** Expo Go.
+- Plugin code runs under Hermes, which can't parse `async/await` in dynamically-evaluated code; mobile plugins are compiled to `es2016`. If you see "async functions are unsupported", rebuild plugins: `npm run build:plugins`.
+
+See [`app/mobile/README.md`](app/mobile/README.md) for emulator clock sync, native logs, and troubleshooting.
+
+### Building Plugins
+
+Plugins live in [`packages/plugins`](packages/plugins) and are built for both clients:
+
+```bash
+npm run build:plugins   # writes dist/demo (browser) and dist/mobile (Hermes)
+```
+
+## Production Build & Publishing
+
+### Extension → Chrome Web Store
 
 From the repository root:
 
@@ -360,128 +396,76 @@ From the repository root:
 NODE_ENV=production npm run build
 ```
 
-This automatically:
+This builds dependencies, builds the extension with production optimizations, and creates `packages/extension/zip/extension-{version}.zip` (ready for the Chrome Web Store).
 
-1. Builds dependencies (`@tlsn/common` and `@tlsn/plugin-sdk`)
-2. Builds the extension with production optimizations
-3. Creates:
-   - Optimized build in `packages/extension/build/`
-   - Packaged extension in `packages/extension/zip/extension-{version}.zip`
+The easiest way to install the extension is from the [Chrome Web Store](https://chromewebstore.google.com/detail/tlsn-extension/gcfkkledipjbgdbimfpijgbkhajiaaph). For the full release process (versioning, CI, store upload), see [`RELEASING.md`](RELEASING.md).
 
-The zip file is ready for Chrome Web Store submission.
+### Mobile → App Store & Play Store
 
-**Alternative build commands:**
-
-- `npm run build:extension` - Build only the extension (assumes dependencies are built)
-- `npm run build:deps` - Build only the dependencies
-
-### Build All Packages
+Mobile builds and submissions run on **EAS** (Expo Application Services). In short:
 
 ```bash
-npm run build:all
+cd app/mobile
+npx eas-cli build  --profile production --platform all
+npx eas-cli submit --profile production --platform all
 ```
 
-This builds all packages in the monorepo (extension, plugin-sdk).
+For versioning (note the mobile-specific `0.1.AABB` scheme), credentials, and store promotion, see [`app/mobile/RELEASING.md`](app/mobile/RELEASING.md).
 
-### Build Verifier for Production
+### Build the Verifier for Production
 
 ```bash
 cd servers
-cargo build --release -p tlsn-verifier-server
+cargo build --release -p tlsn-verifier-server   # binary in servers/target/release/
 ```
-
-The binary will be in `servers/target/release/`.
 
 ## End-to-End Testing
 
-To test the complete TLSN workflow:
+To test the complete TLSN workflow with the **extension**:
 
-### 1. Start the Verifier Server
+1. **Start the verifier** and confirm it's up:
 
-In a terminal:
+   ```bash
+   cd servers && cargo run -p tlsn-verifier-server
+   curl http://localhost:7047/health   # → ok
+   ```
 
-```bash
-cd servers
-cargo run -p tlsn-verifier-server
-```
+2. **Start the extension** in dev mode (`npm run dev`) and load `packages/extension/build/` in Chrome.
 
-Verify it's running:
+3. **Run a test plugin** via the demo:
 
-```bash
-curl http://localhost:7047/health
-# Should return: ok
-```
+   ```bash
+   npm run demo   # http://localhost:8080
+   ```
 
-### 2. Start the Extension in Development Mode
+   Select a plugin; it opens a managed window to the target site, intercepts requests, connects to the verifier, shows a progress overlay, and runs the proof.
 
-In another terminal:
-
-```bash
-npm run dev
-```
-
-Load the extension in Chrome (see [Getting Started](#getting-started)).
-
-### 3. Run a Test Plugin
-
-Use the demo or tutorial packages to test plugins:
-
-```bash
-# Serve demo page
-npm run demo
-# Open http://localhost:8080 in your browser
-```
-
-1. Ensure the verifier is running on `localhost:7047`
-2. Select a plugin from the demo page
-3. The plugin will:
-   - Open a new window to the target site
-   - Intercept requests
-   - Create a prover connection to the verifier
-   - Display a UI overlay showing progress
-   - Execute the proof workflow
-
-### 4. Verify Request Interception
-
-When a managed window is opened:
-
-1. An overlay appears showing "TLSN Plugin In Progress"
-2. Intercepted requests are listed in real-time
-3. Request count updates as more requests are captured
+For the **mobile** end-to-end flow, start the verifier as above, then `npm run mobile:ios` / `npm run mobile:android` and run a plugin from the gallery.
 
 ### Testing Tips
 
-- **Monitor Background Service Worker**: Open Chrome DevTools for the background service worker via `chrome://extensions/` → Extension Details → "Inspect views: service worker"
-- **Check Console Logs**: Look for WindowManager logs, request interception logs, and message routing logs
-- **Test Multiple Windows**: Try opening multiple managed windows simultaneously (max 10)
-- **Verifier Connection**: Ensure verifier is accessible at `localhost:7047` before running proofs
+- **Background service worker logs**: `chrome://extensions/` → Extension Details → "Inspect views: service worker"
+- **Multiple windows**: the extension supports up to 10 concurrent managed windows
+- **Mobile native logs**: `xcrun simctl spawn booted log stream | grep -i tlsn` (iOS) or `adb logcat | grep -i tlsn` (Android)
+- **Verifier connection**: ensure the verifier is reachable before running proofs
 
 ## Websockify Integration
 
 For WebSocket proxying of TLS connections (optional):
 
-### Build Websockify Docker Image
-
 ```bash
 git clone https://github.com/novnc/websockify && cd websockify
 ./docker/build.sh
-```
 
-### Run Websockify
-
-```bash
 # For X.com
 docker run -it --rm -p 55688:80 novnc/websockify 80 api.x.com:443
-
-# For Twitter
-docker run -it --rm -p 55688:80 novnc/websockify 80 api.twitter.com:443
 ```
 
 This proxies HTTPS connections through WebSocket for browser-based TLS operations.
 
 ## Building Plugins with Claude Code
 
-This repo includes a [Claude Code](https://claude.ai/claude-code) slash command that scaffolds TLSNotary plugins interactively. It guides you through API discovery, auth interception strategy, and generates a complete plugin file.
+This repo includes a [Claude Code](https://claude.ai/claude-code) slash command that scaffolds TLSNotary plugins interactively — API discovery, auth interception strategy, and a complete plugin file added to [`packages/plugins`](packages/plugins) (usable by both clients).
 
 ### Install
 
@@ -501,40 +485,14 @@ This repo includes a [Claude Code](https://claude.ai/claude-code) slash command 
 /create-plugin GitHub contribution count
 ```
 
-The command will:
-
-1. Research the target service's API endpoints
-2. Plan the auth interception strategy
-3. Generate a complete plugin `.ts` file with UI, proof handlers, and progress bar
-4. Show you how to build and test it
-
-## Publishing
-
-### Chrome Web Store
-
-1. Create a production build:
-
-```bash
-NODE_ENV=production npm run build
-```
-
-2. Test the extension thoroughly
-
-3. Upload `packages/extension/zip/extension-{version}.zip` to [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole)
-
-4. Follow the [Chrome Web Store publishing guide](https://developer.chrome.com/webstore/publish)
-
-### Pre-built Extension
-
-The easiest way to install the TLSN browser extension is from the [Chrome Web Store](https://chromewebstore.google.com/detail/tlsn-extension/gcfkkledipjbgdbimfpijgbkhajiaaph).
+See [`PLUGIN.md`](PLUGIN.md) for the plugin architecture, capabilities, and authoring guide.
 
 ## Resources
 
 - [TLSNotary Documentation](https://docs.tlsnotary.org/)
-- [Webpack Documentation](https://webpack.js.org/concepts/)
-- [Chrome Extension Documentation](https://developer.chrome.com/docs/extensions/)
-- [Manifest V3 Migration Guide](https://developer.chrome.com/docs/extensions/mv3/intro/)
-- [webextension-polyfill](https://github.com/mozilla/webextension-polyfill)
+- [Chrome Extension Documentation](https://developer.chrome.com/docs/extensions/) · [Manifest V3](https://developer.chrome.com/docs/extensions/mv3/intro/) · [webextension-polyfill](https://github.com/mozilla/webextension-polyfill)
+- [Expo Documentation](https://docs.expo.dev/) · [React Native](https://reactnative.dev/) · [EAS Build](https://docs.expo.dev/build/introduction/)
+- [App Store Connect](https://appstoreconnect.apple.com/) · [Google Play Console](https://play.google.com/console)
 
 ## License
 

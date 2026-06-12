@@ -18,6 +18,10 @@ bin/
 build
 # TLSN submodule in tlsn-wasm
 packages/tlsn-wasm/tlsn/
+# Local WASM build output (populated by `npm run build:wasm`); matches the
+# `packages/*` workspace glob but has no lockfile entry, so including it
+# breaks `npm ci` on the EAS worker
+packages/tlsn-wasm-pkg/
 zip
 .vscode
 .claude/*
