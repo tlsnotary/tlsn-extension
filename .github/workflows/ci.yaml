@@ -38,6 +38,10 @@ jobs:
       - name: Build extension and dependencies
         run: npm run build
 
+      - name: Install Playwright Chromium
+        # host-cli's contract-wiring tests launch a real Chromium via Playwright.
+        run: npx playwright install --with-deps chromium
+
       - name: Lint common, extension and plugin-sdk
         run: npm run lint
 
