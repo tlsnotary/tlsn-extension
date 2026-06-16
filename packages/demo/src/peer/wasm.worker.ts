@@ -66,6 +66,35 @@ class ByteQueue {
   }
 }
 
+// IoChannel over a WebSocket. In proxy mode the verifier opens the server
+// connection itself (the prover tunnels through us), but browsers can't do raw
+// TCP — so it goes through the same WS→TCP proxy the prover uses in MPC mode.
+function createWsIo(url: string): Promise<IoChannel> {
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(url);
+    ws.binaryType = 'arraybuffer';
+    const queue = new ByteQueue();
+    ws.onopen = () =>
+      resolve({
+        read: () => queue.read(),
+        write: (d) => {
+          // Copy off (possibly shared) WASM memory into a plain ArrayBuffer.
+          const copy = new Uint8Array(d.length);
+          copy.set(d);
+          ws.send(copy);
+          return Promise.resolve();
+        },
+        close: () => {
+          ws.close();
+          return Promise.resolve();
+        },
+      });
+    ws.onmessage = (e) => queue.push(new Uint8Array(e.data as ArrayBuffer));
+    ws.onerror = () => reject(new Error('proxy websocket failed: ' + url));
+    ws.onclose = () => queue.close();
+  });
+}
+
 // ---- Public API (exposed over Comlink) ----
 
 export interface InitConfig {
@@ -103,11 +132,12 @@ export interface VerifierResult {
   ms: number;
 }
 
-// Redacted/unauthenticated bytes come back as NUL; show them as a block.
+// Redacted/unauthenticated bytes come back as NUL; show those as a block while
+// keeping the real whitespace of the revealed plaintext intact.
 function decodeTranscript(arr?: number[]): string {
   return new TextDecoder()
     .decode(new Uint8Array(arr || []))
-    .split(' ')
+    .split(String.fromCharCode(0))
     .join('█');
 }
 
@@ -151,9 +181,11 @@ const progressLogger = (onProgress?: (m: string) => void) => (m: string) => {
 };
 
 // Verifier side: runs the MPC-TLS verifier over the peer transport and returns
-// what it independently learned.
+// what it independently learned. In Proxy mode `setup()` returns the server
+// name; we then open the server socket (through the TCP proxy) and hand it to
+// the verifier before running.
 async function runVerifier(
-  cfg: { maxSentData?: number; maxRecvData?: number },
+  cfg: { maxSentData?: number; maxRecvData?: number; proxyBase?: string },
   sendOut: (bytes: Uint8Array) => void,
   onProgress?: (m: string) => void,
 ): Promise<VerifierResult> {
@@ -170,18 +202,33 @@ async function runVerifier(
   log('Connecting to prover…');
   await verifier.connect(io);
   log('MPC setup…');
-  await verifier.setup();
+  const serverName = await verifier.setup();
+  if (serverName) {
+    // Proxy mode: we are the egress to the server. Open the TCP proxy socket.
+    const base = cfg.proxyBase ?? 'wss://demo.tlsnotary.org';
+    log(`Opening server socket → ${serverName}…`);
+    const serverIo = await createWsIo(`${base}/proxy?token=${serverName}`);
+    verifier.set_server_socket(serverIo as unknown as Parameters<typeof verifier.connect>[0]);
+  }
   log('Running protocol…');
   await verifier.run();
   log('Verifying…');
   const output = await verifier.verify();
-  return {
+  const result: VerifierResult = {
     serverName: output.server_name,
     sent: decodeTranscript(output.transcript?.sent),
     recv: decodeTranscript(output.transcript?.recv),
     threads: threadCount,
     ms: performance.now() - t0,
   };
+  // Transcripts are already decoded into JS strings above, so the WASM verifier
+  // can be released — repeated peer proofs would otherwise accumulate state.
+  try {
+    verifier.free();
+  } catch {
+    /* already disposed */
+  }
+  return result;
 }
 
 Comlink.expose({

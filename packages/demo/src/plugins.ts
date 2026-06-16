@@ -9,6 +9,7 @@ export const plugins: Record<string, Plugin> = Object.fromEntries(
       description: p.description,
       logo: p.logo,
       file: `/plugins/${p.id}.js`,
+      host: p.pluginConfig.requests[0]?.host ?? '',
       parseResult: (json) => json.results[json.results.length - 1].value,
       debug: p.debug ?? false,
     } satisfies Plugin,

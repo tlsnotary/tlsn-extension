@@ -3,6 +3,8 @@ export interface Plugin {
   description: string;
   logo: string;
   file: string;
+  /** Target server host (e.g. `swissbank.tlsnotary.org`) — shown in the P2P topology. */
+  host: string;
   parseResult: (json: PluginResult) => string;
   /** Work-in-progress / experimental plugin — shown with a "WIP" badge. */
   debug?: boolean;

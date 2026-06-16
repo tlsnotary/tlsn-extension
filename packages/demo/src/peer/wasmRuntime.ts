@@ -45,23 +45,42 @@ function toU8(d: unknown): Uint8Array {
 
 // Bridge a PeerJS data channel to the worker's WASM session: inbound peer bytes
 // → worker; the worker's outbound bytes (via the proxied callback) → peer.
-function wireConn(conn: DataConnection): (bytes: Uint8Array) => void {
+// String frames are out-of-band status (handled by the page), never MPC bytes.
+// Returns a `cleanup` so the per-session handlers are removed when the session
+// ends — without it a second proof would add a second handler and double-deliver.
+function wireConn(conn: DataConnection): {
+  sendOut: (bytes: Uint8Array) => void;
+  cleanup: () => void;
+} {
   const api = getWorkerApi();
-  conn.on('data', (d) => api.deliverToWasm(toU8(d)));
-  conn.on('close', () => api.signalPeerClosed());
-  return Comlink.proxy((bytes: Uint8Array) => conn.send(bytes));
+  const onData = (d: unknown) => {
+    if (typeof d === 'string') return;
+    api.deliverToWasm(toU8(d));
+  };
+  const onClose = () => api.signalPeerClosed();
+  conn.on('data', onData);
+  conn.on('close', onClose);
+  return {
+    sendOut: Comlink.proxy((bytes: Uint8Array) => conn.send(bytes)),
+    cleanup: () => {
+      conn.off('data', onData);
+      conn.off('close', onClose);
+    },
+  };
 }
 
-/** Run the MPC-TLS verifier over a PeerJS data channel; returns what it learned. */
+/**
+ * Run the MPC-TLS verifier over a PeerJS data channel; returns what it learned.
+ * Safe to call repeatedly on the same channel — each run wires fresh handlers
+ * and tears them down on completion, so sequential proofs don't accumulate.
+ */
 export function runVerifierSession(
-  cfg: { maxSentData?: number; maxRecvData?: number },
+  cfg: { maxSentData?: number; maxRecvData?: number; proxyBase?: string },
   conn: DataConnection,
   onProgress?: (message: string) => void,
 ): Promise<VerifierResult> {
-  const sendOut = wireConn(conn);
-  return getWorkerApi().runVerifier(
-    cfg,
-    sendOut,
-    onProgress ? Comlink.proxy(onProgress) : undefined,
-  );
+  const { sendOut, cleanup } = wireConn(conn);
+  return getWorkerApi()
+    .runVerifier(cfg, sendOut, onProgress ? Comlink.proxy(onProgress) : undefined)
+    .finally(cleanup);
 }
