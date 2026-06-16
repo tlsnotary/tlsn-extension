@@ -240,9 +240,11 @@ export class SessionManager {
         const isPeer = sessionData.peerRelay === '1';
 
         // Mode is a user/platform decision, not a plugin decision.
-        // Read from sessionData provided by the caller of execCode().
-        const mode = isPeer ? 'Mpc' : ((sessionData.mode as 'Mpc' | 'Proxy') ?? 'Mpc');
-        const modeLabel = isPeer ? 'peer' : mode === 'Proxy' ? 'Proxy' : 'MPC';
+        // Read from sessionData provided by the caller of execCode(). Peer mode
+        // supports both: in Proxy mode the verifier browser opens the server TCP
+        // (through its own proxy) and the prover tunnels through the verifier.
+        const mode = (sessionData.mode as 'Mpc' | 'Proxy') ?? 'Mpc';
+        const modeLabel = isPeer ? `peer (${mode})` : mode === 'Proxy' ? 'Proxy' : 'MPC';
         logger.debug('[SessionManager] Prove mode:', mode, 'peer:', isPeer);
 
         emitBoth('CONNECTING', 0.0, `Connecting to verifier (${modeLabel} mode)...`);
@@ -253,7 +255,7 @@ export class SessionManager {
         if (isPeer) {
           const maxSentData = proverOptions.maxSentData ?? 4096;
           const maxRecvData = proverOptions.maxRecvData ?? 16384;
-          emitBoth('PEER_LIMITS', 0.02, JSON.stringify({ maxSentData, maxRecvData }));
+          emitBoth('PEER_LIMITS', 0.02, JSON.stringify({ maxSentData, maxRecvData, mode }));
         }
 
         const proverId = isPeer
@@ -262,6 +264,7 @@ export class SessionManager {
               (bytes) => emitPeerDataOut(bytes),
               proverOptions.maxRecvData,
               proverOptions.maxSentData,
+              mode,
             )
           : await proveManager.createProver(
               url.hostname,

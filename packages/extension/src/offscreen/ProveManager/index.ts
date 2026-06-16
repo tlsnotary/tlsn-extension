@@ -352,17 +352,19 @@ export class ProveManager {
    * Peer verifier mode: the verifier runs in another browser. The MPC byte
    * stream is relayed through the demo page (which owns the WebRTC/PeerJS
    * connection): outbound bytes go to `onOut`; inbound bytes arrive via
-   * deliverPeerData(). Always MPC — the verifier browser can't open server TCP.
+   * deliverPeerData(). In `Proxy` mode the server connection routes through the
+   * verifier (which opens its own TCP proxy), so the prover passes no server_io.
    */
   async createProverRelay(
     serverDns: string,
     onOut: (bytes: Uint8Array) => void,
     maxRecvData = 16384,
     maxSentData = 4096,
+    mode: ProverMode = 'Mpc',
   ): Promise<string> {
     const proverId = await workerApi.createProver({
       server_name: serverDns,
-      mode: 'Mpc',
+      mode,
       max_sent_data: maxSentData,
       max_sent_records: undefined,
       max_recv_data_online: undefined,
