@@ -49,7 +49,11 @@ export type BackgroundMessage =
       height?: number;
       showOverlay?: boolean;
     }
-  | { type: 'TO_BG_RE_RENDER_PLUGIN_UI'; windowId: number };
+  | { type: 'TO_BG_RE_RENDER_PLUGIN_UI'; windowId: number }
+  // Peer relay: page→extension inbound MPC bytes, and offscreen→tab outbound.
+  | { type: 'PEER_DATA_IN'; requestId: string; data: string }
+  | { type: 'PEER_DATA_OUT'; requestId: string; data: string }
+  | { type: 'PEER_DATA_CLOSED'; requestId: string };
 
 /** Messages handled by the Content script */
 export type ContentMessage =
@@ -63,7 +67,8 @@ export type ContentMessage =
       source: string;
     }
   | { type: 'GET_PAGE_INFO' }
-  | { type: 'RENDER_PLUGIN_UI'; json: DomJson; windowId: number };
+  | { type: 'RENDER_PLUGIN_UI'; json: DomJson; windowId: number }
+  | { type: 'PEER_DATA_OUT'; requestId: string; data: string };
 
 /** Messages handled by the Offscreen document */
 export type OffscreenMessage =
@@ -74,7 +79,12 @@ export type OffscreenMessage =
       requestId?: string;
       sessionData?: Record<string, unknown>;
     }
-  | { type: 'GET_PLUGIN_STATS_OFFSCREEN'; code: string; pageOrigin: string };
+  | { type: 'GET_PLUGIN_STATS_OFFSCREEN'; code: string; pageOrigin: string }
+  // Forwarded by the background (distinct type so the offscreen handles each
+  // inbound chunk exactly once — a content script's runtime.sendMessage is also
+  // broadcast directly to the offscreen, which would otherwise double-deliver).
+  | { type: 'PEER_DATA_DELIVER'; data: string }
+  | { type: 'PEER_DATA_DELIVER_CLOSED' };
 
 // ---------------------------------------------------------------------------
 // Responses returned from sendMessage calls

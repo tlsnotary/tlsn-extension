@@ -446,6 +446,9 @@ export function App() {
           <a href="#build-your-own" className="hero-cta hero-cta-secondary">
             Build your own →
           </a>
+          <a href="/peer.html" className="hero-cta hero-cta-secondary">
+            Peer-to-peer (preview) →
+          </a>
         </div>
       </div>
 

@@ -34,6 +34,9 @@ const workerApi = Comlink.wrap<{
   }) => Promise<void>;
   createProver: (config: ProverConfig) => Promise<string>;
   setupProver: (proverId: string, verifierUrl: string) => Promise<void>;
+  setupProverPeer: (proverId: string, sendOut: (bytes: Uint8Array) => void) => Promise<void>;
+  deliverToWasm: (bytes: Uint8Array) => void;
+  signalPeerClosed: () => void;
   sendRequest: (
     proverId: string,
     proxyUrl: string | undefined,
@@ -343,6 +346,52 @@ export class ProveManager {
       await this.cleanupProver(proverId);
       throw error;
     }
+  }
+
+  /**
+   * Peer verifier mode: the verifier runs in another browser. The MPC byte
+   * stream is relayed through the demo page (which owns the WebRTC/PeerJS
+   * connection): outbound bytes go to `onOut`; inbound bytes arrive via
+   * deliverPeerData(). Always MPC — the verifier browser can't open server TCP.
+   */
+  async createProverRelay(
+    serverDns: string,
+    onOut: (bytes: Uint8Array) => void,
+    maxRecvData = 16384,
+    maxSentData = 4096,
+  ): Promise<string> {
+    const proverId = await workerApi.createProver({
+      server_name: serverDns,
+      mode: 'Mpc',
+      max_sent_data: maxSentData,
+      max_sent_records: undefined,
+      max_recv_data_online: undefined,
+      max_recv_data: maxRecvData,
+      max_recv_records_online: undefined,
+      defer_decryption_from_start: undefined,
+      network: 'Bandwidth',
+      client_auth: undefined,
+      root_certs: undefined,
+    });
+
+    try {
+      await workerApi.setupProverPeer(proverId, Comlink.proxy(onOut));
+      return proverId;
+    } catch (error) {
+      logger.error('[ProveManager] Failed to create relay prover:', error);
+      await this.cleanupProver(proverId);
+      throw error;
+    }
+  }
+
+  /** Deliver bytes received from the peer (relayed by the page) to the prover. */
+  deliverPeerData(bytes: Uint8Array): void {
+    workerApi.deliverToWasm(bytes);
+  }
+
+  /** Signal that the relayed peer channel closed. */
+  signalPeerClosed(): void {
+    workerApi.signalPeerClosed();
   }
 
   /**

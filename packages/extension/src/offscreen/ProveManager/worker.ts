@@ -238,6 +238,87 @@ async function setupProver(proverId: string, verifierUrl: string): Promise<void>
   }
 }
 
+// ============================================================================
+// Peer relay transport
+//
+// For peer-to-peer proofs the verifier runs in another browser. WebRTC lives in
+// the demo page (not here), so the verifier's bytes are relayed: outbound bytes
+// go to a main-thread `sendOut` callback (→ page → data channel); inbound bytes
+// are pushed back via deliverToWasm(). This is a plain byte bridge — no WebRTC.
+// ============================================================================
+
+let peerInbox: Uint8Array[] = [];
+let peerReadResolver: ((value: Uint8Array | null) => void) | null = null;
+let peerClosed = false;
+let peerSendOut: ((bytes: Uint8Array) => void) | null = null;
+
+function peerIo(): IoChannel {
+  return {
+    async read(): Promise<Uint8Array | null> {
+      if (peerInbox.length > 0) return peerInbox.shift()!;
+      if (peerClosed) return null;
+      return new Promise((res) => {
+        peerReadResolver = res;
+      });
+    },
+    async write(data: Uint8Array): Promise<void> {
+      // Copy off (possibly shared) WASM memory before crossing to the main thread.
+      peerSendOut?.(data.slice());
+    },
+    async close(): Promise<void> {
+      /* the main thread / page owns the data channel lifecycle */
+    },
+  };
+}
+
+/** Push bytes received from the peer (called from the main thread). */
+function deliverToWasm(bytes: Uint8Array): void {
+  if (peerReadResolver) {
+    const resolve = peerReadResolver;
+    peerReadResolver = null;
+    resolve(bytes);
+  } else {
+    peerInbox.push(bytes);
+  }
+}
+
+/** Signal the peer channel closed (EOF). */
+function signalPeerClosed(): void {
+  peerClosed = true;
+  if (peerReadResolver) {
+    const resolve = peerReadResolver;
+    peerReadResolver = null;
+    resolve(null);
+  }
+}
+
+/** Set up the prover over the relayed peer channel instead of a WebSocket. */
+async function setupProverPeer(
+  proverId: string,
+  sendOut: (bytes: Uint8Array) => void,
+): Promise<void> {
+  const prover = provers.get(proverId);
+  if (!prover) throw new Error(`Prover not found: ${proverId}`);
+
+  peerInbox = [];
+  peerReadResolver = null;
+  peerClosed = false;
+  peerSendOut = sendOut;
+
+  await Promise.race([
+    prover.setup(peerIo()),
+    new Promise<never>((_, reject) =>
+      setTimeout(
+        () =>
+          reject(
+            new Error(`setupProverPeer timed out after ${SETUP_TIMEOUT_MS}ms for ${proverId}`),
+          ),
+        SETUP_TIMEOUT_MS,
+      ),
+    ),
+  ]);
+}
+
 /**
  * Sends an HTTP request through the prover via WebSocket proxy URL.
  */
@@ -431,6 +512,9 @@ Comlink.expose({
   init,
   createProver,
   setupProver,
+  setupProverPeer,
+  deliverToWasm,
+  signalPeerClosed,
   sendRequest,
   getTranscript,
   computeReveal,

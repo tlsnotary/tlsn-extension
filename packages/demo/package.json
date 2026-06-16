@@ -4,9 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "npm run build:plugins && vite",
-    "build": "npm run build:plugins && vite build",
+    "dev": "npm run build:plugins && npm run copy:wasm && vite",
+    "build": "npm run build:plugins && npm run copy:wasm && vite build",
     "build:plugins": "node build-plugins.js",
+    "copy:wasm": "node copy-wasm.js",
     "preview": "vite preview",
     "type-check": "tsc --noEmit",
     "typecheck:plugins": "tsc --noEmit -p ../plugins/src/tsconfig.json",
@@ -15,11 +16,16 @@
   },
   "dependencies": {
     "@tlsn/plugins": "*",
+    "comlink": "^4.4.2",
     "happy-dom": "^20.8.9",
+    "peerjs": "^1.5.5",
+    "qrcode": "^1.5.4",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "tlsn-wasm": "0.1.0-alpha.15"
   },
   "devDependencies": {
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^6.0.1",
