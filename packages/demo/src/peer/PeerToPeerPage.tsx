@@ -6,7 +6,7 @@ import { usePeerDialer, usePeerHost } from './usePeerConnection';
 import {
   initWasmRuntime,
   runVerifierSession,
-  SelfTestResult,
+  VerifierResult,
   WasmRuntimeStatus,
 } from './wasmRuntime';
 import '../App.css';
@@ -313,7 +313,7 @@ function VerifierView({ joinId }: { joinId: string }) {
         };
   });
   const [progress, setProgress] = useState('');
-  const [result, setResult] = useState<SelfTestResult | null>(null);
+  const [result, setResult] = useState<VerifierResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const started = useRef(false);
 

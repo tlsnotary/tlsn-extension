@@ -1,11 +1,11 @@
 import * as Comlink from 'comlink';
 import type { DataConnection } from 'peerjs';
-import type { InitConfig, SelfTestConfig, SelfTestResult } from './wasm.worker';
+import type { InitConfig, VerifierResult } from './wasm.worker';
 
-export type { SelfTestConfig, SelfTestResult } from './wasm.worker';
+export type { VerifierResult } from './wasm.worker';
 
-// Thin singleton wrapper around the WASM worker. The worker exposes `init`,
-// `getLogs`, and the `Prover`/`Verifier` classes (constructable over Comlink).
+// Thin singleton wrapper around the WASM verifier worker. The worker exposes
+// `init` and a `runVerifier` session bridged to a PeerJS data channel.
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type WorkerApi = any;
@@ -38,15 +38,6 @@ export interface WasmRuntimeStatus {
   error?: string;
 }
 
-/** Run an in-browser self-test proof (in-page Prover + Verifier over loopback). */
-export function runSelfTest(
-  cfg: SelfTestConfig,
-  onProgress?: (message: string) => void,
-): Promise<SelfTestResult> {
-  const api = getWorkerApi();
-  return api.selfTest(cfg, onProgress ? Comlink.proxy(onProgress) : undefined);
-}
-
 function toU8(d: unknown): Uint8Array {
   if (d instanceof Uint8Array) return d;
   return new Uint8Array(d as ArrayBufferLike);
@@ -66,21 +57,11 @@ export function runVerifierSession(
   cfg: { maxSentData?: number; maxRecvData?: number },
   conn: DataConnection,
   onProgress?: (message: string) => void,
-): Promise<SelfTestResult> {
+): Promise<VerifierResult> {
   const sendOut = wireConn(conn);
   return getWorkerApi().runVerifier(
     cfg,
     sendOut,
     onProgress ? Comlink.proxy(onProgress) : undefined,
   );
-}
-
-/** Run the MPC-TLS prover over a PeerJS data channel (verifier) + a TCP proxy. */
-export function runProverSession(
-  cfg: SelfTestConfig,
-  conn: DataConnection,
-  onProgress?: (message: string) => void,
-): Promise<{ ms: number }> {
-  const sendOut = wireConn(conn);
-  return getWorkerApi().runProver(cfg, sendOut, onProgress ? Comlink.proxy(onProgress) : undefined);
 }
