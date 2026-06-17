@@ -1,5 +1,6 @@
 import * as Comlink from 'comlink';
 import type { DataConnection } from 'peerjs';
+import { toUint8Array } from '@tlsn/common';
 import type { InitConfig, VerifierResult } from './wasm.worker';
 
 export type { VerifierResult } from './wasm.worker';
@@ -38,11 +39,6 @@ export interface WasmRuntimeStatus {
   error?: string;
 }
 
-function toU8(d: unknown): Uint8Array {
-  if (d instanceof Uint8Array) return d;
-  return new Uint8Array(d as ArrayBufferLike);
-}
-
 // Bridge a PeerJS data channel to the worker's WASM session: inbound peer bytes
 // → worker; the worker's outbound bytes (via the proxied callback) → peer.
 // String frames are out-of-band status (handled by the page), never MPC bytes.
@@ -55,7 +51,7 @@ function wireConn(conn: DataConnection): {
   const api = getWorkerApi();
   const onData = (d: unknown) => {
     if (typeof d === 'string') return;
-    api.deliverToWasm(toU8(d));
+    api.deliverToWasm(toUint8Array(d));
   };
   const onClose = () => api.signalPeerClosed();
   conn.on('data', onData);

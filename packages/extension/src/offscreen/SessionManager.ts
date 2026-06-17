@@ -12,7 +12,7 @@ import type {
   RevealRangeDescriptor,
   WindowMessage,
 } from '@tlsn/plugin-sdk';
-import { logger } from '@tlsn/common';
+import { logger, bytesToBase64, base64ToBytes } from '@tlsn/common';
 
 /**
  * Minimal interface for the Chrome runtime API surface used by SessionManager.
@@ -45,19 +45,6 @@ function applyProxyBase(proxyUrl: string, base?: string): string {
   } catch {
     return proxyUrl;
   }
-}
-
-// Base64 (de)serialization for relayed MPC bytes over the chrome message bridge.
-function bytesToB64(bytes: Uint8Array): string {
-  let s = '';
-  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
-  return btoa(s);
-}
-function b64ToBytes(b64: string): Uint8Array {
-  const s = atob(b64);
-  const bytes = new Uint8Array(s.length);
-  for (let i = 0; i < s.length; i++) bytes[i] = s.charCodeAt(i);
-  return bytes;
 }
 
 function buildLabel(handler: CanonicalHandler): string {
@@ -145,7 +132,7 @@ export class SessionManager {
    * verifier's data channel) to the active prover.
    */
   handleRelayIn(b64: string): void {
-    this.proveManager.deliverRelayData(b64ToBytes(b64));
+    this.proveManager.deliverRelayData(base64ToBytes(b64));
   }
 
   /** Relay: signal the data channel closed. */
@@ -189,7 +176,7 @@ export class SessionManager {
     const emitRelayOut = (bytes: Uint8Array) => {
       if (!requestId) return;
       SessionManager.getChromeRuntime()
-        .sendMessage({ type: 'RELAY_OUT', requestId, data: bytesToB64(bytes) })
+        .sendMessage({ type: 'RELAY_OUT', requestId, data: bytesToBase64(bytes) })
         .catch((err: unknown) => logger.warn('[SessionManager] emitRelayOut failed:', err));
     };
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import QRCode from 'qrcode';
 import type { DataConnection } from 'peerjs';
+import { bytesToBase64, base64ToBytes, toUint8Array } from '@tlsn/common';
 import { plugins } from '../plugins';
 import { usePeerDialer, usePeerHost } from './usePeerConnection';
 import {
@@ -51,24 +52,6 @@ interface RemoteVerifier {
 interface RemoteProver {
   state: 'idle' | 'connected' | 'proving' | 'done' | 'error';
   message?: string;
-}
-
-// Base64 (de)serialization for relayed MPC bytes (the extension↔page bridge
-// carries strings). Loop-based to handle large payloads without spread.
-function bytesToB64(bytes: Uint8Array): string {
-  let s = '';
-  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
-  return btoa(s);
-}
-function b64ToBytes(b64: string): Uint8Array {
-  const s = atob(b64);
-  const bytes = new Uint8Array(s.length);
-  for (let i = 0; i < s.length; i++) bytes[i] = s.charCodeAt(i);
-  return bytes;
-}
-function toU8(d: unknown): Uint8Array {
-  if (d instanceof Uint8Array) return d;
-  return new Uint8Array(d as ArrayBufferLike);
 }
 
 function parseJoinId(): string | null {
@@ -345,7 +328,7 @@ function ProverView() {
       if (!d || d.requestId !== requestId) return;
       if (d.type === 'TLSN_RELAY_OUT') {
         try {
-          conn.send(b64ToBytes(d.data));
+          conn.send(base64ToBytes(d.data));
         } catch {
           /* channel closed */
         }
@@ -388,7 +371,7 @@ function ProverView() {
         return;
       }
       window.postMessage(
-        { type: 'TLSN_RELAY_IN', requestId, data: bytesToB64(toU8(raw)) },
+        { type: 'TLSN_RELAY_IN', requestId, data: bytesToBase64(toUint8Array(raw)) },
         window.location.origin,
       );
     };
