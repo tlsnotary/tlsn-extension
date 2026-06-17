@@ -350,7 +350,7 @@ export class ProveManager {
 
   /**
    * Peer verifier mode: the verifier runs in another browser. The MPC byte
-   * stream is relayed through the demo page (which owns the WebRTC/PeerJS
+   * stream is relayed through the host page (which owns the WebRTC/PeerJS
    * connection): outbound bytes go to `onOut`; inbound bytes arrive via
    * deliverPeerData(). In `Proxy` mode the server connection routes through the
    * verifier (which opens its own TCP proxy), so the prover passes no server_io.

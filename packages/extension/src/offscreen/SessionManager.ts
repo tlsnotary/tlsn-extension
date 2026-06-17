@@ -32,7 +32,7 @@ import { validateProvePermission, validateOpenWindowPermission } from './permiss
 const PREVIEW_MAX_CHARS = 256;
 
 // Rewrite a proxy URL's origin (protocol + host) to `base`, keeping its path +
-// `?token=<host>`. Lets the peer demo relay the prover↔server TCP through a
+// `?token=<host>`. Lets the host page relay the prover↔server TCP through a
 // reachable proxy without rebuilding plugins. No-op if base is unset/invalid.
 function applyProxyBase(proxyUrl: string, base?: string): string {
   if (!base) return proxyUrl;
@@ -235,8 +235,8 @@ export class SessionManager {
         };
 
         // Peer verifier mode: the verifier runs in another browser. The MPC byte
-        // stream is relayed through the demo page (which owns the PeerJS/WebRTC
-        // connection) — selected by `peerRelay: '1'` in sessionData. Always MPC.
+        // stream is relayed through the host page (which owns the PeerJS/WebRTC
+        // connection) — selected by `peerRelay: '1'` in sessionData.
         const isPeer = sessionData.peerRelay === '1';
 
         // Mode is a user/platform decision, not a plugin decision.
@@ -290,7 +290,7 @@ export class SessionManager {
           // websockify proxy is opened. In MPC mode we pass the websockify URL
           // through to the worker, which will create a JsIo channel for it.
           // `proxyBase` (sessionData) overrides the plugin's build-time proxy
-          // origin — used by the peer demo to relay through a reachable proxy
+          // origin — used by the host page to relay through a reachable proxy
           // (e.g. wss://demo.tlsnotary.org) while keeping the ?token=<host>.
           const workerProxyUrl =
             mode === 'Proxy'

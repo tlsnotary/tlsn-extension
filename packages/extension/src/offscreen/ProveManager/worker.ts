@@ -242,7 +242,7 @@ async function setupProver(proverId: string, verifierUrl: string): Promise<void>
 // Peer relay transport
 //
 // For peer-to-peer proofs the verifier runs in another browser. WebRTC lives in
-// the demo page (not here), so the verifier's bytes are relayed: outbound bytes
+// the host page (not here), so the verifier's bytes are relayed: outbound bytes
 // go to a main-thread `sendOut` callback (→ page → data channel); inbound bytes
 // are pushed back via deliverToWasm(). This is a plain byte bridge — no WebRTC.
 // ============================================================================
