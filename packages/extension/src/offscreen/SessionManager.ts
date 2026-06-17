@@ -238,11 +238,15 @@ export class SessionManager {
 
         // Relay mode: tell the verifier (in the other browser) which limits to
         // commit to — same model as the verifier server, which adopts the
-        // prover's maxSentData/maxRecvData from its register message.
+        // prover's maxSentData/maxRecvData from its register message. This is a
+        // control frame the host page consumes (and never displays), so it goes
+        // to the page only (emitProgress) — NOT emitBoth, which would render the
+        // raw JSON as the plugin UI's progress text. The plugin stays on the
+        // preceding "Connecting to verifier…" message.
         if (isRelay) {
           const maxSentData = proverOptions.maxSentData ?? 4096;
           const maxRecvData = proverOptions.maxRecvData ?? 16384;
-          emitBoth('RELAY_LIMITS', 0.02, JSON.stringify({ maxSentData, maxRecvData, mode }));
+          emitProgress('RELAY_LIMITS', 0.02, JSON.stringify({ maxSentData, maxRecvData, mode }));
         }
 
         const proverId = isRelay
