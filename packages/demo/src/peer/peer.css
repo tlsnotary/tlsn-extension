@@ -304,6 +304,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  /* Wrap the badge to its own line (intact) rather than break it mid-word when
+     the pane is narrow — e.g. "OTHER DEVICE" on the slim remote pane. */
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
   margin-bottom: var(--spacing-xs);
 }
 .peer-pane-role {
@@ -320,6 +324,8 @@
   color: var(--gray-600);
   padding: 0.2rem 0.5rem;
   border-radius: 999px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .peer-pane-sub {
   color: var(--gray-600);
@@ -669,6 +675,9 @@
     border-color 0.2s;
 }
 .peer-topo-pane--remote {
+  /* The remote pane only mirrors a status pill, so it needs less width than the
+     local pane (which holds the controls / verified transcript). */
+  flex: 0 1 240px;
   background: var(--gray-100);
 }
 .peer-topo-pane--local {
@@ -841,8 +850,8 @@
   border-radius: var(--radius-lg);
   padding: var(--spacing-md) var(--spacing-lg);
   background: #fff;
-  min-width: 210px;
-  max-width: 240px;
+  min-width: 220px;
+  max-width: 260px;
   text-align: left;
 }
 .peer-topo-node .peer-pane-head {
@@ -850,12 +859,39 @@
 }
 .peer-node-host {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
+  line-height: 1.35;
   color: var(--gray-800);
-  word-break: break-all;
+  /* Break only when needed; <wbr> after each dot gives label-boundary wraps. */
+  overflow-wrap: anywhere;
 }
 
-/* Narrow screens: stack the row vertically (the demo targets wide screens). */
+/* Vertical connector motion, used when the row stacks (narrow screens). */
+@keyframes peerFwdV {
+  from {
+    top: 6%;
+  }
+  to {
+    top: 88%;
+  }
+}
+@keyframes peerRevV {
+  from {
+    top: 88%;
+  }
+  to {
+    top: 6%;
+  }
+}
+@keyframes peerDashV {
+  to {
+    background-position: 0 12px;
+  }
+}
+
+/* Narrow screens: stack the row vertically (the demo targets wide screens). The
+   horizontal proxy/P2P connectors rotate to short VERTICAL links so they still
+   join the stacked cards instead of floating sideways. */
 @media (max-width: 1040px) {
   .peer-topo {
     flex-direction: column;
@@ -866,16 +902,58 @@
     width: 100%;
     max-width: 420px;
   }
+
+  /* Blue P2P channel → vertical rail with downward-flowing packets. */
   .peer-topo-channel {
     flex-basis: auto;
-    width: 100%;
+    width: auto;
   }
   .peer-topo-channel .peer-track {
-    height: 32px;
+    width: 40px;
+    height: 40px;
   }
+  .peer-rail {
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    right: auto;
+    width: 2px;
+    height: auto;
+    transform: translateX(-50%);
+  }
+  .peer-packet {
+    top: 0;
+    left: 50%;
+    margin-top: 0;
+    margin-left: -3.5px;
+  }
+  .peer-track--proving .peer-packet--fwd {
+    animation-name: peerFwdV;
+  }
+  .peer-track--proving .peer-packet--rev {
+    animation-name: peerRevV;
+  }
+
+  /* Orange TCP-proxy hop → vertical rail with the ⓘ centred and label beside it. */
   .peer-link {
     flex-basis: auto;
-    width: 100%;
-    max-width: 420px;
+    width: auto;
+    height: 48px;
+    justify-content: center;
+  }
+  .peer-link-rail {
+    width: 2px;
+    height: 100%;
+  }
+  .peer-link-rail--flow {
+    background-image: linear-gradient(180deg, #d98a1f 0 50%, transparent 0);
+    background-size: 2px 12px;
+    animation-name: peerDashV;
+  }
+  .peer-link-cap {
+    top: 50%;
+    left: calc(50% + 16px);
+    transform: translateY(-50%);
+    margin-top: 0;
   }
 }

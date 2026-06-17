@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import QRCode from 'qrcode';
 import type { DataConnection } from 'peerjs';
 import { bytesToBase64, base64ToBytes, toUint8Array } from '@tlsn/common';
@@ -114,6 +114,26 @@ function Channel({ proving, mode }: { proving: boolean; mode: Mode }) {
   );
 }
 
+// Render a hostname with a <wbr> break opportunity after each dot, so a long
+// host wraps at label boundaries ("swissbank." / "tlsnotary.org") instead of
+// mid-word.
+function HostName({ host }: { host: string }) {
+  return (
+    <>
+      {host.split('.').map((label, i) => (
+        <Fragment key={i}>
+          {i > 0 && (
+            <>
+              .<wbr />
+            </>
+          )}
+          {label}
+        </Fragment>
+      ))}
+    </>
+  );
+}
+
 // The target server, shown as a card alongside the prover/verifier panes.
 function ServerNode({ mode, host }: { mode: Mode; host: string }) {
   const side = mode === 'Proxy' ? 'verifier' : 'prover';
@@ -123,7 +143,7 @@ function ServerNode({ mode, host }: { mode: Mode; host: string }) {
         <span className="peer-pane-role">Server</span>
         <span className="peer-pane-badge">🌐 HTTPS</span>
       </div>
-      <div className="peer-node-host">{host || 'the target site'}</div>
+      <div className="peer-node-host">{host ? <HostName host={host} /> : 'the target site'}</div>
       <div className="peer-node-n">
         {side} connects · {mode === 'Proxy' ? 'Proxy' : 'MPC'}
       </div>
@@ -250,7 +270,9 @@ function ProverView() {
   // Host immediately so the join QR appears right away — no extra click.
   const host = usePeerHost(true);
 
-  const [selected, setSelected] = useState<string>(PLUGIN_ENTRIES[0]?.[0] ?? '');
+  const [selected, setSelected] = useState<string>(
+    plugins.spotify ? 'spotify' : (PLUGIN_ENTRIES[0]?.[0] ?? ''),
+  );
   const [mode, setMode] = useState<Mode>('Mpc');
   const [showProtocolInfo, setShowProtocolInfo] = useState(false);
   const [proving, setProving] = useState(false);
@@ -261,6 +283,11 @@ function ProverView() {
   const [qr, setQr] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [verifier, setVerifier] = useState<RemoteVerifier>({ state: 'idle' });
+  // Tears down the current relay wiring. Kept in a ref (not unwired when
+  // execCode resolves) because in relay mode the prover finishes before the
+  // verifier does, and we must keep listening for its terminal {t:'vs'} frame.
+  const unwireRef = useRef<(() => void) | null>(null);
+  useEffect(() => () => unwireRef.current?.(), []);
 
   const plugin = plugins[selected];
   const serverHost = plugin?.host ?? '';
@@ -395,7 +422,12 @@ function ProverView() {
       return;
     }
     const requestId = `p2p_prove_${Date.now()}`;
-    const unwire = wireRelay(host.conn, requestId);
+    // Tear down any prior wiring, then wire this proof. Do NOT unwire when
+    // execCode resolves: the verifier sends its terminal {t:'vs'} frame after
+    // the prover finishes, so the listener must outlive this call. It is torn
+    // down by the next proof or on unmount.
+    unwireRef.current?.();
+    unwireRef.current = wireRelay(host.conn, requestId);
     setProving(true);
     setProveError(null);
     setProveDone(false);
@@ -413,7 +445,6 @@ function ProverView() {
       setProveError(e instanceof Error ? e.message : String(e));
     } finally {
       setProving(false);
-      unwire();
     }
   };
 
@@ -427,9 +458,9 @@ function ProverView() {
       </div>
 
       <ol className="peer-steps">
-        <li>Pair a verifier (scan the code on the right)</li>
-        <li>Select what you want to prove (plugin)</li>
-        <li>Click Prove to the verifier, then follow the steps in the extension popup</li>
+        <li>Pair a verifier (scan QR code)</li>
+        <li>Select what you want to prove</li>
+        <li>Click "Prove to the verifier" and follow the steps in the extension popup</li>
       </ol>
 
       {hasExtension === false && (
@@ -522,7 +553,13 @@ function ProverView() {
       )}
       {proveError && <div className="peer-error">❌ {proveError}</div>}
       {proveDone && !proveError && (
-        <div className="peer-proof-sent">✓ Proof complete — verified on the other device.</div>
+        <div className="peer-proof-sent">
+          {verifier.state === 'verified'
+            ? '✓ Proof complete — verified on the other device.'
+            : verifier.state === 'error'
+              ? '✓ Proof sent — but verification failed on the other device.'
+              : '✓ Proof sent — waiting for the other device to verify…'}
+        </div>
       )}
 
       {showProtocolInfo && (
@@ -534,8 +571,17 @@ function ProverView() {
           </p>
           <p>
             <strong>Proxy</strong> — faster. The verifier relays your encrypted connection to the
-            server, so it sits in the data path (it still can&apos;t read the TLS traffic). Best
-            when the verifier is an independent party.
+            server, so it sits in the data path (it still can&apos;t read the TLS traffic). Its
+            integrity then depends on the verifier&apos;s network path to the server being
+            trustworthy — and in this demo that hop runs through a shared TCP proxy, which becomes
+            part of that trust. MPC mode avoids this.{' '}
+            <a
+              href="https://tlsnotary.org/blog/2026/04/22/proxy-mode/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Learn more →
+            </a>
           </p>
         </InfoModal>
       )}
@@ -846,7 +892,7 @@ function VerifierView({ joinId }: { joinId: string }) {
           </div>
           <div className="peer-fields-title">Request sent</div>
           <pre className="peer-selftest-pre">{result.sent}</pre>
-          <div className="peer-fields-title">Response received (authenticated)</div>
+          <div className="peer-fields-title">Response received</div>
           <pre className="peer-selftest-pre">{result.recv}</pre>
         </>
       )}
