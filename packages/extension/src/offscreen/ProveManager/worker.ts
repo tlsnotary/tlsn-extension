@@ -245,6 +245,12 @@ async function setupProver(proverId: string, verifierUrl: string): Promise<void>
 // the host page (not here), so the verifier's bytes are relayed: outbound bytes
 // go to a main-thread `sendOut` callback (→ page → data channel); inbound bytes
 // are pushed back via deliverToWasm(). This is a plain byte bridge — no WebRTC.
+//
+// These are module-level singletons, so they assume ONE relayed proof at a time
+// per worker. That holds because the host page disables its Prove button while a
+// proof is in flight, serializing relayed proofs; inbound RELAY_IN chunks are
+// likewise forwarded to the single active prover without a requestId. Concurrent
+// relayed proofs in one offscreen would cross-talk on this state.
 // ============================================================================
 
 let relayInbox: Uint8Array[] = [];
