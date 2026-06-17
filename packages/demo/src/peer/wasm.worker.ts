@@ -151,6 +151,22 @@ function decodeTranscript(arr?: number[]): string {
 let sessionInbox: ByteQueue | null = null;
 let sessionSendOut: ((bytes: Uint8Array) => void) | null = null;
 
+// The prover supplies the data limits, which size verifier-side buffers. Clamp
+// them so a malicious/buggy prover can't OOM this tab with an absurd value (the
+// largest real plugin asks for 64 KiB; 1 MiB is generous headroom). If a value
+// is clamped, the limits no longer match the prover's and the MPC simply fails
+// — a safe outcome, not a crash.
+const MAX_DATA_LIMIT = 1 << 20; // 1 MiB
+// Fallback limits used only if the prover sends none (it normally supplies its
+// own in the limits frame). Sized to cover every bundled plugin — the largest
+// asks for 64 KiB recv / 4 KiB sent (idme).
+const DEFAULT_MAX_SENT_DATA = 1 << 13; // 8 KiB
+const DEFAULT_MAX_RECV_DATA = 1 << 17; // 128 KiB
+function clampLimit(value: number | undefined, fallback: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return fallback;
+  return Math.min(value, MAX_DATA_LIMIT);
+}
+
 function peerIo(): IoChannel {
   const inbox = sessionInbox!;
   return {
@@ -194,8 +210,8 @@ async function runVerifier(
   sessionSendOut = sendOut;
   const log = progressLogger(onProgress);
   const verifier = new w.Verifier({
-    max_sent_data: cfg.maxSentData ?? 2048,
-    max_recv_data: cfg.maxRecvData ?? 4096,
+    max_sent_data: clampLimit(cfg.maxSentData, DEFAULT_MAX_SENT_DATA),
+    max_recv_data: clampLimit(cfg.maxRecvData, DEFAULT_MAX_RECV_DATA),
   } as VerifierConfig);
   const io = peerIo() as unknown as Parameters<typeof verifier.connect>[0];
   const t0 = performance.now();
