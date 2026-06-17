@@ -34,9 +34,9 @@ const workerApi = Comlink.wrap<{
   }) => Promise<void>;
   createProver: (config: ProverConfig) => Promise<string>;
   setupProver: (proverId: string, verifierUrl: string) => Promise<void>;
-  setupProverPeer: (proverId: string, sendOut: (bytes: Uint8Array) => void) => Promise<void>;
+  setupProverRelay: (proverId: string, sendOut: (bytes: Uint8Array) => void) => Promise<void>;
   deliverToWasm: (bytes: Uint8Array) => void;
-  signalPeerClosed: () => void;
+  signalRelayClosed: () => void;
   sendRequest: (
     proverId: string,
     proxyUrl: string | undefined,
@@ -349,10 +349,10 @@ export class ProveManager {
   }
 
   /**
-   * Peer verifier mode: the verifier runs in another browser. The MPC byte
-   * stream is relayed through the host page (which owns the WebRTC/PeerJS
+   * Relayed verifier mode: the verifier runs in another browser. The MPC byte
+   * stream is relayed through the host page (which owns the transport
    * connection): outbound bytes go to `onOut`; inbound bytes arrive via
-   * deliverPeerData(). In `Proxy` mode the server connection routes through the
+   * deliverRelayData(). In `Proxy` mode the server connection routes through the
    * verifier (which opens its own TCP proxy), so the prover passes no server_io.
    */
   async createProverRelay(
@@ -377,7 +377,7 @@ export class ProveManager {
     });
 
     try {
-      await workerApi.setupProverPeer(proverId, Comlink.proxy(onOut));
+      await workerApi.setupProverRelay(proverId, Comlink.proxy(onOut));
       return proverId;
     } catch (error) {
       logger.error('[ProveManager] Failed to create relay prover:', error);
@@ -386,14 +386,14 @@ export class ProveManager {
     }
   }
 
-  /** Deliver bytes received from the peer (relayed by the page) to the prover. */
-  deliverPeerData(bytes: Uint8Array): void {
+  /** Deliver bytes received over the relay (from the host page) to the prover. */
+  deliverRelayData(bytes: Uint8Array): void {
     workerApi.deliverToWasm(bytes);
   }
 
-  /** Signal that the relayed peer channel closed. */
-  signalPeerClosed(): void {
-    workerApi.signalPeerClosed();
+  /** Signal that the relayed channel closed. */
+  signalRelayClosed(): void {
+    workerApi.signalRelayClosed();
   }
 
   /**

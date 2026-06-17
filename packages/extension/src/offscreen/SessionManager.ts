@@ -141,16 +141,16 @@ export class SessionManager {
   }
 
   /**
-   * Peer relay: deliver an inbound MPC chunk (relayed by the page from the
+   * Relay: deliver an inbound MPC chunk (relayed by the page from the
    * verifier's data channel) to the active prover.
    */
-  handlePeerDataIn(b64: string): void {
-    this.proveManager.deliverPeerData(b64ToBytes(b64));
+  handleRelayIn(b64: string): void {
+    this.proveManager.deliverRelayData(b64ToBytes(b64));
   }
 
-  /** Peer relay: signal the data channel closed. */
-  handlePeerClosed(): void {
-    this.proveManager.signalPeerClosed();
+  /** Relay: signal the data channel closed. */
+  handleRelayClosed(): void {
+    this.proveManager.signalRelayClosed();
   }
 
   /**
@@ -186,11 +186,11 @@ export class SessionManager {
     };
 
     // Relay an outbound MPC chunk to the page (which owns the data channel).
-    const emitPeerDataOut = (bytes: Uint8Array) => {
+    const emitRelayOut = (bytes: Uint8Array) => {
       if (!requestId) return;
       SessionManager.getChromeRuntime()
-        .sendMessage({ type: 'PEER_DATA_OUT', requestId, data: bytesToB64(bytes) })
-        .catch((err: unknown) => logger.warn('[SessionManager] emitPeerDataOut failed:', err));
+        .sendMessage({ type: 'RELAY_OUT', requestId, data: bytesToB64(bytes) })
+        .catch((err: unknown) => logger.warn('[SessionManager] emitRelayOut failed:', err));
     };
 
     const host = new Host({
@@ -234,34 +234,34 @@ export class SessionManager {
           onProgress?.({ step, progress, message });
         };
 
-        // Peer verifier mode: the verifier runs in another browser. The MPC byte
-        // stream is relayed through the host page (which owns the PeerJS/WebRTC
-        // connection) — selected by `peerRelay: '1'` in sessionData.
-        const isPeer = sessionData.peerRelay === '1';
+        // Relayed verifier mode: the verifier runs in another browser. The MPC byte
+        // stream is relayed through the host page (which owns the transport
+        // connection) — selected by `relay: '1'` in sessionData.
+        const isRelay = sessionData.relay === '1';
 
         // Mode is a user/platform decision, not a plugin decision.
-        // Read from sessionData provided by the caller of execCode(). Peer mode
+        // Read from sessionData provided by the caller of execCode(). Relay mode
         // supports both: in Proxy mode the verifier browser opens the server TCP
         // (through its own proxy) and the prover tunnels through the verifier.
         const mode = (sessionData.mode as 'Mpc' | 'Proxy') ?? 'Mpc';
-        const modeLabel = isPeer ? `peer (${mode})` : mode === 'Proxy' ? 'Proxy' : 'MPC';
-        logger.debug('[SessionManager] Prove mode:', mode, 'peer:', isPeer);
+        const modeLabel = isRelay ? `relay (${mode})` : mode === 'Proxy' ? 'Proxy' : 'MPC';
+        logger.debug('[SessionManager] Prove mode:', mode, 'relay:', isRelay);
 
         emitBoth('CONNECTING', 0.0, `Connecting to verifier (${modeLabel} mode)...`);
 
-        // Peer mode: tell the verifier (in the other browser) which limits to
+        // Relay mode: tell the verifier (in the other browser) which limits to
         // commit to — same model as the verifier server, which adopts the
         // prover's maxSentData/maxRecvData from its register message.
-        if (isPeer) {
+        if (isRelay) {
           const maxSentData = proverOptions.maxSentData ?? 4096;
           const maxRecvData = proverOptions.maxRecvData ?? 16384;
-          emitBoth('PEER_LIMITS', 0.02, JSON.stringify({ maxSentData, maxRecvData, mode }));
+          emitBoth('RELAY_LIMITS', 0.02, JSON.stringify({ maxSentData, maxRecvData, mode }));
         }
 
-        const proverId = isPeer
+        const proverId = isRelay
           ? await proveManager.createProverRelay(
               url.hostname,
-              (bytes) => emitPeerDataOut(bytes),
+              (bytes) => emitRelayOut(bytes),
               proverOptions.maxRecvData,
               proverOptions.maxSentData,
               mode,
@@ -350,9 +350,9 @@ export class SessionManager {
           }
 
           // Send reveal config (ranges + handlers) to verifier BEFORE calling reveal().
-          // Peer mode has no server control channel — the WASM verifier in the
+          // Relay mode has no server control channel — the WASM verifier in the
           // other browser learns the revealed ranges directly through the MPC.
-          if (!isPeer) {
+          if (!isRelay) {
             emitBoth('SENDING_REVEAL_CONFIG', 0.6, 'Configuring selective disclosure...');
             await proveManager.sendRevealConfig(proverId, {
               sent: sentRangesWithHandlers,
@@ -374,12 +374,12 @@ export class SessionManager {
             logger.debug('reveal openings', openings);
           }
 
-          // Get structured response from verifier. In peer mode the result lives
+          // Get structured response from verifier. In relay mode the result lives
           // on the verifying browser (its own verify() output) — there is no
           // server response to wait for, so the prover just completes.
           emitBoth('WAITING_FOR_VERIFICATION', 0.85, 'Waiting for verification...');
-          const response = isPeer
-            ? { results: [], peer: true }
+          const response = isRelay
+            ? { results: [], relay: true }
             : await proveManager.getResponse(proverId);
 
           emitBoth('COMPLETE', 1.0, 'Complete');

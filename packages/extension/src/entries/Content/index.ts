@@ -221,11 +221,11 @@ browser.runtime.onMessage.addListener((msg: unknown) => {
     return; // No response needed
   }
 
-  // Peer relay: forward outbound MPC bytes from the extension to the page,
+  // Relay: forward outbound MPC bytes from the extension to the page,
   // which sends them over its data channel to the verifier.
-  if (request.type === 'PEER_DATA_OUT') {
+  if (request.type === 'RELAY_OUT') {
     window.postMessage(
-      { type: 'TLSN_PEER_DATA_OUT', requestId: request.requestId, data: request.data },
+      { type: 'TLSN_RELAY_OUT', requestId: request.requestId, data: request.data },
       window.location.origin,
     );
     return; // No response needed
@@ -279,11 +279,11 @@ window.addEventListener('message', (event) => {
       });
   }
 
-  // Peer relay: inbound MPC bytes from the page's data channel → extension.
-  if (event.data?.type === 'TLSN_PEER_DATA_IN') {
+  // Relay: inbound MPC bytes from the page's data channel → extension.
+  if (event.data?.type === 'TLSN_RELAY_IN') {
     browser.runtime
       .sendMessage({
-        type: 'PEER_DATA_IN',
+        type: 'RELAY_IN',
         requestId: event.data.requestId,
         data: event.data.data,
       })
@@ -292,9 +292,9 @@ window.addEventListener('message', (event) => {
       });
     return;
   }
-  if (event.data?.type === 'TLSN_PEER_DATA_CLOSED') {
+  if (event.data?.type === 'TLSN_RELAY_CLOSED') {
     browser.runtime
-      .sendMessage({ type: 'PEER_DATA_CLOSED', requestId: event.data.requestId })
+      .sendMessage({ type: 'RELAY_CLOSED', requestId: event.data.requestId })
       .catch(() => {});
     return;
   }

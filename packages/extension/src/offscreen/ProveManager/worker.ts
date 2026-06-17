@@ -239,31 +239,31 @@ async function setupProver(proverId: string, verifierUrl: string): Promise<void>
 }
 
 // ============================================================================
-// Peer relay transport
+// Relay transport
 //
-// For peer-to-peer proofs the verifier runs in another browser. WebRTC lives in
+// For relayed proofs the verifier runs in another browser. WebRTC lives in
 // the host page (not here), so the verifier's bytes are relayed: outbound bytes
 // go to a main-thread `sendOut` callback (→ page → data channel); inbound bytes
 // are pushed back via deliverToWasm(). This is a plain byte bridge — no WebRTC.
 // ============================================================================
 
-let peerInbox: Uint8Array[] = [];
-let peerReadResolver: ((value: Uint8Array | null) => void) | null = null;
-let peerClosed = false;
-let peerSendOut: ((bytes: Uint8Array) => void) | null = null;
+let relayInbox: Uint8Array[] = [];
+let relayReadResolver: ((value: Uint8Array | null) => void) | null = null;
+let relayClosed = false;
+let relaySendOut: ((bytes: Uint8Array) => void) | null = null;
 
-function peerIo(): IoChannel {
+function relayIo(): IoChannel {
   return {
     async read(): Promise<Uint8Array | null> {
-      if (peerInbox.length > 0) return peerInbox.shift()!;
-      if (peerClosed) return null;
+      if (relayInbox.length > 0) return relayInbox.shift()!;
+      if (relayClosed) return null;
       return new Promise((res) => {
-        peerReadResolver = res;
+        relayReadResolver = res;
       });
     },
     async write(data: Uint8Array): Promise<void> {
       // Copy off (possibly shared) WASM memory before crossing to the main thread.
-      peerSendOut?.(data.slice());
+      relaySendOut?.(data.slice());
     },
     async close(): Promise<void> {
       /* the main thread / page owns the data channel lifecycle */
@@ -271,47 +271,47 @@ function peerIo(): IoChannel {
   };
 }
 
-/** Push bytes received from the peer (called from the main thread). */
+/** Push bytes received from the relay (called from the main thread). */
 function deliverToWasm(bytes: Uint8Array): void {
-  if (peerReadResolver) {
-    const resolve = peerReadResolver;
-    peerReadResolver = null;
+  if (relayReadResolver) {
+    const resolve = relayReadResolver;
+    relayReadResolver = null;
     resolve(bytes);
   } else {
-    peerInbox.push(bytes);
+    relayInbox.push(bytes);
   }
 }
 
-/** Signal the peer channel closed (EOF). */
-function signalPeerClosed(): void {
-  peerClosed = true;
-  if (peerReadResolver) {
-    const resolve = peerReadResolver;
-    peerReadResolver = null;
+/** Signal the relayed channel closed (EOF). */
+function signalRelayClosed(): void {
+  relayClosed = true;
+  if (relayReadResolver) {
+    const resolve = relayReadResolver;
+    relayReadResolver = null;
     resolve(null);
   }
 }
 
-/** Set up the prover over the relayed peer channel instead of a WebSocket. */
-async function setupProverPeer(
+/** Set up the prover over the relayed channel instead of a WebSocket. */
+async function setupProverRelay(
   proverId: string,
   sendOut: (bytes: Uint8Array) => void,
 ): Promise<void> {
   const prover = provers.get(proverId);
   if (!prover) throw new Error(`Prover not found: ${proverId}`);
 
-  peerInbox = [];
-  peerReadResolver = null;
-  peerClosed = false;
-  peerSendOut = sendOut;
+  relayInbox = [];
+  relayReadResolver = null;
+  relayClosed = false;
+  relaySendOut = sendOut;
 
   await Promise.race([
-    prover.setup(peerIo()),
+    prover.setup(relayIo()),
     new Promise<never>((_, reject) =>
       setTimeout(
         () =>
           reject(
-            new Error(`setupProverPeer timed out after ${SETUP_TIMEOUT_MS}ms for ${proverId}`),
+            new Error(`setupProverRelay timed out after ${SETUP_TIMEOUT_MS}ms for ${proverId}`),
           ),
         SETUP_TIMEOUT_MS,
       ),
@@ -512,9 +512,9 @@ Comlink.expose({
   init,
   createProver,
   setupProver,
-  setupProverPeer,
+  setupProverRelay,
   deliverToWasm,
-  signalPeerClosed,
+  signalRelayClosed,
   sendRequest,
   getTranscript,
   computeReveal,

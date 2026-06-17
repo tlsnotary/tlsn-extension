@@ -335,7 +335,7 @@ function ProverView() {
 
   // Bridge the extension's MPC byte stream over the page's data channel, and
   // relay status both ways so each pane mirrors the other device:
-  //  - extension → page (TLSN_PEER_DATA_OUT) → conn.send → verifier
+  //  - extension → page (TLSN_RELAY_OUT) → conn.send → verifier
   //  - extension progress → conn.send({t:'ps'}) → verifier's prover pane
   //  - verifier → conn.on('data'): bytes → extension; {t:'vs'} → verifier pane
   const wireRelay = (conn: DataConnection, requestId: string): (() => void) => {
@@ -343,14 +343,14 @@ function ProverView() {
       if (event.origin !== window.location.origin) return;
       const d = event.data;
       if (!d || d.requestId !== requestId) return;
-      if (d.type === 'TLSN_PEER_DATA_OUT') {
+      if (d.type === 'TLSN_RELAY_OUT') {
         try {
           conn.send(b64ToBytes(d.data));
         } catch {
           /* channel closed */
         }
       } else if (d.type === 'TLSN_PROVE_PROGRESS') {
-        if (d.step === 'PEER_LIMITS') {
+        if (d.step === 'RELAY_LIMITS') {
           // First control frame: limits + mode + server name for the verifier.
           // Stamp mode/server from this page's own state (authoritative) so the
           // verifier always reflects the selected mode and target.
@@ -388,12 +388,12 @@ function ProverView() {
         return;
       }
       window.postMessage(
-        { type: 'TLSN_PEER_DATA_IN', requestId, data: bytesToB64(toU8(raw)) },
+        { type: 'TLSN_RELAY_IN', requestId, data: bytesToB64(toU8(raw)) },
         window.location.origin,
       );
     };
     const onClose = () => {
-      window.postMessage({ type: 'TLSN_PEER_DATA_CLOSED', requestId }, window.location.origin);
+      window.postMessage({ type: 'TLSN_RELAY_CLOSED', requestId }, window.location.origin);
     };
     window.addEventListener('message', onWindow);
     conn.on('data', onData);
@@ -423,7 +423,7 @@ function ProverView() {
       await window.tlsn.execCode(code, {
         requestId,
         // proxyBase: where the server hop is tunnelled. mode: MPC or Proxy.
-        sessionData: { peerRelay: '1', mode, proxyBase: PROXY_BASE },
+        sessionData: { relay: '1', mode, proxyBase: PROXY_BASE },
       });
       setProveDone(true);
     } catch (e: unknown) {

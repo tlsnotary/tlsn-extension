@@ -40,16 +40,16 @@ const OffscreenApp: React.FC = () => {
         });
       }
 
-      // Peer relay: inbound MPC bytes from the verifier (forwarded by the
+      // Relay: inbound MPC bytes from the verifier (forwarded by the
       // background under a distinct type so each chunk is delivered exactly once
       // — the content script's runtime.sendMessage is ALSO broadcast directly to
-      // this offscreen, so we must NOT also handle the raw PEER_DATA_IN here).
-      if (request.type === 'PEER_DATA_DELIVER') {
-        sessionManager.handlePeerDataIn(request.data as string);
+      // this offscreen, so we must NOT also handle the raw RELAY_IN here).
+      if (request.type === 'RELAY_DELIVER') {
+        sessionManager.handleRelayIn(request.data as string);
         return;
       }
-      if (request.type === 'PEER_DATA_DELIVER_CLOSED') {
-        sessionManager.handlePeerClosed();
+      if (request.type === 'RELAY_DELIVER_CLOSED') {
+        sessionManager.handleRelayClosed();
         return;
       }
 
