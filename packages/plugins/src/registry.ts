@@ -235,6 +235,48 @@ export const PLUGIN_REGISTRY: PluginMetadata[] = [
       urls: ['https://account.id.me/*'],
     },
   },
+  {
+    id: 'garmin_badges',
+    name: 'Garmin Badges',
+    description: 'Prove your earned Garmin Connect badges',
+    logo: '🏅', // 🏅
+    resultLabel: 'Badge',
+    accentColor: '#007CC7',
+    platforms: ['demo', 'mobile'],
+    pluginConfig: {
+      name: 'Garmin Badges',
+      description: 'Prove your earned Garmin Connect badges.',
+      requests: [
+        {
+          method: 'GET',
+          host: 'connect.garmin.com',
+          pathname: '/gc-api/badge-service/badge/earned',
+        },
+      ],
+      urls: ['https://connect.garmin.com/*'],
+    },
+  },
+  {
+    id: 'chesscom',
+    name: 'Chess.com Rating',
+    description: 'Prove your Chess.com ratings (rapid, blitz, bullet, tactics)',
+    logo: '♟️', // ♟️
+    resultLabel: 'Ratings',
+    accentColor: '#81b64c',
+    platforms: ['demo'],
+    pluginConfig: {
+      name: 'Chess.com Rating',
+      description: 'Prove your Chess.com ratings.',
+      requests: [
+        {
+          method: 'GET',
+          host: 'www.chess.com',
+          pathname: '/callback/stats/overview/*',
+        },
+      ],
+      urls: ['https://www.chess.com/*'],
+    },
+  },
 ];
 
 export function getPluginById(id: string): PluginMetadata | undefined {
