@@ -40,7 +40,12 @@
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
-    "plugins": ["expo-router", "./plugins/exclude-x86_64", "./plugins/adi-registration"],
+    "plugins": [
+      "expo-router",
+      "./plugins/exclude-x86_64",
+      "./plugins/adi-registration",
+      "./plugins/fmt-consteval-fix"
+    ],
     "experiments": {
       "typedRoutes": true
     },
