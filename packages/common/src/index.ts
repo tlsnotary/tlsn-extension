@@ -11,3 +11,6 @@ export {
 
 // IoChannel exports
 export { type IoChannel, fromWebSocket, fromOpenWebSocket } from './io-channel.js';
+
+// Byte helpers (relaying binary MPC frames over text-only channels)
+export { bytesToBase64, base64ToBytes, toUint8Array } from './bytes.js';

@@ -221,6 +221,16 @@ browser.runtime.onMessage.addListener((msg: unknown) => {
     return; // No response needed
   }
 
+  // Relay: forward outbound MPC bytes from the extension to the page,
+  // which sends them over its data channel to the verifier.
+  if (request.type === 'RELAY_OUT') {
+    window.postMessage(
+      { type: 'TLSN_RELAY_OUT', requestId: request.requestId, data: request.data },
+      window.location.origin,
+    );
+    return; // No response needed
+  }
+
   if (request.type === 'GET_PAGE_INFO') {
     return Promise.resolve({
       title: document.title,
@@ -267,6 +277,26 @@ window.addEventListener('message', (event) => {
       .catch((error) => {
         logger.error('[Content Script] Failed to send OPEN_WINDOW message:', error);
       });
+  }
+
+  // Relay: inbound MPC bytes from the page's data channel → extension.
+  if (event.data?.type === 'TLSN_RELAY_IN') {
+    browser.runtime
+      .sendMessage({
+        type: 'RELAY_IN',
+        requestId: event.data.requestId,
+        data: event.data.data,
+      })
+      .catch(() => {
+        /* extension context may be gone */
+      });
+    return;
+  }
+  if (event.data?.type === 'TLSN_RELAY_CLOSED') {
+    browser.runtime
+      .sendMessage({ type: 'RELAY_CLOSED', requestId: event.data.requestId })
+      .catch(() => {});
+    return;
   }
 
   // Handle code execution requests

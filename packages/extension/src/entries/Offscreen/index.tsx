@@ -40,6 +40,19 @@ const OffscreenApp: React.FC = () => {
         });
       }
 
+      // Relay: inbound MPC bytes from the verifier (forwarded by the
+      // background under a distinct type so each chunk is delivered exactly once
+      // — the content script's runtime.sendMessage is ALSO broadcast directly to
+      // this offscreen, so we must NOT also handle the raw RELAY_IN here).
+      if (request.type === 'RELAY_DELIVER') {
+        sessionManager.handleRelayIn(request.data as string);
+        return;
+      }
+      if (request.type === 'RELAY_DELIVER_CLOSED') {
+        sessionManager.handleRelayClosed();
+        return;
+      }
+
       // Handle code execution requests
       if (request.type === 'EXEC_CODE_OFFSCREEN') {
         logger.debug('Offscreen executing code:', request.code);

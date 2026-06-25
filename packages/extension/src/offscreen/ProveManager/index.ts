@@ -34,6 +34,9 @@ const workerApi = Comlink.wrap<{
   }) => Promise<void>;
   createProver: (config: ProverConfig) => Promise<string>;
   setupProver: (proverId: string, verifierUrl: string) => Promise<void>;
+  setupProverRelay: (proverId: string, sendOut: (bytes: Uint8Array) => void) => Promise<void>;
+  deliverToWasm: (bytes: Uint8Array) => void;
+  signalRelayClosed: () => void;
   sendRequest: (
     proverId: string,
     proxyUrl: string | undefined,
@@ -343,6 +346,54 @@ export class ProveManager {
       await this.cleanupProver(proverId);
       throw error;
     }
+  }
+
+  /**
+   * Relayed verifier mode: the verifier runs in another browser. The MPC byte
+   * stream is relayed through the host page (which owns the transport
+   * connection): outbound bytes go to `onOut`; inbound bytes arrive via
+   * deliverRelayData(). In `Proxy` mode the server connection routes through the
+   * verifier (which opens its own TCP proxy), so the prover passes no server_io.
+   */
+  async createProverRelay(
+    serverDns: string,
+    onOut: (bytes: Uint8Array) => void,
+    maxRecvData = 16384,
+    maxSentData = 4096,
+    mode: ProverMode = 'Mpc',
+  ): Promise<string> {
+    const proverId = await workerApi.createProver({
+      server_name: serverDns,
+      mode,
+      max_sent_data: maxSentData,
+      max_sent_records: undefined,
+      max_recv_data_online: undefined,
+      max_recv_data: maxRecvData,
+      max_recv_records_online: undefined,
+      defer_decryption_from_start: undefined,
+      network: 'Bandwidth',
+      client_auth: undefined,
+      root_certs: undefined,
+    });
+
+    try {
+      await workerApi.setupProverRelay(proverId, Comlink.proxy(onOut));
+      return proverId;
+    } catch (error) {
+      logger.error('[ProveManager] Failed to create relay prover:', error);
+      await this.cleanupProver(proverId);
+      throw error;
+    }
+  }
+
+  /** Deliver bytes received over the relay (from the host page) to the prover. */
+  deliverRelayData(bytes: Uint8Array): void {
+    workerApi.deliverToWasm(bytes);
+  }
+
+  /** Signal that the relayed channel closed. */
+  signalRelayClosed(): void {
+    workerApi.signalRelayClosed();
   }
 
   /**

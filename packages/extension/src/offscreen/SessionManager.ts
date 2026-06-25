@@ -12,7 +12,7 @@ import type {
   RevealRangeDescriptor,
   WindowMessage,
 } from '@tlsn/plugin-sdk';
-import { logger } from '@tlsn/common';
+import { logger, bytesToBase64, base64ToBytes } from '@tlsn/common';
 
 /**
  * Minimal interface for the Chrome runtime API surface used by SessionManager.
@@ -30,6 +30,22 @@ import { validateProvePermission, validateOpenWindowPermission } from './permiss
 
 /** Maximum number of preview characters shown per reveal range. */
 const PREVIEW_MAX_CHARS = 256;
+
+// Rewrite a proxy URL's origin (protocol + host) to `base`, keeping its path +
+// `?token=<host>`. Lets the host page relay the prover↔server TCP through a
+// reachable proxy without rebuilding plugins. No-op if base is unset/invalid.
+function applyProxyBase(proxyUrl: string, base?: string): string {
+  if (!base) return proxyUrl;
+  try {
+    const u = new URL(proxyUrl);
+    // Use the base's origin (protocol + host, incl. its default port handling)
+    // and keep the original path + ?token=<host>. Rebuilding from origin avoids
+    // the URL.host setter retaining a stale port (e.g. :7047).
+    return `${new URL(base).origin}${u.pathname}${u.search}`;
+  } catch {
+    return proxyUrl;
+  }
+}
 
 function buildLabel(handler: CanonicalHandler): string {
   const part =
@@ -112,6 +128,19 @@ export class SessionManager {
   }
 
   /**
+   * Relay: deliver an inbound MPC chunk (relayed by the page from the
+   * verifier's data channel) to the active prover.
+   */
+  handleRelayIn(b64: string): void {
+    this.proveManager.deliverRelayData(base64ToBytes(b64));
+  }
+
+  /** Relay: signal the data channel closed. */
+  handleRelayClosed(): void {
+    this.proveManager.signalRelayClosed();
+  }
+
+  /**
    * Create a per-execution Host with callbacks that close over execution-scoped
    * state (config, requestId, sessionData). This prevents concurrent plugin
    * executions from contaminating each other's permission validation.
@@ -141,6 +170,14 @@ export class SessionManager {
           source,
         })
         .catch((err: unknown) => logger.warn('[SessionManager] emitProgress failed:', err));
+    };
+
+    // Relay an outbound MPC chunk to the page (which owns the data channel).
+    const emitRelayOut = (bytes: Uint8Array) => {
+      if (!requestId) return;
+      SessionManager.getChromeRuntime()
+        .sendMessage({ type: 'RELAY_OUT', requestId, data: bytesToBase64(bytes) })
+        .catch((err: unknown) => logger.warn('[SessionManager] emitRelayOut failed:', err));
     };
 
     const host = new Host({
@@ -184,22 +221,50 @@ export class SessionManager {
           onProgress?.({ step, progress, message });
         };
 
+        // Relayed verifier mode: the verifier runs in another browser. The MPC byte
+        // stream is relayed through the host page (which owns the transport
+        // connection) — selected by `relay: '1'` in sessionData.
+        const isRelay = sessionData.relay === '1';
+
         // Mode is a user/platform decision, not a plugin decision.
-        // Read from sessionData provided by the caller of execCode().
+        // Read from sessionData provided by the caller of execCode(). Relay mode
+        // supports both: in Proxy mode the verifier browser opens the server TCP
+        // (through its own proxy) and the prover tunnels through the verifier.
         const mode = (sessionData.mode as 'Mpc' | 'Proxy') ?? 'Mpc';
-        const modeLabel = mode === 'Proxy' ? 'Proxy' : 'MPC';
-        logger.debug('[SessionManager] Prove mode:', mode, 'sessionData:', sessionData);
+        const modeLabel = isRelay ? `relay (${mode})` : mode === 'Proxy' ? 'Proxy' : 'MPC';
+        logger.debug('[SessionManager] Prove mode:', mode, 'relay:', isRelay);
 
         emitBoth('CONNECTING', 0.0, `Connecting to verifier (${modeLabel} mode)...`);
 
-        const proverId = await proveManager.createProver(
-          url.hostname,
-          proverOptions.verifierUrl,
-          proverOptions.maxRecvData,
-          proverOptions.maxSentData,
-          sessionData,
-          mode,
-        );
+        // Relay mode: tell the verifier (in the other browser) which limits to
+        // commit to — same model as the verifier server, which adopts the
+        // prover's maxSentData/maxRecvData from its register message. This is a
+        // control frame the host page consumes (and never displays), so it goes
+        // to the page only (emitProgress) — NOT emitBoth, which would render the
+        // raw JSON as the plugin UI's progress text. The plugin stays on the
+        // preceding "Connecting to verifier…" message.
+        if (isRelay) {
+          const maxSentData = proverOptions.maxSentData ?? 4096;
+          const maxRecvData = proverOptions.maxRecvData ?? 16384;
+          emitProgress('RELAY_LIMITS', 0.02, JSON.stringify({ maxSentData, maxRecvData, mode }));
+        }
+
+        const proverId = isRelay
+          ? await proveManager.createProverRelay(
+              url.hostname,
+              (bytes) => emitRelayOut(bytes),
+              proverOptions.maxRecvData,
+              proverOptions.maxSentData,
+              mode,
+            )
+          : await proveManager.createProver(
+              url.hostname,
+              proverOptions.verifierUrl,
+              proverOptions.maxRecvData,
+              proverOptions.maxSentData,
+              sessionData,
+              mode,
+            );
 
         // Register per-prover WASM progress callback
         if (requestId) {
@@ -215,7 +280,13 @@ export class SessionManager {
           // verifier session multiplexer, so no separate WebSocket to the
           // websockify proxy is opened. In MPC mode we pass the websockify URL
           // through to the worker, which will create a JsIo channel for it.
-          const workerProxyUrl = mode === 'Proxy' ? undefined : proverOptions.proxyUrl;
+          // `proxyBase` (sessionData) overrides the plugin's build-time proxy
+          // origin — used by the host page to relay through a reachable proxy
+          // (e.g. wss://demo.tlsnotary.org) while keeping the ?token=<host>.
+          const workerProxyUrl =
+            mode === 'Proxy'
+              ? undefined
+              : applyProxyBase(proverOptions.proxyUrl, sessionData.proxyBase);
 
           // Send request via ProveManager which handles IoChannel creation in the worker.
           emitBoth('SENDING_REQUEST', 0.3, 'Sending request...');
@@ -269,12 +340,16 @@ export class SessionManager {
             });
           }
 
-          // Send reveal config (ranges + handlers) to verifier BEFORE calling reveal()
-          emitBoth('SENDING_REVEAL_CONFIG', 0.6, 'Configuring selective disclosure...');
-          await proveManager.sendRevealConfig(proverId, {
-            sent: sentRangesWithHandlers,
-            recv: recvRangesWithHandlers,
-          });
+          // Send reveal config (ranges + handlers) to verifier BEFORE calling reveal().
+          // Relay mode has no server control channel — the WASM verifier in the
+          // other browser learns the revealed ranges directly through the MPC.
+          if (!isRelay) {
+            emitBoth('SENDING_REVEAL_CONFIG', 0.6, 'Configuring selective disclosure...');
+            await proveManager.sendRevealConfig(proverId, {
+              sent: sentRangesWithHandlers,
+              recv: recvRangesWithHandlers,
+            });
+          }
 
           // Reveal the ranges (and hash-commit ranges if any handlers use action: HASH).
           // openings.sent[i] / openings.recv[i] expose { hash, blinder } for each
@@ -290,9 +365,13 @@ export class SessionManager {
             logger.debug('reveal openings', openings);
           }
 
-          // Get structured response from verifier (now includes handler results)
+          // Get structured response from verifier. In relay mode the result lives
+          // on the verifying browser (its own verify() output) — there is no
+          // server response to wait for, so the prover just completes.
           emitBoth('WAITING_FOR_VERIFICATION', 0.85, 'Waiting for verification...');
-          const response = await proveManager.getResponse(proverId);
+          const response = isRelay
+            ? { results: [], relay: true }
+            : await proveManager.getResponse(proverId);
 
           emitBoth('COMPLETE', 1.0, 'Complete');
 

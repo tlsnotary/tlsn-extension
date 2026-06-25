@@ -163,6 +163,32 @@ browser.runtime.onMessage.addListener((msg: unknown, sender: browser.Runtime.Mes
     return; // No response needed
   }
 
+  // Relay: outbound MPC bytes from offscreen → originating tab (→ page → data channel)
+  if (request.type === 'RELAY_OUT') {
+    const route = progressRoutes.get(request.requestId);
+    if (route) {
+      browser.tabs.sendMessage(route.tabId, {
+        type: 'RELAY_OUT',
+        requestId: request.requestId,
+        data: request.data,
+      });
+    }
+    return; // No response needed
+  }
+
+  // Relay: inbound MPC bytes from the page (via content script) → offscreen.
+  // Forward under a DISTINCT type the offscreen handles, so it delivers each
+  // chunk once (the content script's runtime.sendMessage is also broadcast
+  // directly to the offscreen — handling the raw type there would double it).
+  if (request.type === 'RELAY_IN') {
+    chrome.runtime.sendMessage({ type: 'RELAY_DELIVER', data: request.data }).catch(() => {});
+    return; // No response needed
+  }
+  if (request.type === 'RELAY_CLOSED') {
+    chrome.runtime.sendMessage({ type: 'RELAY_DELIVER_CLOSED' }).catch(() => {});
+    return; // No response needed
+  }
+
   // Handle code execution requests
   if (request.type === 'EXEC_CODE') {
     logger.debug('EXEC_CODE request received');

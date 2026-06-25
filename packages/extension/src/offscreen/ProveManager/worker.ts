@@ -238,6 +238,93 @@ async function setupProver(proverId: string, verifierUrl: string): Promise<void>
   }
 }
 
+// ============================================================================
+// Relay transport
+//
+// For relayed proofs the verifier runs in another browser. WebRTC lives in
+// the host page (not here), so the verifier's bytes are relayed: outbound bytes
+// go to a main-thread `sendOut` callback (→ page → data channel); inbound bytes
+// are pushed back via deliverToWasm(). This is a plain byte bridge — no WebRTC.
+//
+// These are module-level singletons, so they assume ONE relayed proof at a time
+// per worker. That holds because the host page disables its Prove button while a
+// proof is in flight, serializing relayed proofs; inbound RELAY_IN chunks are
+// likewise forwarded to the single active prover without a requestId. Concurrent
+// relayed proofs in one offscreen would cross-talk on this state.
+// ============================================================================
+
+let relayInbox: Uint8Array[] = [];
+let relayReadResolver: ((value: Uint8Array | null) => void) | null = null;
+let relayClosed = false;
+let relaySendOut: ((bytes: Uint8Array) => void) | null = null;
+
+function relayIo(): IoChannel {
+  return {
+    async read(): Promise<Uint8Array | null> {
+      if (relayInbox.length > 0) return relayInbox.shift()!;
+      if (relayClosed) return null;
+      return new Promise((res) => {
+        relayReadResolver = res;
+      });
+    },
+    async write(data: Uint8Array): Promise<void> {
+      // Copy off (possibly shared) WASM memory before crossing to the main thread.
+      relaySendOut?.(data.slice());
+    },
+    async close(): Promise<void> {
+      /* the main thread / page owns the data channel lifecycle */
+    },
+  };
+}
+
+/** Push bytes received from the relay (called from the main thread). */
+function deliverToWasm(bytes: Uint8Array): void {
+  if (relayReadResolver) {
+    const resolve = relayReadResolver;
+    relayReadResolver = null;
+    resolve(bytes);
+  } else {
+    relayInbox.push(bytes);
+  }
+}
+
+/** Signal the relayed channel closed (EOF). */
+function signalRelayClosed(): void {
+  relayClosed = true;
+  if (relayReadResolver) {
+    const resolve = relayReadResolver;
+    relayReadResolver = null;
+    resolve(null);
+  }
+}
+
+/** Set up the prover over the relayed channel instead of a WebSocket. */
+async function setupProverRelay(
+  proverId: string,
+  sendOut: (bytes: Uint8Array) => void,
+): Promise<void> {
+  const prover = provers.get(proverId);
+  if (!prover) throw new Error(`Prover not found: ${proverId}`);
+
+  relayInbox = [];
+  relayReadResolver = null;
+  relayClosed = false;
+  relaySendOut = sendOut;
+
+  await Promise.race([
+    prover.setup(relayIo()),
+    new Promise<never>((_, reject) =>
+      setTimeout(
+        () =>
+          reject(
+            new Error(`setupProverRelay timed out after ${SETUP_TIMEOUT_MS}ms for ${proverId}`),
+          ),
+        SETUP_TIMEOUT_MS,
+      ),
+    ),
+  ]);
+}
+
 /**
  * Sends an HTTP request through the prover via WebSocket proxy URL.
  */
@@ -431,6 +518,9 @@ Comlink.expose({
   init,
   createProver,
   setupProver,
+  setupProverRelay,
+  deliverToWasm,
+  signalRelayClosed,
   sendRequest,
   getTranscript,
   computeReveal,
