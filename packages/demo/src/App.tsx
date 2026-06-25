@@ -446,11 +446,9 @@ export function App() {
           <a href="#build-your-own" className="hero-cta hero-cta-secondary">
             Build your own →
           </a>
-          {/* Re-enable once the relay-capable extension (>= 0.1.0.1501) is
-              live on the Chrome Web Store; until then peer.html can't work. */}
-          {/* <a href="/peer.html" className="hero-cta hero-cta-secondary">
+          <a href="/peer.html" className="hero-cta hero-cta-secondary">
             Peer-to-peer (preview) →
-          </a> */}
+          </a>
         </div>
       </div>
 
