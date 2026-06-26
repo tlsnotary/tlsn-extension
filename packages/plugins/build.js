@@ -30,6 +30,7 @@ const plugins = [
   'discord_dm',
   'discord_profile',
   'idme',
+  'chesscom',
 ];
 
 // Demo configuration
