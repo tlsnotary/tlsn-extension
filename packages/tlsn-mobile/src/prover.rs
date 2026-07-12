@@ -33,9 +33,9 @@ use url::Url;
 use uuid::Uuid;
 
 use crate::{
-    shared_runtime, ws_io::WsIoAdapter, HttpHeader, HttpRequest, HttpResponse, Mode,
-    ProgressCallback, ProofResult, ProverOptions, RevealPreparation, RevealRangeDescriptor,
-    TlsnError, Transcript,
+    shared_runtime, ws_io::WsIoAdapter, AssertOp, AssertValueType, HandlerAction, HttpHeader,
+    HttpRequest, HttpResponse, Mode, ProgressCallback, ProofResult, ProverOptions,
+    RevealPreparation, RevealRangeDescriptor, TlsnError, Transcript,
 };
 
 impl Mode {
@@ -293,8 +293,22 @@ async fn run_prove_with_gate(
 
     let sdk_handlers: Vec<tlsn_sdk_core::Handler> = options
         .handlers
-        .into_iter()
-        .map(|h| h.into_sdk())
+        .iter()
+        .map(|h| h.clone().into_sdk())
+        .collect();
+
+    // ASSERT is downgraded to REVEAL for compute_reveal (above). Capture each
+    // assertion spec keyed by handler signature so it can be re-attached onto
+    // the verifier's reveal_config, which is where the assertion is evaluated.
+    let assert_specs: HashMap<String, serde_json::Value> = sdk_handlers
+        .iter()
+        .zip(options.handlers.iter())
+        .filter_map(|(sdk_h, native_h)| match &native_h.action {
+            HandlerAction::Assert { .. } => {
+                Some((sdk_handler_sig(sdk_h), assert_action_json(&native_h.action)))
+            }
+            _ => None,
+        })
         .collect();
 
     let compute_output = if sdk_handlers.is_empty() {
@@ -377,6 +391,7 @@ async fn run_prove_with_gate(
         &sdk_handlers,
         &compute_output.sent_ranges_with_handlers,
         &compute_output.recv_ranges_with_handlers,
+        &assert_specs,
     );
     session_ws
         .send(Message::Text(reveal_config.to_string().into()))
@@ -549,7 +564,10 @@ fn handler_label(h: &tlsn_sdk_core::Handler) -> String {
 /// producing `{"action":"REVEAL"}`. Serializing sdk-core types directly would
 /// therefore emit the wrong tag key and cause the verifier to reject the
 /// message. We manually construct the JSON here to guarantee the correct shape.
-fn range_to_verifier_json(r: &tlsn_sdk_core::handler::RangeWithHandler) -> serde_json::Value {
+fn range_to_verifier_json(
+    r: &tlsn_sdk_core::handler::RangeWithHandler,
+    assert_specs: &HashMap<String, serde_json::Value>,
+) -> serde_json::Value {
     let handler_type = match r.handler.handler_type {
         tlsn_sdk_core::HandlerType::Sent => "SENT",
         tlsn_sdk_core::HandlerType::Recv => "RECV",
@@ -564,16 +582,21 @@ fn range_to_verifier_json(r: &tlsn_sdk_core::handler::RangeWithHandler) -> serde
         tlsn_sdk_core::HandlerPart::Body => "BODY",
         tlsn_sdk_core::HandlerPart::All => "ALL",
     };
-    let action = match &r.handler.action {
-        tlsn_sdk_core::HandlerAction::Reveal => serde_json::json!({"kind": "REVEAL"}),
-        tlsn_sdk_core::HandlerAction::Hash { algorithm } => {
-            let alg = match algorithm {
-                tlsn_sdk_core::HashAlgorithm::Blake3 => "BLAKE3",
-                tlsn_sdk_core::HashAlgorithm::Sha256 => "SHA256",
-                tlsn_sdk_core::HashAlgorithm::Keccak256 => "KECCAK256",
-            };
-            serde_json::json!({"kind": "HASH", "algorithm": alg})
-        }
+    // An ASSERT handler was downgraded to Reveal for compute_reveal; re-attach
+    // the original assertion spec so the verifier evaluates it.
+    let action = match assert_specs.get(&sdk_handler_sig(&r.handler)) {
+        Some(assert_json) => assert_json.clone(),
+        None => match &r.handler.action {
+            tlsn_sdk_core::HandlerAction::Reveal => serde_json::json!({"kind": "REVEAL"}),
+            tlsn_sdk_core::HandlerAction::Hash { algorithm } => {
+                let alg = match algorithm {
+                    tlsn_sdk_core::HashAlgorithm::Blake3 => "BLAKE3",
+                    tlsn_sdk_core::HashAlgorithm::Sha256 => "SHA256",
+                    tlsn_sdk_core::HashAlgorithm::Keccak256 => "KECCAK256",
+                };
+                serde_json::json!({"kind": "HASH", "algorithm": alg})
+            }
+        },
     };
     serde_json::json!({
         "start": r.start,
@@ -586,12 +609,86 @@ fn range_to_verifier_json(r: &tlsn_sdk_core::handler::RangeWithHandler) -> serde
     })
 }
 
+/// Stable signature for an sdk-core handler (type/part/params, action excluded),
+/// used to re-attach ASSERT specs onto compute_reveal output ranges.
+fn sdk_handler_sig(h: &tlsn_sdk_core::Handler) -> String {
+    let params_sig = match &h.params {
+        None => String::new(),
+        Some(p) => format!(
+            "key={:?};hk={:?};hv={:?};ct={:?};path={:?};re={:?};fl={:?}",
+            p.key, p.hide_key, p.hide_value, p.content_type, p.path, p.regex, p.flags
+        ),
+    };
+    format!("{:?}|{:?}|{}", h.handler_type, h.part, params_sig)
+}
+
+fn assert_op_str(op: AssertOp) -> &'static str {
+    match op {
+        AssertOp::Gt => "gt",
+        AssertOp::Gte => "gte",
+        AssertOp::Lt => "lt",
+        AssertOp::Lte => "lte",
+        AssertOp::Between => "between",
+        AssertOp::In => "in",
+    }
+}
+
+fn assert_value_type_str(vt: AssertValueType) -> &'static str {
+    match vt {
+        AssertValueType::Number => "number",
+        AssertValueType::Bigint => "bigint",
+        AssertValueType::Date => "date",
+        AssertValueType::String => "string",
+    }
+}
+
+/// Build the verifier's `action` JSON for an ASSERT handler (`{"kind":"ASSERT",…}`).
+fn assert_action_json(action: &HandlerAction) -> serde_json::Value {
+    match action {
+        HandlerAction::Assert {
+            op,
+            value_type,
+            value,
+            min,
+            max,
+            inclusive,
+            values,
+        } => {
+            let mut obj = serde_json::Map::new();
+            obj.insert("kind".into(), serde_json::json!("ASSERT"));
+            obj.insert("op".into(), serde_json::json!(assert_op_str(*op)));
+            if let Some(vt) = value_type {
+                obj.insert("valueType".into(), serde_json::json!(assert_value_type_str(*vt)));
+            }
+            // Operands are emitted as JSON strings; the verifier parses them per valueType.
+            if let Some(v) = value {
+                obj.insert("value".into(), serde_json::json!(v));
+            }
+            if let Some(v) = min {
+                obj.insert("min".into(), serde_json::json!(v));
+            }
+            if let Some(v) = max {
+                obj.insert("max".into(), serde_json::json!(v));
+            }
+            if let Some(v) = inclusive {
+                obj.insert("inclusive".into(), serde_json::json!(v));
+            }
+            if let Some(vs) = values {
+                obj.insert("values".into(), serde_json::json!(vs));
+            }
+            serde_json::Value::Object(obj)
+        }
+        _ => serde_json::json!({"kind": "REVEAL"}),
+    }
+}
+
 /// Build the `reveal_config` JSON message for the verifier session WebSocket.
 fn build_reveal_config(
     transcript: &tlsn_sdk_core::Transcript,
     handlers: &[tlsn_sdk_core::Handler],
     sent_ranges: &[tlsn_sdk_core::handler::RangeWithHandler],
     recv_ranges: &[tlsn_sdk_core::handler::RangeWithHandler],
+    assert_specs: &HashMap<String, serde_json::Value>,
 ) -> serde_json::Value {
     if handlers.is_empty() {
         return serde_json::json!({
@@ -601,8 +698,14 @@ fn build_reveal_config(
         });
     }
 
-    let sent: Vec<serde_json::Value> = sent_ranges.iter().map(range_to_verifier_json).collect();
-    let recv: Vec<serde_json::Value> = recv_ranges.iter().map(range_to_verifier_json).collect();
+    let sent: Vec<serde_json::Value> = sent_ranges
+        .iter()
+        .map(|r| range_to_verifier_json(r, assert_specs))
+        .collect();
+    let recv: Vec<serde_json::Value> = recv_ranges
+        .iter()
+        .map(|r| range_to_verifier_json(r, assert_specs))
+        .collect();
     serde_json::json!({
         "type": "reveal_config",
         "sent": sent,

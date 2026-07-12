@@ -107,6 +107,29 @@ export const PLUGIN_REGISTRY: PluginMetadata[] = [
     },
   },
   {
+    id: 'swissbank_assert',
+    name: 'Swiss Bank (Assert)',
+    description:
+      'Reveal your balance and prove the verifier asserts it meets a threshold. (Login: admin / admin)',
+    logo: '🏦', // 🏦
+    resultLabel: 'Account Balance (EUR, asserted)',
+    accentColor: '#4CAF50',
+    platforms: ['demo', 'mobile'],
+    pluginConfig: {
+      name: 'Swiss Bank Assert Prover',
+      description:
+        'This plugin reveals the account balance and proves the verifier asserts it is >= 1000 EUR.',
+      requests: [
+        {
+          method: 'GET',
+          host: 'swissbank.tlsnotary.org',
+          pathname: '/balances',
+        },
+      ],
+      urls: ['https://swissbank.tlsnotary.org/*'],
+    },
+  },
+  {
     id: 'spotify',
     name: 'Spotify',
     description: 'Prove your Spotify listening history and music preferences',
