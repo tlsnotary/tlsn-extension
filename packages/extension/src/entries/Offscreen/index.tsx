@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import browser from 'webextension-polyfill';
 import { SessionManager } from '../../offscreen/SessionManager';
 import { logger } from '@tlsn/common';
+import { isUserRejectedRevealError } from '@tlsn/plugin-sdk';
 import { getStoredLogLevel } from '../../utils/logLevelStorage';
 import { sha256 } from '../../utils/cryptoHash';
 import { getPluginCount, incrementPluginCount } from '../../utils/pluginExecutionCounts';
@@ -88,7 +89,11 @@ const OffscreenApp: React.FC = () => {
             };
           })
           .catch((error) => {
-            logger.error('Plugin execution error:', error);
+            if (isUserRejectedRevealError(error)) {
+              logger.info('Plugin cancelled: user rejected reveal');
+            } else {
+              logger.error('Plugin execution error:', error);
+            }
             return {
               success: false,
               error: error.message,

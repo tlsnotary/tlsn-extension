@@ -14,6 +14,7 @@ import {
   WindowMessage,
   RevealRangeDescriptor,
 } from '../../lib/MobilePluginHost';
+import { UserRejectedRevealError, isUserRejectedRevealError } from '@tlsn/plugin-sdk/host-core';
 
 /**
  * Resolve a dot-separated path (e.g. "items.0.name") against a JSON value.
@@ -141,6 +142,10 @@ export function PluginScreen({
   const [proverReady, setProverReady] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Set when the user taps Reject on the reveal-approval sheet. The plugin's
+  // prove() call will throw, but that's an expected user action — we surface
+  // a graceful "cancelled" UI instead of an error.
+  const [revealRejected, setRevealRejected] = useState(false);
 
   // Pre-execution approval gate: null until the user picks a mode.
   const [approvalMode, setApprovalMode] = useState<ApprovalMode | null>(null);
@@ -318,8 +323,13 @@ export function PluginScreen({
         onComplete?.(result);
       })
       .catch((err) => {
-        console.error('[PluginScreen] Plugin error:', err);
         const error = err instanceof Error ? err : new Error(String(err));
+        if (isUserRejectedRevealError(error)) {
+          console.log('[PluginScreen] Plugin cancelled: user rejected reveal');
+          setRevealRejected(true);
+          return;
+        }
+        console.error('[PluginScreen] Plugin error:', err);
         setError(error.message);
         onError?.(error);
       })
@@ -348,7 +358,7 @@ export function PluginScreen({
       />
 
       {/* WebView for login/header interception */}
-      {webViewUrl && (
+      {webViewUrl && !revealRejected && (
         <View style={styles.webViewContainer}>
           <PluginWebView
             url={webViewUrl}
@@ -361,7 +371,7 @@ export function PluginScreen({
       {/* Plugin UI overlay — hidden while any bottom-sheet gate is active so
           the sheet (absolute-positioned) is always visually on top without
           relying on z-index competition against plugin CSS. */}
-      {domJson && revealApproval == null && timeoutWarning == null && (
+      {domJson && revealApproval == null && timeoutWarning == null && !revealRejected && (
         <View style={styles.pluginUiContainer}>
           <PluginRenderer domJson={domJson} onPluginAction={handlePluginAction} />
         </View>
@@ -391,6 +401,18 @@ export function PluginScreen({
         </View>
       )}
 
+      {/* "Reveal rejected" surface — shown when the user taps Reject on the
+          reveal-approval sheet. The proof was prepared locally but no reveal
+          was sent to the verifier. */}
+      {revealRejected && (
+        <View style={styles.rejectedContainer}>
+          <Text style={styles.rejectedTitle}>Proof cancelled</Text>
+          <Text style={styles.rejectedSubtitle}>
+            You rejected the reveal. No data was revealed to the verifier.
+          </Text>
+        </View>
+      )}
+
       {/* Pre-execution approval sheet — visible until the user picks a mode.
           Rendered last so it stacks above the rest. */}
       <PluginApprovalSheet
@@ -411,7 +433,10 @@ export function PluginScreen({
           setRevealApproval(null);
         }}
         onReject={() => {
-          revealApproval?.reject(new Error('User rejected reveal'));
+          // Mark the cancelled state up front so the catch handler can
+          // suppress the error UI when the plugin's prove() inevitably throws.
+          setRevealRejected(true);
+          revealApproval?.reject(new UserRejectedRevealError());
           setRevealApproval(null);
         }}
       />

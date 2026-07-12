@@ -26,6 +26,37 @@ import {
 import deepEqual from 'fast-deep-equal';
 
 // ---------------------------------------------------------------------------
+// User-rejection signal
+//
+// Rejecting the reveal-approval gate is an expected user action, not an error.
+// Two complementary mechanisms model this:
+//
+//   - `ctx.revealWasRejected` (internal): set by the extension's
+//     `_revealReject` PLUGIN_UI_CLICK handler or mobile's
+//     `markRevealRejected()`. The SDK uses the flag for its own decisions
+//     (log severity, `done()` rejecting even when the plugin swallows the
+//     prove() throw) — robust to sandbox boundaries that strip prototypes.
+//
+//   - `UserRejectedRevealError` (external): the class constructed at every
+//     `doneReject` site. Always built in host code, so the prototype reaches
+//     downstream callers (PluginScreen, Offscreen, …) intact for `instanceof`.
+// ---------------------------------------------------------------------------
+
+const USER_REJECTED_REVEAL_MESSAGE = 'User rejected reveal';
+
+export class UserRejectedRevealError extends Error {
+  constructor() {
+    super(USER_REJECTED_REVEAL_MESSAGE);
+    this.name = 'UserRejectedRevealError';
+    Object.setPrototypeOf(this, UserRejectedRevealError.prototype);
+  }
+}
+
+export function isUserRejectedRevealError(err: unknown): boolean {
+  return err instanceof UserRejectedRevealError;
+}
+
+// ---------------------------------------------------------------------------
 // Shared types
 // ---------------------------------------------------------------------------
 
@@ -448,7 +479,7 @@ export function makeOpenWindow(
                 revealApprovalDescriptors: null,
                 revealWasRejected: true,
               });
-              approval.reject(new Error('User rejected reveal'));
+              approval.reject(new UserRejectedRevealError());
             }
             return;
           }
@@ -487,7 +518,15 @@ export function makeOpenWindow(
           Promise.resolve().then(() => executionContext.main(true));
         }
       } catch (error) {
-        logger.error(`[makeOpenWindow] Error handling message ${message.type}:`, error);
+        // The error came from inside the sandbox and may have been stripped
+        // of its prototype crossing the QuickJS/Hermes boundary — check the
+        // execution-context flag instead of the error object's class.
+        const ctxAfter = executionContextRegistry.get(uuid);
+        if (ctxAfter?.revealWasRejected) {
+          logger.debug(`[makeOpenWindow] Message ${message.type} cancelled: user rejected reveal`);
+        } else {
+          logger.error(`[makeOpenWindow] Error handling message ${message.type}:`, error);
+        }
         eventEmitter.removeListener(onMessage);
         const err = error instanceof Error ? error : new Error(String(error));
         if (onError) {
@@ -1100,9 +1139,19 @@ export class HostCore {
     const terminateWithError = (error: Error) => {
       if (lifecycle.isCompleted) return;
       lifecycle.isCompleted = true;
-      logger.error('[executePlugin] Plugin terminated with error:', error);
-
       const ctx = executionContextRegistry.get(uuid);
+      // The execution-context flag is the source of truth for "user rejected
+      // reveal" — the incoming `error` may have lost its prototype crossing
+      // the sandbox boundary. When the flag is set, canonicalize the error
+      // so downstream callers (PluginScreen, Offscreen, …) can rely on
+      // `isUserRejectedRevealError(err)`.
+      if (ctx?.revealWasRejected) {
+        logger.info('[executePlugin] Plugin cancelled: user rejected reveal');
+        error = new UserRejectedRevealError();
+      } else {
+        logger.error('[executePlugin] Plugin terminated with error:', error);
+      }
+
       const pendingApproval = ctx?.revealApproval;
       if (pendingApproval) {
         try {
@@ -1209,7 +1258,7 @@ export class HostCore {
         const finalize = () => {
           executionContextRegistry.delete(uuid);
           if (wasRejected) {
-            doneReject(new Error('User rejected reveal'));
+            doneReject(new UserRejectedRevealError());
           } else {
             doneResolve(args);
           }
@@ -1242,7 +1291,7 @@ export class HostCore {
         const wasRejected = ctx?.revealWasRejected === true;
         const settle = () => {
           if (wasRejected) {
-            doneReject(new Error('User rejected reveal'));
+            doneReject(new UserRejectedRevealError());
           } else {
             doneResolve(args);
           }
@@ -1529,6 +1578,23 @@ export class HostCore {
     });
     const ctx = executionContextRegistry.get(uuid);
     ctx?.main(true);
+  }
+
+  /**
+   * Mark the active execution context as having had its reveal rejected.
+   *
+   * When a host's onProve callback rejects with USER_REJECTED_REVEAL_MESSAGE
+   * (e.g. mobile's native bottom-sheet flow, which doesn't go through the
+   * in-plugin `_revealReject` DOM button), the plugin's prove() will throw.
+   * If the plugin catches that throw and calls `done(value)` normally, the
+   * outer executePlugin promise would resolve as success — masking a
+   * cancelled proof as completed. Setting this flag here makes `done()` and
+   * `doneWithOverlay()` reject the outer promise instead, matching the
+   * `_revealReject` PLUGIN_UI_CLICK path used by the extension.
+   */
+  markRevealRejected(): void {
+    if (!this._activeUuid) return;
+    updateExecutionContext(this._activeUuid, { revealWasRejected: true });
   }
 
   renderUi(windowId: number, json: DomJson): void {
