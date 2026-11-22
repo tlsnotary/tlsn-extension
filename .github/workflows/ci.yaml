@@ -53,7 +53,8 @@ jobs:
           if-no-files-found: error
 
   browser-test:
-    runs-on: ubuntu-latest
+    # Playwright does not yet support ubuntu-latest (26.04) for `install --with-deps`
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v6
