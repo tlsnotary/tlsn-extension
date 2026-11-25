@@ -31,7 +31,20 @@ export interface NativeHandler {
     | 'Headers'
     | 'Body'
     | 'All';
-  action: { type: 'Reveal' } | { type: 'Hash'; algorithm: 'Blake3' | 'Sha256' | 'Keccak256' };
+  action:
+    | { type: 'Reveal' }
+    | { type: 'Hash'; algorithm: 'Blake3' | 'Sha256' | 'Keccak256' }
+    | {
+        type: 'Assert';
+        op: 'gt' | 'gte' | 'lt' | 'lte' | 'between' | 'in';
+        // Operands cross uniffi as strings; the verifier parses them per valueType.
+        valueType?: 'number' | 'bigint' | 'date' | 'string';
+        value?: string;
+        min?: string;
+        max?: string;
+        inclusive?: boolean;
+        values?: (string | number)[];
+      };
   params?: {
     key?: string;
     hideKey?: boolean;
@@ -72,6 +85,30 @@ function translateAction(handler: Handler): NativeHandler['action'] {
     return {
       type: 'Hash',
       algorithm: ALGORITHM_MAP[action.algorithm],
+    };
+  }
+  if (action.kind === 'ASSERT') {
+    // ASSERT reveals the value natively (treated as Reveal by compute_reveal);
+    // the comparison spec is carried through to the verifier's reveal_config.
+    // Operands are stringified so dates/bigints survive the uniffi boundary.
+    if (action.op === 'between') {
+      return {
+        type: 'Assert',
+        op: 'between',
+        valueType: action.valueType,
+        min: String(action.min),
+        max: String(action.max),
+        ...(action.inclusive !== undefined ? { inclusive: action.inclusive } : {}),
+      };
+    }
+    if (action.op === 'in') {
+      return { type: 'Assert', op: 'in', values: action.values };
+    }
+    return {
+      type: 'Assert',
+      op: action.op,
+      valueType: action.valueType,
+      value: String(action.value),
     };
   }
   return { type: 'Reveal' };

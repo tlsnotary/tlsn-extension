@@ -128,6 +128,35 @@ private func parseHandler(_ dict: [String: Any], index: Int) -> Handler? {
         default: return nil
         }
         action = .hash(algorithm: algorithm)
+    case "Assert":
+        guard let opStr = actionDict["op"] as? String else { return nil }
+        let op: AssertOp
+        switch opStr {
+        case "gt": op = .gt
+        case "gte": op = .gte
+        case "lt": op = .lt
+        case "lte": op = .lte
+        case "between": op = .between
+        case "in": op = .`in`
+        default: return nil
+        }
+        let valueType: AssertValueType?
+        switch actionDict["valueType"] as? String {
+        case "number": valueType = .number
+        case "bigint": valueType = .bigint
+        case "date": valueType = .date
+        case "string": valueType = .string
+        default: valueType = nil
+        }
+        // Operands arrive as strings; the verifier parses them per valueType.
+        let value = actionDict["value"] as? String
+        let min = actionDict["min"] as? String
+        let max = actionDict["max"] as? String
+        let inclusive = actionDict["inclusive"] as? Bool
+        let values = (actionDict["values"] as? [Any])?.map { String(describing: $0) }
+        action = .assert(
+            op: op, valueType: valueType, value: value, min: min, max: max,
+            inclusive: inclusive, values: values)
     default:
         return nil
     }

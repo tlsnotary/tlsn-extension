@@ -13,6 +13,8 @@ import uniffi.tlsn_mobile.HandlerPart
 import uniffi.tlsn_mobile.HandlerAction
 import uniffi.tlsn_mobile.HandlerParams
 import uniffi.tlsn_mobile.HashAlgorithm
+import uniffi.tlsn_mobile.AssertOp
+import uniffi.tlsn_mobile.AssertValueType
 import uniffi.tlsn_mobile.ProgressCallback
 import uniffi.tlsn_mobile.ProofResult
 import uniffi.tlsn_mobile.RevealPreparation
@@ -135,6 +137,41 @@ private fun parseHandler(handlerObj: JSONObject): Handler? {
                 else -> return null
             }
             HandlerAction.Hash(algorithm)
+        }
+        "Assert" -> {
+            val op = when (actionObj.optString("op", "")) {
+                "gt" -> AssertOp.GT
+                "gte" -> AssertOp.GTE
+                "lt" -> AssertOp.LT
+                "lte" -> AssertOp.LTE
+                "between" -> AssertOp.BETWEEN
+                "in" -> AssertOp.IN
+                else -> return null
+            }
+            val valueType = when (actionObj.optString("valueType", "")) {
+                "number" -> AssertValueType.NUMBER
+                "bigint" -> AssertValueType.BIGINT
+                "date" -> AssertValueType.DATE
+                "string" -> AssertValueType.STRING
+                else -> null
+            }
+            // Operands arrive as strings; the verifier parses them per valueType.
+            val value = if (actionObj.has("value")) actionObj.optString("value") else null
+            val min = if (actionObj.has("min")) actionObj.optString("min") else null
+            val max = if (actionObj.has("max")) actionObj.optString("max") else null
+            val inclusive = if (actionObj.has("inclusive")) actionObj.optBoolean("inclusive") else null
+            val values = actionObj.optJSONArray("values")?.let { arr ->
+                (0 until arr.length()).map { arr.get(it).toString() }
+            }
+            HandlerAction.Assert(
+                op = op,
+                valueType = valueType,
+                value = value,
+                min = min,
+                max = max,
+                inclusive = inclusive,
+                values = values
+            )
         }
         else -> return null
     }

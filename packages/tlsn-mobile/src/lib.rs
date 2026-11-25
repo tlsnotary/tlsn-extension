@@ -153,11 +153,49 @@ pub enum HashAlgorithm {
     Keccak256,
 }
 
+/// Comparison operator for an ASSERT action (evaluated by the verifier).
+#[derive(Debug, Clone, Copy, uniffi::Enum)]
+pub enum AssertOp {
+    Gt,
+    Gte,
+    Lt,
+    Lte,
+    Between,
+    In,
+}
+
+/// How the verifier types an ASSERT comparison. Required for ordering ops and
+/// `between`.
+#[derive(Debug, Clone, Copy, uniffi::Enum)]
+pub enum AssertValueType {
+    Number,
+    Bigint,
+    Date,
+    String,
+}
+
 /// Handler action (what to do with the part).
 #[derive(Debug, Clone, uniffi::Enum)]
 pub enum HandlerAction {
     Reveal,
-    Hash { algorithm: HashAlgorithm },
+    Hash {
+        algorithm: HashAlgorithm,
+    },
+    /// Reveal the data (like `Reveal`) and have the verifier evaluate a
+    /// comparison against it. For `compute_reveal` this behaves as `Reveal`;
+    /// the assertion spec is carried to the verifier's `reveal_config`.
+    Assert {
+        op: AssertOp,
+        /// How to type the comparison (ordering ops + `between`).
+        value_type: Option<AssertValueType>,
+        /// Operands as strings (parsed per `value_type` by the verifier).
+        value: Option<String>,
+        min: Option<String>,
+        max: Option<String>,
+        inclusive: Option<bool>,
+        /// Candidate values for `in`.
+        values: Option<Vec<String>>,
+    },
 }
 
 /// Handler parameters for fine-grained control.
@@ -274,6 +312,9 @@ impl Handler {
                         HashAlgorithm::Keccak256 => tlsn_sdk_core::HashAlgorithm::Keccak256,
                     },
                 },
+                // ASSERT reveals the bytes (compute_reveal only needs the range);
+                // the assertion is re-attached for the verifier in prover.rs.
+                HandlerAction::Assert { .. } => tlsn_sdk_core::HandlerAction::Reveal,
             },
             params: self.params.map(|p| tlsn_sdk_core::HandlerParams {
                 key: p.key,

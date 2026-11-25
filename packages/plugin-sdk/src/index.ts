@@ -272,6 +272,9 @@ export type {
   HandlerType,
   HandlerPart,
   HandlerAction,
+  AssertAction,
+  AssertOp,
+  AssertValueType,
   CanonicalHandlerAction,
   CanonicalHandler,
   HashAlgorithm,
@@ -293,7 +296,7 @@ export type {
   RevealRangeDescriptor,
 } from './types';
 
-export { canonicalizeHandler, canonicalizeHandlers } from './types';
+export { canonicalizeHandler, canonicalizeHandlers, isAssertAction } from './types';
 
 // Export Plugin API types
 export type {
